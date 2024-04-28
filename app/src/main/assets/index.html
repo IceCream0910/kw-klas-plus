@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin="anonymous" />
+    <link rel="preload" as="style" crossorigin
+          href="https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.min.css" />
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.min.css" />
+</head>
+<style>
+    * {
+        font-family: "Wanted Sans Variable", "Wanted Sans", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+        -ms-user-select: none;
+        -moz-user-select: -moz-none;
+        -webkit-user-select: none;
+        -khtml-user-select: none;
+        user-select: none;
+    }
+
+    body {
+        padding: 0;
+    }
+
+    #remaining-deadline {
+        display: grid;
+        grid-gap: 10px;
+        flex-wrap: wrap;
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    h4 {
+        margin: 0;
+        font-size: 1.2rem;
+        margin-bottom: 10px;
+    }
+
+    h6 {
+        margin: 0;
+        font-size: 1rem;
+        margin-bottom: 5px;
+    }
+
+    .card {
+        position: relative;
+        background-color: var(--card);
+        border-radius: 20px;
+        padding: 20px;
+        font-size: 1.2rem;
+        grid-row-end: span 1;
+        grid-column-end: span 1;
+        transition: transform .5s ease;
+        -o-transition: transform .5s ease;
+        width: 100%;
+        background-color: #f1f1f1;
+        border-radius: 20px;
+        padding: 20px 15px;
+        box-sizing: border-box;
+    }
+
+    .card:active {
+        transform: scale(0.98);
+        -o-transform: scale(0.98);
+    }
+
+    button {
+        position: relative;
+        background-color: var(--card);
+        border-radius: 15px;
+        padding: 10px 20px;
+        font-size: 0.8rem;
+        background-color: #781e10;
+        color: #fff;
+        box-sizing: border-box;
+        outline: none;
+        border: none;
+        transition: transform .5s ease;
+        -o-transition: transform .5s ease;
+    }
+
+    button:hover {
+        background-color: #5f170d;
+    }
+
+    button:active {
+        transform: scale(0.98);
+        -o-transform: scale(0.98);
+    }
+
+    .card span {
+        font-size: 0.9rem;
+    }
+
+    .card.green {
+        border: 1px solid rgb(0, 190, 102);
+    }
+
+    .card.blue {
+        border: 1px solid rgb(46, 118, 252);
+    }
+
+    .card.red {
+        border: 1px solid rgb(255, 122, 122);
+    }
+
+    .card.yellow {
+        border: 1px solid #ffae00;
+    }
+
+    .card div {
+        margin: 0;
+        padding: 0;
+        line-height: 0.9;
+    }
+
+    @media (max-width: 768px) {
+        #remaining-deadline {
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+
+        .card {
+            padding-bottom: 10%;
+        }
+    }
+</style>
+
+<body>
+<div id="current_status">
+    <h4 id="status_txt"></h4>
+    <div id="status_btns">
+        <button onclick="openLecturePage()">강의 홈</button>
+        <button id="qr_btn" onclick="openQRScan()"
+                style="background-color: #f1f1f1;color:black;margin-left: 10px;">QR
+            출석</button>
+    </div>
+</div>
+<br />
+<h3>미수강 강의 및 미제출 과제</h3>
+<div id="remaining-deadline">
+</div>
+<div style="height: 30px"></div>
+<h3>최근 과목별 공지사항</h3>
+<div class="card" id="notices">
+
+</div>
+<br /><br />
+</body>
+<script>
+    let data;
+    function receiveDeadlineData(json) {
+        data = JSON.parse(json);
+        console.log(data);
+        const container = document.getElementById('remaining-deadline');
+
+        for (var i = 0; i < data.length; i++) {
+            data[i].onlineLecture.sort((a, b) => a.hourGap - b.hourGap);
+            data[i].task.sort((a, b) => a.hourGap - b.hourGap);
+            data[i].teamTask.sort((a, b) => a.hourGap - b.hourGap);
+
+            if (data[i].onlineLecture.length === 0 && data[i].task.length === 0 && data[i].teamTask.length === 0) continue;
+
+            const card = document.createElement('div');
+            card.classList.add('card');
+
+            if (data[i].onlineLecture.length > 0) {
+                const onlineLectureRemainingTime = data[i].onlineLecture[0].hourGap;
+                if (onlineLectureRemainingTime <= 24) {
+                    card.classList.add('red');
+                } else if (onlineLectureRemainingTime <= 72) {
+                    card.classList.add('yellow');
+                } else {
+                    card.classList.add('green');
+                }
+            } else if (data[i].task.length > 0) {
+                const taskRemainingTime = data[i].task[0].hourGap;
+                if (taskRemainingTime <= 24) {
+                    card.classList.add('red');
+                } else if (taskRemainingTime <= 72) {
+                    card.classList.add('yellow');
+                } else {
+                    card.classList.add('green');
+                }
+            } else if (data[i].teamTask.length > 0) {
+                const teamTaskRemainingTime = data[i].teamTask[0].hourGap;
+                if (teamTaskRemainingTime <= 24) {
+                    card.classList.add('red');
+                } else if (teamTaskRemainingTime <= 72) {
+                    card.classList.add('yellow');
+                } else {
+                    card.classList.add('green');
+                }
+            }
+
+            //card onclick event
+            card.innerHTML = `<h4 onClick="Android.evaluate(\'/std/lis/evltn/LctrumHomeStdPage.do\', \'${getCurrentYear()},${getCurrentSemester()}\', \'${data[i].subj}\')">${data[i].name}</h4>
+            <div onClick="Android.evaluate(\'/std/lis/evltn/OnlineCntntsStdPage.do\', \'${getCurrentYear()},${getCurrentSemester()}\', \'${data[i].subj}\')">${createContent('온라인 강의', data[i].onlineLecture)}</div>
+            <div onClick="Android.evaluate(\'/std/lis/evltn/TaskStdPage.do\', \'${getCurrentYear()},${getCurrentSemester()}\', \'${data[i].subj}\')">${createContent('과제', data[i].task)}</div>
+            <div onClick="Android.evaluate(\'/std/lis/evltn/PrjctStdPage.do\', \'${getCurrentYear()},${getCurrentSemester()}\', \'${data[i].subj}\')">${createContent('팀 프로젝트', data[i].teamTask)}</div>
+            `
+
+            container.appendChild(card);
+        }
+
+        if (container.innerHTML.trim() == '') {
+            container.innerHTML = '<span style="color: green" class="remain-none">남아있는 강의 및 과제가 없습니다!</span>';
+        } else {
+            const sortedCards = Array.from(container.children).sort((a, b) => {
+                const aRemainingTime = parseInt(a.querySelector('.will-remain strong').textContent);
+                const bRemainingTime = parseInt(b.querySelector('.will-remain strong').textContent);
+                return aRemainingTime - bRemainingTime;
+            });
+
+            container.innerHTML = '';
+            sortedCards.forEach(card => {
+                container.appendChild(card);
+            });
+        }
+    }
+
+    const createContent = (name, data) => {
+        if (data.length === 0) return '';
+
+        const info = {
+            totalCount: data.length,
+            remainingTime: data[0].hourGap
+        }
+
+        if (info.remainingTime === Infinity) {
+            return `<span style="color: green" class="remain-none">남아있는 ${name}가 없습니다!</span>`;
+        }
+
+        const remainingDay = Math.floor(info.remainingTime / 24);
+        const remainingHour = info.remainingTime % 24;
+
+        if (remainingDay === 0) {
+            if (remainingHour === 0) {
+                return `<span class="will-remain">${info.totalCount}개의 ${name} 중 곧 마감되는 ${name}가 있어요.</span>`;
+            }
+            else {
+                return `<span class="will-remain">${info.totalCount}개의 ${name} 중 <strong>${remainingHour}시간 후</strong> 마감되는 ${name}가 있어요.</span>`;
+            }
+        }
+        else if (remainingDay === 1) {
+            return `<span class="will-remain">${info.totalCount}개의 ${name} 중 <strong>1일 후</strong> 마감되는 ${name}가 있어요.</span>`;
+        }
+        else {
+            return `<span class="will-remain">${info.totalCount}개의 ${name} 중 <strong>${remainingDay}일 후</strong> 마감되는 ${name}가 있어요.</span>`;
+        }
+    };
+
+
+    function receiveNoticeData(json) {
+        const data = JSON.parse(json);
+        const container = document.getElementById('notices');
+
+        for (var i = 0; i < data.length; i++) {
+            const card = document.createElement('div');
+
+            let url = '';
+            if (data[i].type === 1) {
+                url = '/std/lis/evltn/DscsnViewStdPage.do';
+            } else if (data[i].type === 2) {
+                url = '/std/lis/evltn/TaskStdPage.do';
+            } else if (data[i].type === 3) {
+                if (data[i].param.indexOf('examtype=Q') > -1) {
+                    url = '/std/lis/evltn/AnytmQuizStdPage.do';
+                } else {
+                    url = '/std/lis/evltn/OnlineTestStdPage.do';
+                }
+            } else {
+                url = '/std/lis/sport/' + data[i].param.split('&boardNo')[0].replace('masterId=', '') + '/BoardListStdPage.do';
+            }
+
+            card.innerHTML = `<div onClick="Android.evaluate(\'${url}\', \'${getCurrentYear()},${getCurrentSemester()}\', \'${data[i].subj}\')">
+                <span>${data[i].subjNm} ·
+            <span><b>${data[i].title}</b></span>
+            </span><br/>
+            <span style="opacity: 0.6; font-size: 12px;">${data[i].registDt.split('T')[0]}</span>
+            <hr style="opacity: 0.3"/>
+            </div>
+            `
+
+            container.appendChild(card);
+        }
+    }
+
+    let selectedSubj = null;
+    let selectedSubjName = null;
+    var btnsContainer = document.getElementById('status_btns');
+    var qrBtn = document.getElementById('qr_btn');
+    let cachedTimetableData = null;
+
+    function receiveTimetableData(json) {
+        const data = JSON.parse(json);
+        cachedTimetableData = json;
+        let currentDay = new Date().getDay() - 1; // 0: 월요일, 1: 화요일, ..., 6: 일요일
+
+        if (currentDay === -1) currentDay = 6; // 일요일인 경우 6으로 설정
+        const currentHour = new Date().getHours();
+        const currentMinute = new Date().getMinutes();
+        const currentTime = currentHour + currentMinute / 60; // 현재 시간을 실수로 표현
+
+        let isOngoingClass = false;
+        let closestClass = null;
+        const today = Object.values(data).flatMap(classes => classes.filter(c => c.day === currentDay));
+
+        for (const c of today) {
+            const startTime = parseInt(c.startTime.split(":")[0]) + parseInt(c.startTime.split(":")[1]) / 60;
+            const endTime = parseInt(c.endTime.split(":")[0]) + parseInt(c.endTime.split(":")[1]) / 60;
+
+            if (startTime <= currentTime && currentTime < endTime) {
+                const endHour = Math.floor(endTime);
+                const endMinute = Math.floor((endTime - endHour) * 60);
+                status_txt.innerHTML = `<span style="opacity: 0.6">지금은</span><br/>${c.title} <span style="opacity: 0.6">수업 중</span>
+                <br/>
+                <span style="opacity: 0.6; font-size:14px;">${endHour}:${endMinute.toString().padStart(2, '0')}에 종료</span>`;
+                selectedSubj = c.subj;
+                selectedSubjName = c.title;
+                btnsContainer.style.display = 'flex';
+                qrBtn.style.display = 'block';
+                isOngoingClass = true;
+                break;
+            } else if (currentTime < startTime) {
+                if (!closestClass || startTime < closestClass.startTime) {
+                    closestClass = { ...c, startTime };
+                }
+            }
+        }
+
+        if (!isOngoingClass) {
+            if (closestClass) {
+                const { title, subj, info, startTime } = closestClass;
+                const startHour = Math.floor(startTime);
+                const startMinute = Math.floor((startTime - startHour) * 60);
+                status_txt.innerHTML = `${startHour}:${startMinute.toString().padStart(2, '0')}<span style="opacity: 0.6">에</span><br/> ${title} <span style="opacity: 0.6">수업이 있어요.</span>
+                <br/>
+                <span style="opacity: 0.6; font-size:14px;">${info} 교수</span>`;
+                selectedSubj = subj;
+                selectedSubjName = title;
+                btnsContainer.style.display = 'flex';
+                qrBtn.style.display = 'none';
+            } else if (today.length > 0) {
+                status_txt.innerHTML = "오늘 수업이 더 이상 없어요 😎";
+                btnsContainer.style.display = 'none';
+            } else {
+                status_txt.innerHTML = "오늘 수업이 없어요 😊";
+                btnsContainer.style.display = 'none';
+            }
+        }
+    }
+
+    setInterval(() => {
+        receiveTimetableData(cachedTimetableData);
+    }, 60000);
+
+    function openLecturePage() {
+        Android.openLectureActivity(selectedSubj, selectedSubjName);
+    }
+
+    function openQRScan() {
+        Android.qrCheckIn(selectedSubj, selectedSubjName);
+    }
+
+    function getCurrentYear() {
+        const currentYear = new Date().getFullYear();
+        return currentYear.toString();
+    }
+
+    function getCurrentSemester() {
+        const currentMonth = new Date().getMonth();
+        return currentMonth < 7 ? "1" : "2";
+    }
+</script>
+
+</html>

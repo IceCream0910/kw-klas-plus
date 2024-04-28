@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">KLAS+</string>
+
+    <string-array name="my_header_title">
+        <item></item>
+        <item>월</item>
+        <item>화</item>
+        <item>수</item>
+        <item>목</item>
+        <item>금</item>
+    </string-array>
+</resources>
