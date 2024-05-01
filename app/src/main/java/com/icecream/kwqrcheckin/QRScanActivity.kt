@@ -59,6 +59,7 @@ class QRScanActivity : AppCompatActivity() {
                             runOnUiThread {
                                 val builder = MaterialAlertDialogBuilder(this)
                                 builder.setTitle("출석 체크 성공")
+                                    .setMessage("정상적으로 출석 처리 되었습니다.")
                                     .setPositiveButton("확인",
                                         DialogInterface.OnClickListener { dialog, id ->
                                             finish()

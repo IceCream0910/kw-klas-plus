@@ -78,7 +78,7 @@
         <com.github.tlaabs.timetableview.TimetableView
             android:id="@+id/timetable"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:background="@color/zxing_transparent"
             android:backgroundTint="@color/zxing_transparent"
             app:column_count="6"
@@ -115,6 +115,34 @@
             android:layout_marginLeft="-15dp"/>
 
     </androidx.appcompat.widget.LinearLayoutCompat>
+
+
+    <Button
+        android:id="@+id/AdditionalSubjectModal_openBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="원격 수업 과목"
+        android:background="@drawable/bottom_sheet_openbtn"
+        android:textColor="@color/black"
+        style="@style/Widget.Material3.Button.TonalButton"
+        android:layout_gravity="bottom"
+        android:visibility="gone"
+        />
+
+    <Button
+        android:id="@+id/libraryQRModal_openBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="중앙도서관 출입증"
+        android:background="@drawable/bottom_sheet_openbtn"
+        android:textColor="@color/black"
+        style="@style/Widget.Material3.Button.TonalButton"
+        android:layout_gravity="bottom"
+        android:visibility="gone"
+        />
+
+
+
 
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottom_navigation"

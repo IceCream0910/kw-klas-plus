@@ -13,5 +13,5 @@
         android:id="@+id/item_3"
         android:enabled="true"
         android:icon="@drawable/baseline_qr_code_24"
-        android:title="QR 출석" />
+        android:title="체크인" />
 </menu>

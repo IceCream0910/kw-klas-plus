@@ -19,9 +19,12 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.get
+import androidx.fragment.app.DialogFragment
 import com.github.tlaabs.timetableview.Schedule
 import com.github.tlaabs.timetableview.Time
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.icecream.kwqrcheckin.modal.AdditionalSubjectModal
+import com.icecream.kwqrcheckin.modal.LibraryQRModal
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -46,6 +49,8 @@ class HomeActivity : AppCompatActivity() {
     lateinit var noticeForWebview: String
     lateinit var timetableForWebview: String
     lateinit var sessionIdForOtherClass: String
+    lateinit var additionalSubjectList : JSONArray
+    lateinit var adapter_additional: ArrayAdapter<String>
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,6 +75,11 @@ class HomeActivity : AppCompatActivity() {
         val qrView = findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.qrView)
         val NavigationBarView =
             findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_navigation)
+
+        val additionalSubjectModal_openBtn = findViewById<Button>(R.id.AdditionalSubjectModal_openBtn)
+        val libraryQRModal_openBtn = findViewById<Button>(R.id.libraryQRModal_openBtn)
+
+
         NavigationBarView.setOnItemSelectedListener { item: MenuItem ->
             when (item.itemId) {
                 R.id.item_1 -> {
@@ -77,6 +87,8 @@ class HomeActivity : AppCompatActivity() {
                     homeView.visibility = android.view.View.VISIBLE
                     timetableView.visibility = android.view.View.GONE
                     qrView.visibility = android.view.View.GONE
+                    additionalSubjectModal_openBtn.visibility = android.view.View.GONE
+                    libraryQRModal_openBtn.visibility = android.view.View.GONE
                     true
                 }
 
@@ -85,19 +97,31 @@ class HomeActivity : AppCompatActivity() {
                     homeView.visibility = android.view.View.GONE
                     timetableView.visibility = android.view.View.VISIBLE
                     qrView.visibility = android.view.View.GONE
+                    additionalSubjectModal_openBtn.visibility = android.view.View.VISIBLE
+                    libraryQRModal_openBtn.visibility = android.view.View.GONE
                     true
                 }
 
                 R.id.item_3 -> {
-                    viewTitle.text = "QR 출석"
+                    viewTitle.text = "체크인"
                     homeView.visibility = android.view.View.GONE
                     timetableView.visibility = android.view.View.GONE
                     qrView.visibility = android.view.View.VISIBLE
+                    additionalSubjectModal_openBtn.visibility = android.view.View.GONE
+                    libraryQRModal_openBtn.visibility = android.view.View.VISIBLE
                     true
                 }
 
                 else -> false
             }
+        }
+
+        additionalSubjectModal_openBtn.setOnClickListener {
+            openAdditionalSubjectModal(adapter_additional)
+        }
+
+        libraryQRModal_openBtn.setOnClickListener {
+            openLibraryQRModal()
         }
 
         val webViewProgress = findViewById<ProgressBar>(R.id.progressBar_webview)
@@ -125,11 +149,15 @@ class HomeActivity : AppCompatActivity() {
             startActivity(Intent(this@HomeActivity, LoginActivity::class.java))
         }
 
+
         timetable = findViewById<com.github.tlaabs.timetableview.TimetableView>(R.id.timetable)
         val subjectListView = findViewById<ListView>(R.id.subjectListView)
         var subjectList = JSONArray()
         val adapter = ArrayAdapter<String>(this, android.R.layout.simple_list_item_1)
         subjectListView.adapter = adapter
+
+        additionalSubjectList = JSONArray()
+        adapter_additional = ArrayAdapter<String>(this, android.R.layout.simple_list_item_1)
 
         getFeedData(sessionId!!)
         getTimetableData(sessionId!!)
@@ -347,7 +375,7 @@ class HomeActivity : AppCompatActivity() {
                     if (jsonObject.getString("wtHasSchedule") == "N") {
                         continue
                     } else {
-                        for (k in 1..5) {
+                        for (k in 1..6) { //요일(월~토)
                             val subjKey = "wtSubj_$k"
                             val subjNmKey = "wtSubjNm_$k"
                             val locHnameKey = "wtLocHname_$k"
@@ -440,7 +468,6 @@ class HomeActivity : AppCompatActivity() {
                     val jsonArray = JSONArray()
                     for (schedule in schedules) {
                         val scheduleJson = JSONObject()
-                        // Assuming Schedule class has properties like 'title', 'time', etc.
                         scheduleJson.put("title", schedule.classTitle)
                         scheduleJson.put("day", schedule.day)
                         scheduleJson.put("startTime", schedule.startTime.hour.toString() + ":" + schedule.startTime.minute.toString())
@@ -448,6 +475,11 @@ class HomeActivity : AppCompatActivity() {
                         scheduleJson.put("info", schedule.classPlace)
                         scheduleJson.put("subj", schedule.professorName)
                         jsonArray.put(scheduleJson)
+                        // day가 6 이상(주말)이면 온라인 강의 modal에 추가
+                        if (schedule.day >= 5) {
+                            adapter_additional.add(schedule.classTitle)
+                            additionalSubjectList.put(JSONObject().put("name", schedule.classTitle).put("value", schedule.professorName))
+                        }
                     }
                     jsonObject.put(key, jsonArray)
                 }
@@ -698,6 +730,29 @@ class HomeActivity : AppCompatActivity() {
         val currentMonth = Calendar.getInstance().get(Calendar.MONTH)
 
         return if (currentMonth < 7) "1" else "2" // 8월 기준
+    }
+
+
+    // modal open, callback 함수
+    private fun openAdditionalSubjectModal(adapter: ArrayAdapter<String>) {
+        val modal = AdditionalSubjectModal(adapter)
+        modal.setStyle(DialogFragment.STYLE_NORMAL, R.style.RoundCornerBottomSheetDialogTheme)
+        modal.show(supportFragmentManager, AdditionalSubjectModal.TAG)
+    }
+
+    private fun openLibraryQRModal() {
+        val modal = LibraryQRModal()
+        modal.setStyle(DialogFragment.STYLE_NORMAL, R.style.RoundCornerBottomSheetDialogTheme)
+        modal.show(supportFragmentManager, LibraryQRModal.TAG)
+    }
+
+    fun callbackAdditionalSubjectModal(position: Int) {
+            val subjID = additionalSubjectList.getJSONObject(position).getString("value")
+            val subjName = adapter_additional.getItem(position)
+
+            if (subjName != null) {
+                openLectureActivity(sessionIdForOtherClass!!, subjID, subjName)
+            }
     }
 }
 
