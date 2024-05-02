@@ -20,11 +20,17 @@ import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import android.Manifest
+import android.content.pm.ActivityInfo
 import android.net.MailTo
 import android.util.Log
+import android.view.View
 import android.webkit.CookieManager
 import android.webkit.DownloadListener
+import android.webkit.JsResult
 import android.webkit.WebResourceRequest
+import android.widget.FrameLayout
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -32,6 +38,7 @@ import java.nio.charset.StandardCharsets
 class TaskViewActivity : AppCompatActivity() {
     private var uploadMessage: ValueCallback<Array<Uri>>? = null
     private val FILECHOOSER_RESULTCODE = 1
+    lateinit var webView: WebView
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,14 +51,23 @@ class TaskViewActivity : AppCompatActivity() {
         val yearHakgi = intent.getStringExtra("yearHakgi")
         val subj = intent.getStringExtra("subj")
 
-        val webView = findViewById<WebView>(R.id.webView)
+        val swipeLayout = findViewById<SwipeRefreshLayout>(R.id.swipeLayout)
+
+        swipeLayout.setOnRefreshListener {
+            webView.reload()
+        }
+
+        webView = findViewById<WebView>(R.id.webView)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = true
         webView.settings.allowContentAccess = true
+        webView.settings.supportMultipleWindows()
+        webView.settings.javaScriptCanOpenWindowsAutomatically = true
         webView.settings.userAgentString =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Whale/3.25.232.19 Safari/537.36"
         webView.loadUrl("https://klas.kw.ac.kr$url")
+
 
         var isScriptExecuted = false
 
@@ -69,11 +85,21 @@ class TaskViewActivity : AppCompatActivity() {
             request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename)
             val dManager = this.getSystemService(DOWNLOAD_SERVICE) as DownloadManager
             dManager.enqueue(request)
-            Snackbar.make(webView, "파일 다운로드 시작\n$filename", Snackbar.LENGTH_LONG).show()
+            Snackbar.make(webView, "파일 다운로드\n$filename", Snackbar.LENGTH_LONG).show()
+
+            val onComplete = Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)
+            startActivity(onComplete)
         })
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
+                webView.evaluateJavascript("javascript:(function() {" +
+                        "var style = document.createElement('style');" +
+                        "style.innerHTML = 'header { display: none; } .selectsemester { display: none; } .card { border-radius: 15px !important; } .container { margin-top: -10px }';" +
+                        "document.head.appendChild(style);" +
+                        "window.scroll(0, 0);"+
+                        "})()", null)
+                swipeLayout.isRefreshing = false
                 if (!isScriptExecuted) {
                     webView.evaluateJavascript(
                         "javascript:localStorage.setItem('selectYearhakgi', '$yearHakgi');",
@@ -139,6 +165,67 @@ class TaskViewActivity : AppCompatActivity() {
 
 
         webView.webChromeClient = object : WebChromeClient() {
+            private var customView: View? = null
+            private var customViewCallback: CustomViewCallback? = null
+            private var originalOrientation: Int = 0
+
+            override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                if (customView != null) {
+                    onHideCustomView()
+                    return
+                }
+
+                customView = view
+                originalOrientation = requestedOrientation
+                customViewCallback = callback
+
+                (window.decorView as FrameLayout).addView(
+                    customView, FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT
+                    )
+                )
+
+                window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN
+                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            }
+
+            override fun onHideCustomView() {
+                (window.decorView as FrameLayout).removeView(customView)
+                customView = null
+
+                window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
+                requestedOrientation = originalOrientation
+
+                customViewCallback?.onCustomViewHidden()
+                customViewCallback = null
+            }
+
+            override fun onCloseWindow(window: WebView?) {
+                super.onCloseWindow(window)
+                finish()
+            }
+
+            override fun onJsAlert(
+                view: WebView?,
+                url: String?,
+                message: String?,
+                result: JsResult?
+            ): Boolean {
+                runOnUiThread {
+                    val builder = MaterialAlertDialogBuilder(this@TaskViewActivity)
+                    builder.setTitle("안내")
+                        .setMessage(message)
+                        .setPositiveButton("확인") { dialog, id ->
+                            result?.confirm()
+                        }
+                        .setCancelable(false)
+                        .show()
+                }
+                return true
+            }
+
+
             // Enable file upload
             override fun onShowFileChooser(
                 webView: WebView,
@@ -158,8 +245,12 @@ class TaskViewActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        super.onBackPressed()
-        finish()
+        if(webView.canGoBack()){
+            webView.goBack()
+
+        } else {
+            super.onBackPressed()
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, intent: Intent?) {

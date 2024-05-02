@@ -51,6 +51,7 @@ class HomeActivity : AppCompatActivity() {
     lateinit var sessionIdForOtherClass: String
     lateinit var additionalSubjectList : JSONArray
     lateinit var adapter_additional: ArrayAdapter<String>
+    lateinit var progressBar_home: ProgressBar
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -78,6 +79,7 @@ class HomeActivity : AppCompatActivity() {
 
         val additionalSubjectModal_openBtn = findViewById<Button>(R.id.AdditionalSubjectModal_openBtn)
         val libraryQRModal_openBtn = findViewById<Button>(R.id.libraryQRModal_openBtn)
+        progressBar_home = findViewById(R.id.progressBar_home)
 
 
         NavigationBarView.setOnItemSelectedListener { item: MenuItem ->
@@ -510,6 +512,9 @@ class HomeActivity : AppCompatActivity() {
     fun openLectureActivity(
         sessionId: String, subjID: String, subjName: String
     ) {
+        runOnUiThread {
+            Thread { progressBar_home.visibility = android.view.View.VISIBLE}
+        }
         fetchSubjectDetail(sessionId, subjName, subjID) { subjDetail2 ->
             postTransformedData(sessionId, subjDetail2) { subjDetail3 ->
                 postRandomKey(sessionId, subjDetail3) { transformedJson ->
@@ -518,6 +523,9 @@ class HomeActivity : AppCompatActivity() {
                     intent.putExtra("subjID", subjID)
                     intent.putExtra("subjName", subjName)
                     intent.putExtra("sessionID", sessionId)
+                    runOnUiThread {
+                        Thread { progressBar_home.visibility = android.view.View.GONE}
+                    }
                     startActivity(intent)
                 }
             }
@@ -741,7 +749,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun openLibraryQRModal() {
-        val modal = LibraryQRModal()
+        val modal = LibraryQRModal(false)
         modal.setStyle(DialogFragment.STYLE_NORMAL, R.style.RoundCornerBottomSheetDialogTheme)
         modal.show(supportFragmentManager, LibraryQRModal.TAG)
     }

@@ -12,4 +12,5 @@
     <style name="RoundCornerModalStyle" parent="Widget.Design.BottomSheet.Modal">
         <item name="android:background">@drawable/white_round_top_border_20</item>
     </style>
+
 </resources>

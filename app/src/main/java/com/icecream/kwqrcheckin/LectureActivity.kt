@@ -3,9 +3,11 @@ package com.icecream.kwqrcheckin
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.Dialog
 import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
@@ -13,6 +15,11 @@ import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Environment
+import android.os.Message
+import android.view.View
+import android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
+import android.view.View.SYSTEM_UI_FLAG_VISIBLE
+import android.view.WindowManager
 import android.webkit.CookieManager
 import android.webkit.DownloadListener
 import android.webkit.JsResult
@@ -21,6 +28,7 @@ import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
@@ -28,6 +36,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import org.json.JSONObject
@@ -49,10 +58,13 @@ class LectureActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_lecture)
 
+        window.statusBarColor = Color.parseColor("#3A051F")
+
         val subjID = intent.getStringExtra("subjID")
         val subjName = intent.getStringExtra("subjName")
         bodyJSON = JSONObject(intent.getStringExtra("bodyJSON")!!)
         sessionId = intent.getStringExtra("sessionID")!!
+
 
 
         LctName = findViewById<TextView>(R.id.LctName)
@@ -74,7 +86,7 @@ class LectureActivity : AppCompatActivity() {
         }
 
         webView = findViewById<WebView>(R.id.webView)
-        val scrollView = findViewById<ScrollView>(R.id.scrollView)
+        val scrollView = findViewById<SwipeRefreshLayout>(R.id.scrollView)
         val progressBar = findViewById<LinearLayout>(R.id.progressBar)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -82,14 +94,30 @@ class LectureActivity : AppCompatActivity() {
         webView.settings.allowContentAccess = true
         webView.settings.userAgentString =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Whale/3.25.232.19 Safari/537.36"
+        webView.settings.supportMultipleWindows()
+        webView.settings.javaScriptCanOpenWindowsAutomatically = true
         webView.loadUrl("https://klas.kw.ac.kr/mst/cmn/frame/Frame.do")
 
         scrollView.visibility = ScrollView.GONE
         progressBar.visibility = ProgressBar.VISIBLE
 
+        scrollView.setOnRefreshListener {
+            webView.evaluateJavascript("javascript:pageReload()", null)
+        }
+
+
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
-                if(url.contains("Frame.do")) {
+                scrollView.isRefreshing = false
+                webView.evaluateJavascript(
+                    "javascript:(function() {" +
+                            "var style = document.createElement('style');" +
+                            "style.innerHTML = 'header { display: none; } .selectsemester { display: none; } .card { border-radius: 15px !important; } .container { margin-top: -10px }';" +
+                            "document.head.appendChild(style);" +
+                            "window.scroll(0, 0);" +
+                            "})()", null
+                )
+                if (url.contains("Frame.do")) {
                     webView.evaluateJavascript(
                         "javascript:appModule.goLctrum('${getCurrentYear()},${getCurrentSemester()}', '$subjID')",
                         null
@@ -118,6 +146,47 @@ class LectureActivity : AppCompatActivity() {
         })
 
         webView.webChromeClient = object : WebChromeClient() {
+            private var customView: View? = null
+            private var customViewCallback: CustomViewCallback? = null
+            private var originalOrientation: Int = 0
+
+            override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                if (customView != null) {
+                    onHideCustomView()
+                    return
+                }
+
+                customView = view
+                originalOrientation = requestedOrientation
+                customViewCallback = callback
+
+                (window.decorView as FrameLayout).addView(
+                    customView, FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT
+                    )
+                )
+
+                window.decorView.systemUiVisibility = SYSTEM_UI_FLAG_FULLSCREEN
+                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            }
+
+            override fun onHideCustomView() {
+                (window.decorView as FrameLayout).removeView(customView)
+                customView = null
+
+                window.decorView.systemUiVisibility = SYSTEM_UI_FLAG_VISIBLE
+                requestedOrientation = originalOrientation
+
+                customViewCallback?.onCustomViewHidden()
+                customViewCallback = null
+            }
+
+            override fun onCloseWindow(window: WebView?) {
+                super.onCloseWindow(window)
+                finish()
+            }
+
             override fun onJsAlert(
                 view: WebView?,
                 url: String?,
@@ -126,7 +195,7 @@ class LectureActivity : AppCompatActivity() {
             ): Boolean {
                 runOnUiThread {
                     val builder = MaterialAlertDialogBuilder(this@LectureActivity)
-                    builder.setTitle("알림")
+                    builder.setTitle("안내")
                         .setMessage(message)
                         .setPositiveButton("확인") { dialog, id ->
                             result?.confirm()
@@ -149,7 +218,10 @@ class LectureActivity : AppCompatActivity() {
                 val intent = Intent(Intent.ACTION_GET_CONTENT)
                 intent.addCategory(Intent.CATEGORY_OPENABLE)
                 intent.type = "*/*"
-                startActivityForResult(Intent.createChooser(intent, "File Chooser"), FILECHOOSER_RESULTCODE)
+                startActivityForResult(
+                    Intent.createChooser(intent, "File Chooser"),
+                    FILECHOOSER_RESULTCODE
+                )
                 return true
             }
         }
@@ -171,8 +243,14 @@ class LectureActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == FILECHOOSER_RESULTCODE) {
             if (null == uploadMessage) return
-            val result = if (intent == null || resultCode != Activity.RESULT_OK) null else intent.data
-            uploadMessage?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, intent))
+            val result =
+                if (intent == null || resultCode != Activity.RESULT_OK) null else intent.data
+            uploadMessage?.onReceiveValue(
+                WebChromeClient.FileChooserParams.parseResult(
+                    resultCode,
+                    intent
+                )
+            )
             uploadMessage = null
         } else {
             webView.loadUrl("https://klas.kw.ac.kr/mst/cmn/frame/Frame.do")
@@ -180,7 +258,7 @@ class LectureActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        if(webView.canGoBack()){
+        if (webView.canGoBack()) {
             webView.goBack()
 
         } else {

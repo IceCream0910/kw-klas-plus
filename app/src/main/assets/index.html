@@ -7,9 +7,9 @@
     <title>Document</title>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin="anonymous" />
     <link rel="preload" as="style" crossorigin
-          href="https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.min.css" />
+        href="https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.min.css" />
     <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.min.css" />
+        href="https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.min.css" />
 </head>
 <style>
     * {
@@ -128,25 +128,25 @@
 </style>
 
 <body>
-<div id="current_status">
-    <h4 id="status_txt"></h4>
-    <div id="status_btns">
-        <button onclick="openLecturePage()">강의 홈</button>
-        <button id="qr_btn" onclick="openQRScan()"
+    <div id="current_status">
+        <h4 id="status_txt"></h4>
+        <div id="status_btns">
+            <button onclick="openLecturePage()">강의 홈</button>
+            <button id="qr_btn" onclick="openQRScan()"
                 style="background-color: #f1f1f1;color:black;margin-left: 10px;">QR
-            출석</button>
+                출석</button>
+        </div>
     </div>
-</div>
-<br />
-<h3>미수강 강의 및 미제출 과제</h3>
-<div id="remaining-deadline">
-</div>
-<div style="height: 30px"></div>
-<h3>최근 과목별 공지사항</h3>
-<div class="card" id="notices">
+    <br />
+    <h3>미수강 강의 및 미제출 과제</h3>
+    <div id="remaining-deadline">
+    </div>
+    <div style="height: 30px"></div>
+    <h3>최근 과목별 공지사항</h3>
+    <div class="card" id="notices">
 
-</div>
-<br /><br />
+    </div>
+    <br /><br />
 </body>
 <script>
     let data;
@@ -195,7 +195,7 @@
             }
 
             //card onclick event
-            card.innerHTML = `<h4 onClick="Android.evaluate(\'/std/lis/evltn/LctrumHomeStdPage.do\', \'${getCurrentYear()},${getCurrentSemester()}\', \'${data[i].subj}\')">${data[i].name}</h4>
+            card.innerHTML = `<h4 onClick="Android.openLectureActivity(\'${data[i].subj}\', \'${data[i].name}\')">${data[i].name}</h4>
             <div onClick="Android.evaluate(\'/std/lis/evltn/OnlineCntntsStdPage.do\', \'${getCurrentYear()},${getCurrentSemester()}\', \'${data[i].subj}\')">${createContent('온라인 강의', data[i].onlineLecture)}</div>
             <div onClick="Android.evaluate(\'/std/lis/evltn/TaskStdPage.do\', \'${getCurrentYear()},${getCurrentSemester()}\', \'${data[i].subj}\')">${createContent('과제', data[i].task)}</div>
             <div onClick="Android.evaluate(\'/std/lis/evltn/PrjctStdPage.do\', \'${getCurrentYear()},${getCurrentSemester()}\', \'${data[i].subj}\')">${createContent('팀 프로젝트', data[i].teamTask)}</div>
@@ -251,7 +251,6 @@
         }
     };
 
-
     function receiveNoticeData(json) {
         const data = JSON.parse(json);
         const container = document.getElementById('notices');
@@ -260,21 +259,26 @@
             const card = document.createElement('div');
 
             let url = '';
+            let params = data[i].param;
             if (data[i].type === 1) {
-                url = '/std/lis/evltn/DscsnViewStdPage.do';
+                url = '/mst/lis/evltn/DscsnViewStdPage.do';
             } else if (data[i].type === 2) {
-                url = '/std/lis/evltn/TaskStdPage.do';
-            } else if (data[i].type === 3) {
-                if (data[i].param.indexOf('examtype=Q') > -1) {
-                    url = '/std/lis/evltn/AnytmQuizStdPage.do';
+                if (params.indexOf('submityn=Y') > -1) {
+                    url = '/mst/lis/evltn/TaskViewStdPage.do';
                 } else {
-                    url = '/std/lis/evltn/OnlineTestStdPage.do';
+                    url = '/mst/lis/evltn/TaskViewBasicScoreStdPage.do';
+                }
+            } else if (data[i].type === 3) {
+                if (params.indexOf('examtype=Q') > -1) {
+                    url = '/mst/lis/evltn/AnytmQuizStdPage.do';
+                } else {
+                    url = '/mst/lis/evltn/OnlineTestStdPage.do';
                 }
             } else {
-                url = '/std/lis/sport/' + data[i].param.split('&boardNo')[0].replace('masterId=', '') + '/BoardListStdPage.do';
+                url = '/mst/lis/sport/' + params.split('&boardNo')[0].replace('masterId=', '') + '/BoardViewStdPage.do';
             }
 
-            card.innerHTML = `<div onClick="Android.evaluate(\'${url}\', \'${getCurrentYear()},${getCurrentSemester()}\', \'${data[i].subj}\')">
+            card.innerHTML = `<div onClick="Android.evaluate(\'${url}?${params}\', \'${getCurrentYear()},${getCurrentSemester()}\', \'${data[i].subj}\')">
                 <span>${data[i].subjNm} ·
             <span><b>${data[i].title}</b></span>
             </span><br/>
@@ -341,7 +345,7 @@
                 selectedSubj = subj;
                 selectedSubjName = title;
                 btnsContainer.style.display = 'flex';
-                qrBtn.style.display = 'none';
+                qrBtn.style.display = 'block';
             } else if (today.length > 0) {
                 status_txt.innerHTML = "오늘 수업이 더 이상 없어요 😎";
                 btnsContainer.style.display = 'none';

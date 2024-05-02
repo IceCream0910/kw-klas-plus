@@ -28,8 +28,11 @@ import org.json.JSONObject
 import java.io.IOException
 
 
-class LibraryQRModal() : BottomSheetDialogFragment()  {
+class LibraryQRModal(isWidget: Boolean) : BottomSheetDialogFragment()  {
     private var originalBrightness: Float = 0f
+    lateinit var qrImg : ImageView
+    lateinit var qrProgressBar : ProgressBar
+    private val isWidget = isWidget
 
     @SuppressLint("MissingInflatedId")
     override fun onCreateView(
@@ -42,15 +45,18 @@ class LibraryQRModal() : BottomSheetDialogFragment()  {
 
         val view = inflater.inflate(R.layout.library_qr_modal, container, false)
         val settingBtn = view.findViewById<TextView>(R.id.settingButton)
-        val qrImg = view.findViewById<ImageView>(R.id.qrImageView)
+        qrImg = view.findViewById<ImageView>(R.id.qrImageView)
         val sharedPreferences = activity?.getSharedPreferences("com.icecream.kwqrcheckin", Context.MODE_PRIVATE)
         val stdNumber = sharedPreferences?.getString("library_stdNumber", null)
         val phone = sharedPreferences?.getString("library_phone", null)
         val password = sharedPreferences?.getString("library_password", null)
-        val qrProgressBar = view.findViewById<ProgressBar>(R.id.qrProgressBar)
+        qrProgressBar = view.findViewById<ProgressBar>(R.id.qrProgressBar)
+
+        if(isWidget) {
+            settingBtn.visibility = View.GONE
+        }
 
         if (stdNumber == null || phone == null || password == null) {
-            dismiss()
             val dialogView = LayoutInflater.from(context).inflate(R.layout. library_qr_settings, null);
             val builder = context?.let { it1 ->
                 MaterialAlertDialogBuilder(it1)
@@ -73,66 +79,12 @@ class LibraryQRModal() : BottomSheetDialogFragment()  {
                         editor?.apply()
 
                         dialog.dismiss()
-                        Snackbar.make(view, "도서관 출입증 설정이 완료되었습니다.", Snackbar.LENGTH_SHORT).show()
+                        displayQR(stdNumber, phone, password)
                     })
             }
             builder?.show()
         } else {
-            val client = OkHttpClient()
-            val json = JSONObject()
-                .put("stdNumber", stdNumber)
-                .put("phone", phone)
-                .put("password", password)
-
-            val requestBody = RequestBody.create("application/json".toMediaTypeOrNull(), json.toString())
-            val request = Request.Builder()
-                .url("https://kw-library-qr.vercel.app/api/libraryQR")
-                .post(requestBody)
-                .build()
-
-            client.newCall(request).enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    e.printStackTrace()
-                }
-
-                @Throws(IOException::class)
-                override fun onResponse(call: Call, response: Response) {
-                    if (response.code == 400) {
-                        activity?.runOnUiThread {
-                            Toast.makeText(context, "도서관 회원 정보가 일치하지 않습니다. 설정 버튼을 눌러 정보를 다시 입력해주세요.", Toast.LENGTH_SHORT).show()
-                        }
-                    } else if (!response.isSuccessful) {
-                        throw IOException("Unexpected code $response")
-                    } else {
-                        val responseData = response.body?.string()
-                        val qrData = JSONObject(responseData).getString("qr_data")
-
-                        // Load the QR code image from the URL
-                        activity?.runOnUiThread {
-                            val qrgEncoder = QRGEncoder(
-                                qrData,
-                                null,
-                                QRGContents.Type.TEXT,
-                                200
-                            )
-                            qrgEncoder.colorBlack = Color.BLACK
-                            qrgEncoder.colorWhite = Color.WHITE
-                            try {
-                                val bitmap = qrgEncoder.getBitmap(0)
-                                qrImg.setImageBitmap(bitmap)
-                                qrProgressBar.visibility = View.GONE
-                                qrImg.visibility = View.VISIBLE
-                                // 화면 밝기 최대로
-                                val layoutParams = activity?.window?.attributes
-                                layoutParams?.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
-                                activity?.window?.attributes = layoutParams
-                            } catch (e: WriterException) {
-                                Log.v(TAG, e.toString())
-                            }
-                        }
-                    }
-                }
-            })
+            displayQR(stdNumber, phone, password)
         }
 
         settingBtn.setOnClickListener {
@@ -167,6 +119,64 @@ class LibraryQRModal() : BottomSheetDialogFragment()  {
         return view
     }
 
+    private fun displayQR(stdNumber: String, phone: String, password: String) {
+        val client = OkHttpClient()
+        val json = JSONObject()
+            .put("stdNumber", stdNumber)
+            .put("phone", phone)
+            .put("password", password)
+
+        val requestBody = RequestBody.create("application/json".toMediaTypeOrNull(), json.toString())
+        val request = Request.Builder()
+            .url("https://kw-library-qr.vercel.app/api/libraryQR")
+            .post(requestBody)
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                e.printStackTrace()
+            }
+
+            @Throws(IOException::class)
+            override fun onResponse(call: Call, response: Response) {
+                if (response.code == 400) {
+                    activity?.runOnUiThread {
+                        Toast.makeText(context, "도서관 회원 정보가 일치하지 않습니다. 설정 버튼을 눌러 정보를 다시 입력해주세요.", Toast.LENGTH_SHORT).show()
+                    }
+                } else if (!response.isSuccessful) {
+                    throw IOException("Unexpected code $response")
+                } else {
+                    val responseData = response.body?.string()
+                    val qrData = JSONObject(responseData).getString("qr_data")
+
+                    // Load the QR code image from the URL
+                    activity?.runOnUiThread {
+                        val qrgEncoder = QRGEncoder(
+                            qrData,
+                            null,
+                            QRGContents.Type.TEXT,
+                            200
+                        )
+                        qrgEncoder.colorBlack = Color.BLACK
+                        qrgEncoder.colorWhite = Color.WHITE
+                        try {
+                            val bitmap = qrgEncoder.getBitmap(0)
+                            qrImg.setImageBitmap(bitmap)
+                            qrProgressBar.visibility = View.GONE
+                            qrImg.visibility = View.VISIBLE
+                            // 화면 밝기 최대로
+                            val layoutParams = activity?.window?.attributes
+                            layoutParams?.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
+                            activity?.window?.attributes = layoutParams
+                        } catch (e: WriterException) {
+                            Log.v(TAG, e.toString())
+                        }
+                    }
+                }
+            }
+        })
+    }
+
     override fun onDismiss(dialog: DialogInterface) {
         super.onDismiss(dialog)
 
@@ -174,6 +184,10 @@ class LibraryQRModal() : BottomSheetDialogFragment()  {
         val layoutParams = activity?.window?.attributes
         layoutParams?.screenBrightness = originalBrightness
         activity?.window?.attributes = layoutParams
+
+        if(isWidget) {
+            activity?.finish()
+        }
     }
 
     companion object {
