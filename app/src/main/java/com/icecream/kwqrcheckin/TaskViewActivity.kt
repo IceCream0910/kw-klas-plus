@@ -92,13 +92,18 @@ class TaskViewActivity : AppCompatActivity() {
         })
 
         webView.webViewClient = object : WebViewClient() {
+
+
             override fun onPageFinished(view: WebView, url: String) {
-                webView.evaluateJavascript("javascript:(function() {" +
-                        "var style = document.createElement('style');" +
-                        "style.innerHTML = 'header { display: none; } .selectsemester { display: none; } .card { border-radius: 15px !important; } .container { margin-top: -10px }';" +
-                        "document.head.appendChild(style);" +
-                        "window.scroll(0, 0);"+
-                        "})()", null)
+                webView.evaluateJavascript(
+                    "javascript:(function() {" +
+                            "var style = document.createElement('style');" +
+                            "style.innerHTML = 'header { display: none; } .selectsemester { display: none; } .card { border-radius: 15px !important; }" +
+                            ".container { margin-top: -10px } button { border-radius: 10px !important } .board_view_header { border: none !important; border-radius: 15px; }';" +
+                            "document.head.appendChild(style);" +
+                            "window.scroll(0, 0);" +
+                            "})()", null
+                )
                 swipeLayout.isRefreshing = false
                 if (!isScriptExecuted) {
                     webView.evaluateJavascript(
@@ -111,6 +116,14 @@ class TaskViewActivity : AppCompatActivity() {
                     )
                     webView.reload()
                     isScriptExecuted = true
+                } else {
+                    if(url.contains("OnlineCntntsStdPage.do")) {
+                        val intent = Intent(this@TaskViewActivity, VideoPlayerActivity::class.java)
+                        intent.putExtra("subj", subj)
+                        intent.putExtra("yearHakgi", yearHakgi)
+                        finish()
+                        startActivity(intent)
+                    }
                 }
             }
 

@@ -18,20 +18,36 @@
         android:layout_marginBottom="20dp">
     </TextView>
 
-    <EditText
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:endIconMode="clear_text"
+        android:layout_marginBottom="10dp">
+
+    <com.google.android.material.textfield.TextInputEditText
         android:id="@+id/etId"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="학번"
         android:inputType="number" />
 
-    <EditText
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:endIconMode="password_toggle">
+
+    <com.google.android.material.textfield.TextInputEditText
         android:id="@+id/etPwd"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="비밀번호"
         android:inputType="textPassword"
         android:layout_marginTop="10dp" />
+
+    </com.google.android.material.textfield.TextInputLayout>
 
     <Button
         android:id="@+id/btnLogin"

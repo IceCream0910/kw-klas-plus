@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/originApp"
+        android:title="광운대학교 앱 실행"
+        />
+    <item
+        android:id="@+id/libraryApp"
+        android:title="중앙도서관 앱 실행"
+        />
+    <item
+        android:id="@+id/logout"
+        android:title="로그아웃"
+        />
+    <item
+        android:id="@+id/github"
+        android:title="정보"
+        />
+</menu>

@@ -11,8 +11,8 @@ android {
         applicationId = "com.icecream.kwqrcheckin"
         minSdk = 29
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1.1"
+        versionCode = 3
+        versionName = "1.1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -49,6 +49,7 @@ dependencies {
     implementation("com.google.zxing:core:3.4.0")
     implementation("com.github.tlaabs:TimetableView:1.0.3-fx1")
     implementation("com.github.androidmads:QRGenerator:1.0.1")
+    implementation("org.jsoup:jsoup:1.17.2")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")

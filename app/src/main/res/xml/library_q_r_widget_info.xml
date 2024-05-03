@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:title="@string/app_widget_name"
     android:description="@string/app_widget_description"
     android:initialKeyguardLayout="@layout/library_q_r_widget"
     android:initialLayout="@layout/library_q_r_widget"

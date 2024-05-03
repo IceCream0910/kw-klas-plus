@@ -2,28 +2,68 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
     android:padding="20dp">
-    <EditText
-        android:id="@+id/stdNumber"
+
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="학번"
-        android:inputType="number"/>
+        android:text="먼저 중앙도서관 공식 앱을 설치해 로그인한 후 진행해주세요"
+        android:textColor="#a6a6a6"
+        android:textSize="12dp"
+        android:layout_marginBottom="10dp"
+        />
 
-    <EditText
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:endIconMode="clear_text"
+        android:layout_marginBottom="10dp">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/stdNumber"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="학번"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:inputType="number"
+            />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:endIconMode="password_toggle"
+        android:layout_marginBottom="10dp">
+
+    <com.google.android.material.textfield.TextInputEditText
         android:id="@+id/password"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="비밀번호(도서관 홈페이지)"
+        android:hint="중앙도서관 비밀번호 (KLAS와 별개)"
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
         android:inputType="textPassword"/>
 
-    <EditText
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:endIconMode="clear_text">
+
+    <com.google.android.material.textfield.TextInputEditText
         android:id="@+id/phone"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="전화번호"
-        android:inputType="phone"/>
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+        android:inputType="phone"
+        />
+
+    </com.google.android.material.textfield.TextInputLayout>
 
 
 </LinearLayout>

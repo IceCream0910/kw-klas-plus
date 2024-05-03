@@ -108,11 +108,17 @@ class LectureActivity : AppCompatActivity() {
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
+                if(url.contains("OnlineCntntsMstPage.do")) {
+                    val intent = Intent(this@LectureActivity, VideoPlayerActivity::class.java)
+                    finish()
+                    startActivity(intent)
+                }
                 scrollView.isRefreshing = false
                 webView.evaluateJavascript(
                     "javascript:(function() {" +
                             "var style = document.createElement('style');" +
-                            "style.innerHTML = 'header { display: none; } .selectsemester { display: none; } .card { border-radius: 15px !important; } .container { margin-top: -10px }';" +
+                            "style.innerHTML = 'header { display: none; } .selectsemester { display: none; } .card { border-radius: 15px !important; }" +
+                            ".container { margin-top: -10px } button { border-radius: 10px !important } .board_view_header { border: none !important; border-radius: 15px; }';" +
                             "document.head.appendChild(style);" +
                             "window.scroll(0, 0);" +
                             "})()", null

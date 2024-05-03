@@ -94,9 +94,9 @@ class LibraryQRModal(isWidget: Boolean) : BottomSheetDialogFragment()  {
                     .setTitle("도서관 출입증 설정")
                     .setView(dialogView)
                     .setNegativeButton("완료", DialogInterface.OnClickListener { dialog, which ->
-                        val stdNumber = dialogView.findViewById<TextView>(R.id.stdNumber).text.toString()
-                        val phone = dialogView.findViewById<TextView>(R.id.phone).text.toString()
-                        val password = dialogView.findViewById<TextView>(R.id.password).text.toString()
+                        val stdNumber = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.stdNumber).text.toString()
+                        val phone = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.phone).text.toString()
+                        val password = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.password).text.toString()
 
                         if(stdNumber.isEmpty() || phone.isEmpty() || password.isEmpty()) {
                             Toast.makeText(context, "모든 항목을 입력해주세요.", Toast.LENGTH_SHORT).show()

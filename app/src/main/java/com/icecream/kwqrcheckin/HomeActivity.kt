@@ -4,15 +4,21 @@ import android.annotation.SuppressLint
 import android.content.DialogInterface
 import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.view.Gravity
+import android.view.Menu
+import android.view.MenuInflater
 import android.view.MenuItem
+import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.ListView
+import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -70,6 +76,7 @@ class HomeActivity : AppCompatActivity() {
         }
 
         val viewTitle = findViewById<TextView>(R.id.viewTitle)
+        val menuBtn = findViewById<Button>(R.id.menuBtn)
         val homeView = findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.homeView)
         val timetableView =
             findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.timetableView)
@@ -80,6 +87,34 @@ class HomeActivity : AppCompatActivity() {
         val additionalSubjectModal_openBtn = findViewById<Button>(R.id.AdditionalSubjectModal_openBtn)
         val libraryQRModal_openBtn = findViewById<Button>(R.id.libraryQRModal_openBtn)
         progressBar_home = findViewById(R.id.progressBar_home)
+
+        menuBtn.setOnClickListener {
+            val popup = PopupMenu(this, it, Gravity.END, 0, R.style.popupOverflowMenu)
+            val inflater: MenuInflater = popup.menuInflater
+            inflater.inflate(R.menu.main_option_menu, popup.menu)
+            popup.setOnMenuItemClickListener { menuItem ->
+                when(menuItem?.itemId) {
+                    R.id.originApp -> {
+                        val intent = packageManager.getLaunchIntentForPackage("kr.ac.kw.SmartLearning")
+                        startActivity(intent)
+                    }
+                    R.id.libraryApp -> {
+                        val intent = packageManager.getLaunchIntentForPackage("idoit.slpck.kwangwoon")
+                        startActivity(intent)
+                    }
+                    R.id.logout -> {
+                        finish()
+                        startActivity(Intent(this@HomeActivity, LoginActivity::class.java))
+                    }
+                    R.id.github -> {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/IceCream0910/kw-klas-plus"))
+                        startActivity(intent)
+                    }
+                }
+                true
+            }
+            popup.show()
+        }
 
 
         NavigationBarView.setOnItemSelectedListener { item: MenuItem ->
@@ -143,14 +178,6 @@ class HomeActivity : AppCompatActivity() {
                 webViewProgress.visibility = android.view.View.GONE
             }
         }
-
-
-        val logoutBtn = findViewById<Button>(R.id.logoutButton)
-        logoutBtn.setOnClickListener {
-            finish()
-            startActivity(Intent(this@HomeActivity, LoginActivity::class.java))
-        }
-
 
         timetable = findViewById<com.github.tlaabs.timetableview.TimetableView>(R.id.timetable)
         val subjectListView = findViewById<ListView>(R.id.subjectListView)
@@ -762,6 +789,7 @@ class HomeActivity : AppCompatActivity() {
                 openLectureActivity(sessionIdForOtherClass!!, subjID, subjName)
             }
     }
+
 }
 
 class JavaScriptInterface(homeActivity: HomeActivity) {

@@ -33,13 +33,15 @@
             android:textStyle="bold"
             android:layout_weight="1"/>
 
-        <!-- 로그아웃 버튼 -->
+
         <Button
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            android:id="@+id/logoutButton"
+            android:id="@+id/menuBtn"
+            style="@style/Widget.Material3.Button.IconButton"
+            app:icon="@drawable/baseline_more_vert_24"
+            android:textAlignment="textEnd"
+            android:layout_marginRight="-10dp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="로그아웃"
             android:layout_gravity="end"/>
 
     </LinearLayout>
