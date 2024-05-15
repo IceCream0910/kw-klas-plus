@@ -68,6 +68,16 @@ class TaskViewActivity : AppCompatActivity() {
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Whale/3.25.232.19 Safari/537.36"
         webView.loadUrl("https://klas.kw.ac.kr$url")
 
+        var isOpenVideoAcitivity = false
+
+        if(url!=null && url.contains("OnlineCntntsStdPage.do")) {
+            isOpenVideoAcitivity = true
+            val intent = Intent(this@TaskViewActivity, VideoPlayerActivity::class.java)
+            intent.putExtra("subj", subj)
+            intent.putExtra("yearHakgi", yearHakgi)
+            finish()
+            startActivity(intent)
+        }
 
         var isScriptExecuted = false
 
@@ -117,7 +127,7 @@ class TaskViewActivity : AppCompatActivity() {
                     webView.reload()
                     isScriptExecuted = true
                 } else {
-                    if(url.contains("OnlineCntntsStdPage.do")) {
+                    if(!isOpenVideoAcitivity && url.contains("OnlineCntntsStdPage.do")) {
                         val intent = Intent(this@TaskViewActivity, VideoPlayerActivity::class.java)
                         intent.putExtra("subj", subj)
                         intent.putExtra("yearHakgi", yearHakgi)

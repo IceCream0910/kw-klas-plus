@@ -45,6 +45,10 @@ class MainActivity : AppCompatActivity() {
                                 putString("kwSESSION", session)
                                 apply()
                             }
+                            val serviceIntent = Intent(this@MainActivity, UpdateSession::class.java)
+                            serviceIntent.putExtra("session", session)
+                            startService(serviceIntent)
+
                             finish()
                             startActivity(
                                 Intent(

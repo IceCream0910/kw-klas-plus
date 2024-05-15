@@ -240,6 +240,12 @@ class HomeActivity : AppCompatActivity() {
         loadingDialog.dismiss()
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        val serviceIntent = Intent(this, UpdateSession::class.java)
+        stopService(serviceIntent)
+    }
+
     fun getFeedData(sessionId: String) {
         Thread {
             val client = OkHttpClient()

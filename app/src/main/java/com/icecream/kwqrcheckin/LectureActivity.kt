@@ -66,7 +66,6 @@ class LectureActivity : AppCompatActivity() {
         sessionId = intent.getStringExtra("sessionID")!!
 
 
-
         LctName = findViewById<TextView>(R.id.LctName)
         LctName.text = subjName
 
@@ -105,11 +104,12 @@ class LectureActivity : AppCompatActivity() {
             webView.evaluateJavascript("javascript:pageReload()", null)
         }
 
-
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
-                if(url.contains("OnlineCntntsMstPage.do")) {
+                if (url.contains("OnlineCntntsMstPage.do")) {
                     val intent = Intent(this@LectureActivity, VideoPlayerActivity::class.java)
+                    intent.putExtra("subj", subjID)
+                    intent.putExtra("yearHakgi", getCurrentYear() + "," + getCurrentSemester())
                     finish()
                     startActivity(intent)
                 }

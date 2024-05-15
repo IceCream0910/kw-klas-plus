@@ -40,6 +40,7 @@ class VideoPlayerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_video_player)
+
         lectureNameTextView = findViewById<TextView>(R.id.lectureNameTextView)
 
         val titleTextView = findViewById<TextView>(R.id.titleTextView)
@@ -64,6 +65,9 @@ class VideoPlayerActivity : AppCompatActivity() {
                 .show()
         }
 
+        var subj = intent.getStringExtra("subj")
+        var yearHakgi = intent.getStringExtra("yearHakgi")
+
         webView = findViewById<WebView>(R.id.webView)
 
         webView.settings.javaScriptEnabled = true
@@ -85,6 +89,7 @@ class VideoPlayerActivity : AppCompatActivity() {
             swipeLayout.isRefreshing = false
         }
 
+        var isScriptExecuted = false
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
@@ -100,6 +105,19 @@ class VideoPlayerActivity : AppCompatActivity() {
                 )
 
                 swipeLayout.isRefreshing = false
+                if (!isScriptExecuted) {
+                    webView.evaluateJavascript(
+                        "javascript:localStorage.setItem('selectYearhakgi', '$yearHakgi');",
+                        null
+                    )
+                    webView.evaluateJavascript(
+                        "javascript:localStorage.setItem('selectSubj', '$subj');",
+                        null
+                    )
+                    webView.reload()
+                    isScriptExecuted = true
+                }
+
                 if (url.contains("viewer/")) {
                     isViewer = true
                     titleTextView.visibility = View.GONE
@@ -227,12 +245,16 @@ class VideoPlayerActivity : AppCompatActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        startPIP()
+        if(isViewer) {
+            startPIP()
+        }
     }
 
     override fun onPause() {
         super.onPause()
-        startPIP()
+        if(isViewer) {
+            startPIP()
+        }
     }
 }
 
