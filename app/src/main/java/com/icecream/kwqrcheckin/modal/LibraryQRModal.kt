@@ -58,6 +58,7 @@ class LibraryQRModal(isWidget: Boolean) : BottomSheetDialogFragment()  {
 
         if (stdNumber == null || phone == null || password == null) {
             val dialogView = LayoutInflater.from(context).inflate(R.layout. library_qr_settings, null);
+            dismiss()
             val builder = context?.let { it1 ->
                 MaterialAlertDialogBuilder(it1)
                     .setTitle("도서관 출입증 설정")
@@ -68,18 +69,18 @@ class LibraryQRModal(isWidget: Boolean) : BottomSheetDialogFragment()  {
                         val password = dialogView.findViewById<TextView>(R.id.password).text.toString()
 
                         if(stdNumber.isEmpty() || phone.isEmpty() || password.isEmpty()) {
-                            Toast.makeText(context, "모든 항목을 입력해주세요.", Toast.LENGTH_SHORT).show()
+                            //Toast.makeText(context, "모든 항목을 입력해주세요.", Toast.LENGTH_SHORT).show()
                             return@OnClickListener
+                        } else {
+                            val editor = sharedPreferences?.edit()
+                            editor?.putString("library_stdNumber", stdNumber)
+                            editor?.putString("library_phone", phone)
+                            editor?.putString("library_password", password)
+                            editor?.apply()
+
+                            dialog.dismiss()
                         }
 
-                        val editor = sharedPreferences?.edit()
-                        editor?.putString("library_stdNumber", stdNumber)
-                        editor?.putString("library_phone", phone)
-                        editor?.putString("library_password", password)
-                        editor?.apply()
-
-                        dialog.dismiss()
-                        displayQR(stdNumber, phone, password)
                     })
             }
             builder?.show()
@@ -89,6 +90,18 @@ class LibraryQRModal(isWidget: Boolean) : BottomSheetDialogFragment()  {
 
         settingBtn.setOnClickListener {
             val dialogView = LayoutInflater.from(context).inflate(R.layout. library_qr_settings, null);
+            val stdNumber = sharedPreferences?.getString("library_stdNumber", "")
+            val phone = sharedPreferences?.getString("library_phone", "")
+            val password = sharedPreferences?.getString("library_password", "")
+
+            val stdNumberEditText = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.stdNumber)
+            val phoneEditText = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.phone)
+            val passwordEditText = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.password)
+
+            stdNumberEditText.setText(stdNumber)
+            phoneEditText.setText(phone)
+            passwordEditText.setText(password)
+
             val builder = context?.let { it1 ->
                 MaterialAlertDialogBuilder(it1)
                     .setTitle("도서관 출입증 설정")
@@ -101,16 +114,16 @@ class LibraryQRModal(isWidget: Boolean) : BottomSheetDialogFragment()  {
                         if(stdNumber.isEmpty() || phone.isEmpty() || password.isEmpty()) {
                             Toast.makeText(context, "모든 항목을 입력해주세요.", Toast.LENGTH_SHORT).show()
                             return@OnClickListener
+                        } else {
+                            val editor = sharedPreferences?.edit()
+                            editor?.putString("library_stdNumber", stdNumber)
+                            editor?.putString("library_phone", phone)
+                            editor?.putString("library_password", password)
+                            editor?.apply()
+
+                            dialog.dismiss()
+                            Snackbar.make(view, "도서관 출입증 설정이 완료되었습니다.", Snackbar.LENGTH_SHORT).show()
                         }
-
-                        val editor = sharedPreferences?.edit()
-                        editor?.putString("library_stdNumber", stdNumber)
-                        editor?.putString("library_phone", phone)
-                        editor?.putString("library_password", password)
-                        editor?.apply()
-
-                        dialog.dismiss()
-                        Snackbar.make(view, "도서관 출입증 설정이 완료되었습니다.", Snackbar.LENGTH_SHORT).show()
                     })
             }
             builder?.show()

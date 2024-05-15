@@ -58,6 +58,8 @@ class HomeActivity : AppCompatActivity() {
     lateinit var additionalSubjectList : JSONArray
     lateinit var adapter_additional: ArrayAdapter<String>
     lateinit var progressBar_home: ProgressBar
+    lateinit var loadingDialog: androidx.appcompat.app.AlertDialog
+
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,6 +85,11 @@ class HomeActivity : AppCompatActivity() {
         val qrView = findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.qrView)
         val NavigationBarView =
             findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_navigation)
+
+        val builder = MaterialAlertDialogBuilder(this)
+        builder.setView(R.layout.layout_loading_dialog)
+        builder.setCancelable(false)
+        loadingDialog = builder.create()
 
         val additionalSubjectModal_openBtn = findViewById<Button>(R.id.AdditionalSubjectModal_openBtn)
         val libraryQRModal_openBtn = findViewById<Button>(R.id.libraryQRModal_openBtn)
@@ -191,6 +198,7 @@ class HomeActivity : AppCompatActivity() {
         getFeedData(sessionId!!)
         getTimetableData(sessionId!!)
         timetable.setOnStickerSelectEventListener { idx, schedules ->
+            loadingDialog.show()
             openLectureActivity(
                 sessionId!!,
                 schedules[0].professorName,
@@ -221,9 +229,15 @@ class HomeActivity : AppCompatActivity() {
             val subjName = adapter.getItem(position)
 
             if (subjName != null) {
+                loadingDialog.show()
                 openQRActivity(sessionId!!, subjID, subjName)
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        loadingDialog.dismiss()
     }
 
     fun getFeedData(sessionId: String) {
@@ -539,9 +553,6 @@ class HomeActivity : AppCompatActivity() {
     fun openLectureActivity(
         sessionId: String, subjID: String, subjName: String
     ) {
-        runOnUiThread {
-            Thread { progressBar_home.visibility = android.view.View.VISIBLE}
-        }
         fetchSubjectDetail(sessionId, subjName, subjID) { subjDetail2 ->
             postTransformedData(sessionId, subjDetail2) { subjDetail3 ->
                 postRandomKey(sessionId, subjDetail3) { transformedJson ->
@@ -550,9 +561,6 @@ class HomeActivity : AppCompatActivity() {
                     intent.putExtra("subjID", subjID)
                     intent.putExtra("subjName", subjName)
                     intent.putExtra("sessionID", sessionId)
-                    runOnUiThread {
-                        Thread { progressBar_home.visibility = android.view.View.GONE}
-                    }
                     startActivity(intent)
                 }
             }
@@ -786,6 +794,7 @@ class HomeActivity : AppCompatActivity() {
             val subjName = adapter_additional.getItem(position)
 
             if (subjName != null) {
+                loadingDialog.show()
                 openLectureActivity(sessionIdForOtherClass!!, subjID, subjName)
             }
     }
@@ -813,6 +822,7 @@ class JavaScriptInterface(homeActivity: HomeActivity) {
         subjName: String
     ) {
         homeActivity.runOnUiThread {
+            homeActivity.loadingDialog.show()
             homeActivity.openLectureActivity(homeActivity.sessionIdForOtherClass!!, subj, subjName)
         }
     }
@@ -820,6 +830,7 @@ class JavaScriptInterface(homeActivity: HomeActivity) {
     @JavascriptInterface
     fun qrCheckIn(subjID: String, subjName: String) {
         homeActivity.runOnUiThread {
+            homeActivity.loadingDialog.show()
             homeActivity.openQRActivity(homeActivity.sessionIdForOtherClass, subjID, subjName)
         }
     }
