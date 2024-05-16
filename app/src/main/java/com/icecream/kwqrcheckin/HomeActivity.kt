@@ -179,14 +179,13 @@ class HomeActivity : AppCompatActivity() {
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
+                webView.evaluateJavascript("javascript:receiveDeadlineData(`${deadlineForWebview}`)", null)
+                webView.evaluateJavascript("javascript:receiveNoticeData(`${noticeForWebview}`)", null)
+                webView.evaluateJavascript("javascript:receiveTimetableData(`${timetableForWebview}`)", null)
                 webView.visibility = View.VISIBLE
                 webViewProgress.visibility = View.GONE
             }
         }
-
-        webView.post(Runnable {
-            webView.loadUrl("file:///android_asset/index.html")
-        })
     }
 
     private fun initTimetable(sessionId: String) {
@@ -265,10 +264,6 @@ class HomeActivity : AppCompatActivity() {
                     noticeList.add(noticeItem)
                 }
                 noticeForWebview = noticeList.toString()
-                runOnUiThread { webView.evaluateJavascript(
-                    "javascript:receiveNoticeData(`${noticeForWebview}`)",
-                    null
-                ) }
             }
         }
     }
@@ -324,12 +319,9 @@ class HomeActivity : AppCompatActivity() {
         }
         jobList.joinAll()
         deadlineForWebview = deadline.toString()
-        runOnUiThread {
-            webView.evaluateJavascript(
-                "javascript:receiveDeadlineData(`${deadlineForWebview}`)",
-                null
-            )
-        }
+        webView.post(Runnable {
+            webView.loadUrl("file:///android_asset/index.html")
+        })
     }
 
     private fun parseOnlineLecture(
@@ -367,7 +359,7 @@ class HomeActivity : AppCompatActivity() {
             if (homework.getString("submityn") != "Y") {
                 val endDate =
                     SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(homework.getString("expiredate"))
-                val hourGap = ((endDate?.time?.minus(nowDate.time)) ?: 0 / 3600000).toInt()
+                val hourGap = ((endDate.time - nowDate.time) / 3600000).toInt()
 
                 if (hourGap >= 0) {
                     val homeworkItem = JSONObject()
@@ -490,10 +482,6 @@ class HomeActivity : AppCompatActivity() {
                 }
 
                 timetableForWebview = jsonObject.toString()
-                runOnUiThread { webView.evaluateJavascript(
-                    "javascript:receiveTimetableData(`${timetableForWebview}`)",
-                    null
-                ) }
             }
         }
     }
