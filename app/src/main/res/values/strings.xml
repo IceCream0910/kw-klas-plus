@@ -10,6 +10,6 @@
         <item>금</item>
     </string-array>
     <string name="add_widget">위젯 추가</string>
-    <string name="app_widget_description">도서관 출입증 QR코드 위젯</string>
-    <string name="app_widget_name">도서관 출입증</string>
+    <string name="app_widget_description">도서관 이용증 QR코드 위젯</string>
+    <string name="app_widget_name">도서관 이용증</string>
 </resources>

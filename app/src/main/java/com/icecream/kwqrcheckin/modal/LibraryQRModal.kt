@@ -61,7 +61,7 @@ class LibraryQRModal(isWidget: Boolean) : BottomSheetDialogFragment()  {
             dismiss()
             val builder = context?.let { it1 ->
                 MaterialAlertDialogBuilder(it1)
-                    .setTitle("도서관 출입증 설정")
+                    .setTitle("도서관 이용증 설정")
                     .setView(dialogView)
                     .setNegativeButton("완료", DialogInterface.OnClickListener { dialog, which ->
                         val stdNumber = dialogView.findViewById<TextView>(R.id.stdNumber).text.toString()
@@ -104,7 +104,7 @@ class LibraryQRModal(isWidget: Boolean) : BottomSheetDialogFragment()  {
 
             val builder = context?.let { it1 ->
                 MaterialAlertDialogBuilder(it1)
-                    .setTitle("도서관 출입증 설정")
+                    .setTitle("도서관 이용증 설정")
                     .setView(dialogView)
                     .setNegativeButton("완료", DialogInterface.OnClickListener { dialog, which ->
                         val stdNumber = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.stdNumber).text.toString()
@@ -122,7 +122,7 @@ class LibraryQRModal(isWidget: Boolean) : BottomSheetDialogFragment()  {
                             editor?.apply()
 
                             dialog.dismiss()
-                            Snackbar.make(view, "도서관 출입증 설정이 완료되었습니다.", Snackbar.LENGTH_SHORT).show()
+                            Snackbar.make(view, "도서관 이용증 설정이 완료되었습니다.", Snackbar.LENGTH_SHORT).show()
                         }
                     })
             }
@@ -141,7 +141,7 @@ class LibraryQRModal(isWidget: Boolean) : BottomSheetDialogFragment()  {
 
         val requestBody = RequestBody.create("application/json".toMediaTypeOrNull(), json.toString())
         val request = Request.Builder()
-            .url("https://kw-library-qr.vercel.app/api/libraryQR")
+            .url("https://kw-library-qr.yuntae.in/api/libraryQR")
             .post(requestBody)
             .build()
 

@@ -142,7 +142,7 @@
         android:id="@+id/libraryQRModal_openBtn"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="중앙도서관 출입증"
+        android:text="중앙도서관 이용증"
         android:background="@drawable/bottom_sheet_openbtn"
         android:textColor="@color/black"
         style="@style/Widget.Material3.Button.TonalButton"

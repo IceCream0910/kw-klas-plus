@@ -19,7 +19,7 @@ class LibraryQRWidgetActivity : AppCompatActivity() {
         val password = sharedPreferences?.getString("library_password", null)
 
         if(stdNumber == null || phone == null || password == null) {
-            Toast.makeText(this, " 먼저 앱에서 도서관 출입증 설정을 완료해주세요.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, " 먼저 앱에서 도서관 이용증 설정을 완료해주세요.", Toast.LENGTH_SHORT).show()
             finish()
             return
         }

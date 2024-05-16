@@ -513,7 +513,9 @@ class HomeActivity : AppCompatActivity() {
 
                 val jsonObject = JSONObject()
                 for ((key, schedules) in courseSchedulesMap) {
-                    timetable.add(schedules)
+                    if (schedules != null && schedules.isNotEmpty()) {
+                        timetable.add(schedules)
+                    }
                     val jsonArray = JSONArray()
                     for (schedule in schedules) {
                         val scheduleJson = JSONObject()

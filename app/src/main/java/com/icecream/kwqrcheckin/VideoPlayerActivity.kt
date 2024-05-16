@@ -24,6 +24,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.view.WindowCompat
@@ -43,7 +44,66 @@ class VideoPlayerActivity : AppCompatActivity() {
 
         lectureNameTextView = findViewById<TextView>(R.id.lectureNameTextView)
 
-        val titleTextView = findViewById<TextView>(R.id.titleTextView)
+        val titleTextView = findViewById<LinearLayout>(R.id.titleTextView)
+        val bypassCertBtn = findViewById<Button>(R.id.bypassCertBtn)
+
+        bypassCertBtn.setOnClickListener {
+            val builder = MaterialAlertDialogBuilder(this)
+            builder.setTitle("경고")
+                .setCancelable(true)
+                .setMessage("이 기능은 불안정한 기능으로 동작하지 않을 수 있으니, 가급적 사용하지 않는 것을 권장 드립니다.")
+                .setPositiveButton("계속") { dialog, id ->
+                    if(webView != null) {
+                        webView.evaluateJavascript("""
+                            lrnCerti.checkCerti = async function(grcode, subj, year, hakgi, bunban,
+							module, lesson, oid, starting, contentsType,
+							weeklyseq, weeklysubseq, width, height, today,
+							sdate, edate, ptype, totalTime, prog, gubun, ptime) {
+						let self = this;
+						self.grcode = grcode;
+						self.subj = subj;
+						self.year = year;
+						self.hakgi = hakgi;
+						self.weeklyseq = weeklyseq;
+						self.gubun = gubun;
+						self.certiGubun = '';
+						await axios.post('/std/lis/evltn/CertiStdCheck.do',self.${"$"}data);
+                        await axios.post('/std/lis/evltn/CertiPushSucStd.do', self.${"$"}data)
+							 .then(function(response) {
+									if (gubun == 'C') {
+										appModule.goViewCntnts(
+												grcode, subj, year,
+												hakgi, bunban,
+												module, lesson,
+												oid, starting,
+												contentsType,
+												weeklyseq,
+												weeklysubseq,
+												width, height,
+												today, sdate,
+												edate, ptype,
+												totalTime, prog,
+												ptime);
+									}
+							}
+						 	.bind(this));
+}
+
+  alert([
+    '인증 기능이 제거되었습니다.'
+  ].join('\n'));
+                        """.trimIndent(), null
+                        )
+                    } else {
+                        Toast.makeText(this, "웹뷰가 로드되지 않았습니다.", Toast.LENGTH_SHORT).show()
+                    }
+                    dialog.dismiss()
+                }
+                .setNegativeButton("취소") { dialog, id ->
+                    dialog.dismiss()
+                }
+                .show()
+        }
 
         val pipButton = findViewById<Button>(R.id.pipButton)
         val closeButton = findViewById<Button>(R.id.closeButton)
