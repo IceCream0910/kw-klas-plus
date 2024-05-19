@@ -115,6 +115,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun initNavigationMenu() {
+        //bottom navigation
         val viewTitle = findViewById<TextView>(R.id.viewTitle)
         val menuBtn = findViewById<Button>(R.id.menuBtn)
         val homeView = findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.homeView)
@@ -130,7 +131,6 @@ class HomeActivity : AppCompatActivity() {
         menuBtn.setOnClickListener {
             showOptionsMenu(it)
         }
-
         NavigationBarView.setOnItemSelectedListener { item: MenuItem ->
             when (item.itemId) {
                 R.id.item_1 -> {
@@ -166,6 +166,52 @@ class HomeActivity : AppCompatActivity() {
                 else -> false
             }
         }
+
+        // drawer
+        val navigationView = findViewById<com.google.android.material.navigation.NavigationView>(R.id.navigation_drawer)
+        val headerView = navigationView.getHeaderView(0)
+        val viewTitleInDrawer = headerView.findViewById<TextView>(R.id.viewTitle)
+        val menuBtnInDrawer = headerView.findViewById<Button>(R.id.menuBtn)
+
+        navigationView.setCheckedItem(R.id.item_1)
+
+        navigationView.setNavigationItemSelectedListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.item_1 -> {
+                    viewTitleInDrawer.text = "KLAS+"
+                    homeView.visibility = View.VISIBLE
+                    timetableView.visibility = View.GONE
+                    qrView.visibility = View.GONE
+                    additionalSubjectModal_openBtn.visibility = View.GONE
+                    libraryQRModal_openBtn.visibility = View.GONE
+                    true
+                }
+                R.id.item_2 -> {
+                    viewTitleInDrawer.text = "시간표"
+                    homeView.visibility = View.GONE
+                    timetableView.visibility = View.VISIBLE
+                    qrView.visibility = View.GONE
+                    additionalSubjectModal_openBtn.visibility = View.VISIBLE
+                    libraryQRModal_openBtn.visibility = View.GONE
+                    true
+                }
+                R.id.item_3 -> {
+                    viewTitleInDrawer.text = "체크인"
+                    homeView.visibility = View.GONE
+                    timetableView.visibility = View.GONE
+                    qrView.visibility = View.VISIBLE
+                    additionalSubjectModal_openBtn.visibility = View.GONE
+                    libraryQRModal_openBtn.visibility = View.VISIBLE
+                    true
+                }
+                else -> false
+            }
+        }
+
+        menuBtnInDrawer.setOnClickListener {
+            showOptionsMenu(it)
+        }
+
     }
 
     private fun initWebView() {

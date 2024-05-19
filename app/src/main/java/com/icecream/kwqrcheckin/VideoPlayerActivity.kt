@@ -128,7 +128,7 @@ class VideoPlayerActivity : AppCompatActivity() {
         var subj = intent.getStringExtra("subj")
         var yearHakgi = intent.getStringExtra("yearHakgi")
 
-        webView = findViewById<WebView>(R.id.webView)
+        webView = findViewById<BackgroundWebView>(R.id.webView)
 
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -187,7 +187,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                     webView.evaluateJavascript(
                         "javascript:(function() {" +
                                 "var style = document.createElement('style');" +
-                                "style.innerHTML = '.antopbak { display: none; }';" +
+                                "style.innerHTML = '.antopbak { display: none; } #appHeaderSubj { display: none; }';" +
                                 "document.head.appendChild(style);" +
                                 "window.scroll(0, 0);" +
                                 "})()", null
@@ -286,6 +286,22 @@ class VideoPlayerActivity : AppCompatActivity() {
         } else {
         }
     }
+
+    override fun onDestroy() {
+    super.onDestroy()
+
+    // WebView 종료
+    webView?.let {
+        it.stopLoading()
+        it.clearHistory()
+        it.clearCache(true)
+        it.loadUrl("about:blank")
+        it.onPause()
+        it.removeAllViews()
+        it.destroyDrawingCache()
+        it.destroy()
+    }
+}
 
     override fun onBackPressed() {
         if(isViewer) {

@@ -109,7 +109,7 @@ class TaskViewActivity : AppCompatActivity() {
                     "javascript:(function() {" +
                             "var style = document.createElement('style');" +
                             "style.innerHTML = 'header { display: none; } .selectsemester { display: none; } .card { border-radius: 15px !important; }" +
-                            ".container { margin-top: -10px } button { border-radius: 10px !important } .board_view_header { border: none !important; border-radius: 15px; }';" +
+                            ".container { margin-top: -10px } button { border-radius: 10px !important } .board_view_header { border: none !important; border-radius: 15px; } #appHeaderSubj { display: none; }';" +
                             "document.head.appendChild(style);" +
                             "window.scroll(0, 0);" +
                             "})()", null

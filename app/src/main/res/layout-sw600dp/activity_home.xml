@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    tools:context=".HomeActivity">
+
+    <com.google.android.material.navigation.NavigationView
+        android:id="@+id/navigation_drawer"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        app:headerLayout="@layout/header_navigation_drawer"
+        app:menu="@menu/bottom_navigation_menu" />
+
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottom_navigation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:menu="@menu/bottom_navigation_menu"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        >
+
+        <ProgressBar
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/progressBar_home"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:visibility="gone"
+            android:indeterminate="true"/>
+
+        <LinearLayout
+            android:visibility="gone"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="40dp"
+            android:layout_marginLeft="20dp"
+            android:layout_marginRight="20dp"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/viewTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="KLAS+"
+                android:textSize="25dp"
+                android:textStyle="bold"
+                android:layout_weight="1"/>
+
+
+            <Button
+                android:id="@+id/menuBtn"
+                style="@style/Widget.Material3.Button.IconButton"
+                app:icon="@drawable/baseline_more_vert_24"
+                android:textAlignment="textEnd"
+                android:layout_marginRight="-10dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"/>
+
+        </LinearLayout>
+
+
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/homeView"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginLeft="15dp"
+            android:layout_marginRight="15dp"
+            android:layout_marginTop="45dp"
+            android:layout_marginBottom="40dp"
+            android:gravity="center">
+
+
+            <ProgressBar
+                android:id="@+id/progressBar_webview"
+                style="?android:attr/progressBarStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+            <WebView
+                android:id="@+id/webView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone"/>
+
+
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/timetableView"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:paddingTop="40dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <com.github.tlaabs.timetableview.TimetableView
+                android:id="@+id/timetable"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@color/zxing_transparent"
+                android:backgroundTint="@color/zxing_transparent"
+                app:column_count="6"
+                app:row_count="16"
+                app:side_cell_width="20dp"
+                app:header_title="@array/my_header_title"
+                app:cell_height="60dp"
+                />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/qrView"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:padding="20dp"
+            android:visibility="gone">
+
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="출석 체크할\n과목을 선택하세요."
+                android:textSize="20dp"
+                android:paddingTop="30dp"
+                android:textStyle="bold"/>
+
+            <ListView
+                android:id="@+id/subjectListView"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_marginTop="20dp"
+                android:layout_marginLeft="-15dp"/>
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+
+        <Button
+            android:id="@+id/AdditionalSubjectModal_openBtn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end|bottom"
+            android:layout_margin="30dp"
+            android:padding="20dp"
+            android:text="원격 수업 과목"
+            android:textColor="@color/black"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:visibility="gone"
+            />
+
+        <Button
+            android:id="@+id/libraryQRModal_openBtn"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end|bottom"
+            android:layout_margin="30dp"
+            android:padding="20dp"
+            android:text="중앙도서관 이용증"
+            android:textColor="@color/black"
+            android:visibility="gone"/>
+    </LinearLayout>
+
+
+
+</androidx.appcompat.widget.LinearLayoutCompat>

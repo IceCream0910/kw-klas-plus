@@ -56,26 +56,30 @@
 
         <activity
             android:name=".TaskViewActivity"
-            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation"
             android:exported="true" />
         <activity
             android:name=".LctPlanActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation"
             android:exported="false" />
         <activity
             android:name=".LectureActivity"
-            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation"
             android:exported="true" />
         <activity
             android:name=".QRScanActivity"
             android:exported="false" />
         <activity
             android:name=".HomeActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|keyboardHidden|keyboard|navigation"
             android:exported="false" />
         <activity
             android:name=".LoginActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation"
             android:exported="false" />
         <activity
             android:name=".MainActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
