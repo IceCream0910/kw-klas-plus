@@ -5,13 +5,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
+    <meta name="color-scheme" content="light dark">
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin="anonymous" />
     <link rel="preload" as="style" crossorigin
         href="https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.min.css" />
-    <link rel="stylesheet"
-        href="https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.min.css" />
 </head>
 <style>
+    :root {
+        --text-color: #000000;
+        --card-background: #eeeeee;
+        --card-border: #e0e0e0;
+        --button-background: #781e10;
+        --button-hover: #5f170d;
+        --notice-hover: #e6e6e6;
+        --green: green;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --text-color: #e0e0e0;
+            --card-background: #302f34;
+            --card-border: #2c2c2c;
+            --button-background: #781e10;
+            --button-hover: #5f170d;
+            --notice-hover: #2c2c2c;
+            --green: #98ff98;
+        }
+    }
+
     * {
         font-family: "Wanted Sans Variable", "Wanted Sans", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
         -ms-user-select: none;
@@ -23,6 +44,7 @@
 
     body {
         padding: 0;
+        color: var(--text-color);
     }
 
     #remaining-deadline {
@@ -30,6 +52,12 @@
         grid-gap: 10px;
         flex-wrap: wrap;
         grid-template-columns: repeat(3, 1fr);
+    }
+
+    h4,
+    h3,
+    h6 {
+        color: var(--text-color);
     }
 
     h4 {
@@ -46,7 +74,7 @@
 
     .card {
         position: relative;
-        background-color: var(--card);
+        background-color: var(--card-background);
         border-radius: 20px;
         padding: 20px;
         font-size: 1.2rem;
@@ -55,7 +83,6 @@
         transition: transform .5s ease;
         -o-transition: transform .5s ease;
         width: 100%;
-        background-color: #f1f1f1;
         border-radius: 20px;
         padding: 20px 15px;
         box-sizing: border-box;
@@ -80,16 +107,15 @@
     .notice-item:active {
         transform: scale(0.97);
         -o-transform: scale(0.97);
-        background-color: #e6e6e6;
+        background-color: var(--notice-hover);
     }
 
     button {
         position: relative;
-        background-color: var(--card);
+        background-color: var(--button-background);
         border-radius: 15px;
         padding: 10px 20px;
         font-size: 0.8rem;
-        background-color: #781e10;
         color: #fff;
         box-sizing: border-box;
         outline: none;
@@ -99,7 +125,7 @@
     }
 
     button:hover {
-        background-color: #5f170d;
+        background-color: var(--button-hover);
     }
 
     button:active {
@@ -131,6 +157,12 @@
         margin: 0;
         padding: 0;
         line-height: 0.9;
+    }
+
+    c #qr_btn {
+        background-color: var(--card-background);
+        color: var(--text-color);
+        border: 1px solid var(--card-border);
     }
 
     @media (max-width: 768px) {
@@ -222,7 +254,7 @@
         }
 
         if (container.innerHTML.trim() == '') {
-            container.innerHTML = '<span style="color: green" class="remain-none">남아있는 강의 및 과제가 없습니다!</span>';
+            container.innerHTML = '<span style="color: var(--green)" class="remain-none">남아있는 강의 및 과제가 없습니다!</span>';
         } else {
             const sortedCards = Array.from(container.children).sort((a, b) => {
                 const aRemainingTime = parseInt(a.querySelector('.will-remain strong').textContent);

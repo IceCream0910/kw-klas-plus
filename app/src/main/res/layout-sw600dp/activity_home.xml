@@ -106,19 +106,10 @@
             android:orientation="vertical"
             android:visibility="gone">
 
-            <com.github.tlaabs.timetableview.TimetableView
-                android:id="@+id/timetable"
+            <WebView
+                android:id="@+id/timetableWebview"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@color/zxing_transparent"
-                android:backgroundTint="@color/zxing_transparent"
-                app:column_count="6"
-                app:row_count="16"
-                app:side_cell_width="20dp"
-                app:header_title="@array/my_header_title"
-                app:cell_height="60dp"
-                />
-
+                android:layout_height="match_parent"/>
         </androidx.appcompat.widget.LinearLayoutCompat>
 
         <androidx.appcompat.widget.LinearLayoutCompat
@@ -156,8 +147,7 @@
             android:layout_gravity="end|bottom"
             android:layout_margin="30dp"
             android:padding="20dp"
-            android:text="원격 수업 과목"
-            android:textColor="@color/black"
+            android:text="주말 수업 보기"
             style="@style/Widget.Material3.Button.TonalButton"
             android:visibility="gone"
             />
@@ -171,7 +161,6 @@
             android:layout_margin="30dp"
             android:padding="20dp"
             android:text="중앙도서관 이용증"
-            android:textColor="@color/black"
             android:visibility="gone"/>
     </LinearLayout>
 

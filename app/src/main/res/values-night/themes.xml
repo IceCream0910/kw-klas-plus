@@ -1,15 +1,15 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Base.Theme.KWQRCheckin" parent="Theme.Material3.Light.NoActionBar">
+    <style name="Base.Theme.KWQRCheckin" parent="Theme.Material3.DayNight.NoActionBar">
     </style>
 
 
-    <style name="RoundCornerBottomSheetDialogTheme" parent="Theme.Design.Light.BottomSheetDialog">
+    <style name="RoundCornerBottomSheetDialogTheme" parent="Theme.Design.BottomSheetDialog">
         <item name="bottomSheetStyle">@style/RoundCornerModalStyle</item>
     </style>
 
     <style name="RoundCornerModalStyle" parent="Widget.Design.BottomSheet.Modal">
-        <item name="android:background">@drawable/white_round_top_border_20</item>
+        <item name="android:background">@drawable/black_round_top_border_20</item>
     </style>
 
 </resources>

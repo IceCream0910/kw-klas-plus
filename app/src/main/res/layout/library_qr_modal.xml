@@ -18,7 +18,6 @@
             android:layout_height="wrap_content"
             android:text="도서관 이용증"
             android:textSize="24dp"
-            android:textColor="#000"
             android:textStyle="bold"
             android:layout_weight="1"/>
 

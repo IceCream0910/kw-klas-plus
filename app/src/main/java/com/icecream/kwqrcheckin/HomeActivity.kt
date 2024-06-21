@@ -1,7 +1,6 @@
 package com.icecream.kwqrcheckin
 
 import android.annotation.SuppressLint
-import android.content.DialogInterface
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
@@ -27,7 +26,6 @@ import androidx.fragment.app.DialogFragment
 import com.github.tlaabs.timetableview.Schedule
 import com.github.tlaabs.timetableview.Time
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.icecream.kwqrcheckin.modal.AdditionalSubjectModal
 import com.icecream.kwqrcheckin.modal.LibraryQRModal
 import kotlinx.coroutines.*
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -41,14 +39,12 @@ import java.util.*
 
 class HomeActivity : AppCompatActivity() {
     @SuppressLint("MissingInflatedId")
-    private lateinit var timetable: com.github.tlaabs.timetableview.TimetableView
     private lateinit var webView: WebView
+    private lateinit var timetableWebView: WebView
     private lateinit var deadlineForWebview: String
     private lateinit var noticeForWebview: String
     private lateinit var timetableForWebview: String
     lateinit var sessionIdForOtherClass: String
-    private lateinit var additionalSubjectList: JSONArray
-    private lateinit var adapter_additional: ArrayAdapter<String>
     private lateinit var progressBar_home: ProgressBar
     lateinit var loadingDialog: AlertDialog
 
@@ -93,14 +89,8 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-        val additionalSubjectModal_openBtn =
-            findViewById<Button>(R.id.AdditionalSubjectModal_openBtn)
         val libraryQRModal_openBtn = findViewById<Button>(R.id.libraryQRModal_openBtn)
         progressBar_home = findViewById(R.id.progressBar_home)
-
-        additionalSubjectModal_openBtn.setOnClickListener {
-            openAdditionalSubjectModal(adapter_additional)
-        }
 
         libraryQRModal_openBtn.setOnClickListener {
             openLibraryQRModal()
@@ -124,8 +114,7 @@ class HomeActivity : AppCompatActivity() {
         val qrView = findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.qrView)
         val NavigationBarView =
             findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_navigation)
-        val additionalSubjectModal_openBtn =
-            findViewById<Button>(R.id.AdditionalSubjectModal_openBtn)
+
         val libraryQRModal_openBtn = findViewById<Button>(R.id.libraryQRModal_openBtn)
 
         menuBtn.setOnClickListener {
@@ -138,7 +127,6 @@ class HomeActivity : AppCompatActivity() {
                     homeView.visibility = View.VISIBLE
                     timetableView.visibility = View.GONE
                     qrView.visibility = View.GONE
-                    additionalSubjectModal_openBtn.visibility = View.GONE
                     libraryQRModal_openBtn.visibility = View.GONE
                     true
                 }
@@ -148,7 +136,6 @@ class HomeActivity : AppCompatActivity() {
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.VISIBLE
                     qrView.visibility = View.GONE
-                    additionalSubjectModal_openBtn.visibility = View.VISIBLE
                     libraryQRModal_openBtn.visibility = View.GONE
                     true
                 }
@@ -158,7 +145,6 @@ class HomeActivity : AppCompatActivity() {
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.GONE
                     qrView.visibility = View.VISIBLE
-                    additionalSubjectModal_openBtn.visibility = View.GONE
                     libraryQRModal_openBtn.visibility = View.VISIBLE
                     true
                 }
@@ -168,7 +154,8 @@ class HomeActivity : AppCompatActivity() {
         }
 
         // drawer
-        val navigationView = findViewById<com.google.android.material.navigation.NavigationView>(R.id.navigation_drawer)
+        val navigationView =
+            findViewById<com.google.android.material.navigation.NavigationView>(R.id.navigation_drawer)
         val headerView = navigationView.getHeaderView(0)
         val viewTitleInDrawer = headerView.findViewById<TextView>(R.id.viewTitle)
         val menuBtnInDrawer = headerView.findViewById<Button>(R.id.menuBtn)
@@ -182,28 +169,28 @@ class HomeActivity : AppCompatActivity() {
                     homeView.visibility = View.VISIBLE
                     timetableView.visibility = View.GONE
                     qrView.visibility = View.GONE
-                    additionalSubjectModal_openBtn.visibility = View.GONE
                     libraryQRModal_openBtn.visibility = View.GONE
                     true
                 }
+
                 R.id.item_2 -> {
                     viewTitleInDrawer.text = "시간표"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.VISIBLE
                     qrView.visibility = View.GONE
-                    additionalSubjectModal_openBtn.visibility = View.VISIBLE
                     libraryQRModal_openBtn.visibility = View.GONE
                     true
                 }
+
                 R.id.item_3 -> {
                     viewTitleInDrawer.text = "체크인"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.GONE
                     qrView.visibility = View.VISIBLE
-                    additionalSubjectModal_openBtn.visibility = View.GONE
                     libraryQRModal_openBtn.visibility = View.VISIBLE
                     true
                 }
+
                 else -> false
             }
         }
@@ -225,9 +212,18 @@ class HomeActivity : AppCompatActivity() {
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
-                webView.evaluateJavascript("javascript:receiveDeadlineData(`${deadlineForWebview}`)", null)
-                webView.evaluateJavascript("javascript:receiveNoticeData(`${noticeForWebview}`)", null)
-                webView.evaluateJavascript("javascript:receiveTimetableData(`${timetableForWebview}`)", null)
+                webView.evaluateJavascript(
+                    "javascript:receiveDeadlineData(`${deadlineForWebview}`)",
+                    null
+                )
+                webView.evaluateJavascript(
+                    "javascript:receiveNoticeData(`${noticeForWebview}`)",
+                    null
+                )
+                webView.evaluateJavascript(
+                    "javascript:receiveTimetableData(`${timetableForWebview}`)",
+                    null
+                )
                 webView.visibility = View.VISIBLE
                 webViewProgress.visibility = View.GONE
             }
@@ -235,14 +231,20 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun initTimetable(sessionId: String) {
-        timetable = findViewById(R.id.timetable)
-        timetable.setOnStickerSelectEventListener { _, schedules ->
-            loadingDialog.show()
-            openLectureActivity(
-                sessionId,
-                schedules[0].professorName,
-                schedules[0].classTitle
-            )
+        timetableWebView = findViewById(R.id.timetableWebview)
+        timetableWebView.settings.javaScriptEnabled = true
+        timetableWebView.isVerticalScrollBarEnabled = false
+        timetableWebView.isHorizontalScrollBarEnabled = false
+        timetableWebView.setBackgroundColor(0)
+        timetableWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
+
+        timetableWebView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView, url: String) {
+                timetableWebView.evaluateJavascript(
+                    "javascript:receiveTimetableData(`${timetableForWebview}`)",
+                    null
+                )
+            }
         }
         getTimetableData(sessionId)
     }
@@ -252,9 +254,6 @@ class HomeActivity : AppCompatActivity() {
         var subjectList = JSONArray()
         val adapter = ArrayAdapter<String>(this, android.R.layout.simple_list_item_1)
         subjectListView.adapter = adapter
-
-        additionalSubjectList = JSONArray()
-        adapter_additional = ArrayAdapter<String>(this, android.R.layout.simple_list_item_1)
 
         getFeedData(sessionId)
 
@@ -496,9 +495,6 @@ class HomeActivity : AppCompatActivity() {
 
                 val jsonObject = JSONObject()
                 for ((key, schedules) in courseSchedulesMap) {
-                    if (schedules.isNotEmpty()) {
-                        runOnUiThread { timetable.add(schedules) }
-                    }
                     val jsonArray = JSONArray()
                     for (schedule in schedules) {
                         val scheduleJson = JSONObject()
@@ -515,19 +511,14 @@ class HomeActivity : AppCompatActivity() {
                         scheduleJson.put("info", schedule.classPlace)
                         scheduleJson.put("subj", schedule.professorName)
                         jsonArray.put(scheduleJson)
-                        // 온라인 강의 modal에 추가
-                        if (schedule.day >= 5) {
-                            adapter_additional.add(schedule.classTitle)
-                            additionalSubjectList.put(
-                                JSONObject().put("name", schedule.classTitle)
-                                    .put("value", schedule.professorName)
-                            )
-                        }
                     }
                     jsonObject.put(key, jsonArray)
                 }
 
                 timetableForWebview = jsonObject.toString()
+                timetableWebView.post(Runnable {
+                    timetableWebView.loadUrl("file:///android_asset/timetable.html")
+                })
             }
         }
     }
@@ -587,19 +578,28 @@ class HomeActivity : AppCompatActivity() {
         return endHour to endMinute
     }
 
-    fun openQRActivity(
-        sessionId: String, subjID: String, subjName: String
-    ) {
-        fetchSubjectDetail(sessionId, subjName, subjID) { subjDetail2 ->
-            postTransformedData(sessionId, subjDetail2) { subjDetail3 ->
-                postRandomKey(sessionId, subjDetail3) { transformedJson ->
-                    val intent = Intent(this, QRScanActivity::class.java)
-                    intent.putExtra("bodyJSON", transformedJson.toString())
-                    intent.putExtra("subjID", subjID)
-                    intent.putExtra("subjName", subjName)
-                    intent.putExtra("sessionID", sessionId)
-                    startActivity(intent)
+    fun openQRActivity(sessionId: String, subjID: String, subjName: String) {
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                val subjDetail2 = withContext(Dispatchers.IO) {
+                    fetchSubjectDetail(sessionId, subjName, subjID) { it }
                 }
+                val subjDetail3 = withContext(Dispatchers.IO) {
+                    postTransformedData(sessionId, subjDetail2) { it }
+                }
+                val transformedJson = withContext(Dispatchers.IO) {
+                    postRandomKey(sessionId, subjDetail3) { it }
+                }
+                val intent = Intent(this@HomeActivity, QRScanActivity::class.java)
+                intent.putExtra("bodyJSON", transformedJson.toString())
+                intent.putExtra("subjID", subjID)
+                intent.putExtra("subjName", subjName)
+                intent.putExtra("sessionID", sessionId)
+                startActivity(intent)
+            } catch (e: Exception) {
+                // 에러 처리
+                Toast.makeText(this@HomeActivity, "오류가 발생했습니다: ${e.message}", Toast.LENGTH_SHORT)
+                    .show()
             }
         }
     }
@@ -649,7 +649,7 @@ class HomeActivity : AppCompatActivity() {
         subjName: String,
         subjID: String,
         callback: (JSONObject) -> Unit
-    ) {
+    ): JSONObject {
         CoroutineScope(Dispatchers.IO).launch {
             val client = OkHttpClient()
 
@@ -708,13 +708,14 @@ class HomeActivity : AppCompatActivity() {
                 }
             }
         }
+        return JSONObject()
     }
 
     private fun postTransformedData(
         sessionId: String,
         transformedJson: JSONObject,
         callback: (JSONObject) -> Unit
-    ) {
+    ): JSONObject {
         CoroutineScope(Dispatchers.IO).launch {
             val client = OkHttpClient()
 
@@ -738,13 +739,14 @@ class HomeActivity : AppCompatActivity() {
                 callback(transformedJson)
             }
         }
+        return JSONObject()
     }
 
     private fun postRandomKey(
         sessionId: String,
         transformedJson: JSONObject,
         callback: (JSONObject) -> Unit
-    ) {
+    ): JSONObject {
         CoroutineScope(Dispatchers.IO).launch {
             val client = OkHttpClient()
 
@@ -768,6 +770,7 @@ class HomeActivity : AppCompatActivity() {
                 callback(transformedJson)
             }
         }
+        return JSONObject()
     }
 
     private fun getCurrentYear(): String {
@@ -779,11 +782,6 @@ class HomeActivity : AppCompatActivity() {
         return if (currentMonth < 7) "1" else "2" // 8월 기준
     }
 
-    private fun openAdditionalSubjectModal(adapter: ArrayAdapter<String>) {
-        val modal = AdditionalSubjectModal(adapter)
-        modal.setStyle(DialogFragment.STYLE_NORMAL, R.style.RoundCornerBottomSheetDialogTheme)
-        modal.show(supportFragmentManager, AdditionalSubjectModal.TAG)
-    }
 
     private fun openLibraryQRModal() {
         val modal = LibraryQRModal(false)
@@ -791,15 +789,6 @@ class HomeActivity : AppCompatActivity() {
         modal.show(supportFragmentManager, LibraryQRModal.TAG)
     }
 
-    fun callbackAdditionalSubjectModal(position: Int) {
-        val subjID = additionalSubjectList.getJSONObject(position).getString("value")
-        val subjName = adapter_additional.getItem(position)
-
-        if (subjName != null) {
-            loadingDialog.show()
-            openLectureActivity(sessionIdForOtherClass, subjID, subjName)
-        }
-    }
 
     private fun showLoginErrorToast() {
         Toast.makeText(this, "인증에 실패했습니다.", Toast.LENGTH_SHORT).show()
@@ -861,7 +850,8 @@ class HomeActivity : AppCompatActivity() {
         val builder = MaterialAlertDialogBuilder(this)
         builder.setTitle("인증 오류")
             .setMessage("세션이 만료되었습니다. 다시 로그인해주세요.")
-            .setPositiveButton("확인"
+            .setPositiveButton(
+                "확인"
             ) { _, _ ->
                 finish()
                 startActivity(Intent(this@HomeActivity, MainActivity::class.java))
