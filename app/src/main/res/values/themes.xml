@@ -4,7 +4,7 @@
 
     </style>
 
-    <style name="RoundCornerBottomSheetDialogTheme" parent="Theme.Design.BottomSheetDialog">
+    <style name="RoundCornerBottomSheetDialogTheme" parent="Theme.Design.Light.BottomSheetDialog">
         <item name="bottomSheetStyle">@style/RoundCornerModalStyle</item>
     </style>
 

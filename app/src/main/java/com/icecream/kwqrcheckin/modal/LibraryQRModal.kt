@@ -64,7 +64,7 @@ class LibraryQRModal(isWidget: Boolean) : BottomSheetDialogFragment()  {
             dismiss()
             val builder = context?.let { it1 ->
                 MaterialAlertDialogBuilder(it1)
-                    .setTitle("도서관 이용증 설정")
+                    .setTitle("모바일 학생증 설정")
                     .setView(dialogView)
                     .setNegativeButton("완료", DialogInterface.OnClickListener { dialog, which ->
                         val stdNumber = dialogView.findViewById<TextView>(R.id.stdNumber).text.toString()
@@ -107,7 +107,7 @@ class LibraryQRModal(isWidget: Boolean) : BottomSheetDialogFragment()  {
 
             val builder = context?.let { it1 ->
                 MaterialAlertDialogBuilder(it1)
-                    .setTitle("도서관 이용증 설정")
+                    .setTitle("모바일 학생증 설정")
                     .setView(dialogView)
                     .setNegativeButton("완료", DialogInterface.OnClickListener { dialog, which ->
                         val stdNumber = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.stdNumber).text.toString()
@@ -125,7 +125,7 @@ class LibraryQRModal(isWidget: Boolean) : BottomSheetDialogFragment()  {
                             editor?.apply()
 
                             dialog.dismiss()
-                            Snackbar.make(view, "도서관 이용증 설정이 완료되었습니다.", Snackbar.LENGTH_SHORT).show()
+                            Snackbar.make(view, "모바일 학생증 설정이 완료되었습니다.", Snackbar.LENGTH_SHORT).show()
                         }
                     })
             }

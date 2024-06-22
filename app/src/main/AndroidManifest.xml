@@ -25,6 +25,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.KWQRCheckin"
+        android:usesCleartextTraffic="true"
         tools:targetApi="31">
         <service
             android:name=".UpdateSession"
@@ -56,6 +57,10 @@
 
         <activity
             android:name=".TaskViewActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation"
+            android:exported="true" />
+        <activity
+            android:name=".LinkViewActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation"
             android:exported="true" />
         <activity

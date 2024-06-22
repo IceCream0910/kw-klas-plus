@@ -5,6 +5,9 @@ import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import android.view.Gravity
 import android.view.MenuInflater
 import android.view.MenuItem
@@ -40,6 +43,7 @@ import java.util.*
 class HomeActivity : AppCompatActivity() {
     @SuppressLint("MissingInflatedId")
     private lateinit var webView: WebView
+    lateinit var menuWebView: WebView
     private lateinit var timetableWebView: WebView
     private lateinit var deadlineForWebview: String
     private lateinit var noticeForWebview: String
@@ -65,7 +69,6 @@ class HomeActivity : AppCompatActivity() {
             startActivity(Intent(this@HomeActivity, MainActivity::class.java))
         }
 
-        initViews()
         initLoadingDialog()
         initNavigationMenu()
         initWebView()
@@ -88,15 +91,6 @@ class HomeActivity : AppCompatActivity() {
         stopService(serviceIntent)
     }
 
-    private fun initViews() {
-        val libraryQRModal_openBtn = findViewById<Button>(R.id.libraryQRModal_openBtn)
-        progressBar_home = findViewById(R.id.progressBar_home)
-
-        libraryQRModal_openBtn.setOnClickListener {
-            openLibraryQRModal()
-        }
-    }
-
     private fun initLoadingDialog() {
         val builder = MaterialAlertDialogBuilder(this)
         builder.setView(R.layout.layout_loading_dialog)
@@ -112,10 +106,10 @@ class HomeActivity : AppCompatActivity() {
         val timetableView =
             findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.timetableView)
         val qrView = findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.qrView)
+        val menuView = findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.menuView)
         val NavigationBarView =
             findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_navigation)
 
-        val libraryQRModal_openBtn = findViewById<Button>(R.id.libraryQRModal_openBtn)
 
         menuBtn.setOnClickListener {
             showOptionsMenu(it)
@@ -127,7 +121,7 @@ class HomeActivity : AppCompatActivity() {
                     homeView.visibility = View.VISIBLE
                     timetableView.visibility = View.GONE
                     qrView.visibility = View.GONE
-                    libraryQRModal_openBtn.visibility = View.GONE
+                    menuView.visibility = View.GONE
                     true
                 }
 
@@ -136,16 +130,25 @@ class HomeActivity : AppCompatActivity() {
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.VISIBLE
                     qrView.visibility = View.GONE
-                    libraryQRModal_openBtn.visibility = View.GONE
+                    menuView.visibility = View.GONE
                     true
                 }
 
                 R.id.item_3 -> {
-                    viewTitle.text = "체크인"
+                    viewTitle.text = "출석"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.GONE
                     qrView.visibility = View.VISIBLE
-                    libraryQRModal_openBtn.visibility = View.VISIBLE
+                    menuView.visibility = View.GONE
+                    true
+                }
+
+                R.id.item_4 -> {
+                    viewTitle.text = "전체"
+                    homeView.visibility = View.GONE
+                    timetableView.visibility = View.GONE
+                    qrView.visibility = View.GONE
+                    menuView.visibility = View.VISIBLE
                     true
                 }
 
@@ -165,29 +168,38 @@ class HomeActivity : AppCompatActivity() {
         navigationView.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.item_1 -> {
-                    viewTitleInDrawer.text = "KLAS+"
+                    viewTitle.text = "KLAS+"
                     homeView.visibility = View.VISIBLE
                     timetableView.visibility = View.GONE
                     qrView.visibility = View.GONE
-                    libraryQRModal_openBtn.visibility = View.GONE
+                    menuView.visibility = View.GONE
                     true
                 }
 
                 R.id.item_2 -> {
-                    viewTitleInDrawer.text = "시간표"
+                    viewTitle.text = "시간표"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.VISIBLE
                     qrView.visibility = View.GONE
-                    libraryQRModal_openBtn.visibility = View.GONE
+                    menuView.visibility = View.GONE
                     true
                 }
 
                 R.id.item_3 -> {
-                    viewTitleInDrawer.text = "체크인"
+                    viewTitle.text = "출석"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.GONE
                     qrView.visibility = View.VISIBLE
-                    libraryQRModal_openBtn.visibility = View.VISIBLE
+                    menuView.visibility = View.GONE
+                    true
+                }
+
+                R.id.item_4 -> {
+                    viewTitle.text = "전체"
+                    homeView.visibility = View.GONE
+                    timetableView.visibility = View.GONE
+                    qrView.visibility = View.GONE
+                    menuView.visibility = View.VISIBLE
                     true
                 }
 
@@ -228,6 +240,14 @@ class HomeActivity : AppCompatActivity() {
                 webViewProgress.visibility = View.GONE
             }
         }
+
+        menuWebView = findViewById<WebView>(R.id.menuWebView)
+        menuWebView.settings.javaScriptEnabled = true
+        menuWebView.isVerticalScrollBarEnabled = false
+        menuWebView.isHorizontalScrollBarEnabled = false
+        menuWebView.setBackgroundColor(0)
+        menuWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
+        menuWebView.loadUrl("https://kw-klas-plus-webview.vercel.app/profile")
     }
 
     private fun initTimetable(sessionId: String) {
@@ -783,7 +803,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
 
-    private fun openLibraryQRModal() {
+    public fun openLibraryQRModal() {
         val modal = LibraryQRModal(false)
         modal.setStyle(DialogFragment.STYLE_NORMAL, R.style.RoundCornerBottomSheetDialogTheme)
         modal.show(supportFragmentManager, LibraryQRModal.TAG)
@@ -890,6 +910,32 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
             intent.putExtra("yearHakgi", yearHakgi)
             intent.putExtra("subj", subj)
             homeActivity.startActivity(intent)
+        }
+    }
+
+    @JavascriptInterface
+    fun openPage(url: String) {
+        homeActivity.runOnUiThread {
+            val intent = Intent(homeActivity, LinkViewActivity::class.java)
+            intent.putExtra("url", url)
+            homeActivity.startActivity(intent)
+        }
+    }
+
+    @JavascriptInterface
+    fun completePageLoad() {
+        homeActivity.runOnUiThread {
+            homeActivity.menuWebView.evaluateJavascript(
+                "javascript:window.receiveToken('${homeActivity.sessionIdForOtherClass}')",
+                null
+            )
+        }
+    }
+
+    @JavascriptInterface
+    fun openLibraryQR() {
+        homeActivity.runOnUiThread {
+            homeActivity.openLibraryQRModal()
         }
     }
 

@@ -117,28 +117,22 @@
 
     </androidx.appcompat.widget.LinearLayoutCompat>
 
-
-    <Button
-        android:id="@+id/AdditionalSubjectModal_openBtn"
+    <androidx.appcompat.widget.LinearLayoutCompat
+        android:id="@+id/menuView"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="주말 수업 보기"
-        android:background="@drawable/bottom_sheet_openbtn"
-        style="@style/Widget.Material3.Button.TonalButton"
-        android:layout_gravity="bottom"
-        android:visibility="gone"
-        />
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:visibility="gone">
 
-    <Button
-        android:id="@+id/libraryQRModal_openBtn"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="중앙도서관 이용증"
-        android:background="@drawable/bottom_sheet_openbtn"
-        style="@style/Widget.Material3.Button.TonalButton"
-        android:layout_gravity="bottom"
-        android:visibility="gone"
-        />
+
+        <WebView
+            android:id="@+id/menuWebView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+
+    </androidx.appcompat.widget.LinearLayoutCompat>
+
 
     <com.google.android.material.navigation.NavigationView
         android:id="@+id/navigation_drawer"
