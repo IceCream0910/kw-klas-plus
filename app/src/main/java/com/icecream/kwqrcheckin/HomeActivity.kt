@@ -44,6 +44,7 @@ class HomeActivity : AppCompatActivity() {
     @SuppressLint("MissingInflatedId")
     private lateinit var webView: WebView
     lateinit var menuWebView: WebView
+    lateinit var aiWebView: WebView
     private lateinit var timetableWebView: WebView
     private lateinit var deadlineForWebview: String
     private lateinit var noticeForWebview: String
@@ -51,6 +52,7 @@ class HomeActivity : AppCompatActivity() {
     lateinit var sessionIdForOtherClass: String
     private lateinit var progressBar_home: ProgressBar
     lateinit var loadingDialog: AlertDialog
+    lateinit var subjList: JSONArray
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -135,7 +137,7 @@ class HomeActivity : AppCompatActivity() {
                 }
 
                 R.id.item_3 -> {
-                    viewTitle.text = "출석"
+                    viewTitle.text = "KLAS GPT"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.GONE
                     qrView.visibility = View.VISIBLE
@@ -186,7 +188,7 @@ class HomeActivity : AppCompatActivity() {
                 }
 
                 R.id.item_3 -> {
-                    viewTitle.text = "출석"
+                    viewTitle.text = "KLAS GPT"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.GONE
                     qrView.visibility = View.VISIBLE
@@ -248,6 +250,14 @@ class HomeActivity : AppCompatActivity() {
         menuWebView.setBackgroundColor(0)
         menuWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
         menuWebView.loadUrl("https://kw-klas-plus-webview.vercel.app/profile")
+
+        aiWebView = findViewById<WebView>(R.id.aiWebview)
+        aiWebView.settings.javaScriptEnabled = true
+        aiWebView.isVerticalScrollBarEnabled = false
+        aiWebView.isHorizontalScrollBarEnabled = false
+        aiWebView.setBackgroundColor(0)
+        aiWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
+        aiWebView.loadUrl("https://kw-klas-plus-webview.vercel.app/ai")
     }
 
     private fun initTimetable(sessionId: String) {
@@ -658,6 +668,7 @@ class HomeActivity : AppCompatActivity() {
                     handleSessionExpired(sessionId)
                 } else {
                     val jsonArray = JSONArray(responseBody)
+                    subjList = jsonArray
                     callback(jsonArray)
                 }
             }
@@ -918,6 +929,7 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
         homeActivity.runOnUiThread {
             val intent = Intent(homeActivity, LinkViewActivity::class.java)
             intent.putExtra("url", url)
+            intent.putExtra("sessionID", homeActivity.sessionIdForOtherClass)
             homeActivity.startActivity(intent)
         }
     }
@@ -927,6 +939,14 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
         homeActivity.runOnUiThread {
             homeActivity.menuWebView.evaluateJavascript(
                 "javascript:window.receiveToken('${homeActivity.sessionIdForOtherClass}')",
+                null
+            )
+            homeActivity.aiWebView.evaluateJavascript(
+                "javascript:window.receiveToken('${homeActivity.sessionIdForOtherClass}')",
+                null
+            )
+            homeActivity.aiWebView.evaluateJavascript(
+                "javascript:window.receiveSubjList('${homeActivity.subjList}')",
                 null
             )
         }

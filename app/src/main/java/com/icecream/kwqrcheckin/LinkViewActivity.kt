@@ -26,6 +26,7 @@ import android.util.Log
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.DownloadListener
+import android.webkit.JavascriptInterface
 import android.webkit.JsResult
 import android.webkit.WebResourceRequest
 import android.widget.FrameLayout
@@ -36,6 +37,7 @@ import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
 class LinkViewActivity : AppCompatActivity() {
+    lateinit var sessionId: String
     private var uploadMessage: ValueCallback<Array<Uri>>? = null
     private val FILECHOOSER_RESULTCODE = 1
     lateinit var webView: WebView
@@ -46,6 +48,7 @@ class LinkViewActivity : AppCompatActivity() {
         setContentView(R.layout.activity_link_view)
         window.statusBarColor = Color.parseColor("#3A051F")
         val url = intent.getStringExtra("url")
+        sessionId = intent.getStringExtra("sessionID").toString()
         val swipeLayout = findViewById<SwipeRefreshLayout>(R.id.swipeLayout)
 
         swipeLayout.setOnRefreshListener {
@@ -58,7 +61,9 @@ class LinkViewActivity : AppCompatActivity() {
         webView.settings.allowFileAccess = true
         webView.settings.allowContentAccess = true
         webView.settings.supportMultipleWindows()
+        webView.setBackgroundColor(0)
         webView.settings.javaScriptCanOpenWindowsAutomatically = true
+        webView.addJavascriptInterface(JavaScriptInterfaceForLinkView(this), "Android")
         webView.settings.userAgentString =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Whale/3.25.232.19 Safari/537.36"
         if (url != null) {
@@ -238,6 +243,30 @@ class LinkViewActivity : AppCompatActivity() {
             val result = if (intent == null || resultCode != Activity.RESULT_OK) null else intent.data
             uploadMessage?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, intent))
             uploadMessage = null
+        }
+    }
+
+}
+
+
+class JavaScriptInterfaceForLinkView(private val activity: LinkViewActivity) {
+    @JavascriptInterface
+    fun openPage(url: String) {
+        activity.runOnUiThread {
+            val intent = Intent(activity, LinkViewActivity::class.java)
+            intent.putExtra("url", url)
+            intent.putExtra("sessionId", activity.sessionId)
+            activity.startActivity(intent)
+        }
+    }
+
+    @JavascriptInterface
+    fun completePageLoad() {
+        activity.runOnUiThread {
+            activity.webView.evaluateJavascript(
+                "javascript:window.receiveToken('${activity.sessionId}')",
+                null
+            )
         }
     }
 

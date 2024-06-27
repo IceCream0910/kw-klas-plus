@@ -118,19 +118,15 @@
             android:layout_height="0dp"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:padding="20dp"
             android:visibility="gone">
 
-
-            <TextView
+            <WebView
+                android:id="@+id/aiWebview"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="출석 체크할\n과목을 선택하세요."
-                android:textSize="20dp"
-                android:paddingTop="30dp"
-                android:textStyle="bold"/>
+                android:layout_height="match_parent"/>
 
             <ListView
+                android:visibility="gone"
                 android:id="@+id/subjectListView"
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
