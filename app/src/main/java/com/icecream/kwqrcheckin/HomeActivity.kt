@@ -249,7 +249,7 @@ class HomeActivity : AppCompatActivity() {
         menuWebView.isHorizontalScrollBarEnabled = false
         menuWebView.setBackgroundColor(0)
         menuWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
-        menuWebView.loadUrl("https://kw-klas-plus-webview.vercel.app/profile")
+        menuWebView.loadUrl("https://klasplus.yuntae.in/profile")
 
         aiWebView = findViewById<WebView>(R.id.aiWebview)
         aiWebView.settings.javaScriptEnabled = true
@@ -257,7 +257,7 @@ class HomeActivity : AppCompatActivity() {
         aiWebView.isHorizontalScrollBarEnabled = false
         aiWebView.setBackgroundColor(0)
         aiWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
-        aiWebView.loadUrl("https://kw-klas-plus-webview.vercel.app/ai")
+        aiWebView.loadUrl("https://klasplus.yuntae.in/ai")
     }
 
     private fun initTimetable(sessionId: String) {
@@ -395,7 +395,7 @@ class HomeActivity : AppCompatActivity() {
         jobList.joinAll()
         deadlineForWebview = deadline.toString()
         webView.post(Runnable {
-            webView.loadUrl("file:///android_asset/index.html")
+            webView.loadUrl("https://klasplus.yuntae.in/feed.html")
         })
     }
 
@@ -547,7 +547,7 @@ class HomeActivity : AppCompatActivity() {
 
                 timetableForWebview = jsonObject.toString()
                 timetableWebView.post(Runnable {
-                    timetableWebView.loadUrl("file:///android_asset/timetable.html")
+                    timetableWebView.loadUrl("https://klasplus.yuntae.in/timetable.html")
                 })
             }
         }
