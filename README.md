@@ -3,9 +3,11 @@
 # KLAS+  
 광운대학교 KLAS 앱의 기능과 UI를 추가 및 수정한 안드로이드 앱입니다.
 
-## ⚠️ 주의
-  
-개인 사용 용도로 제작된 앱으로 학교의 공식 앱이 아닙니다. 불법적인 목적으로 사용 시 발생하는 불이익에 대해서 개발자는 어떠한 책임도 지지 않음을 밝힙니다.  
+#### ⚠️ 주의 : 개인 사용 용도로 제작된 앱으로 학교의 공식 앱이 아닙니다. 불법적인 목적으로 사용 시 발생하는 불이익에 대해서 개발자는 어떠한 책임도 지지 않음을 밝힙니다. 
+
+## 설치
+[<img src="https://github.com/michaelbel/movies/raw/develop/config/images/badges/badge-github.svg" alt="" height="60">](https://github.com/icecream0910/kw-klas-plus/releases)
+
   
 ## 주요 기능
 - 미수강 강의 및 미수강 과제 확인
