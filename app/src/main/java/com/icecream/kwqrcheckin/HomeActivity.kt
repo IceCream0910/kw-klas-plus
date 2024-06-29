@@ -1,5 +1,6 @@
 package com.icecream.kwqrcheckin
 
+import LibraryQRModal
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Color
@@ -29,7 +30,6 @@ import androidx.fragment.app.DialogFragment
 import com.github.tlaabs.timetableview.Schedule
 import com.github.tlaabs.timetableview.Time
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.icecream.kwqrcheckin.modal.LibraryQRModal
 import kotlinx.coroutines.*
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient

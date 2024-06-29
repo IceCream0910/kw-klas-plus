@@ -1,11 +1,11 @@
 package com.icecream.kwqrcheckin
 
+import LibraryQRModal
 import android.content.Context
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.Toast
 import androidx.fragment.app.DialogFragment
-import com.icecream.kwqrcheckin.modal.LibraryQRModal
 
 class LibraryQRWidgetActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
