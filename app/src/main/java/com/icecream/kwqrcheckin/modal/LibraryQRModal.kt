@@ -13,7 +13,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
-import android.widget.Toast
+import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidmads.library.qrgenearator.QRGContents
 import androidmads.library.qrgenearator.QRGEncoder
@@ -21,6 +21,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 import com.google.zxing.WriterException
 import com.icecream.kwqrcheckin.R
 import kotlinx.coroutines.*
@@ -46,6 +47,7 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
         .build()
     private val baseUrl = "https://mobileid.kw.ac.kr"
     private lateinit var cacheManager: CacheManager
+    private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
 
     @SuppressLint("MissingInflatedId")
     override fun onCreateView(
@@ -53,17 +55,17 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        super.onCreateView(inflater, container, savedInstanceState)
         originalBrightness = activity?.window?.attributes?.screenBrightness
             ?: WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
 
-        val view = inflater.inflate(R.layout.library_qr_modal, container, false)
+        return inflater.inflate(R.layout.library_qr_modal, container, false)
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
         val settingBtn = view.findViewById<TextView>(R.id.settingButton)
         qrImg = view.findViewById(R.id.qrImageView)
-        val sharedPreferences = activity?.getSharedPreferences("com.icecream.kwqrcheckin", Context.MODE_PRIVATE)
-        val stdNumber = sharedPreferences?.getString("library_stdNumber", null)
-        val phone = sharedPreferences?.getString("library_phone", null)
-        val password = sharedPreferences?.getString("library_password", null)
         qrProgressBar = view.findViewById(R.id.qrProgressBar)
         cacheManager = CacheManager(requireContext())
 
@@ -71,10 +73,16 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
             settingBtn.visibility = View.GONE
         }
 
+        val sharedPreferences = activity?.getSharedPreferences("com.icecream.kwqrcheckin", Context.MODE_PRIVATE)
+        val stdNumber = sharedPreferences?.getString("library_stdNumber", null)
+        val phone = sharedPreferences?.getString("library_phone", null)
+        val password = sharedPreferences?.getString("library_password", null)
+
         if (stdNumber == null || phone == null || password == null) {
             showSettingsDialog()
+            dismiss()
         } else {
-            viewLifecycleOwner.lifecycleScope.launch {
+            coroutineScope.launch {
                 displayQR(stdNumber, phone, password)
             }
         }
@@ -90,8 +98,6 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
             val behavior = BottomSheetBehavior.from(bottomSheet!!)
             behavior.peekHeight = view.measuredHeight
         }
-
-        return view
     }
 
     private fun showSettingsDialog() {
@@ -113,22 +119,23 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
             MaterialAlertDialogBuilder(ctx)
                 .setTitle("모바일 학생증 설정")
                 .setView(dialogView)
+                .setCancelable(false)
                 .setNegativeButton("완료") { dialog, _ ->
                     val newStdNumber = stdNumberEditText.text.toString()
                     val newPhone = phoneEditText.text.toString()
                     val newPassword = passwordEditText.text.toString()
 
                     if (newStdNumber.isEmpty() || newPhone.isEmpty() || newPassword.isEmpty()) {
-                        Toast.makeText(context, "모든 항목을 입력해주세요.", Toast.LENGTH_SHORT).show()
+                        Snackbar.make(dialogView, "모든 항목을 입력해주세요.", Snackbar.LENGTH_SHORT).show()
                     } else {
                         val editor = sharedPreferences?.edit()
                         editor?.putString("library_stdNumber", newStdNumber)
                         editor?.putString("library_phone", newPhone)
                         editor?.putString("library_password", newPassword)
                         editor?.apply()
-
                         dialog.dismiss()
-                        viewLifecycleOwner.lifecycleScope.launch {
+                        Snackbar.make(dialogView, "저장되었습니다.", Snackbar.LENGTH_SHORT).show()
+                        coroutineScope.launch {
                             displayQR(newStdNumber, newPhone, newPassword)
                         }
                     }
@@ -159,7 +166,7 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
             displayQrCode(qrData)
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
-                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                Log.e(TAG, e.toString())
             }
             cacheManager.clearCache(realId, userInfoHash)
         }
@@ -224,6 +231,10 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
     }
 
     private suspend fun displayQrCode(qrData: String) = withContext(Dispatchers.Main) {
+        if(qrData.isEmpty()) {
+            showSettingsDialog()
+            dismiss()
+        }
         val qrgEncoder = QRGEncoder(qrData, null, QRGContents.Type.TEXT, 200)
         qrgEncoder.colorBlack = Color.BLACK
         qrgEncoder.colorWhite = Color.WHITE
@@ -232,7 +243,6 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
             qrImg.setImageBitmap(bitmap)
             qrProgressBar.visibility = View.GONE
             qrImg.visibility = View.VISIBLE
-            // Set screen brightness to maximum
             val layoutParams = activity?.window?.attributes
             layoutParams?.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
             activity?.window?.attributes = layoutParams
@@ -281,6 +291,11 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
         if (isWidget) {
             activity?.finish()
         }
+    }
+
+    override fun onDestroyView() {
+        coroutineScope.cancel()
+        super.onDestroyView()
     }
 
     companion object {
