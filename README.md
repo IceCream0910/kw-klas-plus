@@ -6,6 +6,13 @@
 ## 설치
 [<img src="https://github.com/michaelbel/movies/raw/develop/config/images/badges/badge-github.svg" alt="" height="60">](https://github.com/icecream0910/kw-klas-plus/releases)
 
+## 스크린샷
+<p align="center">
+    <img src="https://i.imgur.com/mKwd1Ae.png" width="24%">
+    <img src="https://i.imgur.com/wLz4Bri.png" width="24%">
+    <img src="https://i.imgur.com/w3mGF2s.png" width="24%">
+    <img src="https://i.imgur.com/X4kMSua.png" width="24%">
+</p>
   
 ## 주요 기능
 - 미수강 강의 및 미수강 과제 확인
