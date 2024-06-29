@@ -10,7 +10,7 @@
 <p align="center">
     <img src="https://i.imgur.com/mKwd1Ae.png" width="24%">
     <img src="https://i.imgur.com/wLz4Bri.png" width="24%">
-    <img src="https://i.imgur.com/w3mGF2s.png" width="24%">
+    <img src="https://i.imgur.com/fF9M5sn.png" width="24%">
     <img src="https://i.imgur.com/X4kMSua.png" width="24%">
 </p>
   
