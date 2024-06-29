@@ -59,6 +59,10 @@
 
 </details>
 
+## 참고
+- KLAS Helper 확장앱 : [kw-service/klas-helper-extension](https://github.com/kw-service/klas-helper-extension)
+- 중앙도서관 이용증 PoC : [mirusu400/KWU-library-QR-PoC](https://github.com/mirusu400/KWU-library-QR-PoC)
+
 ## 라이선스
 
 이 프로젝트는 **MIT License** 하에 보호됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
