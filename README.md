@@ -24,6 +24,9 @@
 - QR 출석체크 진입 과정 간소화
 - KLAS 내 정보를 바탕으로 답변하는 KLAS GPT(Beta)
 
+서비스에 사용되는 webView 페이지 코드는 아래에서 확인할 수 있습니다.<br/>
+[IceCream0910/kw-klas-plus-webview](https://github.com/IceCream0910/kw-klas-plus-webview)
+
 ## 기여
   
 1. [풀 리퀘스트 제출](https://github.com/IceCream0910/kw-klas-plus/pulls): 오픈된 PR을 검토하거나 직접 PR을 제출해주세요.
