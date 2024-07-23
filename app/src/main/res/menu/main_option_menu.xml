@@ -13,7 +13,7 @@
         android:title="로그아웃"
         />
     <item
-        android:id="@+id/github"
+        android:id="@+id/info"
         android:title="정보"
         />
 </menu>

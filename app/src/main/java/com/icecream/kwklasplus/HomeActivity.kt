@@ -856,12 +856,16 @@ class HomeActivity : AppCompatActivity() {
                     startActivity(Intent(this@HomeActivity, LoginActivity::class.java))
                 }
 
-                R.id.github -> {
-                    val intent = Intent(
-                        Intent.ACTION_VIEW,
-                        Uri.parse("https://github.com/IceCream0910/kw-klas-plus")
-                    )
-                    startActivity(intent)
+                R.id.info -> {
+                    val builder = MaterialAlertDialogBuilder(this)
+                    builder.setTitle("KLAS+")
+                        .setMessage("광운대학교 KLAS 앱의 기능과 UI를 추가 및 수정한 안드로이드 앱입니다.\n\n⚠️ 주의 : 개인 사용 용도로 제작된 앱으로 학교의 공식 앱이 아닙니다. 불법적인 목적으로 사용 시 발생하는 불이익에 대해서 개발자는 어떠한 책임도 지지 않음을 밝힙니다.")
+                        .setPositiveButton("닫기") { _, _ -> }
+                        .setNeutralButton("GitHub") { _, _ ->
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/IceCream0910/kw-klas-plus"))
+                            startActivity(intent)
+                        }
+                    builder.show()
                 }
             }
             true
