@@ -6,6 +6,13 @@
 ## 설치
 [<img src="https://github.com/michaelbel/movies/raw/develop/config/images/badges/badge-github.svg" alt="" height="60">](https://github.com/icecream0910/kw-klas-plus/releases)
 
+## 스크린샷
+<p align="center">
+    <img src="https://i.imgur.com/mKwd1Ae.png" width="24%">
+    <img src="https://i.imgur.com/wLz4Bri.png" width="24%">
+    <img src="https://i.imgur.com/fF9M5sn.png" width="24%">
+    <img src="https://i.imgur.com/X4kMSua.png" width="24%">
+</p>
   
 ## 주요 기능
 - 미수강 강의 및 미수강 과제 확인
@@ -16,6 +23,9 @@
 - 온라인 강의 백그라운드 재생/PIP 지원
 - QR 출석체크 진입 과정 간소화
 - KLAS 내 정보를 바탕으로 답변하는 KLAS GPT(Beta)
+
+서비스에 사용되는 webView 페이지 코드는 아래에서 확인할 수 있습니다.<br/>
+[IceCream0910/kw-klas-plus-webview](https://github.com/IceCream0910/kw-klas-plus-webview)
 
 ## 기여
   
