@@ -833,12 +833,22 @@ class HomeActivity : AppCompatActivity() {
             when (menuItem?.itemId) {
                 R.id.originApp -> {
                     val intent = packageManager.getLaunchIntentForPackage("kr.ac.kw.SmartLearning")
-                    startActivity(intent)
+                    if (intent != null) {
+                        startActivity(intent)
+                    } else {
+                        val playStoreIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=kr.ac.kw.SmartLearning"))
+                        startActivity(playStoreIntent)
+                    }
                 }
 
                 R.id.libraryApp -> {
                     val intent = packageManager.getLaunchIntentForPackage("idoit.slpck.kwangwoon")
-                    startActivity(intent)
+                    if (intent != null) {
+                        startActivity(intent)
+                    } else {
+                        val playStoreIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=idoit.slpck.kwangwoon"))
+                        startActivity(playStoreIntent)
+                    }
                 }
 
                 R.id.logout -> {
