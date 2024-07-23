@@ -1,6 +1,7 @@
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.DialogInterface
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
 import android.util.Base64
@@ -235,9 +236,14 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
             showSettingsDialog()
             dismiss()
         }
+        val isDarkMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+
+        val qrColor = if (isDarkMode) Color.WHITE else Color.BLACK
+        val backgroundColor = if (isDarkMode) Color.parseColor("#2f2f2f") else Color.WHITE
+
         val qrgEncoder = QRGEncoder(qrData, null, QRGContents.Type.TEXT, 200)
-        qrgEncoder.colorBlack = Color.BLACK
-        qrgEncoder.colorWhite = Color.WHITE
+        qrgEncoder.colorBlack = qrColor
+        qrgEncoder.colorWhite = backgroundColor
         try {
             val bitmap = qrgEncoder.getBitmap(0)
             qrImg.setImageBitmap(bitmap)

@@ -5,8 +5,8 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.widget.RemoteViews
-import android.widget.Toast
 
 /**
  * Implementation of App Widget functionality.
@@ -39,8 +39,16 @@ internal fun updateAppWidget(
 ) {
     val views = RemoteViews(context.packageName, R.layout.library_q_r_widget)
 
+    // 다크 모드 여부에 따라 이미지 변경
+    val isDarkMode = context.resources.configuration.uiMode and
+            Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+
+    val imageRes = if (isDarkMode) R.drawable.qr_widget_img_dark else R.drawable.qr_widget_img_light
+    views.setImageViewResource(R.id.widget_qr_code_img, imageRes)
+
     val intent = Intent(context, LibraryQRWidgetActivity::class.java)
     val pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE)
     views.setOnClickPendingIntent(R.id.widget_qr_code_img, pendingIntent)
+
     appWidgetManager.updateAppWidget(appWidgetId, views)
 }
