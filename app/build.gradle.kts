@@ -4,15 +4,15 @@ plugins {
 }
 
 android {
-    namespace = "com.icecream.kwqrcheckin"
+    namespace = "com.icecream.kwklasplus"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.icecream.kwqrcheckin"
+        applicationId = "com.icecream.kwklasplus"
         minSdk = 29
         targetSdk = 34
-        versionCode = 6
-        versionName = "1.2.1"
+        versionCode = 1
+        versionName = "0.9.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

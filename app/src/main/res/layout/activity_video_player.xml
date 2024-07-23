@@ -12,19 +12,22 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_margin="20dp"
+        android:background="@android:color/white"
         android:gravity="center">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="온라인 강의"
+            android:padding="20dp"
+            android:textColor="@android:color/black"
             android:textSize="25dp"
             android:textStyle="bold"
             android:layout_weight="1"/>
 
 
         <Button
+            android:visibility="gone"
             android:id="@+id/bypassCertBtn"
             style="@style/Widget.Material3.Button.OutlinedButton"
             android:text="인증 우회하기"
@@ -40,7 +43,7 @@
         android:layout_height="match_parent"
         android:id="@+id/swipeLayout">
 
-        <com.icecream.kwqrcheckin.BackgroundWebView
+        <com.icecream.kwklasplus.BackgroundWebView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:id="@+id/webView"/>
