@@ -47,7 +47,18 @@ class TaskViewActivity : AppCompatActivity() {
 
         window.statusBarColor = Color.parseColor("#3A051F")
 
-        val url = intent.getStringExtra("url")
+        val url = intent.getStringExtra("url")?.let {
+            val sanitizedUrl = "https://klas.kw.ac.kr"+Uri.parse(it).toString()
+            if (URLUtil.isValidUrl(sanitizedUrl)) {
+                sanitizedUrl
+            } else {
+                null
+            }
+        } ?: run {
+            Toast.makeText(this, "Invalid URL", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
         val yearHakgi = intent.getStringExtra("yearHakgi")
         val subj = intent.getStringExtra("subj")
 
@@ -66,7 +77,7 @@ class TaskViewActivity : AppCompatActivity() {
         webView.settings.javaScriptCanOpenWindowsAutomatically = true
         webView.settings.userAgentString =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Whale/3.25.232.19 Safari/537.36"
-        webView.loadUrl("https://klas.kw.ac.kr$url")
+        webView.loadUrl(url)
 
         var isOpenVideoAcitivity = false
 

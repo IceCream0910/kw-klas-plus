@@ -47,7 +47,18 @@ class LinkViewActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_link_view)
         window.statusBarColor = Color.parseColor("#3A051F")
-        val url = intent.getStringExtra("url")
+        val url = intent.getStringExtra("url")?.let {
+            val sanitizedUrl = Uri.parse(it).toString()
+            if (URLUtil.isValidUrl(sanitizedUrl)) {
+                sanitizedUrl
+            } else {
+                null
+            }
+        } ?: run {
+            Toast.makeText(this, "Invalid URL", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
         sessionId = intent.getStringExtra("sessionID").toString()
         val swipeLayout = findViewById<SwipeRefreshLayout>(R.id.swipeLayout)
 
@@ -226,7 +237,7 @@ class LinkViewActivity : AppCompatActivity() {
             }
         }
     }
-
+//////
     override fun onBackPressed() {
         if(webView.canGoBack()){
             webView.goBack()
