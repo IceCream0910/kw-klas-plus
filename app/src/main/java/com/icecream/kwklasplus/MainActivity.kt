@@ -27,6 +27,20 @@ class MainActivity : AppCompatActivity() {
             finish()
             startActivity(Intent(this, LoginActivity::class.java))
         } else {
+            val instantSession = sharedPreferences.getString("kwSESSION", null)
+            val instantSessionTimestamp = sharedPreferences.getString("kwSESSION_timestamp", null)
+            if (instantSession != null && instantSessionTimestamp != null) {
+                val session = instantSession
+                val timestamp = instantSessionTimestamp.toLong()
+                if (System.currentTimeMillis() - timestamp < 1000 * 60 * 60) {
+                    val serviceIntent = Intent(this, UpdateSession::class.java)
+                    serviceIntent.putExtra("session", session)
+                    startService(serviceIntent)
+                    finish()
+                    startActivity(Intent(this, HomeActivity::class.java))
+                    return
+                }
+            }
             val webView = findViewById<WebView>(R.id.webView)
             webView.settings.javaScriptEnabled = true
             webView.webViewClient = object : WebViewClient() {
@@ -43,6 +57,7 @@ class MainActivity : AppCompatActivity() {
                         if (session != null) {
                             with(sharedPreferences.edit()) {
                                 putString("kwSESSION", session)
+                                putString("kwSESSION_timestamp", System.currentTimeMillis().toString())
                                 apply()
                             }
                             val serviceIntent = Intent(this@MainActivity, UpdateSession::class.java)
@@ -83,7 +98,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-                webView.settings.userAgentString =
+            webView.settings.userAgentString =
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Whale/3.25.232.19 Safari/537.36"
             webView.loadUrl("https://klas.kw.ac.kr/mst/cmn/login/LoginForm.do")
         }
