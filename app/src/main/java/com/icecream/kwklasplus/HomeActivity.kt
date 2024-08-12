@@ -924,6 +924,15 @@ class HomeActivity : AppCompatActivity() {
 
         return requestBuilder.build()
     }
+
+    override fun onBackPressed() {
+        if (webView.canGoBack()) {
+            webView.goBack()
+        } else {
+            super.onBackPressed()
+            finishAffinity()
+        }
+    }
 }
 
 class JavaScriptInterface(private val homeActivity: HomeActivity) {
