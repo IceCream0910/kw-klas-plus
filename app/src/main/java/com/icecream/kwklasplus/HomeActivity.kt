@@ -18,7 +18,6 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.ArrayAdapter
 import android.widget.Button
-import android.widget.ListView
 import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -53,6 +52,7 @@ class HomeActivity : AppCompatActivity() {
     private lateinit var progressBar_home: ProgressBar
     lateinit var loadingDialog: AlertDialog
     lateinit var subjList: JSONArray
+    var yearHakgi: String = ""
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,17 +69,16 @@ class HomeActivity : AppCompatActivity() {
             showLoginErrorToast()
             finish()
             startActivity(Intent(this@HomeActivity, MainActivity::class.java))
+            return
         }
 
+        webView = findViewById(R.id.webView)
+        menuWebView = findViewById<WebView>(R.id.menuWebView)
+        aiWebView = findViewById<WebView>(R.id.aiWebview)
+        timetableWebView = findViewById(R.id.timetableWebview)
+        initSubjectList(sessionId)
         initLoadingDialog()
         initNavigationMenu()
-        initWebView()
-        if (sessionId != null) {
-            initTimetable(sessionId)
-        }
-        if (sessionId != null) {
-            initSubjectList(sessionId)
-        }
     }
 
     override fun onResume() {
@@ -217,102 +216,90 @@ class HomeActivity : AppCompatActivity() {
 
     private fun initWebView() {
         val webViewProgress = findViewById<ProgressBar>(R.id.progressBar_webview)
-        webView = findViewById(R.id.webView)
-        webView.settings.javaScriptEnabled = true
-        webView.isVerticalScrollBarEnabled = false
-        webView.isHorizontalScrollBarEnabled = false
-        webView.setBackgroundColor(0)
-        webView.addJavascriptInterface(JavaScriptInterface(this), "Android")
+        webView.post(Runnable {
+            webView.settings.javaScriptEnabled = true
+            webView.isVerticalScrollBarEnabled = false
+            webView.isHorizontalScrollBarEnabled = false
+            webView.setBackgroundColor(0)
+            webView.addJavascriptInterface(JavaScriptInterface(this), "Android")
 
-        webView.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView, url: String) {
-                webView.evaluateJavascript(
-                    "javascript:receiveDeadlineData(`${deadlineForWebview}`)",
-                    null
-                )
-                webView.evaluateJavascript(
-                    "javascript:receiveNoticeData(`${noticeForWebview}`)",
-                    null
-                )
-                webView.evaluateJavascript(
-                    "javascript:receiveTimetableData(`${timetableForWebview}`)",
-                    null
-                )
-                webView.visibility = View.VISIBLE
-                webViewProgress.visibility = View.GONE
+            webView.webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView, url: String) {
+                    webView.evaluateJavascript(
+                        "javascript:receiveDeadlineData(`${deadlineForWebview}`)",
+                        null
+                    )
+                    webView.evaluateJavascript(
+                        "javascript:receiveNoticeData(`${noticeForWebview}`)",
+                        null
+                    )
+                    webView.evaluateJavascript(
+                        "javascript:receiveTimetableData(`${timetableForWebview}`)",
+                        null
+                    )
+                    webView.visibility = View.VISIBLE
+                    webViewProgress.visibility = View.GONE
+                }
             }
-        }
+        })
 
-        menuWebView = findViewById<WebView>(R.id.menuWebView)
-        menuWebView.settings.javaScriptEnabled = true
-        menuWebView.isVerticalScrollBarEnabled = false
-        menuWebView.isHorizontalScrollBarEnabled = false
-        menuWebView.setBackgroundColor(0)
-        menuWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
-        menuWebView.loadUrl("https://klasplus.yuntae.in/profile")
+        menuWebView.post(Runnable {
+            menuWebView.settings.javaScriptEnabled = true
+            menuWebView.isVerticalScrollBarEnabled = false
+            menuWebView.isHorizontalScrollBarEnabled = false
+            menuWebView.setBackgroundColor(0)
+            menuWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
+            menuWebView.loadUrl("https://klasplus.yuntae.in/profile")
+        })
 
-        aiWebView = findViewById<WebView>(R.id.aiWebview)
-        aiWebView.settings.javaScriptEnabled = true
-        aiWebView.isVerticalScrollBarEnabled = false
-        aiWebView.isHorizontalScrollBarEnabled = false
-        aiWebView.setBackgroundColor(0)
-        aiWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
-        aiWebView.loadUrl("https://klasplus.yuntae.in/ai")
+        aiWebView.post(Runnable {
+            aiWebView.settings.javaScriptEnabled = true
+            aiWebView.isVerticalScrollBarEnabled = false
+            aiWebView.isHorizontalScrollBarEnabled = false
+            aiWebView.setBackgroundColor(0)
+            aiWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
+            aiWebView.loadUrl("https://klasplus.yuntae.in/ai")
+        })
     }
 
     private fun initTimetable(sessionId: String) {
-        timetableWebView = findViewById(R.id.timetableWebview)
-        timetableWebView.settings.javaScriptEnabled = true
-        timetableWebView.isVerticalScrollBarEnabled = false
-        timetableWebView.isHorizontalScrollBarEnabled = false
-        timetableWebView.setBackgroundColor(0)
-        timetableWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
+        timetableWebView.post(Runnable {
+            timetableWebView.settings.javaScriptEnabled = true
+            timetableWebView.isVerticalScrollBarEnabled = false
+            timetableWebView.isHorizontalScrollBarEnabled = false
+            timetableWebView.setBackgroundColor(0)
+            timetableWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
+            timetableWebView.loadUrl("https://klasplus.yuntae.in/timetable.html?yearHakgi=${yearHakgi}")
 
-        timetableWebView.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView, url: String) {
-                timetableWebView.evaluateJavascript(
-                    "javascript:receiveTimetableData(`${timetableForWebview}`)",
-                    null
-                )
+            timetableWebView.webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView, url: String) {
+                    if(timetableForWebview.isNotEmpty()) {
+                        timetableWebView.evaluateJavascript(
+                            "javascript:receiveTimetableData(`${timetableForWebview}`)",
+                            null
+                        )
+                    } else {
+                        Toast.makeText(this@HomeActivity, "시간표를 불러오는데 실패했습니다.", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
-        }
-        getTimetableData(sessionId)
+        })
     }
 
     private fun initSubjectList(sessionId: String) {
-        val subjectListView = findViewById<ListView>(R.id.subjectListView)
-        var subjectList = JSONArray()
-        val adapter = ArrayAdapter<String>(this, android.R.layout.simple_list_item_1)
-        subjectListView.adapter = adapter
-
         getFeedData(sessionId)
 
         fetchSubjectList(sessionId) { jsonArray ->
             runOnUiThread {
-                adapter.clear()
-                for (i in 0 until jsonArray.length()) {
-                    val jsonObject = jsonArray.getJSONObject(i)
-                    val subjList = jsonObject.getJSONArray("subjList")
-                    subjectList = subjList
-                    CoroutineScope(Dispatchers.IO).launch {
-                        fetchDeadlines(sessionId, subjList)
-                    }
-                    for (j in 0 until subjList.length()) {
-                        val subjItem = subjList.getJSONObject(j)
-                        val label = subjItem.getString("name")
-                        adapter.add(label)
-                    }
+                val jsonObject = jsonArray.getJSONObject(0)
+                val subjList = jsonObject.getJSONArray("subjList")
+                yearHakgi = jsonObject.getString("value")
+
+                CoroutineScope(Dispatchers.IO).launch {
+                    getTimetableData(sessionId)
+                    fetchDeadlines(sessionId, subjList)
+                    initWebView()
                 }
-            }
-        }
-
-        subjectListView.setOnItemClickListener { _, _, position, _ ->
-            val subjID = subjectList.getJSONObject(position).getString("value")
-            val subjName = adapter.getItem(position)
-
-            if (subjName != null) {
-                loadingDialog.show()
-                openQRActivity(sessionId, subjID, subjName)
             }
         }
     }
@@ -395,7 +382,7 @@ class HomeActivity : AppCompatActivity() {
         jobList.joinAll()
         deadlineForWebview = deadline.toString()
         webView.post(Runnable {
-            webView.loadUrl("https://klasplus.yuntae.in/feed.html")
+            webView.loadUrl("https://klasplus.yuntae.in/feed.html?yearHakgi=${yearHakgi}")
         })
     }
 
@@ -544,11 +531,8 @@ class HomeActivity : AppCompatActivity() {
                     }
                     jsonObject.put(key, jsonArray)
                 }
-
+                initTimetable(sessionId)
                 timetableForWebview = jsonObject.toString()
-                timetableWebView.post(Runnable {
-                    timetableWebView.loadUrl("https://klasplus.yuntae.in/timetable.html")
-                })
             }
         }
     }
@@ -805,16 +789,22 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun getCurrentYear(): String {
+        if(yearHakgi.isNotEmpty()) {
+            return yearHakgi.split(",")[0]
+        }
         return Calendar.getInstance().get(Calendar.YEAR).toString()
     }
 
     private fun getCurrentSemester(): String {
+        if(yearHakgi.isNotEmpty()) {
+            return yearHakgi.split(",")[1]
+        }
         val currentMonth = Calendar.getInstance().get(Calendar.MONTH)
         return if (currentMonth < 7) "1" else "2" // 8월 기준
     }
 
 
-    public fun openLibraryQRModal() {
+    fun openLibraryQRModal() {
         val modal = LibraryQRModal(false)
         modal.setStyle(DialogFragment.STYLE_NORMAL, R.style.RoundCornerBottomSheetDialogTheme)
         modal.show(supportFragmentManager, LibraryQRModal.TAG)
