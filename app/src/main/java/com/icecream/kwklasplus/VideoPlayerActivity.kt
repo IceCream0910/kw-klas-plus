@@ -294,7 +294,6 @@ class VideoPlayerActivity : AppCompatActivity() {
         }
     }
 
-
     private fun startPIP() {
         if (packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
             var param = PictureInPictureParams.Builder().build()
