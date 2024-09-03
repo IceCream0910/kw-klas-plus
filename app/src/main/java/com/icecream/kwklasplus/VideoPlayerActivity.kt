@@ -31,30 +31,43 @@ import androidx.core.view.WindowCompat
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.jsoup.Jsoup
+import kotlin.properties.Delegates
 
 class VideoPlayerActivity : AppCompatActivity() {
     lateinit var lectureNameTextView: TextView
     lateinit var webView: WebView
+    lateinit var titleLayout: LinearLayout
     var isViewer = false
+    var isBypassCert = false
+    var onStopCalled by Delegates.notNull<Boolean>()
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_video_player)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = Color.TRANSPARENT
 
-        lectureNameTextView = findViewById<TextView>(R.id.lectureNameTextView)
+        lectureNameTextView = findViewById(R.id.lectureNameTextView)
 
-        val titleTextView = findViewById<LinearLayout>(R.id.titleTextView)
+        val titleTextView = findViewById<TextView>(R.id.titleTextView)
         val bypassCertBtn = findViewById<Button>(R.id.bypassCertBtn)
 
+        titleLayout = findViewById<LinearLayout>(R.id.titleLayout)
+
         bypassCertBtn.setOnClickListener {
-            val builder = MaterialAlertDialogBuilder(this)
-            builder.setTitle("경고")
-                .setCancelable(true)
-                .setMessage("이 기능은 불안정한 기능으로 동작하지 않을 수 있으니, 가급적 사용하지 않는 것을 권장 드립니다.")
-                .setPositiveButton("계속") { dialog, id ->
-                    if(webView != null) {
-                        webView.evaluateJavascript("""
+            if(isBypassCert) {
+                bypassCertBtn.text = "인증 우회하기"
+                isBypassCert = false
+                webView.reload()
+            } else {
+                val builder = MaterialAlertDialogBuilder(this)
+                builder.setTitle("경고")
+                    .setCancelable(true)
+                    .setMessage("이 기능은 불안정한 기능으로 동작하지 않을 수 있습니다. 만약 인증 우회 관련 경고창이 표시되는 경우, 인증 우회를 해제한 후 다시 시도해주시기 바랍니다.")
+                    .setPositiveButton("계속") { dialog, id ->
+                        if(webView != null) {
+                            webView.evaluateJavascript("""
                             lrnCerti.checkCerti = async function(grcode, subj, year, hakgi, bunban,
 							module, lesson, oid, starting, contentsType,
 							weeklyseq, weeklysubseq, width, height, today,
@@ -93,16 +106,19 @@ class VideoPlayerActivity : AppCompatActivity() {
     '인증 기능이 제거되었습니다.'
   ].join('\n'));
                         """.trimIndent(), null
-                        )
-                    } else {
-                        Toast.makeText(this, "웹뷰가 로드되지 않았습니다.", Toast.LENGTH_SHORT).show()
+                            )
+                            bypassCertBtn.text = "인증 우회 해제"
+                            isBypassCert = true
+                        } else {
+                            Toast.makeText(this, "웹뷰가 로드되지 않았습니다.", Toast.LENGTH_SHORT).show()
+                        }
+                        dialog.dismiss()
                     }
-                    dialog.dismiss()
-                }
-                .setNegativeButton("취소") { dialog, id ->
-                    dialog.dismiss()
-                }
-                .show()
+                    .setNegativeButton("취소") { dialog, id ->
+                        dialog.dismiss()
+                    }
+                    .show()
+            }
         }
 
         val pipButton = findViewById<Button>(R.id.pipButton)
@@ -135,6 +151,7 @@ class VideoPlayerActivity : AppCompatActivity() {
         webView.settings.allowFileAccess = true
         webView.settings.allowContentAccess = true
         webView.settings.supportMultipleWindows()
+        webView.setBackgroundColor(0)
         webView.settings.javaScriptCanOpenWindowsAutomatically = true
         webView.addJavascriptInterface(WebAppInterface(this), "Android")
         webView.settings.userAgentString =
@@ -180,7 +197,8 @@ class VideoPlayerActivity : AppCompatActivity() {
 
                 if (url.contains("viewer/")) {
                     isViewer = true
-                    titleTextView.visibility = View.GONE
+                    titleTextView.text = "강의 시청"
+                    bypassCertBtn.visibility = View.GONE
                     val params = swipeLayout.layoutParams
                     params.height = (resources.displayMetrics.heightPixels * 0.3).toInt() + 50
                     swipeLayout.layoutParams = params
@@ -203,7 +221,11 @@ class VideoPlayerActivity : AppCompatActivity() {
                                 "}, 10000);"
                         , null
                     )
-                } else { isViewer = false; titleTextView.visibility = View.VISIBLE }
+                } else {
+                    isViewer = false;
+                    bypassCertBtn.visibility = View.VISIBLE
+                    titleTextView.text = "온라인 강의"
+                }
             }
         }
 
@@ -280,10 +302,26 @@ class VideoPlayerActivity : AppCompatActivity() {
         }
     }
 
+    override fun onStop() {
+        super.onStop()
+        onStopCalled = true
+    }
+
+    override fun onResume() {
+        super.onResume()
+        onStopCalled = false
+    }
+
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         if (isInPictureInPictureMode) {
+            titleLayout.visibility = View.GONE
         } else {
+            if (onStopCalled) {
+                finish()
+            } else {
+                titleLayout.visibility = View.VISIBLE
+            }
         }
     }
 

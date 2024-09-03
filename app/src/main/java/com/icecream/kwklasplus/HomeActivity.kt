@@ -38,15 +38,15 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.system.exitProcess
 
 class HomeActivity : AppCompatActivity() {
     @SuppressLint("MissingInflatedId")
-    private lateinit var webView: WebView
+    lateinit var webView: WebView
     lateinit var menuWebView: WebView
     lateinit var aiWebView: WebView
     private lateinit var timetableWebView: WebView
     private lateinit var deadlineForWebview: String
-    private lateinit var noticeForWebview: String
     private lateinit var timetableForWebview: String
     lateinit var sessionIdForOtherClass: String
     private lateinit var progressBar_home: ProgressBar
@@ -226,15 +226,11 @@ class HomeActivity : AppCompatActivity() {
             webView.webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView, url: String) {
                     webView.evaluateJavascript(
-                        "javascript:receiveDeadlineData(`${deadlineForWebview}`)",
+                        "javascript:window.receiveDeadlineData(`${deadlineForWebview}`)",
                         null
                     )
                     webView.evaluateJavascript(
-                        "javascript:receiveNoticeData(`${noticeForWebview}`)",
-                        null
-                    )
-                    webView.evaluateJavascript(
-                        "javascript:receiveTimetableData(`${timetableForWebview}`)",
+                        "javascript:window.receiveTimetableData(`${timetableForWebview}`)",
                         null
                     )
                     webView.visibility = View.VISIBLE
@@ -258,7 +254,7 @@ class HomeActivity : AppCompatActivity() {
             aiWebView.isHorizontalScrollBarEnabled = false
             aiWebView.setBackgroundColor(0)
             aiWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
-            aiWebView.loadUrl("https://klasplus.yuntae.in/ai")
+            aiWebView.loadUrl("https://klasplus.yuntae.in/ai?yearHakgi=${yearHakgi}")
         })
     }
 
@@ -287,8 +283,6 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun initSubjectList(sessionId: String) {
-        getFeedData(sessionId)
-
         fetchSubjectList(sessionId) { jsonArray ->
             runOnUiThread {
                 val jsonObject = jsonArray.getJSONObject(0)
@@ -304,31 +298,6 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    private fun getFeedData(sessionId: String) {
-        CoroutineScope(Dispatchers.IO).launch {
-            val client = OkHttpClient()
-            val request = buildRequest(
-                "https://klas.kw.ac.kr/std/cmn/frame/StdHome.do",
-                sessionId,
-                RequestBody.create(null, "{\"searchYearhakgi\": null}")
-            )
-
-            val response = client.newCall(request).execute()
-            val responseBody = response.body?.string()
-
-            if (responseBody != null) {
-                val jsonArray = JSONObject(responseBody)
-                val noticeList = ArrayList<JSONObject>()
-
-                val noticeArray = jsonArray.getJSONArray("subjNotiList")
-                for (i in 0 until noticeArray.length()) {
-                    val noticeItem = noticeArray.getJSONObject(i)
-                    noticeList.add(noticeItem)
-                }
-                noticeForWebview = noticeList.toString()
-            }
-        }
-    }
 
     private suspend fun fetchDeadlines(sessionId: String, subjList: JSONArray) {
         val deadline = ArrayList<JSONObject>()
@@ -382,7 +351,7 @@ class HomeActivity : AppCompatActivity() {
         jobList.joinAll()
         deadlineForWebview = deadline.toString()
         webView.post(Runnable {
-            webView.loadUrl("https://klasplus.yuntae.in/feed.html?yearHakgi=${yearHakgi}")
+            webView.loadUrl("https://klasplus.yuntae.in/feed?yearHakgi=${yearHakgi}")
         })
     }
 
@@ -921,6 +890,7 @@ class HomeActivity : AppCompatActivity() {
         } else {
             super.onBackPressed()
             finishAffinity()
+            exitProcess(0)
         }
     }
 }
@@ -950,6 +920,10 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
     @JavascriptInterface
     fun completePageLoad() {
         homeActivity.runOnUiThread {
+            homeActivity.webView.evaluateJavascript(
+                "javascript:window.receiveToken('${homeActivity.sessionIdForOtherClass}')",
+                null
+            )
             homeActivity.menuWebView.evaluateJavascript(
                 "javascript:window.receiveToken('${homeActivity.sessionIdForOtherClass}')",
                 null
