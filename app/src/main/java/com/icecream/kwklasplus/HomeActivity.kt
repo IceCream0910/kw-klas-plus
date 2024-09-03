@@ -3,20 +3,21 @@ package com.icecream.kwklasplus
 import LibraryQRModal
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.view.Gravity
 import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
+import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.PopupMenu
 import android.widget.ProgressBar
@@ -29,6 +30,7 @@ import androidx.fragment.app.DialogFragment
 import com.github.tlaabs.timetableview.Schedule
 import com.github.tlaabs.timetableview.Time
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.navigation.NavigationBarView
 import kotlinx.coroutines.*
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
@@ -40,6 +42,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.system.exitProcess
 
+
 class HomeActivity : AppCompatActivity() {
     @SuppressLint("MissingInflatedId")
     lateinit var webView: WebView
@@ -49,10 +52,10 @@ class HomeActivity : AppCompatActivity() {
     private lateinit var deadlineForWebview: String
     private lateinit var timetableForWebview: String
     lateinit var sessionIdForOtherClass: String
-    private lateinit var progressBar_home: ProgressBar
     lateinit var loadingDialog: AlertDialog
     lateinit var subjList: JSONArray
     var yearHakgi: String = ""
+    private var isKeyboardShowing = false
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,6 +75,28 @@ class HomeActivity : AppCompatActivity() {
             return
         }
 
+        val rootView = findViewById<View>(android.R.id.content)
+        rootView.viewTreeObserver.addOnGlobalLayoutListener {
+            val r = Rect()
+            rootView.getWindowVisibleDisplayFrame(r)
+            val screenHeight = rootView.height
+
+            val keypadHeight = screenHeight - r.bottom
+            val navBar = findViewById<NavigationBarView>(R.id.bottom_navigation)
+
+            if (!isKeyboardShowing && keypadHeight > screenHeight * 0.15) {
+                isKeyboardShowing = true
+                aiWebView.layoutParams.height = screenHeight - keypadHeight - 300
+                menuWebView.layoutParams.height = screenHeight - keypadHeight - 300
+                navBar.visibility = View.GONE
+            } else if (isKeyboardShowing && keypadHeight < screenHeight * 0.15) {
+                isKeyboardShowing = false
+                aiWebView.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
+                menuWebView.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
+                navBar.visibility = View.VISIBLE
+            }
+        }
+
         webView = findViewById(R.id.webView)
         menuWebView = findViewById<WebView>(R.id.menuWebView)
         aiWebView = findViewById<WebView>(R.id.aiWebview)
@@ -80,6 +105,7 @@ class HomeActivity : AppCompatActivity() {
         initLoadingDialog()
         initNavigationMenu()
     }
+
 
     override fun onResume() {
         super.onResume()
@@ -222,6 +248,15 @@ class HomeActivity : AppCompatActivity() {
             webView.isHorizontalScrollBarEnabled = false
             webView.setBackgroundColor(0)
             webView.addJavascriptInterface(JavaScriptInterface(this), "Android")
+
+            try {
+                val pInfo: PackageInfo =
+                    baseContext.packageManager.getPackageInfo(baseContext.packageName, 0)
+                val version = pInfo.versionName
+                webView.settings.userAgentString += " AndroidApp_v${version}"
+            } catch (e: PackageManager.NameNotFoundException) {
+                e.printStackTrace()
+            }
 
             webView.webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView, url: String) {
