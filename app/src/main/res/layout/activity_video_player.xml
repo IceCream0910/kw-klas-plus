@@ -30,6 +30,7 @@
 
         <Button
             android:id="@+id/bypassCertBtn"
+            android:visibility="gone"
             style="@style/Widget.Material3.Button.OutlinedButton"
             android:textAlignment="textEnd"
             android:layout_width="wrap_content"

@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.graphics.Rect
 import android.net.Uri
 import android.os.Bundle
+import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Gravity
 import android.view.MenuInflater
@@ -31,7 +32,13 @@ import com.github.tlaabs.timetableview.Schedule
 import com.github.tlaabs.timetableview.Time
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.navigation.NavigationBarView
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.Runnable
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -39,7 +46,8 @@ import okhttp3.RequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
+import java.util.Date
 import kotlin.system.exitProcess
 
 
@@ -77,6 +85,18 @@ class HomeActivity : AppCompatActivity() {
 
         val rootView = findViewById<View>(android.R.id.content)
         rootView.viewTreeObserver.addOnGlobalLayoutListener {
+            // 태블릿에서는 무시
+            val metrics = DisplayMetrics()
+            windowManager.defaultDisplay.getMetrics(metrics)
+            val widthPixels = metrics.widthPixels
+            val heightPixels = metrics.heightPixels
+            val scaleFactor = metrics.density
+            val widthDp = widthPixels / scaleFactor
+            val isTablet: Boolean = widthDp >= 600
+            if (isTablet) {
+                return@addOnGlobalLayoutListener
+            }
+
             val r = Rect()
             rootView.getWindowVisibleDisplayFrame(r)
             val screenHeight = rootView.height
@@ -264,10 +284,21 @@ class HomeActivity : AppCompatActivity() {
                         "javascript:window.receiveDeadlineData(`${deadlineForWebview}`)",
                         null
                     )
-                    webView.evaluateJavascript(
-                        "javascript:window.receiveTimetableData(`${timetableForWebview}`)",
-                        null
-                    )
+                    if(timetableForWebview.isNotEmpty()) {
+                        webView.evaluateJavascript(
+                            "javascript:receiveTimetableData(`${timetableForWebview}`)",
+                            null
+                        )
+                    } else {
+                        Log.e("error", "timetableForWebview is empty")
+                        webView.postDelayed(Runnable {
+                            webView.evaluateJavascript(
+                                "javascript:receiveTimetableData(`${timetableForWebview}`)",
+                                null
+                            )
+                        }, 1000)
+                    }
+
                     webView.visibility = View.VISIBLE
                     webViewProgress.visibility = View.GONE
                 }
@@ -280,6 +311,14 @@ class HomeActivity : AppCompatActivity() {
             menuWebView.isHorizontalScrollBarEnabled = false
             menuWebView.setBackgroundColor(0)
             menuWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
+            try {
+                val pInfo: PackageInfo =
+                    baseContext.packageManager.getPackageInfo(baseContext.packageName, 0)
+                val version = pInfo.versionName
+                menuWebView.settings.userAgentString += " AndroidApp_v${version}"
+            } catch (e: PackageManager.NameNotFoundException) {
+                e.printStackTrace()
+            }
             menuWebView.loadUrl("https://klasplus.yuntae.in/profile")
         })
 
@@ -304,13 +343,14 @@ class HomeActivity : AppCompatActivity() {
 
             timetableWebView.webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView, url: String) {
-                    if(timetableForWebview.isNotEmpty()) {
+                    if (timetableForWebview.isNotEmpty()) {
                         timetableWebView.evaluateJavascript(
                             "javascript:receiveTimetableData(`${timetableForWebview}`)",
                             null
                         )
                     } else {
-                        Toast.makeText(this@HomeActivity, "시간표를 불러오는데 실패했습니다.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@HomeActivity, "시간표를 불러오는데 실패했습니다.", Toast.LENGTH_SHORT)
+                            .show()
                     }
                 }
             }
@@ -535,8 +575,8 @@ class HomeActivity : AppCompatActivity() {
                     }
                     jsonObject.put(key, jsonArray)
                 }
-                initTimetable(sessionId)
                 timetableForWebview = jsonObject.toString()
+                initTimetable(sessionId)
             }
         }
     }
@@ -793,14 +833,14 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun getCurrentYear(): String {
-        if(yearHakgi.isNotEmpty()) {
+        if (yearHakgi.isNotEmpty()) {
             return yearHakgi.split(",")[0]
         }
         return Calendar.getInstance().get(Calendar.YEAR).toString()
     }
 
     private fun getCurrentSemester(): String {
-        if(yearHakgi.isNotEmpty()) {
+        if (yearHakgi.isNotEmpty()) {
             return yearHakgi.split(",")[1]
         }
         val currentMonth = Calendar.getInstance().get(Calendar.MONTH)
@@ -830,7 +870,10 @@ class HomeActivity : AppCompatActivity() {
                     if (intent != null) {
                         startActivity(intent)
                     } else {
-                        val playStoreIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=kr.ac.kw.SmartLearning"))
+                        val playStoreIntent = Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse("https://play.google.com/store/apps/details?id=kr.ac.kw.SmartLearning")
+                        )
                         startActivity(playStoreIntent)
                     }
                 }
@@ -840,7 +883,10 @@ class HomeActivity : AppCompatActivity() {
                     if (intent != null) {
                         startActivity(intent)
                     } else {
-                        val playStoreIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=idoit.slpck.kwangwoon"))
+                        val playStoreIntent = Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse("https://play.google.com/store/apps/details?id=idoit.slpck.kwangwoon")
+                        )
                         startActivity(playStoreIntent)
                     }
                 }
@@ -856,7 +902,10 @@ class HomeActivity : AppCompatActivity() {
                         .setMessage("광운대학교 KLAS 앱의 기능과 UI를 추가 및 수정한 안드로이드 앱입니다.\n\n⚠️ 주의 : 개인 사용 용도로 제작된 앱으로 학교의 공식 앱이 아닙니다. 불법적인 목적으로 사용 시 발생하는 불이익에 대해서 개발자는 어떠한 책임도 지지 않음을 밝힙니다.")
                         .setPositiveButton("닫기") { _, _ -> }
                         .setNeutralButton("GitHub") { _, _ ->
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/IceCream0910/kw-klas-plus"))
+                            val intent = Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("https://github.com/IceCream0910/kw-klas-plus")
+                            )
                             startActivity(intent)
                         }
                     builder.show()

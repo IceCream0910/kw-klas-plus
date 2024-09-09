@@ -3,7 +3,7 @@
     android:id="@android:id/background"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/zxing_transparent"
+    android:background="@color/transparent"
     android:theme="@style/Theme.KWQRCheckin.AppWidgetContainer">
 
 
