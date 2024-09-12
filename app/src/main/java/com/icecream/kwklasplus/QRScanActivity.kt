@@ -35,7 +35,7 @@ class QRScanActivity : AppCompatActivity() {
             .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
             .enableAutoZoom()
             .build()
-        val scanner = GmsBarcodeScanning.getClient(this)
+        val scanner = GmsBarcodeScanning.getClient(this, options)
         scanner.startScan()
             .addOnSuccessListener { barcode ->
                 barcode.rawValue?.let {
