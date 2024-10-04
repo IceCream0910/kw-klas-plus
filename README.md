@@ -5,6 +5,7 @@
 
 ## 설치
 [<img src="https://github.com/michaelbel/movies/raw/develop/config/images/badges/badge-github.svg" alt="" height="60">](https://github.com/icecream0910/kw-klas-plus/releases)
+[<img src="https://github.com/michaelbel/movies/raw/develop/config/images/badges/badge-googleplay.svg" alt="" height="60">](https://play.google.com/store/apps/details?id=com.icecream.kwklasplus)
 
 ## 스크린샷
 <p align="center">
@@ -15,13 +16,14 @@
 </p>
   
 ## 주요 기능
-- 미수강 강의 및 미수강 과제 확인
+- 미수강 강의 및 미제출 과제 확인
+- 모바일 학생증(도서관 이용증) 위젯
 - 강의 홈에서 강의계획서 바로 조회
-- 모바일 학생증(중앙도서관 이용증) 위젯
-- KLAS 메뉴 목록 개선 및 검색 기능
+- 온라인 강의 PIP 지원
+- QR 출석체크 진입 과정 간소화 및 인식률 개선(카메라 줌 가능)
+- 홈에서 오늘의 학식 메뉴 및 학사 공지사항 확인
+- KLAS 메뉴 UI 개선 및 검색 기능 추가
 - 개선된 성적 페이지(학기 별 성적 표시, 성적 추이 그래프 표시 등)
-- 온라인 강의 백그라운드 재생/PIP 지원
-- QR 출석체크 진입 과정 간소화
 - KLAS 내 정보를 바탕으로 답변하는 KLAS GPT(Beta)
 
 서비스에 사용되는 webView 페이지 코드는 아래에서 확인할 수 있습니다.<br/>
