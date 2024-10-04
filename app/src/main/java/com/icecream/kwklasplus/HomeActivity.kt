@@ -264,6 +264,7 @@ class HomeActivity : AppCompatActivity() {
         val webViewProgress = findViewById<ProgressBar>(R.id.progressBar_webview)
         webView.post(Runnable {
             webView.settings.javaScriptEnabled = true
+            webView.settings.domStorageEnabled = true
             webView.isVerticalScrollBarEnabled = false
             webView.isHorizontalScrollBarEnabled = false
             webView.setBackgroundColor(0)
@@ -290,7 +291,6 @@ class HomeActivity : AppCompatActivity() {
                             null
                         )
                     } else {
-                        Log.e("error", "timetableForWebview is empty")
                         webView.postDelayed(Runnable {
                             webView.evaluateJavascript(
                                 "javascript:receiveTimetableData(`${timetableForWebview}`)",
@@ -307,6 +307,7 @@ class HomeActivity : AppCompatActivity() {
 
         menuWebView.post(Runnable {
             menuWebView.settings.javaScriptEnabled = true
+            menuWebView.settings.domStorageEnabled = true
             menuWebView.isVerticalScrollBarEnabled = false
             menuWebView.isHorizontalScrollBarEnabled = false
             menuWebView.setBackgroundColor(0)
@@ -324,6 +325,7 @@ class HomeActivity : AppCompatActivity() {
 
         aiWebView.post(Runnable {
             aiWebView.settings.javaScriptEnabled = true
+            aiWebView.settings.domStorageEnabled = true
             aiWebView.isVerticalScrollBarEnabled = false
             aiWebView.isHorizontalScrollBarEnabled = false
             aiWebView.setBackgroundColor(0)
@@ -335,6 +337,7 @@ class HomeActivity : AppCompatActivity() {
     private fun initTimetable(sessionId: String) {
         timetableWebView.post(Runnable {
             timetableWebView.settings.javaScriptEnabled = true
+            timetableWebView.settings.domStorageEnabled = true
             timetableWebView.isVerticalScrollBarEnabled = false
             timetableWebView.isHorizontalScrollBarEnabled = false
             timetableWebView.setBackgroundColor(0)
@@ -445,6 +448,7 @@ class HomeActivity : AppCompatActivity() {
 
                 if (hourGap >= 0) {
                     val onlineLectureItem = JSONObject()
+                        .put("startDate", lecture.getString("startDate"))
                         .put("endDate", lecture.getString("endDate"))
                         .put("hourGap", hourGap)
                     subjDeadline.getJSONArray("onlineLecture").put(onlineLectureItem)
@@ -463,13 +467,18 @@ class HomeActivity : AppCompatActivity() {
         for (i in 0 until homeworkArray.length()) {
             val homework = homeworkArray.getJSONObject(i)
             if (homework.getString("submityn") != "Y") {
-                val endDate =
-                    SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(homework.getString("expiredate"))
+                val expireDateString = homework.getString("expiredate")
+                val endDate = try {
+                    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ").parse(expireDateString)
+                } catch (e: Exception) {
+                    SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(expireDateString)
+                }
                 val hourGap = ((endDate.time - nowDate.time) / 3600000).toInt()
 
                 if (hourGap >= 0) {
                     val homeworkItem = JSONObject()
-                        .put("expiredate", homework.getString("expiredate"))
+                        .put("startDate", homework.getString("startdate"))
+                        .put("endDate", homework.getString("expiredate"))
                         .put("hourGap", hourGap)
                     val jsonArray =
                         if (homeworkType == "HW") subjDeadline.getJSONArray("task") else subjDeadline.getJSONArray(
@@ -688,16 +697,22 @@ class HomeActivity : AppCompatActivity() {
                 RequestBody.create(null, "{}")
             )
 
-            val response = client.newCall(request).execute()
-            val responseBody = response.body?.string()
+            try {
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string()
 
-            if (responseBody != null) {
-                if (responseBody.contains("<!DOCTYPE html>")) {
-                    handleSessionExpired(sessionId)
-                } else {
-                    val jsonArray = JSONArray(responseBody)
-                    subjList = jsonArray
-                    callback(jsonArray)
+                if (responseBody != null) {
+                    if (responseBody.contains("<!DOCTYPE html>")) {
+                        handleSessionExpired(sessionId)
+                    } else {
+                        val jsonArray = JSONArray(responseBody)
+                        subjList = jsonArray
+                        callback(jsonArray)
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this@HomeActivity, "강의 목록 가져오는 중 오류 발생: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -737,33 +752,39 @@ class HomeActivity : AppCompatActivity() {
                 requestBody
             )
 
-            val response = client.newCall(request).execute()
-            val responseBody = response.body?.string()
+            try {
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string()
 
-            if (responseBody != null) {
-                val jsonArray = JSONArray(responseBody)
-                for (i in 0 until jsonArray.length()) {
-                    val jsonObject = jsonArray.getJSONObject(i)
-                    if (jsonObject.getString("gwamokKname") == subjName) {
-                        val transformedJson = JSONObject()
-                            .put("list", JSONArray())
-                            .put("selectYear", jsonObject.getString("thisYear"))
-                            .put("selectHakgi", jsonObject.getString("hakgi"))
-                            .put("openMajorCode", jsonObject.getString("openMajorCode"))
-                            .put("openGrade", jsonObject.getString("openGrade"))
-                            .put("openGwamokNo", jsonObject.getString("openGwamokNo"))
-                            .put("bunbanNo", jsonObject.getString("bunbanNo"))
-                            .put("gwamokKname", jsonObject.getString("gwamokKname"))
-                            .put("codeName1", jsonObject.getString("codeName1"))
-                            .put("hakjumNum", jsonObject.getString("hakjumNum"))
-                            .put("sisuNum", jsonObject.getString("sisuNum"))
-                            .put("memberName", jsonObject.getString("memberName"))
-                            .put("currentNum", jsonObject.getString("currentNum"))
-                            .put("yoil", jsonObject.getString("yoil"))
-                            .put("subj", subjID)
-                        callback(transformedJson)
-                        break
+                if (responseBody != null) {
+                    val jsonArray = JSONArray(responseBody)
+                    for (i in 0 until jsonArray.length()) {
+                        val jsonObject = jsonArray.getJSONObject(i)
+                        if (jsonObject.getString("gwamokKname") == subjName) {
+                            val transformedJson = JSONObject()
+                                .put("list", JSONArray())
+                                .put("selectYear", jsonObject.getString("thisYear"))
+                                .put("selectHakgi", jsonObject.getString("hakgi"))
+                                .put("openMajorCode", jsonObject.getString("openMajorCode"))
+                                .put("openGrade", jsonObject.getString("openGrade"))
+                                .put("openGwamokNo", jsonObject.getString("openGwamokNo"))
+                                .put("bunbanNo", jsonObject.getString("bunbanNo"))
+                                .put("gwamokKname", jsonObject.getString("gwamokKname"))
+                                .put("codeName1", jsonObject.getString("codeName1"))
+                                .put("hakjumNum", jsonObject.getString("hakjumNum"))
+                                .put("sisuNum", jsonObject.getString("sisuNum"))
+                                .put("memberName", jsonObject.getString("memberName"))
+                                .put("currentNum", jsonObject.getString("currentNum"))
+                                .put("yoil", jsonObject.getString("yoil"))
+                                .put("subj", subjID)
+                            callback(transformedJson)
+                            break
+                        }
                     }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this@HomeActivity, "강의 정보 가져오는 중 오류 발생: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -997,6 +1018,14 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
             val intent = Intent(homeActivity, LinkViewActivity::class.java)
             intent.putExtra("url", url)
             intent.putExtra("sessionID", homeActivity.sessionIdForOtherClass)
+            homeActivity.startActivity(intent)
+        }
+    }
+
+    @JavascriptInterface
+    fun openExternalPage(url: String) {
+        homeActivity.runOnUiThread {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
             homeActivity.startActivity(intent)
         }
     }
