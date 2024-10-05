@@ -12,7 +12,6 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_centerInParent="true"
-            android:contentDescription="@string/app_widget_description"
             android:scaleType="centerInside"
             android:src="@drawable/qr_widget_img_light" />
 

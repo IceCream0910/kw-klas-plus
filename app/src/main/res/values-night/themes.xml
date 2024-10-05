@@ -50,11 +50,11 @@
     </style>
 
 
-    <style name="RoundCornerBottomSheetDialogTheme" parent="Theme.Design.BottomSheetDialog">
+    <style name="RoundCornerBottomSheetDialogTheme" parent="Theme.Material3.Dark.BottomSheetDialog">
         <item name="bottomSheetStyle">@style/RoundCornerModalStyle</item>
     </style>
 
-    <style name="RoundCornerModalStyle" parent="Widget.Design.BottomSheet.Modal">
+    <style name="RoundCornerModalStyle" parent="Widget.Material3.BottomSheet.Modal">
         <item name="android:background">@drawable/black_round_top_border_20</item>
     </style>
 

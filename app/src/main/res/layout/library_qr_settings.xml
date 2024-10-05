@@ -6,15 +6,6 @@
     android:orientation="vertical"
     android:padding="20dp">
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="먼저 중앙도서관 공식 앱을 설치해 로그인한 후 진행해주세요"
-        android:textColor="#a6a6a6"
-        android:textSize="12dp"
-        android:layout_marginBottom="10dp"
-        />
-
     <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

@@ -4,12 +4,14 @@ import android.content.DialogInterface
 import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
+import android.os.CountDownTimer
 import android.util.Base64
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.ProgressBar
@@ -49,6 +51,10 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
     private val baseUrl = "https://mobileid.kw.ac.kr"
     private lateinit var cacheManager: CacheManager
     private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
+    private lateinit var refreshButton: Button
+    private lateinit var refreshButtonForWidget: Button
+    private var countDownTimer: CountDownTimer? = null
+    private val refreshInterval = 50000L
 
     @SuppressLint("MissingInflatedId")
     override fun onCreateView(
@@ -66,12 +72,40 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
         super.onViewCreated(view, savedInstanceState)
 
         val settingBtn = view.findViewById<TextView>(R.id.settingButton)
+        val refreshImageButtonForWidget = view.findViewById<ImageView>(R.id.refreshImageButtonForWidget)
+        refreshButtonForWidget = view.findViewById(R.id.refreshButtonForWidget)
+        refreshButton = view.findViewById(R.id.refreshButton)
         qrImg = view.findViewById(R.id.qrImageView)
         qrProgressBar = view.findViewById(R.id.qrProgressBar)
         cacheManager = CacheManager(requireContext())
 
         if (isWidget) {
             settingBtn.visibility = View.GONE
+            refreshImageButtonForWidget.visibility = View.VISIBLE
+            refreshButtonForWidget.visibility = View.VISIBLE
+            refreshButton.visibility = View.GONE
+        } else {
+            refreshImageButtonForWidget.visibility = View.GONE
+            refreshButtonForWidget.visibility = View.GONE
+            refreshButton.visibility = View.VISIBLE
+        }
+
+        refreshButton.setOnClickListener {
+            coroutineScope.launch {
+                refreshQRCode()
+            }
+        }
+
+        refreshButtonForWidget.setOnClickListener {
+            coroutineScope.launch {
+                refreshQRCode()
+            }
+        }
+
+        refreshImageButtonForWidget.setOnClickListener {
+            coroutineScope.launch {
+                refreshQRCode()
+            }
         }
 
         val sharedPreferences = activity?.getSharedPreferences("com.icecream.kwklasplus", Context.MODE_PRIVATE)
@@ -85,6 +119,7 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
         } else {
             coroutineScope.launch {
                 displayQR(stdNumber, phone, password)
+                startCountDownTimer()
             }
         }
 
@@ -149,6 +184,42 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
                 }
         }
         builder?.show()
+    }
+
+    private fun startCountDownTimer() {
+        countDownTimer?.cancel()
+        countDownTimer = object : CountDownTimer(refreshInterval, 1000) {
+            override fun onTick(millisUntilFinished: Long) {
+                val secondsRemaining = millisUntilFinished / 1000
+                if(isWidget) {
+                    refreshButtonForWidget.text = "$secondsRemaining 초"
+                } else {
+                    refreshButton.text = " $secondsRemaining 초"
+                }
+            }
+
+            override fun onFinish() {
+                coroutineScope.launch {
+                    refreshQRCode()
+                }
+            }
+        }.start()
+    }
+
+    private suspend fun refreshQRCode() {
+        val sharedPreferences = activity?.getSharedPreferences("com.icecream.kwklasplus", Context.MODE_PRIVATE)
+        val stdNumber = sharedPreferences?.getString("library_stdNumber", null)
+        val phone = sharedPreferences?.getString("library_phone", null)
+        val password = sharedPreferences?.getString("library_password", null)
+
+        if (stdNumber != null && phone != null && password != null) {
+            qrProgressBar.visibility = View.VISIBLE
+            qrImg.visibility = View.GONE
+            displayQR(stdNumber, phone, password)
+            startCountDownTimer()
+        } else {
+            Snackbar.make(requireView(), "QR 코드를 새로고침할 수 없습니다. 설정을 확인해주세요.", Snackbar.LENGTH_SHORT).show()
+        }
     }
 
     private suspend fun displayQR(stdNumber: String, phone: String, password: String) = withContext(Dispatchers.IO) {
@@ -245,7 +316,7 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
         val isDarkMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
 
         val qrColor = if (isDarkMode) Color.WHITE else Color.BLACK
-        val backgroundColor = if (isDarkMode) Color.parseColor("#2f2f2f") else Color.WHITE
+        val backgroundColor = Color.TRANSPARENT
 
         val qrgEncoder = QRGEncoder(qrData, null, QRGContents.Type.TEXT, 200)
         qrgEncoder.colorBlack = qrColor
@@ -294,7 +365,6 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
 
     override fun onDismiss(dialog: DialogInterface) {
         super.onDismiss(dialog)
-
         // 화면 밝기 원래대로
         val layoutParams = activity?.window?.attributes
         layoutParams?.screenBrightness = originalBrightness
@@ -306,6 +376,7 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
     }
 
     override fun onDestroyView() {
+        countDownTimer?.cancel()
         coroutineScope.cancel()
         super.onDestroyView()
     }
