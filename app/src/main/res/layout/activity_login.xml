@@ -1,65 +1,171 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="20dp"
+    android:fitsSystemWindows="true"
     tools:context=".LoginActivity">
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="KLAS 계정으로\n로그인해주세요"
-        android:textSize="25dp"
-        android:textStyle="bold"
-        android:layout_marginTop="50dp"
-        android:layout_marginBottom="20dp">
-    </TextView>
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/clOnboarding"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="visible"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <androidx.core.widget.NestedScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:fillViewport="true"
+            app:layout_constraintBottom_toTopOf="@id/btnStart"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <androidx.appcompat.widget.LinearLayoutCompat
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="20dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="50dp"
+                    android:text="만나서 반가워요 👋\nKLAS+를 시작해볼까요?"
+                    android:textSize="25sp"
+                    android:textStyle="bold"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:text="광운대학교 KLAS 앱의 기능과 UI를 추가 및 수정한 안드로이드 앱입니다.\n\n광운대학교에 재학 중인 학부생을 위한 서비스로 타 대학 학생이나 본교 소속 교수 등은 사용할 수 없습니다."
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="15dp"
+                    android:textColor="@color/md_theme_outline"
+                    android:text="⚠ KLAS+는 학교의 공식 앱이 아닙니다. 불법적인 목적으로 사용 시 발생하는 불이익에 대해서 개발자는 어떠한 책임도 지지 않음을 밝힙니다."
+                    android:textSize="14sp" />
 
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        app:endIconMode="clear_text"
-        android:layout_marginBottom="10dp">
+            </androidx.appcompat.widget.LinearLayoutCompat>
 
-    <com.google.android.material.textfield.TextInputEditText
-        android:id="@+id/etId"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="학번"
-        android:inputType="number" />
+        </androidx.core.widget.NestedScrollView>
 
-    </com.google.android.material.textfield.TextInputLayout>
+        <com.icecream.kwklasplus.components.AnimatedButton
+            android:id="@+id/btnStart"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="시작하기"
+            android:layout_marginHorizontal="15dp"
+            android:layout_marginBottom="25dp"
+            app:layout_constraintBottom_toBottomOf="parent" />
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        app:endIconMode="password_toggle">
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <com.google.android.material.textfield.TextInputEditText
-        android:id="@+id/etPwd"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="비밀번호"
-        android:inputType="textPassword"
-        android:layout_marginTop="10dp" />
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/clLogin"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
 
-    </com.google.android.material.textfield.TextInputLayout>
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/nestedScrollView"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:fillViewport="true"
+            app:layout_constraintBottom_toTopOf="@id/btnLogin"
+            app:layout_constraintTop_toTopOf="parent">
 
-    <Button
-        android:id="@+id/btnLogin"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="로그인"
-        android:layout_marginTop="20dp" />
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+                <TextView
+                    android:id="@+id/tvTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="20dp"
+                    android:layout_marginTop="50dp"
+                    android:text="학번을 입력해주세요."
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    app:layout_constraintTop_toTopOf="parent" />
 
-    </TextView>
+                <LinearLayout
+                    android:id="@+id/llInputContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="20dp"
+                    android:layout_marginTop="20dp"
+                    android:orientation="vertical"
+                    app:layout_constraintTop_toBottomOf="@id/tvTitle">
 
-</androidx.appcompat.widget.LinearLayoutCompat>
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilPwd"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="10dp"
+                        android:visibility="gone"
+                        app:endIconMode="password_toggle">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etPwd"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="비밀번호"
+                            android:imeOptions="actionDone"
+                            android:inputType="textPassword" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilId"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox"
+                        app:endIconMode="clear_text">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etId"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="학번"
+                            android:imeOptions="actionNext"
+                            android:inputType="number"
+                            android:maxLength="10" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                </LinearLayout>
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+        </androidx.core.widget.NestedScrollView>
+
+        <com.icecream.kwklasplus.components.AnimatedButton
+            android:id="@+id/btnLogin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="확인"
+            android:enabled="false"
+            android:layout_marginHorizontal="15dp"
+            android:layout_marginBottom="25dp"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>

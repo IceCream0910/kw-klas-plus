@@ -913,8 +913,24 @@ class HomeActivity : AppCompatActivity() {
                 }
 
                 R.id.logout -> {
-                    finish()
-                    startActivity(Intent(this@HomeActivity, LoginActivity::class.java))
+                    val builder = MaterialAlertDialogBuilder(this)
+                    builder.setTitle("로그아웃")
+                        .setMessage("정말 로그아웃할까요?")
+                        .setPositiveButton("확인") { _, _ ->
+                            val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
+                            val editor = sharedPreferences.edit()
+                            editor.clear()
+                            editor.apply()
+
+                            val sharedPreferences_library = getSharedPreferences("LibraryQRCache", MODE_PRIVATE)
+                            val editor_library = sharedPreferences_library.edit()
+                            editor_library.clear()
+                            editor_library.apply()
+                            finish()
+                            startActivity(Intent(this@HomeActivity, LoginActivity::class.java))
+                        }
+                        .setNegativeButton("취소") { _, _ -> }
+                    builder.show()
                 }
 
                 R.id.info -> {
