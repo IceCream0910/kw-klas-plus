@@ -104,7 +104,10 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
     private fun showSettingsDialog() {
         val dialogView = LayoutInflater.from(context).inflate(R.layout.library_qr_settings, null)
         val sharedPreferences = activity?.getSharedPreferences("com.icecream.kwklasplus", Context.MODE_PRIVATE)
-        val stdNumber = sharedPreferences?.getString("library_stdNumber", "")
+        var stdNumber = sharedPreferences?.getString("library_stdNumber", "")
+        if(stdNumber.isNullOrEmpty()) {
+            stdNumber = sharedPreferences?.getString("kwID", "")
+        }
         val phone = sharedPreferences?.getString("library_phone", "")
         val password = sharedPreferences?.getString("library_password", "")
 
@@ -120,8 +123,8 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
             MaterialAlertDialogBuilder(ctx)
                 .setTitle("모바일 학생증 설정")
                 .setView(dialogView)
-                .setCancelable(false)
-                .setNegativeButton("완료") { dialog, _ ->
+                .setCancelable(true)
+                .setPositiveButton("완료") { dialog, _ ->
                     val newStdNumber = stdNumberEditText.text.toString()
                     val newPhone = phoneEditText.text.toString()
                     val newPassword = passwordEditText.text.toString()
@@ -140,6 +143,9 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
                             displayQR(newStdNumber, newPhone, newPassword)
                         }
                     }
+                }
+                .setNegativeButton("취소") { dialog, _ ->
+                    dialog.dismiss()
                 }
         }
         builder?.show()

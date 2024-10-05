@@ -53,26 +53,23 @@
         android:orientation="horizontal"
         android:layout_marginBottom="20dp">
 
-        <android.widget.Button
+        <com.icecream.kwklasplus.components.AnimatedButtonSecondary
             android:id="@+id/LctPlanBtn"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="강의계획서"
             android:textColor="@android:color/black"
-            android:background="@drawable/button_gray"
             android:layout_marginLeft="20dp"
             android:layout_marginRight="5dp"
             android:stateListAnimator="@null"/>
 
-        <android.widget.Button
+        <com.icecream.kwklasplus.components.AnimatedButton
             android:id="@+id/QRBtn"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="QR 출석"
-            android:textColor="@android:color/white"
-            android:background="@drawable/button_primary"
             android:layout_marginLeft="5dp"
             android:layout_marginRight="20dp"
             android:stateListAnimator="@null"/>
