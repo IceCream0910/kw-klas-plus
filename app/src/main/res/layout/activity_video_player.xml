@@ -12,10 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginTop="40dp"
-        android:layout_marginLeft="20dp"
-        android:layout_marginRight="20dp"
-        android:layout_marginBottom="20dp"
+        android:layout_margin="20dp"
         android:gravity="center">
 
         <TextView
@@ -26,17 +23,6 @@
             android:textSize="25dp"
             android:textStyle="bold"
             android:layout_weight="1"/>
-
-
-        <Button
-            android:id="@+id/bypassCertBtn"
-            android:visibility="gone"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            android:textAlignment="textEnd"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="인증 우회하기"
-            android:layout_gravity="end"/>
 
     </LinearLayout>
 
@@ -65,8 +51,25 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text=""
-            android:textSize="16dp"
+            android:textSize="22dp"
             android:textStyle="bold"
+            android:layout_marginBottom="10dp"
+            />
+
+        <ProgressBar
+            android:id="@+id/timeProgressBar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:progress="0"
+            android:max="100"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:id="@+id/lectureTimeTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="14dp"
             />
 
 
@@ -76,25 +79,32 @@
             android:orientation="horizontal"
             android:layout_marginTop="15dp">
 
-        <Button
-            style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
-            app:icon="@drawable/baseline_picture_in_picture_alt_24"
-            android:id="@+id/pipButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="  PIP로 재생"
-            />
+            <Button
+                style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
+                app:icon="@drawable/baseline_picture_in_picture_alt_24"
+                android:id="@+id/pipButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="  PIP로 재생 "
+                />
 
             <Button
-                style="@style/Widget.Material3.Button.IconButton.Outlined"
+                style="@style/Widget.Material3.Button.IconButton.Filled"
                 app:icon="@drawable/baseline_close_24"
                 android:id="@+id/closeButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="  나가기"
+                android:text="  나가기 "
                 />
 
         </LinearLayout>
+        <Button
+            style="@style/Widget.Material3.Button.IconButton.Outlined"
+            android:id="@+id/openInBrowserButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=" 원본 영상 보기 "
+            />
 
     </LinearLayout>
 

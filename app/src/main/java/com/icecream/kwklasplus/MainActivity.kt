@@ -45,9 +45,6 @@ class MainActivity : AppCompatActivity() {
                             putString("kwSESSION_timestamp", System.currentTimeMillis().toString())
                             apply()
                         }
-                        val serviceIntent = Intent(this@MainActivity, UpdateSession::class.java)
-                        serviceIntent.putExtra("session", session)
-                        startService(serviceIntent)
                         if(!isInstantLogin) {
                             startActivity(
                                 Intent(
@@ -95,15 +92,9 @@ class MainActivity : AppCompatActivity() {
             val instantSessionTimestamp = sharedPreferences.getString("kwSESSION_timestamp", null)
             isInstantLogin = false
             if (instantSession != null && instantSessionTimestamp != null) {
-                val session = instantSession
                 val timestamp = instantSessionTimestamp.toLong()
                 if (System.currentTimeMillis() - timestamp < 1000 * 60 * 60) { // 1시간 이내 세션 정보 있으면 바로 실행
                     isInstantLogin = true
-                    /* TODO: 세션 자동 갱신 시 SocketTimeoutException으로 인한 비정상 종료 발생
-                    val serviceIntent = Intent(this, UpdateSession::class.java)
-                    serviceIntent.putExtra("session", session)
-                    startService(serviceIntent)
-                    */
                     startActivity(Intent(this, HomeActivity::class.java))
                 }
             }

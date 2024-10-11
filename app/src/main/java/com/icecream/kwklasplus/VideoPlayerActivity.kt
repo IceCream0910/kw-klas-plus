@@ -25,6 +25,7 @@ import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.view.WindowCompat
@@ -35,94 +36,37 @@ import kotlin.properties.Delegates
 
 class VideoPlayerActivity : AppCompatActivity() {
     lateinit var lectureNameTextView: TextView
+    lateinit var lectureTimeTextView: TextView
+    lateinit var timeProgressBar: ProgressBar
     lateinit var webView: WebView
     lateinit var titleLayout: LinearLayout
     var isViewer = false
-    var isBypassCert = false
     var onStopCalled by Delegates.notNull<Boolean>()
+    var originVideoURL: String = ""
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_video_player)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = Color.TRANSPARENT
+        window.statusBarColor = Color.parseColor("#3A051F")
 
         lectureNameTextView = findViewById(R.id.lectureNameTextView)
+        lectureTimeTextView = findViewById(R.id.lectureTimeTextView)
+        timeProgressBar = findViewById(R.id.timeProgressBar)
+        timeProgressBar.isIndeterminate = false
 
         val titleTextView = findViewById<TextView>(R.id.titleTextView)
-        val bypassCertBtn = findViewById<Button>(R.id.bypassCertBtn)
 
         titleLayout = findViewById<LinearLayout>(R.id.titleLayout)
 
-        bypassCertBtn.setOnClickListener {
-            if(isBypassCert) {
-                bypassCertBtn.text = "인증 우회하기"
-                isBypassCert = false
-                webView.reload()
-            } else {
-                val builder = MaterialAlertDialogBuilder(this)
-                builder.setTitle("경고")
-                    .setCancelable(true)
-                    .setMessage("이 기능은 불안정한 기능으로 동작하지 않을 수 있습니다. 만약 인증 우회 관련 경고창이 표시되는 경우, 인증 우회를 해제한 후 다시 시도해주시기 바랍니다.")
-                    .setPositiveButton("계속") { dialog, id ->
-                        if(webView != null) {
-                            webView.evaluateJavascript("""
-                            lrnCerti.checkCerti = async function(grcode, subj, year, hakgi, bunban,
-							module, lesson, oid, starting, contentsType,
-							weeklyseq, weeklysubseq, width, height, today,
-							sdate, edate, ptype, totalTime, prog, gubun, ptime) {
-						let self = this;
-						self.grcode = grcode;
-						self.subj = subj;
-						self.year = year;
-						self.hakgi = hakgi;
-						self.weeklyseq = weeklyseq;
-						self.gubun = gubun;
-						self.certiGubun = '';
-						await axios.post('/std/lis/evltn/CertiStdCheck.do',self.${"$"}data);
-                        await axios.post('/std/lis/evltn/CertiPushSucStd.do', self.${"$"}data)
-							 .then(function(response) {
-									if (gubun == 'C') {
-										appModule.goViewCntnts(
-												grcode, subj, year,
-												hakgi, bunban,
-												module, lesson,
-												oid, starting,
-												contentsType,
-												weeklyseq,
-												weeklysubseq,
-												width, height,
-												today, sdate,
-												edate, ptype,
-												totalTime, prog,
-												ptime);
-									}
-							}
-						 	.bind(this));
-}
-
-  alert([
-    '인증 기능이 제거되었습니다.'
-  ].join('\n'));
-                        """.trimIndent(), null
-                            )
-                            bypassCertBtn.text = "인증 우회 해제"
-                            isBypassCert = true
-                        } else {
-                            Toast.makeText(this, "웹뷰가 로드되지 않았습니다.", Toast.LENGTH_SHORT).show()
-                        }
-                        dialog.dismiss()
-                    }
-                    .setNegativeButton("취소") { dialog, id ->
-                        dialog.dismiss()
-                    }
-                    .show()
-            }
-        }
-
         val pipButton = findViewById<Button>(R.id.pipButton)
         val closeButton = findViewById<Button>(R.id.closeButton)
+        val openInBrowserButton = findViewById<Button>(R.id.openInBrowserButton)
+
+        openInBrowserButton.setOnClickListener {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(originVideoURL.ifEmpty { webView.url ?: "" }))
+            startActivity(intent)
+        }
 
         pipButton.setOnClickListener {
             startPIP()
@@ -197,8 +141,7 @@ class VideoPlayerActivity : AppCompatActivity() {
 
                 if (url.contains("viewer/")) {
                     isViewer = true
-                    titleTextView.text = "강의 시청"
-                    bypassCertBtn.visibility = View.GONE
+                    titleLayout.visibility = View.GONE
                     val params = swipeLayout.layoutParams
                     params.height = (resources.displayMetrics.heightPixels * 0.3).toInt() + 50
                     swipeLayout.layoutParams = params
@@ -221,10 +164,15 @@ class VideoPlayerActivity : AppCompatActivity() {
                                 "}, 10000);"
                         , null
                     )
+
+                    webView.evaluateJavascript(
+                        "const videoURL = chkOpen.toString().split('https://kwcommons.kw.ac.kr/em/')[1].split('\"')[0];"+
+                                "Android.receiveVideoURL(videoURL);"
+                        , null
+                    )
                 } else {
                     isViewer = false;
-                    bypassCertBtn.visibility = View.VISIBLE
-                    titleTextView.text = "온라인 강의"
+                    titleLayout.visibility = View.VISIBLE
                 }
             }
         }
@@ -371,15 +319,40 @@ class VideoPlayerActivity : AppCompatActivity() {
     }
 }
 
-class WebAppInterface(videoPlayerActivity: VideoPlayerActivity) {
-    private val videoPlayerActivity: VideoPlayerActivity = videoPlayerActivity
+class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     @JavascriptInterface
     fun receiveVideoData(progress: String, time: String) {
-        videoPlayerActivity.runOnUiThread {
-            videoPlayerActivity.lectureNameTextView.text =
-                "${progress.replace("<span id=\"lrnPer\">", "").replace("</span>", "").replace(">", "")}, " +
-                        "${time.replace("<span id=\"lrnmin\">", "").replace("</span>", "").replace("<span>", "").replace(">", "")}"
+        var progressText = "${progress.replace("<span id=\"lrnPer\">", "").replace("</span>", "").replace(">", "")}";
+        var timeText = "${time.replace("<span id=\"lrnmin\">", "").replace("</span>", "").replace("<span>", "").replace(">", "")}"
+
+        var progressNum: Float = progressText.replace("진행률 ", "").replace("%", "").trim().toFloat()
+
+        mainHandler.post {
+            videoPlayerActivity.lectureTimeTextView.text =
+                "$progressText, $timeText"
+            videoPlayerActivity.timeProgressBar.progress = progressNum.toInt()
+        }
+    }
+
+    @JavascriptInterface
+    fun receiveVideoURL(videoURL: String) {
+        mainHandler.post {
+            val url = "https://kwcommons.kw.ac.kr/em/$videoURL"
+            videoPlayerActivity.originVideoURL = url
+
+            Thread {
+                try {
+                    val doc = Jsoup.connect(url).get()
+                    val title = doc.title()
+                    mainHandler.post {
+                        videoPlayerActivity.lectureNameTextView.text = title
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }.start()
         }
     }
 }

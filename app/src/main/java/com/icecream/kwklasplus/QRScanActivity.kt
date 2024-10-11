@@ -17,6 +17,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
 import org.json.JSONObject
+import java.io.IOException
 
 class QRScanActivity : AppCompatActivity() {
     private lateinit var bodyJSON: JSONObject
@@ -53,45 +54,51 @@ class QRScanActivity : AppCompatActivity() {
     }
 
     fun qrScanComplete(qr: String) {
-        checkin(qr, bodyJSON) { jsonObject ->
-            if(jsonObject.getJSONArray("fieldErrors") != null) {
-                val fieldErrors = jsonObject.getJSONArray("fieldErrors")
-                val message = StringBuilder()
-                for (i in 0 until fieldErrors.length()) {
-                    message.append(fieldErrors.getJSONObject(i).getString("message"))
-                    message.append(" ")
+        checkin(qr, bodyJSON) { result ->
+            when (result) {
+                is CheckinResult.Success -> {
+                    val jsonObject = result.data
+                    if (jsonObject.has("fieldErrors")) {
+                        val fieldErrors = jsonObject.getJSONArray("fieldErrors")
+                        val message = StringBuilder()
+                        for (i in 0 until fieldErrors.length()) {
+                            message.append(fieldErrors.getJSONObject(i).getString("message"))
+                            message.append(" ")
+                        }
+                        if (message.toString().trim().isEmpty()) {
+                            showDialog("출석 체크 성공", "정상적으로 출석 처리 되었습니다.")
+                        } else {
+                            showDialog("출석 체크 실패", message.toString().trim())
+                        }
+                    } else {
+                        showDialog("출석 체크 성공", "정상적으로 출석 처리 되었습니다.")
+                    }
                 }
-                if(message.toString().replace(" ", "") == "") {
-                    runOnUiThread {
-                        val builder = MaterialAlertDialogBuilder(this)
-                        builder.setTitle("출석 체크 성공")
-                            .setMessage("정상적으로 출석 처리 되었습니다.")
-                            .setPositiveButton("확인",
-                                DialogInterface.OnClickListener { dialog, id ->
-                                    finish()
-                                })
-                        builder.show()
-                    }
-                } else {
-                    runOnUiThread {
-                        val builder = MaterialAlertDialogBuilder(this)
-                        builder.setTitle("출석 체크 실패")
-                            .setMessage(message.toString().trim())
-                            .setPositiveButton("확인",
-                                DialogInterface.OnClickListener { dialog, id ->
-                                    finish()
-                                })
-                        builder.show()
-                    }
+                is CheckinResult.Error -> {
+                    showDialog("오류 발생", "출석 체크 중 오류가 발생했습니다. 로그인 세션이 만료되었을 수 있습니다. 앱을 재시작한 후 다시 시도해보세요: ${result.message}")
                 }
             }
         }
     }
 
-    fun checkin(id: String, body: JSONObject, callback: (JSONObject) -> Unit) {
+    private fun showDialog(title: String, message: String) {
+        runOnUiThread {
+            val builder = MaterialAlertDialogBuilder(this)
+            builder.setTitle(title)
+                .setMessage(message)
+                .setPositiveButton("확인") { _, _ -> finish() }
+            builder.show()
+        }
+    }
+
+    sealed class CheckinResult {
+        data class Success(val data: JSONObject) : CheckinResult()
+        data class Error(val message: String) : CheckinResult()
+    }
+
+    fun checkin(id: String, body: JSONObject, callback: (CheckinResult) -> Unit) {
         Thread {
             val client = OkHttpClient()
-
             body.put("encrypt", id)
             val requestBody = RequestBody.create("application/json".toMediaTypeOrNull(), body.toString())
             val request = Request.Builder()
@@ -102,12 +109,23 @@ class QRScanActivity : AppCompatActivity() {
                 .post(requestBody)
                 .build()
 
-            val response = client.newCall(request).execute()
-            val responseBody = response.body?.string()
-
-            if (responseBody != null) {
-                val jsonObject = JSONObject(responseBody)
-                callback(jsonObject)
+            try {
+                val response = client.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val responseBody = response.body?.string()
+                    if (responseBody != null) {
+                        val jsonObject = JSONObject(responseBody)
+                        callback(CheckinResult.Success(jsonObject))
+                    } else {
+                        callback(CheckinResult.Error("응답 내용이 비어있습니다."))
+                    }
+                } else {
+                    callback(CheckinResult.Error("서버 오류: ${response.code}"))
+                }
+            } catch (e: IOException) {
+                callback(CheckinResult.Error("네트워크 오류: ${e.message}"))
+            } catch (e: Exception) {
+                callback(CheckinResult.Error("알 수 없는 오류: ${e.message}"))
             }
         }.start()
     }

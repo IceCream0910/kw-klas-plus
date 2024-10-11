@@ -134,8 +134,6 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        val serviceIntent = Intent(this, UpdateSession::class.java)
-        stopService(serviceIntent)
     }
 
     private fun initLoadingDialog() {
@@ -955,18 +953,6 @@ class HomeActivity : AppCompatActivity() {
 
     private fun handleSessionExpired(sessionId: String) {
         runOnUiThread {
-            Thread {
-                val client = OkHttpClient()
-                val request = Request.Builder()
-                    .url("https://klas.kw.ac.kr/usr/cmn/login/UpdateSession.do")
-                    .header("Cookie", "SESSION=$sessionId")
-                    .header(
-                        "User-Agent",
-                        "Mozilla/5.0 (Linux; Android 10; SM-G960N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.181 Mobile Safari/537.36 NuriwareApp"
-                    )
-                    .build()
-                client.newCall(request).execute()
-            }
             showSessionExpiredDialog()
         }
     }
