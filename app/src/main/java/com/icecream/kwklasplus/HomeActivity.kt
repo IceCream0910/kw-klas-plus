@@ -17,6 +17,7 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
@@ -975,13 +976,14 @@ class HomeActivity : AppCompatActivity() {
         sessionId: String,
         requestBody: RequestBody? = null
     ): Request {
+        val defaultUserAgent = WebSettings.getDefaultUserAgent(this)
         val requestBuilder = Request.Builder()
             .url(url)
             .header("Content-Type", "application/json")
             .header("Cookie", "SESSION=$sessionId")
             .header(
                 "User-Agent",
-                "Mozilla/5.0 (Linux; Android 10; SM-G960N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.181 Mobile Safari/537.36 NuriwareApp"
+                "$defaultUserAgent NuriwareApp"
             )
 
         if (requestBody != null) {
