@@ -7,6 +7,12 @@
     android:orientation="horizontal"
     tools:context=".HomeActivity">
 
+    <WebView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/backgroundWebView"
+        android:visibility="gone"/>
+
     <com.google.android.material.navigation.NavigationView
         android:id="@+id/navigation_drawer"
         android:layout_width="wrap_content"

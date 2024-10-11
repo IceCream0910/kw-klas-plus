@@ -1,7 +1,11 @@
 package com.icecream.kwklasplus
 
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.webkit.CookieManager
@@ -9,7 +13,6 @@ import android.webkit.JsResult
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Toast
 import androidx.core.view.WindowCompat
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
@@ -19,6 +22,20 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.TRANSPARENT
+
+        // 네트워크 연결 상태 확인
+        if (!isNetworkConnected()) {
+            var builder = MaterialAlertDialogBuilder(this)
+            builder
+            .setTitle("네트워크 연결 오류")
+                .setMessage("네트워크 연결 상태를 확인해주세요.")
+                .setPositiveButton("확인") { _, _ ->
+                    finish()
+                }
+                .setCancelable(false)
+                .show()
+            return
+        }
 
         val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
         val kwID = sharedPreferences.getString("kwID", null)
@@ -34,18 +51,15 @@ class MainActivity : AppCompatActivity() {
                     null
                 )
                 if (url != "https://klas.kw.ac.kr/mst/cmn/login/LoginForm.do") {
-                    //Toast.makeText(this@MainActivity, "세션 로그인 완료", Toast.LENGTH_SHORT).show()
                     val cookies = CookieManager.getInstance().getCookie(url)
-                    val session =
-                        cookies.split("; ").find { it.startsWith("SESSION=") }?.split("=")
-                            ?.get(1)
+                    val session = cookies.split("; ").find { it.startsWith("SESSION=") }?.split("=")?.get(1)
                     if (session != null) {
                         with(sharedPreferences.edit()) {
                             putString("kwSESSION", session)
                             putString("kwSESSION_timestamp", System.currentTimeMillis().toString())
                             apply()
                         }
-                        if(!isInstantLogin) {
+                        if (!isInstantLogin) {
                             startActivity(
                                 Intent(
                                     this@MainActivity,
@@ -69,7 +83,7 @@ class MainActivity : AppCompatActivity() {
                     val builder = MaterialAlertDialogBuilder(this@MainActivity)
                     builder.setTitle("오류")
                         .setMessage(message)
-                        .setPositiveButton("확인") { dialog, id ->
+                        .setPositiveButton("확인") { _, _ ->
                             result?.confirm()
                             finish()
                             startActivity(Intent(this@MainActivity, LoginActivity::class.java))
@@ -100,6 +114,25 @@ class MainActivity : AppCompatActivity() {
             }
 
             webView.loadUrl("https://klas.kw.ac.kr/mst/cmn/login/LoginForm.do")
+        }
+    }
+
+    // 네트워크 연결 여부 확인 함수
+    private fun isNetworkConnected(): Boolean {
+        val connectivityManager =
+            getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val network = connectivityManager.activeNetwork ?: return false
+            val activeNetwork = connectivityManager.getNetworkCapabilities(network) ?: return false
+            return when {
+                activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> true
+                activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> true
+                activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> true
+                else -> false
+            }
+        } else {
+            val networkInfo = connectivityManager.activeNetworkInfo
+            return networkInfo != null && networkInfo.isConnected
         }
     }
 }
