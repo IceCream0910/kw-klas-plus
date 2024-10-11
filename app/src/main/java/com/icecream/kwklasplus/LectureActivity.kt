@@ -91,8 +91,6 @@ class LectureActivity : AppCompatActivity() {
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = true
         webView.settings.allowContentAccess = true
-        webView.settings.userAgentString =
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Whale/3.25.232.19 Safari/537.36"
         webView.settings.supportMultipleWindows()
         webView.settings.javaScriptCanOpenWindowsAutomatically = true
         webView.loadUrl("https://klas.kw.ac.kr/mst/cmn/frame/Frame.do")
@@ -107,9 +105,15 @@ class LectureActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
                 if (url.contains("OnlineCntntsMstPage.do")) {
+                    var yearHakgi = getCurrentYear() + "," + getCurrentSemester();
+                    webView.evaluateJavascript(
+                        "javascript:localStorage.setItem('selectYearhakgi', '$yearHakgi');" +
+                                "javascript:localStorage.setItem('selectSubj', '$subjID');",
+                        null
+                    )
                     val intent = Intent(this@LectureActivity, VideoPlayerActivity::class.java)
                     intent.putExtra("subj", subjID)
-                    intent.putExtra("yearHakgi", getCurrentYear() + "," + getCurrentSemester())
+                    intent.putExtra("yearHakgi", yearHakgi)
                     finish()
                     startActivity(intent)
                 }

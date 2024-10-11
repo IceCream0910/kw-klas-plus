@@ -75,8 +75,6 @@ class LinkViewActivity : AppCompatActivity() {
         webView.setBackgroundColor(0)
         webView.settings.javaScriptCanOpenWindowsAutomatically = true
         webView.addJavascriptInterface(JavaScriptInterfaceForLinkView(this), "Android")
-        webView.settings.userAgentString =
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Whale/3.25.232.19 Safari/537.36"
         if (url != null) {
             webView.loadUrl(url)
         }

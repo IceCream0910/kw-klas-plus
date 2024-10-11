@@ -98,8 +98,6 @@ class VideoPlayerActivity : AppCompatActivity() {
         webView.setBackgroundColor(0)
         webView.settings.javaScriptCanOpenWindowsAutomatically = true
         webView.addJavascriptInterface(WebAppInterface(this), "Android")
-        webView.settings.userAgentString =
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Whale/3.25.232.19 Safari/537.36"
         webView.loadUrl("https://klas.kw.ac.kr/std/lis/evltn/OnlineCntntsStdPage.do")
 
 
@@ -109,8 +107,6 @@ class VideoPlayerActivity : AppCompatActivity() {
             //webView.reload()
             swipeLayout.isRefreshing = false
         }
-
-        var isScriptExecuted = false
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
@@ -126,18 +122,6 @@ class VideoPlayerActivity : AppCompatActivity() {
                 )
 
                 swipeLayout.isRefreshing = false
-                if (!isScriptExecuted) {
-                    webView.evaluateJavascript(
-                        "javascript:localStorage.setItem('selectYearhakgi', '$yearHakgi');",
-                        null
-                    )
-                    webView.evaluateJavascript(
-                        "javascript:localStorage.setItem('selectSubj', '$subj');",
-                        null
-                    )
-                    webView.reload()
-                    isScriptExecuted = true
-                }
 
                 if (url.contains("viewer/")) {
                     isViewer = true

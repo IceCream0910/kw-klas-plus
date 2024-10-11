@@ -75,8 +75,6 @@ class TaskViewActivity : AppCompatActivity() {
         webView.settings.allowContentAccess = true
         webView.settings.supportMultipleWindows()
         webView.settings.javaScriptCanOpenWindowsAutomatically = true
-        webView.settings.userAgentString =
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Whale/3.25.232.19 Safari/537.36"
         webView.loadUrl(url)
 
         var isOpenVideoAcitivity = false
@@ -89,8 +87,6 @@ class TaskViewActivity : AppCompatActivity() {
             finish()
             startActivity(intent)
         }
-
-        var isScriptExecuted = false
 
         webView.setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
             val request = DownloadManager.Request(Uri.parse(url))
@@ -126,26 +122,18 @@ class TaskViewActivity : AppCompatActivity() {
                             "})()", null
                 )
                 swipeLayout.isRefreshing = false
-                if (!isScriptExecuted) {
-                    webView.evaluateJavascript(
-                        "javascript:localStorage.setItem('selectYearhakgi', '$yearHakgi');",
-                        null
-                    )
-                    webView.evaluateJavascript(
-                        "javascript:localStorage.setItem('selectSubj', '$subj');",
-                        null
-                    )
-                    webView.reload()
-                    isScriptExecuted = true
-                } else {
                     if(!isOpenVideoAcitivity && url.contains("OnlineCntntsStdPage.do")) {
+                        webView.evaluateJavascript(
+                            "javascript:localStorage.setItem('selectYearhakgi', '$yearHakgi');" +
+                                    "javascript:localStorage.setItem('selectSubj', '$subj');",
+                            null
+                        )
                         val intent = Intent(this@TaskViewActivity, VideoPlayerActivity::class.java)
                         intent.putExtra("subj", subj)
                         intent.putExtra("yearHakgi", yearHakgi)
                         finish()
                         startActivity(intent)
                     }
-                }
             }
 
             override fun shouldOverrideUrlLoading(webView: WebView, webResourceRequest: WebResourceRequest): Boolean {
