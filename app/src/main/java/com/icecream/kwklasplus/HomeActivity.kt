@@ -1023,6 +1023,7 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
             intent.putExtra("url", url)
             intent.putExtra("yearHakgi", yearHakgi)
             intent.putExtra("subj", subj)
+            intent.putExtra("sessionID", homeActivity.sessionIdForOtherClass)
             homeActivity.startActivity(intent)
         }
     }

@@ -8,35 +8,28 @@
     tools:context=".VideoPlayerActivity">
 
     <LinearLayout
-        android:id="@+id/titleLayout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_margin="20dp"
-        android:gravity="center">
-
-        <TextView
-            android:id="@+id/titleTextView"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="온라인 강의"
-            android:textSize="25dp"
-            android:textStyle="bold"
-            android:layout_weight="1"/>
-
-    </LinearLayout>
-
-
-    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:id="@+id/swipeLayout">
+        android:id="@+id/videoPlayerLayout"
+        android:visibility="gone"
+        android:orientation="vertical">
 
         <com.icecream.kwklasplus.BackgroundWebView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:id="@+id/webView"/>
 
+    </LinearLayout>
+
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/listLayout">
+
+        <WebView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:id="@+id/listWebView"/>
 
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 

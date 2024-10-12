@@ -61,6 +61,7 @@ class TaskViewActivity : AppCompatActivity() {
         }
         val yearHakgi = intent.getStringExtra("yearHakgi")
         val subj = intent.getStringExtra("subj")
+        var sessionId = intent.getStringExtra("sessionID")
 
         val swipeLayout = findViewById<SwipeRefreshLayout>(R.id.swipeLayout)
 
@@ -82,6 +83,7 @@ class TaskViewActivity : AppCompatActivity() {
         if(url!=null && url.contains("OnlineCntntsStdPage.do")) {
             isOpenVideoAcitivity = true
             val intent = Intent(this@TaskViewActivity, VideoPlayerActivity::class.java)
+            intent.putExtra("sessionID", sessionId)
             intent.putExtra("subj", subj)
             intent.putExtra("yearHakgi", yearHakgi)
             finish()
@@ -111,6 +113,7 @@ class TaskViewActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
 
 
+            @SuppressLint("SuspiciousIndentation")
             override fun onPageFinished(view: WebView, url: String) {
                 webView.evaluateJavascript(
                     "javascript:(function() {" +
@@ -129,6 +132,7 @@ class TaskViewActivity : AppCompatActivity() {
                             null
                         )
                         val intent = Intent(this@TaskViewActivity, VideoPlayerActivity::class.java)
+                        intent.putExtra("sessionID", sessionId)
                         intent.putExtra("subj", subj)
                         intent.putExtra("yearHakgi", yearHakgi)
                         finish()

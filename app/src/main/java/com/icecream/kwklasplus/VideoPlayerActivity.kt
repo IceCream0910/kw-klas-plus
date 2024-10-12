@@ -7,9 +7,7 @@ import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Color
-import android.net.MailTo
 import android.net.Uri
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -17,9 +15,7 @@ import android.util.Log
 import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.JsResult
-import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
-import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
@@ -27,10 +23,10 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import android.widget.Toast
-import androidx.core.view.WindowCompat
+import androidx.appcompat.app.AppCompatActivity
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import org.json.JSONObject
 import org.jsoup.Jsoup
 import kotlin.properties.Delegates
 
@@ -39,7 +35,12 @@ class VideoPlayerActivity : AppCompatActivity() {
     lateinit var lectureTimeTextView: TextView
     lateinit var timeProgressBar: ProgressBar
     lateinit var webView: WebView
-    lateinit var titleLayout: LinearLayout
+    lateinit var listWebView: WebView
+    lateinit var listLayout: SwipeRefreshLayout
+    lateinit var videoPlayerLayout: LinearLayout
+    lateinit var subj: String
+    lateinit var yearHakgi: String
+    lateinit var sessionId: String
     var isViewer = false
     var onStopCalled by Delegates.notNull<Boolean>()
     var originVideoURL: String = ""
@@ -54,10 +55,6 @@ class VideoPlayerActivity : AppCompatActivity() {
         lectureTimeTextView = findViewById(R.id.lectureTimeTextView)
         timeProgressBar = findViewById(R.id.timeProgressBar)
         timeProgressBar.isIndeterminate = false
-
-        val titleTextView = findViewById<TextView>(R.id.titleTextView)
-
-        titleLayout = findViewById<LinearLayout>(R.id.titleLayout)
 
         val pipButton = findViewById<Button>(R.id.pipButton)
         val closeButton = findViewById<Button>(R.id.closeButton)
@@ -85,10 +82,22 @@ class VideoPlayerActivity : AppCompatActivity() {
                 .show()
         }
 
-        var subj = intent.getStringExtra("subj")
-        var yearHakgi = intent.getStringExtra("yearHakgi")
+        subj = intent.getStringExtra("subj").toString()
+        yearHakgi = intent.getStringExtra("yearHakgi").toString()
+        sessionId = intent.getStringExtra("sessionID").toString()
 
         webView = findViewById<BackgroundWebView>(R.id.webView)
+        listWebView = findViewById<BackgroundWebView>(R.id.listWebView)
+
+        listWebView.settings.javaScriptEnabled = true
+        listWebView.settings.domStorageEnabled = true
+        listWebView.settings.allowFileAccess = true
+        listWebView.settings.allowContentAccess = true
+        listWebView.settings.supportMultipleWindows()
+        listWebView.setBackgroundColor(0)
+        listWebView.settings.javaScriptCanOpenWindowsAutomatically = true
+        listWebView.addJavascriptInterface(WebAppInterface(this), "Android")
+        listWebView.loadUrl("https://klasplus.yuntae.in/onlineLecture")
 
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -101,11 +110,12 @@ class VideoPlayerActivity : AppCompatActivity() {
         webView.loadUrl("https://klas.kw.ac.kr/std/lis/evltn/OnlineCntntsStdPage.do")
 
 
-        val swipeLayout = findViewById<SwipeRefreshLayout>(R.id.swipeLayout)
+        listLayout = findViewById(R.id.listLayout)
+        videoPlayerLayout = findViewById(R.id.videoPlayerLayout)
 
-        swipeLayout.setOnRefreshListener {
-            //webView.reload()
-            swipeLayout.isRefreshing = false
+        listLayout.setOnRefreshListener {
+            webView.reload()
+            listLayout.isRefreshing = false
         }
 
         webView.webViewClient = object : WebViewClient() {
@@ -121,14 +131,13 @@ class VideoPlayerActivity : AppCompatActivity() {
                             "})()", null
                 )
 
-                swipeLayout.isRefreshing = false
+                listLayout.isRefreshing = false
 
                 if (url.contains("viewer/")) {
                     isViewer = true
-                    titleLayout.visibility = View.GONE
-                    val params = swipeLayout.layoutParams
+                    val params = videoPlayerLayout.layoutParams
                     params.height = (resources.displayMetrics.heightPixels * 0.3).toInt() + 50
-                    swipeLayout.layoutParams = params
+                    videoPlayerLayout.layoutParams = params
                     webView.evaluateJavascript(
                         "javascript:(function() {" +
                                 "var style = document.createElement('style');" +
@@ -156,9 +165,35 @@ class VideoPlayerActivity : AppCompatActivity() {
                     )
                 } else {
                     isViewer = false;
-                    titleLayout.visibility = View.VISIBLE
                 }
             }
+        }
+
+        listWebView.webChromeClient = object : WebChromeClient() {
+            override fun onCloseWindow(window: WebView?) {
+                super.onCloseWindow(window)
+                finish()
+            }
+
+            override fun onJsAlert(
+                view: WebView?,
+                url: String?,
+                message: String?,
+                result: JsResult?
+            ): Boolean {
+                runOnUiThread {
+                    val builder = MaterialAlertDialogBuilder(this@VideoPlayerActivity)
+                    builder.setTitle("안내")
+                        .setMessage(message)
+                        .setPositiveButton("확인") { dialog, id ->
+                            result?.confirm()
+                        }
+                        .setCancelable(false)
+                        .show()
+                }
+                return true
+            }
+
         }
 
 
@@ -245,13 +280,9 @@ class VideoPlayerActivity : AppCompatActivity() {
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-        if (isInPictureInPictureMode) {
-            titleLayout.visibility = View.GONE
-        } else {
+        if (!isInPictureInPictureMode) {
             if (onStopCalled) {
                 finish()
-            } else {
-                titleLayout.visibility = View.VISIBLE
             }
         }
     }
@@ -305,6 +336,94 @@ class VideoPlayerActivity : AppCompatActivity() {
 
 class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    @JavascriptInterface
+    fun completePageLoad() {
+        videoPlayerActivity.runOnUiThread {
+            videoPlayerActivity.listWebView.evaluateJavascript(
+                "javascript:window.receivedData('${videoPlayerActivity.sessionId}', '${videoPlayerActivity.subj}', '${videoPlayerActivity.yearHakgi}')",
+                null
+            )
+        }
+    }
+
+    @JavascriptInterface
+    fun openExternalLink(url: String) {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        videoPlayerActivity.startActivity(intent)
+    }
+
+    @JavascriptInterface
+    fun openInKLAS() {
+        mainHandler.post {
+            videoPlayerActivity.listLayout.visibility = View.GONE
+            videoPlayerActivity.videoPlayerLayout.visibility = View.VISIBLE
+        }
+    }
+
+    @JavascriptInterface
+    fun requestOnlineLecture(jsonData: String) {
+        mainHandler.post {
+            try {
+                val data = JSONObject(jsonData)
+                val grcode = data.optString("grcode")
+                val subj = data.optString("subj")
+                val year = data.optString("year")
+                val hakgi = data.optString("hakgi")
+                val bunban = data.optString("bunban")
+                val module = data.optString("module")
+                val lesson = data.optString("lesson")
+                val oid = data.optString("oid")
+                val starting = data.optString("starting")
+                val contentsType = data.optString("contentsType")
+                val weekNo = data.optInt("weekNo")
+                val weeklyseq = data.optInt("weeklyseq")
+                val width = data.optInt("width")
+                val height = data.optInt("height")
+                val today = data.optString("today")
+                val sdate = data.optString("sdate")
+                val edate = data.optString("edate")
+                val ptype = data.optString("ptype")
+                val learnTime = data.optString("learnTime")
+                val prog = data.optInt("prog")
+                val ptime = data.optString("ptime")
+
+                var jsCode: String? = null
+
+                if(prog == 100) {
+                    jsCode = """
+                javascript:appModule.goViewCntnts(
+                    '$grcode', '$subj', '$year', '$hakgi', '$bunban', '$module', '$lesson', '$oid', '$starting',
+                    '$contentsType', $weekNo, $weeklyseq, $width, $height, '$today', '$sdate', '$edate',
+                    '$ptype', '$learnTime', $prog, '$ptime'
+                )
+                """.trimIndent()
+                } else {
+                    jsCode = """
+                javascript:lrnCerti.checkCerti(
+                    '$grcode', '$subj', '$year', '$hakgi', '$bunban', '$module', '$lesson', '$oid', '$starting',
+                    '$contentsType', $weekNo, $weeklyseq, $width, $height, '$today', '$sdate', '$edate',
+                    '$ptype', '$learnTime', $prog, 'C', '$ptime'
+                )
+                """.trimIndent()
+                }
+
+                videoPlayerActivity.webView.evaluateJavascript(jsCode, null)
+                videoPlayerActivity.listLayout.visibility = View.GONE
+                videoPlayerActivity.videoPlayerLayout.visibility = View.VISIBLE
+            } catch (e: Exception) {
+                e.printStackTrace()
+                videoPlayerActivity.runOnUiThread {
+                    MaterialAlertDialogBuilder(videoPlayerActivity)
+                        .setTitle("안내")
+                        .setMessage("강의를 불러오는 중 오류가 발생했습니다.")
+                        .setPositiveButton("확인") { dialog, _ -> dialog.dismiss() }
+                        .show()
+                }
+            }
+        }
+    }
+
 
     @JavascriptInterface
     fun receiveVideoData(progress: String, time: String) {

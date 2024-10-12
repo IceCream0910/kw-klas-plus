@@ -65,7 +65,6 @@ class LectureActivity : AppCompatActivity() {
         bodyJSON = JSONObject(intent.getStringExtra("bodyJSON")!!)
         sessionId = intent.getStringExtra("sessionID")!!
 
-
         LctName = findViewById<TextView>(R.id.LctName)
         LctName.text = subjName
 
@@ -112,6 +111,7 @@ class LectureActivity : AppCompatActivity() {
                         null
                     )
                     val intent = Intent(this@LectureActivity, VideoPlayerActivity::class.java)
+                    intent.putExtra("sessionID", sessionId)
                     intent.putExtra("subj", subjID)
                     intent.putExtra("yearHakgi", yearHakgi)
                     finish()
