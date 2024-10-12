@@ -114,7 +114,7 @@ class LectureActivity : AppCompatActivity() {
                     intent.putExtra("sessionID", sessionId)
                     intent.putExtra("subj", subjID)
                     intent.putExtra("yearHakgi", yearHakgi)
-                    finish()
+                    webView.goBack()
                     startActivity(intent)
                 }
                 scrollView.isRefreshing = false

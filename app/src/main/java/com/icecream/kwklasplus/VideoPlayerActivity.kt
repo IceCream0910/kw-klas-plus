@@ -114,7 +114,7 @@ class VideoPlayerActivity : AppCompatActivity() {
         videoPlayerLayout = findViewById(R.id.videoPlayerLayout)
 
         listLayout.setOnRefreshListener {
-            webView.reload()
+            listWebView.reload()
             listLayout.isRefreshing = false
         }
 
