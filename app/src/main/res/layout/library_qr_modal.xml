@@ -78,6 +78,7 @@
         android:layout_height="200dp"
         android:layout_margin="20dp"
         android:layout_gravity="center"
+        android:src="@drawable/baseline_error_24"
         android:visibility="gone"/>
 
     <TextView

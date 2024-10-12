@@ -39,7 +39,7 @@ import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
-class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment() {
+class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment() {
     private var originalBrightness: Float = 0f
     private lateinit var qrImg: ImageView
     private lateinit var qrProgressBar: ProgressBar
@@ -49,6 +49,7 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
         .writeTimeout(10, TimeUnit.SECONDS)
         .build()
     private val baseUrl = "https://mobileid.kw.ac.kr"
+    private var isRetry = false
     private lateinit var cacheManager: CacheManager
     private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
     private lateinit var refreshButton: Button
@@ -72,7 +73,8 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
         super.onViewCreated(view, savedInstanceState)
 
         val settingBtn = view.findViewById<TextView>(R.id.settingButton)
-        val refreshImageButtonForWidget = view.findViewById<ImageView>(R.id.refreshImageButtonForWidget)
+        val refreshImageButtonForWidget =
+            view.findViewById<ImageView>(R.id.refreshImageButtonForWidget)
         refreshButtonForWidget = view.findViewById(R.id.refreshButtonForWidget)
         refreshButton = view.findViewById(R.id.refreshButton)
         qrImg = view.findViewById(R.id.qrImageView)
@@ -108,7 +110,8 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
             }
         }
 
-        val sharedPreferences = activity?.getSharedPreferences("com.icecream.kwklasplus", Context.MODE_PRIVATE)
+        val sharedPreferences =
+            activity?.getSharedPreferences("com.icecream.kwklasplus", Context.MODE_PRIVATE)
         val stdNumber = sharedPreferences?.getString("library_stdNumber", null)
         val phone = sharedPreferences?.getString("library_phone", null)
         val password = sharedPreferences?.getString("library_password", null)
@@ -130,7 +133,8 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
         // FIX: 태블릿에서 완전히 펼쳐지지 않는 이슈
         view.viewTreeObserver.addOnGlobalLayoutListener {
             val dialog = dialog as BottomSheetDialog?
-            val bottomSheet = dialog?.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet) as FrameLayout?
+            val bottomSheet =
+                dialog?.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet) as FrameLayout?
             val behavior = BottomSheetBehavior.from(bottomSheet!!)
             behavior.peekHeight = view.measuredHeight
         }
@@ -138,17 +142,21 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
 
     private fun showSettingsDialog() {
         val dialogView = LayoutInflater.from(context).inflate(R.layout.library_qr_settings, null)
-        val sharedPreferences = activity?.getSharedPreferences("com.icecream.kwklasplus", Context.MODE_PRIVATE)
+        val sharedPreferences =
+            activity?.getSharedPreferences("com.icecream.kwklasplus", Context.MODE_PRIVATE)
         var stdNumber = sharedPreferences?.getString("library_stdNumber", "")
-        if(stdNumber.isNullOrEmpty()) {
+        if (stdNumber.isNullOrEmpty()) {
             stdNumber = sharedPreferences?.getString("kwID", "")
         }
         val phone = sharedPreferences?.getString("library_phone", "")
         val password = sharedPreferences?.getString("library_password", "")
 
-        val stdNumberEditText = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.stdNumber)
-        val phoneEditText = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.phone)
-        val passwordEditText = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.password)
+        val stdNumberEditText =
+            dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.stdNumber)
+        val phoneEditText =
+            dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.phone)
+        val passwordEditText =
+            dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.password)
 
         stdNumberEditText.setText(stdNumber)
         phoneEditText.setText(phone)
@@ -191,7 +199,7 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
         countDownTimer = object : CountDownTimer(refreshInterval, 1000) {
             override fun onTick(millisUntilFinished: Long) {
                 val secondsRemaining = millisUntilFinished / 1000
-                if(isWidget) {
+                if (isWidget) {
                     refreshButtonForWidget.text = "$secondsRemaining 초"
                 } else {
                     refreshButton.text = " $secondsRemaining 초"
@@ -207,7 +215,8 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
     }
 
     private suspend fun refreshQRCode() {
-        val sharedPreferences = activity?.getSharedPreferences("com.icecream.kwklasplus", Context.MODE_PRIVATE)
+        val sharedPreferences =
+            activity?.getSharedPreferences("com.icecream.kwklasplus", Context.MODE_PRIVATE)
         val stdNumber = sharedPreferences?.getString("library_stdNumber", null)
         val phone = sharedPreferences?.getString("library_phone", null)
         val password = sharedPreferences?.getString("library_password", null)
@@ -218,37 +227,56 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
             displayQR(stdNumber, phone, password)
             startCountDownTimer()
         } else {
+            Snackbar.make(requireView(), "QR 코드를 새로고침할 수 없습니다. 설정을 확인해주세요.", Snackbar.LENGTH_SHORT)
+                .show()
+        }
+    }
+
+    private suspend fun refreshQRCodeWithoutCache() {
+        val sharedPreferences = activity?.getSharedPreferences("com.icecream.kwklasplus", Context.MODE_PRIVATE)
+        val stdNumber = sharedPreferences?.getString("library_stdNumber", null)
+        val phone = sharedPreferences?.getString("library_phone", null)
+        val password = sharedPreferences?.getString("library_password", null)
+
+        if (stdNumber != null && phone != null && password != null) {
+            val realId = "0$stdNumber"
+            val userInfoHash = getUserInfoHash(stdNumber, phone, password)
+            cacheManager.clearCache(realId, userInfoHash)
+            refreshQRCode()
+        } else {
             Snackbar.make(requireView(), "QR 코드를 새로고침할 수 없습니다. 설정을 확인해주세요.", Snackbar.LENGTH_SHORT).show()
         }
     }
 
-    private suspend fun displayQR(stdNumber: String, phone: String, password: String) = withContext(Dispatchers.IO) {
-        val realId = "0$stdNumber"
-        val userInfoHash = getUserInfoHash(stdNumber, phone, password)
 
-        try {
-            var secret = cacheManager.getSecret(realId, userInfoHash)
-            if (secret == null) {
-                secret = getSecretKey(realId)
-                cacheManager.saveSecret(realId, userInfoHash, secret)
+    private suspend fun displayQR(stdNumber: String, phone: String, password: String) =
+        withContext(Dispatchers.IO) {
+            val realId = "0$stdNumber"
+            val userInfoHash = getUserInfoHash(stdNumber, phone, password)
+
+            try {
+                var secret = cacheManager.getSecret(realId, userInfoHash)
+                if (secret == null) {
+                    secret = getSecretKey(realId)
+                    cacheManager.saveSecret(realId, userInfoHash, secret)
+                }
+
+                var authKey = cacheManager.getAuthKey(realId, userInfoHash)
+                if (authKey == null) {
+                    authKey = login(realId, stdNumber, phone, password, secret)
+                    cacheManager.saveAuthKey(realId, userInfoHash, authKey)
+                }
+
+                val qrData = getQrCode(realId, authKey)
+
+                displayQrCode(qrData)
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Log.e(TAG, e.toString())
+                }
+                cacheManager.clearCache(realId, userInfoHash)
             }
-
-            var authKey = cacheManager.getAuthKey(realId, userInfoHash)
-            if (authKey == null) {
-                authKey = login(realId, stdNumber, phone, password, secret)
-                cacheManager.saveAuthKey(realId, userInfoHash, authKey)
-            }
-
-            val qrData = getQrCode(realId, authKey)
-
-            displayQrCode(qrData)
-        } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                Log.e(TAG, e.toString())
-            }
-            cacheManager.clearCache(realId, userInfoHash)
         }
-    }
 
     private fun getUserInfoHash(stdNumber: String, phone: String, password: String): String {
         return (stdNumber + phone + password).hashCode().toString()
@@ -267,10 +295,17 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
         if (!response.isSuccessful) throw IOException("Unexpected code $response")
 
         val responseData = response.body?.string()
-        parseXmlResponse(responseData ?: "", "sec_key") ?: throw Exception("Failed to get secret key")
+        parseXmlResponse(responseData ?: "", "sec_key")
+            ?: throw Exception("Failed to get secret key")
     }
 
-    private suspend fun login(realId: String, stdNumber: String, phone: String, password: String, secret: String): String = withContext(Dispatchers.IO) {
+    private suspend fun login(
+        realId: String,
+        stdNumber: String,
+        phone: String,
+        password: String,
+        secret: String
+    ): String = withContext(Dispatchers.IO) {
         val loginBody = FormBody.Builder()
             .add("real_id", encode(realId))
             .add("rid", encode(stdNumber))
@@ -290,47 +325,64 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
         parseXmlResponse(loginResponseData ?: "", "auth_key") ?: throw Exception("Login failed")
     }
 
-    private suspend fun getQrCode(realId: String, authKey: String): String = withContext(Dispatchers.IO) {
-        val qrBody = FormBody.Builder()
-            .add("real_id", encode(realId))
-            .add("auth_key", authKey)
-            .add("new_check", "Y")
-            .build()
-        val qrRequest = Request.Builder()
-            .url("$baseUrl/mobile/MA/xml_userInfo_auth.php")
-            .post(qrBody)
-            .build()
+    private suspend fun getQrCode(realId: String, authKey: String): String =
+        withContext(Dispatchers.IO) {
+            val qrBody = FormBody.Builder()
+                .add("real_id", encode(realId))
+                .add("auth_key", authKey)
+                .add("new_check", "Y")
+                .build()
+            val qrRequest = Request.Builder()
+                .url("$baseUrl/mobile/MA/xml_userInfo_auth.php")
+                .post(qrBody)
+                .build()
 
-        val response = client.newCall(qrRequest).execute()
-        if (!response.isSuccessful) throw IOException("Unexpected code $response")
+            val response = client.newCall(qrRequest).execute()
+            if (!response.isSuccessful) throw IOException("Unexpected code $response")
 
-        val qrResponseData = response.body?.string()
-        parseXmlResponse(qrResponseData ?: "", "qr_code") ?: throw Exception("Failed to get QR code data")
-    }
+            val qrResponseData = response.body?.string()
+            parseXmlResponse(qrResponseData ?: "", "qr_code")
+                ?: throw Exception("Failed to get QR code data")
+        }
 
     private suspend fun displayQrCode(qrData: String) = withContext(Dispatchers.Main) {
-        if(qrData.isEmpty()) {
-            showSettingsDialog()
-            dismiss()
-        }
-        val isDarkMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
-
-        val qrColor = if (isDarkMode) Color.WHITE else Color.BLACK
-        val backgroundColor = Color.TRANSPARENT
-
-        val qrgEncoder = QRGEncoder(qrData, null, QRGContents.Type.TEXT, 200)
-        qrgEncoder.colorBlack = qrColor
-        qrgEncoder.colorWhite = backgroundColor
-        try {
-            val bitmap = qrgEncoder.getBitmap(0)
-            qrImg.setImageBitmap(bitmap)
+        if (qrData.isEmpty()) {
             qrProgressBar.visibility = View.GONE
             qrImg.visibility = View.VISIBLE
-            val layoutParams = activity?.window?.attributes
-            layoutParams?.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
-            activity?.window?.attributes = layoutParams
-        } catch (e: WriterException) {
-            Log.v(TAG, e.toString())
+            if (!isRetry) {
+                isRetry = true
+                refreshQRCodeWithoutCache()
+            } else {
+                val builder = MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("오류")
+                    .setMessage("모바일 학생증 정보를 가져올 수 없습니다.\n모바일 학생증 설정에서 입력한 정보가 올바른지 확인한 후 다시 시도해주세요.")
+                    .setPositiveButton("확인") { dialog, _ ->
+                        dialog.dismiss()
+                    }
+                    .show()
+            }
+        } else {
+            isRetry = false
+            val isDarkMode =
+                resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+
+            val qrColor = if (isDarkMode) Color.WHITE else Color.BLACK
+            val backgroundColor = Color.TRANSPARENT
+
+            val qrgEncoder = QRGEncoder(qrData, null, QRGContents.Type.TEXT, 200)
+            qrgEncoder.colorBlack = qrColor
+            qrgEncoder.colorWhite = backgroundColor
+            try {
+                val bitmap = qrgEncoder.getBitmap(0)
+                qrImg.setImageBitmap(bitmap)
+                qrProgressBar.visibility = View.GONE
+                qrImg.visibility = View.VISIBLE
+                val layoutParams = activity?.window?.attributes
+                layoutParams?.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
+                activity?.window?.attributes = layoutParams
+            } catch (e: WriterException) {
+                Log.v(TAG, e.toString())
+            }
         }
     }
 
@@ -387,7 +439,8 @@ class LibraryQRModal(private val isWidget: Boolean) : BottomSheetDialogFragment(
 }
 
 class CacheManager(context: Context) {
-    private val sharedPreferences = context.getSharedPreferences("LibraryQRCache", Context.MODE_PRIVATE)
+    private val sharedPreferences =
+        context.getSharedPreferences("LibraryQRCache", Context.MODE_PRIVATE)
 
     fun saveSecret(realId: String, userInfoHash: String, secret: String) {
         sharedPreferences.edit().putString("secret_${realId}_${userInfoHash}", secret).apply()
