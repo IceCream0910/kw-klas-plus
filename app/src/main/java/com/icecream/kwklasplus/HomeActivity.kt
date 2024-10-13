@@ -3,6 +3,7 @@ package com.icecream.kwklasplus
 import LibraryQRModal
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -17,10 +18,14 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
+import android.webkit.JsResult
+import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
+import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -57,8 +62,9 @@ class HomeActivity : AppCompatActivity() {
     lateinit var webView: WebView
     lateinit var menuWebView: WebView
     lateinit var aiWebView: WebView
-    lateinit var backgroundWebView: WebView
+    lateinit var calendarWebView: WebView
     private lateinit var timetableWebView: WebView
+    lateinit var backgroundWebView: WebView
     private lateinit var deadlineForWebview: String
     private lateinit var timetableForWebview: String
     lateinit var sessionIdForOtherClass: String
@@ -110,17 +116,21 @@ class HomeActivity : AppCompatActivity() {
                 isKeyboardShowing = true
                 aiWebView.layoutParams.height = screenHeight - keypadHeight - 300
                 menuWebView.layoutParams.height = screenHeight - keypadHeight - 300
+                calendarWebView.layoutParams.height = screenHeight - keypadHeight - 100
                 navBar.visibility = View.GONE
             } else if (isKeyboardShowing && keypadHeight < screenHeight * 0.15) {
                 isKeyboardShowing = false
                 aiWebView.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
                 menuWebView.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
+                calendarWebView.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
                 navBar.visibility = View.VISIBLE
             }
+
         }
 
         webView = findViewById(R.id.webView)
         menuWebView = findViewById<WebView>(R.id.menuWebView)
+        calendarWebView = findViewById<WebView>(R.id.calendarWebview)
         aiWebView = findViewById<WebView>(R.id.aiWebview)
         timetableWebView = findViewById(R.id.timetableWebview)
         backgroundWebView = findViewById(R.id.backgroundWebView)
@@ -150,12 +160,13 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun initNavigationMenu() {
-        //bottom navigation
+        val headerLayout = findViewById<LinearLayout>(R.id.headerLayout)
         val viewTitle = findViewById<TextView>(R.id.viewTitle)
         val menuBtn = findViewById<Button>(R.id.menuBtn)
         val homeView = findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.homeView)
         val timetableView =
             findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.timetableView)
+        val calendarView = findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.calendarView)
         val qrView = findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.qrView)
         val menuView = findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.menuView)
         val NavigationBarView =
@@ -168,36 +179,53 @@ class HomeActivity : AppCompatActivity() {
         NavigationBarView.setOnItemSelectedListener { item: MenuItem ->
             when (item.itemId) {
                 R.id.item_1 -> {
+                    headerLayout.visibility = View.VISIBLE
                     viewTitle.text = "KLAS+"
                     homeView.visibility = View.VISIBLE
                     timetableView.visibility = View.GONE
+                    calendarView.visibility = View.GONE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.GONE
                     true
                 }
 
                 R.id.item_2 -> {
+                    headerLayout.visibility = View.VISIBLE
                     viewTitle.text = "시간표"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.VISIBLE
+                    calendarView.visibility = View.GONE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.GONE
                     true
                 }
-
+                R.id.item_5 -> {
+                    headerLayout.visibility = View.GONE
+                    viewTitle.text = "캘린더"
+                    homeView.visibility = View.GONE
+                    timetableView.visibility = View.GONE
+                    calendarView.visibility = View.VISIBLE
+                    qrView.visibility = View.GONE
+                    menuView.visibility = View.GONE
+                    true
+                }
                 R.id.item_3 -> {
+                    headerLayout.visibility = View.VISIBLE
                     viewTitle.text = "KLAS GPT"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.GONE
+                    calendarView.visibility = View.GONE
                     qrView.visibility = View.VISIBLE
                     menuView.visibility = View.GONE
                     true
                 }
 
                 R.id.item_4 -> {
+                    headerLayout.visibility = View.VISIBLE
                     viewTitle.text = "전체"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.GONE
+                    calendarView.visibility = View.GONE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.VISIBLE
                     true
@@ -222,6 +250,7 @@ class HomeActivity : AppCompatActivity() {
                     viewTitle.text = "KLAS+"
                     homeView.visibility = View.VISIBLE
                     timetableView.visibility = View.GONE
+                    calendarView.visibility = View.GONE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.GONE
                     true
@@ -231,15 +260,25 @@ class HomeActivity : AppCompatActivity() {
                     viewTitle.text = "시간표"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.VISIBLE
+                    calendarView.visibility = View.GONE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.GONE
                     true
                 }
-
+                R.id.item_5 -> {
+                    viewTitle.text = "캘린더"
+                    homeView.visibility = View.GONE
+                    timetableView.visibility = View.GONE
+                    calendarView.visibility = View.VISIBLE
+                    qrView.visibility = View.GONE
+                    menuView.visibility = View.GONE
+                    true
+                }
                 R.id.item_3 -> {
                     viewTitle.text = "KLAS GPT"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.GONE
+                    calendarView.visibility = View.GONE
                     qrView.visibility = View.VISIBLE
                     menuView.visibility = View.GONE
                     true
@@ -249,6 +288,7 @@ class HomeActivity : AppCompatActivity() {
                     viewTitle.text = "전체"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.GONE
+                    calendarView.visibility = View.GONE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.VISIBLE
                     true
@@ -325,6 +365,59 @@ class HomeActivity : AppCompatActivity() {
                 e.printStackTrace()
             }
             menuWebView.loadUrl("https://klasplus.yuntae.in/profile")
+        })
+
+        calendarWebView.post(Runnable {
+            calendarWebView.settings.javaScriptEnabled = true
+            calendarWebView.settings.domStorageEnabled = true
+            calendarWebView.isVerticalScrollBarEnabled = false
+            calendarWebView.isHorizontalScrollBarEnabled = false
+            calendarWebView.setBackgroundColor(0)
+            calendarWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
+            calendarWebView.loadUrl("https://klasplus.yuntae.in/calendar")
+
+            calendarWebView.webChromeClient = object : WebChromeClient() {
+                override fun onJsAlert(
+                    view: WebView?,
+                    url: String?,
+                    message: String?,
+                    result: JsResult?
+                ): Boolean {
+                    runOnUiThread {
+                        val builder = MaterialAlertDialogBuilder(this@HomeActivity)
+                        builder.setTitle("안내")
+                            .setMessage(message)
+                            .setPositiveButton("확인") { dialog, id ->
+                                result?.confirm()
+                            }
+                            .setCancelable(false)
+                            .show()
+                    }
+                    return true
+                }
+
+                override fun onJsConfirm(
+                    view: WebView?,
+                    url: String?,
+                    message: String?,
+                    result: JsResult?
+                ): Boolean {
+                    runOnUiThread {
+                        val builder = MaterialAlertDialogBuilder(this@HomeActivity)
+                        builder.setTitle("안내")
+                            .setMessage(message)
+                            .setPositiveButton("확인") { dialog, id ->
+                                result?.confirm()
+                            }
+                            .setNegativeButton("취소") { dialog, id ->
+                                result?.cancel()
+                            }
+                            .setCancelable(false)
+                            .show()
+                    }
+                    return true
+                }
+            }
         })
 
         aiWebView.post(Runnable {
@@ -717,6 +810,7 @@ class HomeActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 runOnUiThread {
                     Toast.makeText(this@HomeActivity, "강의 목록 가져오는 중 오류 발생: ${e.message}", Toast.LENGTH_SHORT).show()
+                    loadingDialog.dismiss()
                 }
             }
         }
@@ -789,6 +883,7 @@ class HomeActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 runOnUiThread {
                     Toast.makeText(this@HomeActivity, "강의 정보 가져오는 중 오류 발생: ${e.message}", Toast.LENGTH_SHORT).show()
+                    loadingDialog.dismiss()
                 }
             }
         }
@@ -1063,6 +1158,10 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
             )
             homeActivity.aiWebView.evaluateJavascript(
                 "javascript:window.receiveSubjList('${homeActivity.subjList}')",
+                null
+            )
+            homeActivity.calendarWebView.evaluateJavascript(
+                "javascript:window.receiveToken('${homeActivity.sessionIdForOtherClass}')",
                 null
             )
         }
