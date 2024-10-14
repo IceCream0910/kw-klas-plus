@@ -64,7 +64,6 @@ class HomeActivity : AppCompatActivity() {
     lateinit var aiWebView: WebView
     lateinit var calendarWebView: WebView
     private lateinit var timetableWebView: WebView
-    lateinit var backgroundWebView: WebView
     private lateinit var deadlineForWebview: String
     private lateinit var timetableForWebview: String
     lateinit var sessionIdForOtherClass: String
@@ -133,10 +132,6 @@ class HomeActivity : AppCompatActivity() {
         calendarWebView = findViewById<WebView>(R.id.calendarWebview)
         aiWebView = findViewById<WebView>(R.id.aiWebview)
         timetableWebView = findViewById(R.id.timetableWebview)
-        backgroundWebView = findViewById(R.id.backgroundWebView)
-        backgroundWebView.settings.javaScriptEnabled = true
-        backgroundWebView.settings.domStorageEnabled = true
-        backgroundWebView.loadUrl("https://klas.kw.ac.kr/std/cmn/frame/Frame.do")
         initSubjectList(sessionId)
         initLoadingDialog()
         initNavigationMenu()
@@ -1108,12 +1103,6 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
     @JavascriptInterface
     fun evaluate(url: String, yearHakgi: String, subj: String) {
         homeActivity.runOnUiThread {
-            homeActivity.backgroundWebView.evaluateJavascript(
-                "javascript:localStorage.setItem('selectYearhakgi', '$yearHakgi');" +
-                        "javascript:localStorage.setItem('selectSubj', '$subj');",
-                null
-            )
-
             val intent = Intent(homeActivity, TaskViewActivity::class.java)
             intent.putExtra("url", url)
             intent.putExtra("yearHakgi", yearHakgi)

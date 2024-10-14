@@ -118,6 +118,8 @@ class VideoPlayerActivity : AppCompatActivity() {
             listLayout.isRefreshing = false
         }
 
+        var isScriptExecuted = false
+
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
                 webView.evaluateJavascript(
@@ -132,6 +134,19 @@ class VideoPlayerActivity : AppCompatActivity() {
                 )
 
                 listLayout.isRefreshing = false
+
+                if (!isScriptExecuted) {
+                    webView.evaluateJavascript(
+                        "javascript:localStorage.setItem('selectYearhakgi', '$yearHakgi');",
+                        null
+                    )
+                    webView.evaluateJavascript(
+                        "javascript:localStorage.setItem('selectSubj', '$subj');",
+                        null
+                    )
+                    webView.reload()
+                    isScriptExecuted = true
+                }
 
                 if (url.contains("viewer/")) {
                     isViewer = true
