@@ -23,6 +23,18 @@
         android:theme="@style/Theme.KWQRCheckin"
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
+        <meta-data
+            android:name="io.sentry.dsn"
+            android:value="https://19c58b75c900974d23ce97ab67230e1f@o4508145411031040.ingest.us.sentry.io/4508145449304064" />
+        <meta-data
+            android:name="io.sentry.traces.user-interaction.enable"
+            android:value="true" />
+        <meta-data
+            android:name="io.sentry.attach-screenshot"
+            android:value="true" />
+        <meta-data
+            android:name="io.sentry.attach-view-hierarchy"
+            android:value="true" />
 
         <activity
             android:name=".VideoPlayerActivity"
@@ -37,7 +49,8 @@
 
         <receiver
             android:name=".LibraryQRWidget"
-            android:exported="false" android:label="@string/app_widget_name">
+            android:exported="false"
+            android:label="@string/app_widget_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -73,13 +86,13 @@
         <activity
             android:name=".HomeActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|keyboardHidden|keyboard|navigation"
-            android:windowSoftInputMode="adjustResize"
-            android:exported="false" />
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".LoginActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation"
-            android:windowSoftInputMode="adjustResize"
-            android:exported="false" />
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".MainActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation"
