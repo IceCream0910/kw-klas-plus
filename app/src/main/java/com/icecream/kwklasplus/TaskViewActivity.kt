@@ -90,6 +90,7 @@ class TaskViewActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
+        var isScriptExecuted = false
         webView.setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
             val request = DownloadManager.Request(Uri.parse(url))
             var filename = URLUtil.guessFileName(url, contentDisposition, mimetype)
@@ -125,6 +126,18 @@ class TaskViewActivity : AppCompatActivity() {
                             "})()", null
                 )
                 swipeLayout.isRefreshing = false
+                if (!isScriptExecuted) {
+                    webView.evaluateJavascript(
+                        "javascript:localStorage.setItem('selectYearhakgi', '$yearHakgi');",
+                        null
+                    )
+                    webView.evaluateJavascript(
+                        "javascript:localStorage.setItem('selectSubj', '$subj');",
+                        null
+                    )
+                    webView.reload()
+                    isScriptExecuted = true
+                } else {
                     if(!isOpenVideoAcitivity && url.contains("OnlineCntntsStdPage.do")) {
                         webView.evaluateJavascript(
                             "javascript:localStorage.setItem('selectYearhakgi', '$yearHakgi');" +
@@ -138,6 +151,7 @@ class TaskViewActivity : AppCompatActivity() {
                         finish()
                         startActivity(intent)
                     }
+                }
             }
 
             override fun shouldOverrideUrlLoading(webView: WebView, webResourceRequest: WebResourceRequest): Boolean {
