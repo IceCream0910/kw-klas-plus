@@ -23,6 +23,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -44,6 +45,7 @@ class VideoPlayerActivity : AppCompatActivity() {
     var isViewer = false
     var onStopCalled by Delegates.notNull<Boolean>()
     var originVideoURL: String = ""
+    var isLoadedKLASWebView = false
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -146,6 +148,8 @@ class VideoPlayerActivity : AppCompatActivity() {
                     )
                     webView.reload()
                     isScriptExecuted = true
+                } else {
+                    isLoadedKLASWebView = true
                 }
 
                 if (url.contains("viewer/")) {
@@ -402,8 +406,12 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
                 val learnTime = data.optString("learnTime")
                 val prog = data.optInt("prog")
                 val ptime = data.optString("ptime")
-
                 var jsCode: String? = null
+
+                if(!videoPlayerActivity.isLoadedKLASWebView) {
+                    Toast.makeText(videoPlayerActivity, "아직 강의 정보를 불러오는 중이에요. 몇 초 후에 다시 시도해주세요.", Toast.LENGTH_SHORT).show()
+                    return@post
+                }
 
                 if(prog == 100) {
                     jsCode = """

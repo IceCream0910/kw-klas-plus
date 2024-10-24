@@ -16,6 +16,7 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Environment
 import android.os.Message
+import android.util.Log
 import android.view.View
 import android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
 import android.view.View.SYSTEM_UI_FLAG_VISIBLE
@@ -49,6 +50,7 @@ class LectureActivity : AppCompatActivity() {
     lateinit var LctName: TextView
     private lateinit var bodyJSON: JSONObject
     private lateinit var sessionId: String
+    private lateinit var yearHakgi: String
 
     private var uploadMessage: ValueCallback<Array<Uri>>? = null
     private val FILECHOOSER_RESULTCODE = 1
@@ -64,6 +66,7 @@ class LectureActivity : AppCompatActivity() {
         val subjName = intent.getStringExtra("subjName")
         bodyJSON = JSONObject(intent.getStringExtra("bodyJSON")!!)
         sessionId = intent.getStringExtra("sessionID")!!
+        yearHakgi = intent.getStringExtra("yearHakgi")!!
 
         LctName = findViewById<TextView>(R.id.LctName)
         LctName.text = subjName
@@ -104,7 +107,6 @@ class LectureActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
                 if (url.contains("OnlineCntntsMstPage.do")) {
-                    var yearHakgi = getCurrentYear() + "," + getCurrentSemester();
                     webView.evaluateJavascript(
                         "javascript:localStorage.setItem('selectYearhakgi', '$yearHakgi');" +
                                 "javascript:localStorage.setItem('selectSubj', '$subjID');",
@@ -129,7 +131,7 @@ class LectureActivity : AppCompatActivity() {
                 )
                 if (url.contains("Frame.do")) {
                     webView.evaluateJavascript(
-                        "javascript:appModule.goLctrum('${getCurrentYear()},${getCurrentSemester()}', '$subjID')",
+                        "javascript:appModule.goLctrum('$yearHakgi', '$subjID')",
                         null
                     )
                     scrollView.visibility = ScrollView.VISIBLE
@@ -216,7 +218,6 @@ class LectureActivity : AppCompatActivity() {
                 return true
             }
 
-            // Enable file upload
             override fun onShowFileChooser(
                 webView: WebView,
                 filePathCallback: ValueCallback<Array<Uri>>,
@@ -228,38 +229,20 @@ class LectureActivity : AppCompatActivity() {
                 val intent = Intent(Intent.ACTION_GET_CONTENT)
                 intent.addCategory(Intent.CATEGORY_OPENABLE)
                 intent.type = "*/*"
-                startActivityForResult(
-                    Intent.createChooser(intent, "File Chooser"),
-                    FILECHOOSER_RESULTCODE
-                )
+                startActivityForResult(Intent.createChooser(intent, "파일 선택"), FILECHOOSER_RESULTCODE)
                 return true
             }
         }
 
     }
 
-    fun getCurrentYear(): String {
-        val currentYear = Calendar.getInstance().get(Calendar.YEAR)
-        return currentYear.toString()
-    }
-
-    fun getCurrentSemester(): String {
-        val currentMonth = Calendar.getInstance().get(Calendar.MONTH)
-
-        return if (currentMonth < 7) "1" else "2" // 8월 기준
-    }
-
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == FILECHOOSER_RESULTCODE) {
-            if (null == uploadMessage) return
-            val result =
-                if (intent == null || resultCode != Activity.RESULT_OK) null else intent.data
+            if (uploadMessage == null) return
+
             uploadMessage?.onReceiveValue(
-                WebChromeClient.FileChooserParams.parseResult(
-                    resultCode,
-                    intent
-                )
+                WebChromeClient.FileChooserParams.parseResult(resultCode, data)
             )
             uploadMessage = null
         } else {

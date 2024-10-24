@@ -64,8 +64,8 @@ class HomeActivity : AppCompatActivity() {
     lateinit var aiWebView: WebView
     lateinit var calendarWebView: WebView
     private lateinit var timetableWebView: WebView
-    private lateinit var deadlineForWebview: String
-    private lateinit var timetableForWebview: String
+    private var deadlineForWebview: String = ""
+    private var timetableForWebview: String = ""
     lateinit var sessionIdForOtherClass: String
     lateinit var loadingDialog: AlertDialog
     lateinit var subjList: JSONArray
@@ -230,7 +230,6 @@ class HomeActivity : AppCompatActivity() {
             }
         }
 
-        // drawer
         val navigationView =
             findViewById<com.google.android.material.navigation.NavigationView>(R.id.navigation_drawer)
         val headerView = navigationView.getHeaderView(0)
@@ -320,23 +319,7 @@ class HomeActivity : AppCompatActivity() {
 
             webView.webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView, url: String) {
-                    webView.evaluateJavascript(
-                        "javascript:window.receiveDeadlineData(`${deadlineForWebview}`)",
-                        null
-                    )
-                    if(timetableForWebview.isNotEmpty()) {
-                        webView.evaluateJavascript(
-                            "javascript:receiveTimetableData(`${timetableForWebview}`)",
-                            null
-                        )
-                    } else {
-                        webView.postDelayed(Runnable {
-                            webView.evaluateJavascript(
-                                "javascript:receiveTimetableData(`${timetableForWebview}`)",
-                                null
-                            )
-                        }, 1000)
-                    }
+                    sendDeadlineAndTimetableToWebView()
 
                     webView.visibility = View.VISIBLE
                     webViewProgress.visibility = View.GONE
@@ -426,6 +409,11 @@ class HomeActivity : AppCompatActivity() {
         })
     }
 
+    private fun sendDeadlineAndTimetableToWebView() {
+        webView.evaluateJavascript("javascript:window.receiveDeadlineData(`${deadlineForWebview}`)", null)
+        webView.evaluateJavascript("javascript:window.receiveTimetableData(`${timetableForWebview}`)", null)
+    }
+
     private fun initTimetable(sessionId: String) {
         timetableWebView.post(Runnable {
             timetableWebView.settings.javaScriptEnabled = true
@@ -458,11 +446,15 @@ class HomeActivity : AppCompatActivity() {
                 val jsonObject = jsonArray.getJSONObject(0)
                 val subjList = jsonObject.getJSONArray("subjList")
                 yearHakgi = jsonObject.getString("value")
-
                 CoroutineScope(Dispatchers.IO).launch {
-                    getTimetableData(sessionId)
-                    fetchDeadlines(sessionId, subjList)
-                    initWebView()
+                    launch { getTimetableData(sessionId) }
+                    launch { fetchDeadlines(sessionId, subjList) }
+                    withContext(Dispatchers.Main) {
+                        initWebView()
+                        loadingDialog.dismiss()
+                    }
+                }.invokeOnCompletion {
+                    runOnUiThread { sendDeadlineAndTimetableToWebView() }
                 }
             }
         }
@@ -756,8 +748,7 @@ class HomeActivity : AppCompatActivity() {
                 intent.putExtra("sessionID", sessionId)
                 startActivity(intent)
             } catch (e: Exception) {
-                // 에러 처리
-                Toast.makeText(this@HomeActivity, "오류가 발생했습니다: ${e.message}", Toast.LENGTH_SHORT)
+                Toast.makeText(this@HomeActivity, "알 수 없는 오류가 발생했어요: ${e.message}", Toast.LENGTH_SHORT)
                     .show()
             }
         }
@@ -774,6 +765,7 @@ class HomeActivity : AppCompatActivity() {
                     intent.putExtra("subjID", subjID)
                     intent.putExtra("subjName", subjName)
                     intent.putExtra("sessionID", sessionId)
+                    intent.putExtra("yearHakgi", yearHakgi)
                     startActivity(intent)
                 }
             }
@@ -804,7 +796,7 @@ class HomeActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    Toast.makeText(this@HomeActivity, "강의 목록 가져오는 중 오류 발생: ${e.message}", Toast.LENGTH_SHORT).show()
+                    showSessionExpiredDialog()
                     loadingDialog.dismiss()
                 }
             }
@@ -877,7 +869,7 @@ class HomeActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    Toast.makeText(this@HomeActivity, "강의 정보 가져오는 중 오류 발생: ${e.message}", Toast.LENGTH_SHORT).show()
+                    showSessionExpiredDialog()
                     loadingDialog.dismiss()
                 }
             }
@@ -1056,7 +1048,7 @@ class HomeActivity : AppCompatActivity() {
     private fun showSessionExpiredDialog() {
         val builder = MaterialAlertDialogBuilder(this)
         builder.setTitle("인증 오류")
-            .setMessage("세션이 만료되었습니다. 다시 로그인해주세요.")
+            .setMessage("로그인 후 일정 시간이 지나 세션이 만료되었어요. 앱을 재시작하면 정상적으로 정보가 표시될 거예요.")
             .setPositiveButton(
                 "확인"
             ) { _, _ ->

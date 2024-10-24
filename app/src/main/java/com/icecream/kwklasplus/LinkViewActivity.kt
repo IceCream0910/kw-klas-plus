@@ -230,12 +230,12 @@ class LinkViewActivity : AppCompatActivity() {
                 val intent = Intent(Intent.ACTION_GET_CONTENT)
                 intent.addCategory(Intent.CATEGORY_OPENABLE)
                 intent.type = "*/*"
-                startActivityForResult(Intent.createChooser(intent, "File Chooser"), FILECHOOSER_RESULTCODE)
+                startActivityForResult(Intent.createChooser(intent, "파일 선택"), FILECHOOSER_RESULTCODE)
                 return true
             }
         }
     }
-//////
+
     override fun onBackPressed() {
         if(webView.canGoBack()){
             webView.goBack()
