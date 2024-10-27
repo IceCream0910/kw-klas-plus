@@ -10,20 +10,21 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:id="@+id/videoPlayerLayout"
+        android:id="@+id/KLASListLayout"
         android:visibility="gone"
         android:orientation="vertical">
 
-        <com.icecream.kwklasplus.BackgroundWebView
+        <WebView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:id="@+id/webView"/>
+            android:id="@+id/KLASWebView"/>
 
     </LinearLayout>
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:visibility="visible"
         android:id="@+id/listLayout">
 
         <WebView
@@ -33,72 +34,216 @@
 
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:padding="20dp"
+        android:gravity="center"
         android:orientation="vertical">
-
-        <TextView
-            android:id="@+id/lectureNameTextView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text=""
-            android:textSize="22dp"
-            android:textStyle="bold"
-            android:layout_marginBottom="10dp"
-            />
-
-        <ProgressBar
-            android:id="@+id/timeProgressBar"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:progress="0"
-            android:max="100"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-        <TextView
-            android:id="@+id/lectureTimeTextView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text=""
-            android:textSize="14dp"
-            />
-
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="15dp">
+            android:id="@+id/videoPlayerLayout"
+            android:layout_weight="1"
+            android:visibility="visible"
+            android:gravity="center"
+            android:orientation="vertical">
 
-            <Button
-                style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
-                app:icon="@drawable/baseline_picture_in_picture_alt_24"
-                android:id="@+id/pipButton"
-                android:layout_width="wrap_content"
+            <com.icecream.kwklasplus.BackgroundWebView
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="  PIP로 재생 "
-                />
-
-            <Button
-                style="@style/Widget.Material3.Button.IconButton.Filled"
-                app:icon="@drawable/baseline_close_24"
-                android:id="@+id/closeButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="  나가기 "
-                />
+                android:id="@+id/VideoWebView"/>
 
         </LinearLayout>
-        <Button
-            style="@style/Widget.Material3.Button.IconButton.Outlined"
-            android:id="@+id/openInBrowserButton"
+
+
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text=" 원본 영상 보기 "
-            />
+            android:layout_marginBottom="30dp"
+            android:padding="20dp"
+            android:orientation="vertical">
 
+            <TextView
+                android:id="@+id/lectureNameTextView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="dd"
+                android:textSize="22dp"
+                android:textStyle="bold" />
+
+
+            <TextView
+                android:id="@+id/lectureTimeTextView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="20dp"
+                android:text="dddd"
+                android:textSize="14dp" />
+
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <com.google.android.material.slider.Slider
+                    android:id="@+id/timeProgressBar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:value="0" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="-10dp"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="15dp">
+
+                    <TextView
+                        android:id="@+id/seekbarCurrentTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="00:00" />
+
+                    <TextView
+                        android:id="@+id/seekbarTotalTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text=""
+                        android:textAlignment="textEnd" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="15dp"
+                android:gravity="center"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/muteButton"
+                    style="@style/Widget.Material3.Button.IconButton.Outlined"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginEnd="10dp"
+                    android:alpha="0.7"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:drawablePadding="0dp"
+                    android:padding="0dp"
+                    app:icon="@drawable/baseline_volume_off_24"
+                    app:iconSize="24dp" />
+
+                <Button
+                    android:id="@+id/backwardButton"
+                    style="@style/Widget.Material3.Button.IconButton.Outlined"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:drawablePadding="0dp"
+                    android:padding="0dp"
+                    app:icon="@drawable/baseline_replay_10_24"
+                    app:iconSize="36dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/playPauseButton"
+                    style="@style/Widget.Material3.Button.IconButton.Outlined"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:drawablePadding="0dp"
+                    android:padding="0dp"
+                    app:icon="@drawable/baseline_play_arrow_24"
+                    app:iconSize="86dp" />
+
+                <Button
+                    android:id="@+id/forwardButton"
+                    style="@style/Widget.Material3.Button.IconButton.Outlined"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:drawablePadding="0dp"
+                    android:padding="0dp"
+                    app:icon="@drawable/baseline_forward_10_24"
+                    app:iconSize="36dp" />
+
+                <Button
+                    android:id="@+id/fullScreenButton"
+                    style="@style/Widget.Material3.Button.IconButton.Outlined"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="10dp"
+                    android:alpha="0.7"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:drawablePadding="0dp"
+                    android:padding="0dp"
+                    app:icon="@drawable/baseline_fullscreen_24"
+                    app:iconSize="24dp" />
+
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="15dp"
+            android:background="@drawable/rounded_menu_background"
+            android:backgroundTint="@color/md_theme_onSecondary"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:layout_margin="20dp"
+            android:paddingHorizontal="20dp"
+            android:paddingVertical="5dp">
+
+            <Button
+                android:id="@+id/pipButton"
+                style="@style/Widget.Material3.Button.IconButton.Outlined"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginEnd="10dp"
+                android:alpha="0.8"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:drawablePadding="0dp"
+                android:padding="0dp"
+                android:text="  PIP"
+                app:icon="@drawable/baseline_picture_in_picture_alt_24"
+                app:iconSize="24dp" />
+
+            <Button
+                android:id="@+id/speedButton"
+                style="@style/Widget.Material3.Button.IconButton.Outlined"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginEnd="10dp"
+                android:alpha="0.8"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:drawablePadding="0dp"
+                android:padding="0dp"
+                android:text="  1.0x"
+                app:icon="@drawable/baseline_speed_24"
+                app:iconSize="24dp" />
+
+
+            <Button
+                android:id="@+id/closeButton"
+                style="@style/Widget.Material3.Button.IconButton.Outlined"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginEnd="10dp"
+                android:alpha="0.8"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:drawablePadding="0dp"
+                android:padding="0dp"
+                android:text="  수강 종료"
+                app:icon="@drawable/baseline_close_24"
+                app:iconSize="24dp" />
+
+
+        </LinearLayout>
     </LinearLayout>
 
 
