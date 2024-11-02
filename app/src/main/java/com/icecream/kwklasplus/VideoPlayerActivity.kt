@@ -165,7 +165,7 @@ class VideoPlayerActivity : AppCompatActivity() {
         listWebView.setBackgroundColor(0)
         listWebView.settings.javaScriptCanOpenWindowsAutomatically = true
         listWebView.addJavascriptInterface(WebAppInterface(this), "Android")
-        listWebView.loadUrl("http://192.168.219.114:3000/onlineLecture")
+        listWebView.loadUrl("https://klasplus.yuntae.in/onlineLecture")
 
         KLASWebView.settings.javaScriptEnabled = true
         KLASWebView.settings.domStorageEnabled = true
