@@ -270,6 +270,16 @@ class JavaScriptInterfaceForLinkView(private val activity: LinkViewActivity) {
     }
 
     @JavascriptInterface
+    fun openLecturePlanPage(id: String) {
+        activity.runOnUiThread {
+            val intent = Intent(activity, LctPlanActivity::class.java)
+            intent.putExtra("subjID", id)
+            intent.putExtra("sessionId", activity.sessionId)
+            activity.startActivity(intent)
+        }
+    }
+
+    @JavascriptInterface
     fun completePageLoad() {
         activity.runOnUiThread {
             activity.webView.evaluateJavascript(

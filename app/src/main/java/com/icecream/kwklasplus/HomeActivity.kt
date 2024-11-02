@@ -36,8 +36,11 @@ import androidx.core.view.WindowCompat
 import androidx.fragment.app.DialogFragment
 import com.github.tlaabs.timetableview.Schedule
 import com.github.tlaabs.timetableview.Time
+import com.google.android.material.datepicker.MaterialDatePicker
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.navigation.NavigationBarView
+import com.google.android.material.timepicker.MaterialTimePicker
+import com.google.android.material.timepicker.TimeFormat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -54,6 +57,7 @@ import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
+import java.util.Locale
 import kotlin.system.exitProcess
 
 
@@ -1089,6 +1093,39 @@ class HomeActivity : AppCompatActivity() {
             exitProcess(0)
         }
     }
+
+    fun showDatePicker(calendar: Calendar, isStart: Boolean) {
+        val datePicker = MaterialDatePicker.Builder.datePicker()
+            .setTitleText("날짜 선택")
+            .setSelection(calendar.timeInMillis)
+            .build()
+
+        datePicker.show(supportFragmentManager, "DATE_PICKER")
+
+        datePicker.addOnPositiveButtonClickListener { dateInMillis ->
+            calendar.timeInMillis = dateInMillis
+            showTimePicker(calendar, isStart)
+        }
+    }
+
+    private fun showTimePicker(calendar: Calendar, isStart: Boolean) {
+        val timePicker = MaterialTimePicker.Builder()
+            .setTimeFormat(TimeFormat.CLOCK_24H)
+            .setTitleText("시간 선택")
+            .setHour(calendar.get(Calendar.HOUR_OF_DAY))
+            .setMinute(calendar.get(Calendar.MINUTE))
+            .build()
+
+        timePicker.show(supportFragmentManager, "TIME_PICKER")
+
+        timePicker.addOnPositiveButtonClickListener {
+            calendar.set(Calendar.HOUR_OF_DAY, timePicker.hour)
+            calendar.set(Calendar.MINUTE, timePicker.minute)
+
+            val selectedDateTime = SimpleDateFormat("yyyy-MM-dd'T'HH:mm", Locale.getDefault()).format(calendar.time)
+            calendarWebView.evaluateJavascript("javascript:window.setDateTime('$selectedDateTime', $isStart);", null)
+        }
+    }
 }
 
 class JavaScriptInterface(private val homeActivity: HomeActivity) {
@@ -1169,5 +1206,19 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
             homeActivity.loadingDialog.show()
             homeActivity.openQRActivity(homeActivity.sessionIdForOtherClass, subjID, subjName)
         }
+    }
+
+    @JavascriptInterface
+    fun openDateTimePicker(currentDateTime: String?, isStart: Boolean) {
+        val calendar = Calendar.getInstance()
+
+        if (!currentDateTime.isNullOrEmpty()) {
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm", Locale.getDefault())
+            dateFormat.parse(currentDateTime)?.let {
+                calendar.time = it
+            }
+        }
+
+        homeActivity.showDatePicker(calendar, isStart)
     }
 }
