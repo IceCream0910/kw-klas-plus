@@ -74,6 +74,7 @@ class LectureActivity : AppCompatActivity() {
         val LctPlanBtn = findViewById<TextView>(R.id.LctPlanBtn)
         LctPlanBtn.setOnClickListener {
             val intent = Intent(this, LctPlanActivity::class.java)
+            intent.putExtra("sessionId", sessionId)
             intent.putExtra("subjID", subjID)
             startActivity(intent)
         }
