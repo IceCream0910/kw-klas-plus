@@ -85,7 +85,7 @@
         </activity>
         <activity
             android:name=".HomeActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|keyboardHidden|keyboard"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
         <activity

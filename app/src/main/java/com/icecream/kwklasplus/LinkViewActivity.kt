@@ -31,6 +31,7 @@ import android.webkit.JsResult
 import android.webkit.WebResourceRequest
 import android.widget.FrameLayout
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.google.android.gms.common.util.DeviceProperties.isTablet
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import java.net.URLDecoder
@@ -47,6 +48,14 @@ class LinkViewActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_link_view)
         window.statusBarColor = Color.parseColor("#3A051F")
+
+        // 모바일에서는 세로 모드 고정
+        if (isTablet(this)) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        } else {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+
         val url = intent.getStringExtra("url")?.let {
             val sanitizedUrl = Uri.parse(it).toString()
             if (URLUtil.isValidUrl(sanitizedUrl)) {

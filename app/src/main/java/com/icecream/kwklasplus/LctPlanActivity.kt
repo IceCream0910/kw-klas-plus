@@ -1,6 +1,7 @@
 package com.icecream.kwklasplus
 
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
@@ -10,6 +11,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.core.view.WindowCompat
+import com.google.android.gms.common.util.DeviceProperties.isTablet
 
 class LctPlanActivity : AppCompatActivity() {
     lateinit var sessionIdForOtherClass: String
@@ -21,6 +23,13 @@ class LctPlanActivity : AppCompatActivity() {
         setContentView(R.layout.activity_lct_plan)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.TRANSPARENT
+
+        // 모바일에서는 세로 모드 고정
+        if (isTablet(this)) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        } else {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
 
         sessionIdForOtherClass = intent.getStringExtra("sessionId").toString()
         subjID = intent.getStringExtra("subjID").toString()

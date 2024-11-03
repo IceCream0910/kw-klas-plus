@@ -38,6 +38,7 @@ import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.google.android.gms.common.util.DeviceProperties.isTablet
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import org.json.JSONObject
@@ -61,6 +62,13 @@ class LectureActivity : AppCompatActivity() {
         setContentView(R.layout.activity_lecture)
 
         window.statusBarColor = Color.parseColor("#3A051F")
+
+        // 모바일에서는 세로 모드 고정
+        if (isTablet(this)) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        } else {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
 
         val subjID = intent.getStringExtra("subjID")
         val subjName = intent.getStringExtra("subjName")
