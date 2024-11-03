@@ -41,6 +41,8 @@ import javax.crypto.spec.SecretKeySpec
 
 class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment() {
     private var originalBrightness: Float = 0f
+    private lateinit var name: TextView
+    private lateinit var numberAndDepartment: TextView
     private lateinit var qrImg: ImageView
     private lateinit var qrProgressBar: ProgressBar
     private val client = OkHttpClient.Builder()
@@ -55,7 +57,7 @@ class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment(
     private lateinit var refreshButton: Button
     private lateinit var refreshButtonForWidget: Button
     private var countDownTimer: CountDownTimer? = null
-    private val refreshInterval = 50000L
+    private val refreshInterval = 30000L
 
     @SuppressLint("MissingInflatedId")
     override fun onCreateView(
@@ -77,6 +79,8 @@ class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment(
             view.findViewById<ImageView>(R.id.refreshImageButtonForWidget)
         refreshButtonForWidget = view.findViewById(R.id.refreshButtonForWidget)
         refreshButton = view.findViewById(R.id.refreshButton)
+        name = view.findViewById(R.id.name)
+        numberAndDepartment = view.findViewById(R.id.numberAndDepartment)
         qrImg = view.findViewById(R.id.qrImageView)
         qrProgressBar = view.findViewById(R.id.qrProgressBar)
         cacheManager = CacheManager(requireContext())
@@ -325,7 +329,7 @@ class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment(
         parseXmlResponse(loginResponseData ?: "", "auth_key") ?: throw Exception("Login failed")
     }
 
-    private suspend fun getQrCode(realId: String, authKey: String): String =
+    private suspend fun getQrCode(realId: String, authKey: String): JSONObject =
         withContext(Dispatchers.IO) {
             val qrBody = FormBody.Builder()
                 .add("real_id", encode(realId))
@@ -341,12 +345,12 @@ class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment(
             if (!response.isSuccessful) throw IOException("Unexpected code $response")
 
             val qrResponseData = response.body?.string()
-            parseXmlResponse(qrResponseData ?: "", "qr_code")
+            xmlToJson(qrResponseData ?: "")
                 ?: throw Exception("Failed to get QR code data")
         }
 
-    private suspend fun displayQrCode(qrData: String) = withContext(Dispatchers.Main) {
-        if (qrData.isEmpty()) {
+    private suspend fun displayQrCode(qrData: JSONObject) = withContext(Dispatchers.Main) {
+        if (!qrData.has("qr_code") || qrData.getString("qr_code").length < 5) {
             qrProgressBar.visibility = View.GONE
             qrImg.visibility = View.VISIBLE
             if (!isRetry) {
@@ -369,7 +373,11 @@ class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment(
             val qrColor = if (isDarkMode) Color.WHITE else Color.BLACK
             val backgroundColor = Color.TRANSPARENT
 
-            val qrgEncoder = QRGEncoder(qrData, null, QRGContents.Type.TEXT, 200)
+            name.text = qrData.getString("user_name")
+            numberAndDepartment.text = "${qrData.getString("user_code").trim()}\n${qrData.getString("user_deptName")} ${qrData.getString("user_patName")}"
+
+            val qrValue = qrData.getString("qr_code")
+            val qrgEncoder = QRGEncoder(qrValue, null, QRGContents.Type.TEXT, 200)
             qrgEncoder.colorBlack = qrColor
             qrgEncoder.colorWhite = backgroundColor
             try {
@@ -413,6 +421,28 @@ class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment(
             eventType = parser.next()
         }
         return null
+    }
+
+    private fun xmlToJson(xmlString: String): JSONObject {
+        val factory = XmlPullParserFactory.newInstance()
+        factory.isNamespaceAware = true
+        val parser = factory.newPullParser()
+        parser.setInput(StringReader(xmlString))
+        var eventType = parser.eventType
+        val jsonObject = JSONObject()
+        var currentTag = ""
+        while (eventType != XmlPullParser.END_DOCUMENT) {
+            when (eventType) {
+                XmlPullParser.START_TAG -> {
+                    currentTag = parser.name
+                }
+                XmlPullParser.TEXT -> {
+                    jsonObject.put(currentTag, parser.text)
+                }
+            }
+            eventType = parser.next()
+        }
+        return jsonObject
     }
 
     override fun onDismiss(dialog: DialogInterface) {

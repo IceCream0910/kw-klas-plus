@@ -14,13 +14,6 @@
         android:layout_gravity="center"
         android:gravity="center">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="모바일 학생증"
-            android:textSize="24dp"
-            android:textStyle="bold"
-            android:layout_weight="1"/>
 
         <ImageButton
             android:id="@+id/refreshImageButtonForWidget"
@@ -54,6 +47,11 @@
             android:visibility="gone"
             />
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"/>
+
         <Button
             android:id="@+id/settingButton"
             style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
@@ -61,6 +59,30 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="end"/>
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:orientation="vertical">
+        <TextView
+            android:id="@+id/name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="22dp"
+            android:text=""
+            android:textAlignment="center"
+            android:textStyle="bold"/>
+        <TextView
+            android:id="@+id/numberAndDepartment"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAlignment="center"
+            android:textColor="@color/md_theme_outline"
+            android:text=""
+            android:textSize="15dp"/>
 
     </LinearLayout>
 
