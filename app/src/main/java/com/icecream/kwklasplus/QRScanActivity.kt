@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.Color
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
 import android.webkit.WebSettings
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -56,6 +57,7 @@ class QRScanActivity : AppCompatActivity() {
 
     fun qrScanComplete(qr: String) {
         checkin(qr, bodyJSON) { result ->
+            Log.e("teain", "result: $result")
             when (result) {
                 is CheckinResult.Success -> {
                     val jsonObject = result.data
@@ -102,6 +104,7 @@ class QRScanActivity : AppCompatActivity() {
             val client = OkHttpClient()
             body.put("encrypt", id)
             val requestBody = RequestBody.create("application/json".toMediaTypeOrNull(), body.toString())
+
             val defaultUserAgent = WebSettings.getDefaultUserAgent(this)
             val request = Request.Builder()
                 .url("https://klas.kw.ac.kr/mst/ads/admst/KwAttendQRCodeInsert.do")

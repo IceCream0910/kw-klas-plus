@@ -741,31 +741,27 @@ class HomeActivity : AppCompatActivity() {
         return endHour to endMinute
     }
 
-    fun openQRActivity(sessionId: String, subjID: String, subjName: String) {
-        CoroutineScope(Dispatchers.Main).launch {
-            try {
-                val subjDetail2 = withContext(Dispatchers.IO) {
-                    fetchSubjectDetail(sessionId, subjName, subjID) { it }
+fun openQRActivity(sessionId: String, subjID: String, subjName: String) {
+    CoroutineScope(Dispatchers.Main).launch {
+        try {
+            fetchSubjectDetail(sessionId, subjName, subjID) { subjDetail2 ->
+                postTransformedData(sessionId, subjDetail2) { subjDetail3 ->
+                    postRandomKey(sessionId, subjDetail3) { transformedJson ->
+                        val intent = Intent(this@HomeActivity, QRScanActivity::class.java)
+                        intent.putExtra("bodyJSON", transformedJson.toString())
+                        intent.putExtra("subjID", subjID)
+                        intent.putExtra("subjName", subjName)
+                        intent.putExtra("sessionID", sessionId)
+                        startActivity(intent)
+                    }
                 }
-                val subjDetail3 = withContext(Dispatchers.IO) {
-                    postTransformedData(sessionId, subjDetail2) { it }
-                }
-                val transformedJson = withContext(Dispatchers.IO) {
-                    postRandomKey(sessionId, subjDetail3) { it }
-                }
-                val intent = Intent(this@HomeActivity, QRScanActivity::class.java)
-                intent.putExtra("bodyJSON", transformedJson.toString())
-                intent.putExtra("subjID", subjID)
-                intent.putExtra("subjName", subjName)
-                intent.putExtra("sessionID", sessionId)
-                startActivity(intent)
-            } catch (e: Exception) {
-                Toast.makeText(this@HomeActivity, "알 수 없는 오류가 발생했어요: ${e.message}", Toast.LENGTH_SHORT)
-                    .show()
             }
+        } catch (e: Exception) {
+            Toast.makeText(this@HomeActivity, "알 수 없는 오류가 발생했어요: ${e.message}", Toast.LENGTH_SHORT)
+                .show()
         }
     }
-
+}
     fun openLectureActivity(
         sessionId: String, subjID: String, subjName: String
     ) {
