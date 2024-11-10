@@ -526,7 +526,7 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
     fun openInKLAS() {
         mainHandler.post {
             videoPlayerActivity.listLayout.visibility = View.GONE
-            videoPlayerActivity.videoPlayerLayout.visibility = View.VISIBLE
+            videoPlayerActivity.KLASListLayout.visibility = View.VISIBLE
         }
     }
 
