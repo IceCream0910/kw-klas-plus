@@ -65,6 +65,7 @@ class VideoPlayerActivity : AppCompatActivity() {
     lateinit var muteButton: com.google.android.material.button.MaterialButton
     lateinit var speedButton: Button
     var duration: Float = 1f
+    var lastPlaytime: Float = 0f
     lateinit var seekbarCurrentTime: TextView
     lateinit var seekbarTotalTime: TextView
     var isFullscreen: Boolean = false
@@ -154,6 +155,13 @@ class VideoPlayerActivity : AppCompatActivity() {
 
         pipButton.setOnClickListener {
             startPIP()
+        }
+
+        lectureTimeTextView.setOnClickListener {
+            VideoWebView.evaluateJavascript(
+                "bcPlayController.getPlayController()._eventTarget.fire(VCPlayControllerEvent.SEEK_END, $lastPlaytime);",
+                null
+            )
         }
 
         speedButton.setOnClickListener {
@@ -822,6 +830,11 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
             time.replace("<span id=\"lrnmin\">", "").replace("</span>", "").replace("<span>", "")
                 .replace(">", "")
         }"
+
+        val time = timeText.replace("학습시간 ", "").split("/")[0]
+        val minutes = time.split("분")[0].trim().toInt()
+        val seconds = minutes * 60
+        videoPlayerActivity.lastPlaytime = seconds.toFloat()
 
         mainHandler.post {
             videoPlayerActivity.lectureTimeTextView.text =
