@@ -1,6 +1,8 @@
 package com.icecream.kwklasplus
 
 import android.content.Context
+import android.content.Intent
+import android.media.session.MediaSession
 import android.util.AttributeSet
 import android.view.View
 import android.webkit.WebView
@@ -13,6 +15,7 @@ class BackgroundWebView : WebView {
         attrs,
         defStyleAttr
     )
+
 
     override fun onWindowVisibilityChanged(visibility: Int) {
         if (visibility != View.GONE) super.onWindowVisibilityChanged(View.VISIBLE)

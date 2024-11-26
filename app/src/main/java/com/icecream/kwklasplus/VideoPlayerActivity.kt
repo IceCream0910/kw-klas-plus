@@ -1,12 +1,18 @@
 package com.icecream.kwklasplus
 
 import android.annotation.SuppressLint
+import android.app.PendingIntent
 import android.app.PictureInPictureParams
+import android.app.RemoteAction
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Color
+import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -27,6 +33,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.gms.common.util.DeviceProperties.isTablet
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -37,6 +44,7 @@ import org.jsoup.Jsoup
 import kotlin.properties.Delegates
 
 class VideoPlayerActivity : AppCompatActivity() {
+    var isPlaying: Boolean = false
     lateinit var lectureNameTextView: TextView
     lateinit var lectureTimeTextView: TextView
     lateinit var timeProgressBar: Slider
@@ -61,11 +69,31 @@ class VideoPlayerActivity : AppCompatActivity() {
     lateinit var seekbarTotalTime: TextView
     var isFullscreen: Boolean = false
 
+    companion object {
+        private const val REQUEST_PLAY = 0
+        private const val REQUEST_PAUSE = 1
+        private const val REQUEST_FORWARD = 2
+        private const val REQUEST_BACKWARD = 3
+        private const val ACTION_MEDIA_CONTROL = "media_control"
+        private const val EXTRA_CONTROL_TYPE = "control_type"
+        private const val CONTROL_TYPE_PLAY = 0
+        private const val CONTROL_TYPE_PAUSE = 1
+        private const val CONTROL_TYPE_FORWARD = 2
+        private const val CONTROL_TYPE_BACKWARD = 3
+    }
+
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val intentFilter = IntentFilter(ACTION_MEDIA_CONTROL).apply {
+            addCategory(Intent.CATEGORY_DEFAULT)
+        }
+        registerReceiver(MediaControlReceiver, intentFilter, Context.RECEIVER_EXPORTED)
+
         setContentView(R.layout.activity_video_player)
-        window.statusBarColor = Color.parseColor("#3A051F")
+
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = Color.TRANSPARENT
 
         // 모바일에서는 세로 모드 고정
         if (isTablet(this)) {
@@ -189,6 +217,7 @@ class VideoPlayerActivity : AppCompatActivity() {
         VideoWebView.settings.domStorageEnabled = true
         VideoWebView.settings.allowFileAccess = true
         VideoWebView.settings.allowContentAccess = true
+        VideoWebView.settings.mediaPlaybackRequiresUserGesture = false
         VideoWebView.settings.supportMultipleWindows()
         VideoWebView.setBackgroundColor(0)
         VideoWebView.settings.javaScriptCanOpenWindowsAutomatically = true
@@ -420,15 +449,153 @@ class VideoPlayerActivity : AppCompatActivity() {
 
     private fun startPIP() {
         if (packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
-            if (!isFullscreen) pressKey(KeyEvent.KEYCODE_F)
-            var param = PictureInPictureParams.Builder().build()
-            enterPictureInPictureMode(param)
+            if (!isFullscreen) {
+                pressKey(KeyEvent.KEYCODE_F)
+            }
+
+            val test = PendingIntent.getBroadcast(
+                this,
+                REQUEST_BACKWARD,
+                Intent(ACTION_MEDIA_CONTROL).putExtra(EXTRA_CONTROL_TYPE, CONTROL_TYPE_BACKWARD),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            Log.e("MediaControlReceiver", "$test")
+
+
+            val actions = listOf(
+                RemoteAction(
+                    Icon.createWithResource(this, R.drawable.baseline_replay_10_24),
+                    "Backward",
+                    "Backward",
+                    PendingIntent.getBroadcast(
+                        this,
+                        REQUEST_BACKWARD,
+                        Intent(ACTION_MEDIA_CONTROL).putExtra(EXTRA_CONTROL_TYPE, CONTROL_TYPE_BACKWARD),
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                    )
+                ),
+                RemoteAction(
+                    Icon.createWithResource(this, if (isPlaying) R.drawable.baseline_pause_24 else R.drawable.baseline_play_arrow_24),
+                    if (isPlaying) "Pause" else "Play",
+                    if (isPlaying) "Pause" else "Play",
+                    PendingIntent.getBroadcast(
+                        this,
+                        if (isPlaying) REQUEST_PAUSE else REQUEST_PLAY,
+                        Intent(ACTION_MEDIA_CONTROL).putExtra(EXTRA_CONTROL_TYPE, if (isPlaying) CONTROL_TYPE_PAUSE else CONTROL_TYPE_PLAY),
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                    )
+                ),
+                RemoteAction(
+                    Icon.createWithResource(this, R.drawable.baseline_forward_10_24),
+                    "Forward",
+                    "Forward",
+                    PendingIntent.getBroadcast(
+                        this,
+                        REQUEST_FORWARD,
+                        Intent(ACTION_MEDIA_CONTROL).putExtra(EXTRA_CONTROL_TYPE, CONTROL_TYPE_FORWARD),
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                    )
+                )
+            )
+
+            val params = PictureInPictureParams.Builder()
+                .setActions(actions)
+                .build()
+            enterPictureInPictureMode(params)
+        }
+    }
+
+    fun updatePipActions() {
+        val actions = listOf(
+            RemoteAction(
+                Icon.createWithResource(this, R.drawable.baseline_replay_10_24),
+                "Backward",
+                "Backward",
+                PendingIntent.getBroadcast(
+                    this,
+                    REQUEST_BACKWARD,
+                    Intent(ACTION_MEDIA_CONTROL).putExtra(EXTRA_CONTROL_TYPE, CONTROL_TYPE_BACKWARD),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            ),
+            RemoteAction(
+                Icon.createWithResource(this, if (isPlaying) R.drawable.baseline_pause_24 else R.drawable.baseline_play_arrow_24),
+                if (isPlaying) "Pause" else "Play",
+                if (isPlaying) "Pause" else "Play",
+                PendingIntent.getBroadcast(
+                    this,
+                    if (isPlaying) REQUEST_PAUSE else REQUEST_PLAY,
+                    Intent(ACTION_MEDIA_CONTROL).putExtra(EXTRA_CONTROL_TYPE, if (isPlaying) CONTROL_TYPE_PAUSE else CONTROL_TYPE_PLAY),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            ),
+            RemoteAction(
+                Icon.createWithResource(this, R.drawable.baseline_forward_10_24),
+                "Forward",
+                "Forward",
+                PendingIntent.getBroadcast(
+                    this,
+                    REQUEST_FORWARD,
+                    Intent(ACTION_MEDIA_CONTROL).putExtra(EXTRA_CONTROL_TYPE, CONTROL_TYPE_FORWARD),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            )
+        )
+
+        val params = PictureInPictureParams.Builder()
+            .setActions(actions)
+            .build()
+        setPictureInPictureParams(params)
+    }
+
+    private val MediaControlReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when(intent.getIntExtra(EXTRA_CONTROL_TYPE, 0)) {
+                CONTROL_TYPE_PLAY -> {
+                    VideoWebView.evaluateJavascript(
+                        "bcPlayController._uniPlayerEventTarget.fire(VCPlayControllerEvent.PLAY);",
+                        null
+                    )
+                }
+                CONTROL_TYPE_PAUSE -> {
+                    VideoWebView.evaluateJavascript(
+                        "bcPlayController._uniPlayerEventTarget.fire(VCPlayControllerEvent.PAUSE);",
+                        null
+                    )
+                }
+                CONTROL_TYPE_FORWARD -> {
+                    Log.e("MediaControlReceiver", "Forward")
+                    VideoWebView.evaluateJavascript(" var a = bcPlayController.getPlayController();\n" +
+                            "        if (a._duration) {\n" +
+                            "            var b = (a._currTime + VCPlayControllerMedia.MOVING_TIME);\n" +
+                            "        b = (b > a._duration) ? a._duration : b;\n" +
+                            "        if (this._seekLimit) {\n" +
+                            "            b = b > a._limitTime ? a._limitTime : b\n" +
+                            "        }\n" +
+                            "        a.changeCurrTimeManually(b, VCPlayControllerEvent.SEEK_END)\n" +
+                            "        }\n" +
+                            "        \n" +
+                            "   ", null)
+                }
+                CONTROL_TYPE_BACKWARD -> {
+                    VideoWebView.evaluateJavascript(
+                        " var a = bcPlayController.getPlayController();\n" +
+                                "        if (a._duration) {\n" +
+                                "            var b = (a._currTime - VCPlayControllerMedia.MOVING_TIME);\n" +
+                                "        b = (b < 0) ? 0 : b;\n" +
+                                "        a.changeCurrTimeManually(b, VCPlayControllerEvent.SEEK_END)\n" +
+                                "        }",
+                        null
+                    )
+                }
+            }
         }
     }
 
     override fun onStop() {
         super.onStop()
         onStopCalled = true
+        //TODO: pip 상태에서 화면 끄면 재생 중단 이슈
     }
 
     override fun onResume() {
@@ -451,6 +618,8 @@ class VideoPlayerActivity : AppCompatActivity() {
             if (onStopCalled) {
                 finish()
             }
+        } else {
+            updatePipActions()
         }
     }
 
@@ -468,6 +637,8 @@ class VideoPlayerActivity : AppCompatActivity() {
             it.destroyDrawingCache()
             it.destroy()
         }
+        unregisterReceiver(MediaControlReceiver)
+
     }
 
     override fun onBackPressed() {
@@ -497,9 +668,6 @@ class VideoPlayerActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        if (isViewer) {
-            startPIP()
-        }
     }
 }
 
@@ -611,6 +779,8 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
         isFullscreen: String
     ) {
         mainHandler.post {
+            videoPlayerActivity.isPlaying = (isPlaying == "true")
+            videoPlayerActivity.updatePipActions()
             videoPlayerActivity.isFullscreen = (isFullscreen == "true")
             videoPlayerActivity.playPauseButton.setIconResource(
                 if (isPlaying == "true") R.drawable.baseline_pause_24 else R.drawable.baseline_play_arrow_24

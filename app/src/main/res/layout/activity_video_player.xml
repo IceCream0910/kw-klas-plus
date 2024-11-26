@@ -25,6 +25,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="visible"
+        android:layout_marginTop="30dp"
         android:id="@+id/listLayout">
 
         <WebView
@@ -69,7 +70,7 @@
                 android:id="@+id/lectureNameTextView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="dd"
+                android:text=""
                 android:textSize="22dp"
                 android:textStyle="bold" />
 
@@ -79,7 +80,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="20dp"
-                android:text="dddd"
+                android:text=""
                 android:textSize="14dp" />
 
 
