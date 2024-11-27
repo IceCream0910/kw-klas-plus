@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.TextView
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.icecream.kwklasplus.R
 
@@ -25,11 +26,16 @@ class SpeedBottomSheetDialog : BottomSheetDialogFragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        return inflater.inflate(R.layout.bottom_sheet_speed, container, false)
+        return inflater.inflate(R.layout.bottom_sheet_select, container, false)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        val title = view.findViewById<TextView>(R.id.title)
+        val desc = view.findViewById<TextView>(R.id.desc)
+        title.text = "재생 속도 선택"
+        desc.visibility = View.GONE
 
         val speedOptions = listOf(0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0)
         val speedContainer = view.findViewById<LinearLayout>(R.id.speedContainer)

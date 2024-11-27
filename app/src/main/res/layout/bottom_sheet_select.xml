@@ -6,11 +6,20 @@
     android:padding="20dp">
 
     <TextView
+        android:id="@+id/title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="재생 속도 선택"
+        android:text=""
         android:textSize="24dp"
-        android:textStyle="bold"
+        android:textStyle="bold"/>
+
+    <TextView
+        android:id="@+id/desc"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="14dp"
+        android:textColor="@color/material_on_background_disabled"
         android:layout_marginBottom="16dp"/>
 
     <LinearLayout

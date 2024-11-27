@@ -9,16 +9,19 @@ import android.net.NetworkCapabilities
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.view.View
 import android.webkit.CookieManager
 import android.webkit.JsResult
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.ProgressBar
 import androidx.core.view.WindowCompat
 import com.google.android.gms.common.util.DeviceProperties.isTablet
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class MainActivity : AppCompatActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -50,7 +53,6 @@ class MainActivity : AppCompatActivity() {
         val kwID = sharedPreferences.getString("kwID", null)
         val kwPWD = sharedPreferences.getString("kwPWD", null)
         var isInstantLogin = false
-
         val webView = findViewById<WebView>(R.id.webView)
         webView.settings.javaScriptEnabled = true
         webView.webViewClient = object : WebViewClient() {
@@ -144,4 +146,5 @@ class MainActivity : AppCompatActivity() {
             return networkInfo != null && networkInfo.isConnected
         }
     }
+
 }

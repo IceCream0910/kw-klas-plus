@@ -3,6 +3,7 @@ package com.icecream.kwklasplus
 import LibraryQRModal
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
@@ -42,6 +43,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.navigation.NavigationBarView
 import com.google.android.material.timepicker.MaterialTimePicker
 import com.google.android.material.timepicker.TimeFormat
+import com.icecream.kwklasplus.modal.YearHakgiBottomSheetDialog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -74,6 +76,8 @@ class HomeActivity : AppCompatActivity() {
     lateinit var sessionIdForOtherClass: String
     lateinit var loadingDialog: AlertDialog
     lateinit var subjList: JSONArray
+    lateinit var yearHakgiList: Array<String>
+    lateinit var selectYearHakgiBtn: Button
     var yearHakgi: String = ""
     private var isKeyboardShowing = false
 
@@ -170,6 +174,7 @@ class HomeActivity : AppCompatActivity() {
         val headerLayout = findViewById<LinearLayout>(R.id.headerLayout)
         val viewTitle = findViewById<TextView>(R.id.viewTitle)
         val menuBtn = findViewById<Button>(R.id.menuBtn)
+        selectYearHakgiBtn = findViewById<Button>(R.id.selectYearHakgiBtn)
         val homeView = findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.homeView)
         val timetableView =
             findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.timetableView)
@@ -183,6 +188,19 @@ class HomeActivity : AppCompatActivity() {
         menuBtn.setOnClickListener {
             showOptionsMenu(it)
         }
+
+        selectYearHakgiBtn.setOnClickListener {
+            val yearHakgiDialog = YearHakgiBottomSheetDialog(yearHakgiList).apply {
+                setSpeedSelectionListener(object : YearHakgiBottomSheetDialog.YearHakgiSelectionListener {
+                    override fun onYearHakgiSelected(value: String) {
+                        updateYearHakgi(value)
+                    }
+                })
+            }
+
+            yearHakgiDialog.show(supportFragmentManager, YearHakgiBottomSheetDialog.TAG)
+        }
+
         NavigationBarView.setOnItemSelectedListener { item: MenuItem ->
             when (item.itemId) {
                 R.id.item_1 -> {
@@ -193,6 +211,8 @@ class HomeActivity : AppCompatActivity() {
                     calendarView.visibility = View.GONE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.GONE
+                    menuBtn.visibility = View.VISIBLE
+                    selectYearHakgiBtn.visibility = View.GONE
                     true
                 }
 
@@ -204,6 +224,8 @@ class HomeActivity : AppCompatActivity() {
                     calendarView.visibility = View.GONE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.GONE
+                    menuBtn.visibility = View.GONE
+                    selectYearHakgiBtn.visibility = View.VISIBLE
                     true
                 }
                 R.id.item_5 -> {
@@ -214,6 +236,8 @@ class HomeActivity : AppCompatActivity() {
                     calendarView.visibility = View.VISIBLE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.GONE
+                    menuBtn.visibility = View.VISIBLE
+                    selectYearHakgiBtn.visibility = View.GONE
                     true
                 }
                 R.id.item_3 -> {
@@ -224,6 +248,8 @@ class HomeActivity : AppCompatActivity() {
                     calendarView.visibility = View.GONE
                     qrView.visibility = View.VISIBLE
                     menuView.visibility = View.GONE
+                    menuBtn.visibility = View.VISIBLE
+                    selectYearHakgiBtn.visibility = View.GONE
                     true
                 }
 
@@ -364,7 +390,7 @@ class HomeActivity : AppCompatActivity() {
             calendarWebView.isHorizontalScrollBarEnabled = false
             calendarWebView.setBackgroundColor(0)
             calendarWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
-            calendarWebView.loadUrl("https://klasplus.yuntae.in/calendar")
+            calendarWebView.loadUrl("https://klasplus.yuntae.in/calendar?yearHakgi=${yearHakgi}")
 
             calendarWebView.webChromeClient = object : WebChromeClient() {
                 override fun onJsAlert(
@@ -455,12 +481,29 @@ class HomeActivity : AppCompatActivity() {
     private fun initSubjectList(sessionId: String) {
         fetchSubjectList(sessionId) { jsonArray ->
             runOnUiThread {
-                val jsonObject = jsonArray.getJSONObject(0)
-                val subjList = jsonObject.getJSONArray("subjList")
+                yearHakgiList = Array(jsonArray.length()) { "" }
+                for (i in 0 until jsonArray.length()) {
+                    val jsonObject = jsonArray.getJSONObject(i)
+                    yearHakgiList[i] = jsonObject.getString("value")
+                }
+
+                val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
+                val savedYearHakgi = sharedPreferences.getString("yearHakgi", "")
+                var index = 0
+
+                if(!savedYearHakgi.isNullOrEmpty()){
+                    index = yearHakgiList.indexOf(savedYearHakgi)
+                }
+
+                val jsonObject = jsonArray.getJSONObject(index)
+                val newSubjList = jsonObject.getJSONArray("subjList")
                 yearHakgi = jsonObject.getString("value")
+                val btnText = yearHakgi.replace(",3", ",하계계절").replace(",4", ",동계계절").replace(",", "년도 ") + "학기"
+                selectYearHakgiBtn.text = btnText
+
                 CoroutineScope(Dispatchers.IO).launch {
                     launch { getTimetableData(sessionId) }
-                    launch { fetchDeadlines(sessionId, subjList) }
+                    launch { fetchDeadlines(sessionId, newSubjList) }
                     withContext(Dispatchers.Main) {
                         initWebView()
                         loadingDialog.dismiss()
@@ -472,6 +515,47 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
+    private fun updateYearHakgi(selectedYearHakgi: String) {
+        val btnText = selectedYearHakgi.replace(",3", ",하계계절").replace(",4", ",동계계절").replace(",", "년도 ") + "학기"
+        selectYearHakgiBtn.text = btnText
+
+        yearHakgi = selectedYearHakgi
+        val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
+        val editor: SharedPreferences.Editor = sharedPreferences.edit()
+        editor.putString("yearHakgi", yearHakgi)
+        editor.apply()
+
+        reload()
+    }
+
+    public fun reload() {
+        loadingDialog.show()
+        val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
+        val sessionId = sharedPreferences.getString("kwSESSION", null)
+        if (sessionId == null) {
+            showLoginErrorToast()
+            finish()
+            startActivity(Intent(this@HomeActivity, MainActivity::class.java))
+            return
+        }
+
+        fetchSubjectList(sessionId) { jsonArray ->
+            val jsonObject = jsonArray.getJSONObject(0)
+            val subjList = jsonObject.getJSONArray("subjList")
+            CoroutineScope(Dispatchers.IO).launch {
+                launch { getTimetableData(sessionId) }
+                launch { fetchDeadlines(sessionId, subjList) }
+                withContext(Dispatchers.Main) {
+                    initWebView()
+                    loadingDialog.dismiss()
+                }
+            }.invokeOnCompletion {
+                runOnUiThread { sendDeadlineAndTimetableToWebView() }
+            }
+        }
+
+        initWebView()
+    }
 
     private suspend fun fetchDeadlines(sessionId: String, subjList: JSONArray) {
         val deadline = ArrayList<JSONObject>()
@@ -765,19 +849,12 @@ fun openQRActivity(sessionId: String, subjID: String, subjName: String) {
     fun openLectureActivity(
         sessionId: String, subjID: String, subjName: String
     ) {
-        fetchSubjectDetail(sessionId, subjName, subjID) { subjDetail2 ->
-            postTransformedData(sessionId, subjDetail2) { subjDetail3 ->
-                postRandomKey(sessionId, subjDetail3) { transformedJson ->
-                    val intent = Intent(this, LectureActivity::class.java)
-                    intent.putExtra("bodyJSON", transformedJson.toString())
-                    intent.putExtra("subjID", subjID)
-                    intent.putExtra("subjName", subjName)
-                    intent.putExtra("sessionID", sessionId)
-                    intent.putExtra("yearHakgi", yearHakgi)
-                    startActivity(intent)
-                }
-            }
-        }
+        val intent = Intent(this, LectureActivity::class.java)
+        intent.putExtra("subjID", subjID)
+        intent.putExtra("subjName", subjName)
+        intent.putExtra("sessionID", sessionId)
+        intent.putExtra("yearHakgi", yearHakgi)
+        startActivity(intent)
     }
 
     private fun fetchSubjectList(sessionId: String, callback: (JSONArray) -> Unit) {
@@ -845,6 +922,7 @@ fun openQRActivity(sessionId: String, subjID: String, subjName: String) {
                 requestBody
             )
 
+            var found = false
             try {
                 val response = client.newCall(request).execute()
                 val responseBody = response.body?.string()
@@ -871,8 +949,19 @@ fun openQRActivity(sessionId: String, subjID: String, subjName: String) {
                                 .put("yoil", jsonObject.getString("yoil"))
                                 .put("subj", subjID)
                             callback(transformedJson)
+                            found = true
                             break
                         }
+                    }
+                }
+                if (!found) {
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@HomeActivity,
+                            "QR출석이 지원되지 않는 강의입니다.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        loadingDialog.dismiss()
                     }
                 }
             } catch (e: Exception) {
@@ -885,14 +974,15 @@ fun openQRActivity(sessionId: String, subjID: String, subjName: String) {
         return JSONObject()
     }
 
-    private fun postTransformedData(
-        sessionId: String,
-        transformedJson: JSONObject,
-        callback: (JSONObject) -> Unit
-    ): JSONObject {
-        CoroutineScope(Dispatchers.IO).launch {
-            val client = OkHttpClient()
+  private fun postTransformedData(
+    sessionId: String,
+    transformedJson: JSONObject,
+    callback: (JSONObject) -> Unit
+): JSONObject {
+    CoroutineScope(Dispatchers.IO).launch {
+        val client = OkHttpClient()
 
+        try {
             val requestBody = RequestBody.create(
                 "application/json".toMediaTypeOrNull(),
                 transformedJson.toString()
@@ -911,19 +1001,30 @@ fun openQRActivity(sessionId: String, subjID: String, subjName: String) {
                 val responseJson = JSONArray(responseBody)
                 transformedJson.put("list", responseJson)
                 callback(transformedJson)
+            } else {
+                callback(JSONObject())
             }
+        } catch (e: Exception) {
+            runOnUiThread {
+                showSessionExpiredDialog()
+                loadingDialog.dismiss()
+            }
+            Log.e("postTransformedData", "Error: ${e.message}")
+            callback(JSONObject())
         }
-        return JSONObject()
     }
+    return JSONObject()
+}
 
-    private fun postRandomKey(
-        sessionId: String,
-        transformedJson: JSONObject,
-        callback: (JSONObject) -> Unit
-    ): JSONObject {
-        CoroutineScope(Dispatchers.IO).launch {
-            val client = OkHttpClient()
+   private fun postRandomKey(
+    sessionId: String,
+    transformedJson: JSONObject,
+    callback: (JSONObject) -> Unit
+): JSONObject {
+    CoroutineScope(Dispatchers.IO).launch {
+        val client = OkHttpClient()
 
+        try {
             val requestBody = RequestBody.create(
                 "application/json".toMediaTypeOrNull(),
                 transformedJson.toString()
@@ -942,10 +1043,20 @@ fun openQRActivity(sessionId: String, subjID: String, subjName: String) {
                 val responseJson = JSONObject(responseBody).getString("randomKey")
                 transformedJson.put("randomKey", responseJson)
                 callback(transformedJson)
+            } else {
+                callback(JSONObject())
             }
+        } catch (e: Exception) {
+            runOnUiThread {
+                showSessionExpiredDialog()
+                loadingDialog.dismiss()
+            }
+            Log.e("postRandomKey", "Error: ${e.message}")
+            callback(JSONObject())
         }
-        return JSONObject()
     }
+    return JSONObject()
+}
 
     private fun getCurrentYear(): String {
         if (yearHakgi.isNotEmpty()) {
@@ -1178,6 +1289,7 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
                 "javascript:window.receiveToken('${homeActivity.sessionIdForOtherClass}')",
                 null
             )
+            Log.e("taein", homeActivity.subjList.toString())
             homeActivity.aiWebView.evaluateJavascript(
                 "javascript:window.receiveSubjList('${homeActivity.subjList}')",
                 null
@@ -1224,5 +1336,12 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
         }
 
         homeActivity.showDatePicker(calendar, isStart)
+    }
+
+    @JavascriptInterface
+    fun reload() {
+        homeActivity.runOnUiThread {
+            homeActivity.reload()
+        }
     }
 }
