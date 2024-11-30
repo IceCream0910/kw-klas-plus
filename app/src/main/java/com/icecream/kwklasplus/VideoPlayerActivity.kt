@@ -18,6 +18,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.provider.MediaStore.Video
 import android.util.Log
 import android.view.KeyEvent
 import android.view.View
@@ -147,6 +148,7 @@ class VideoPlayerActivity : AppCompatActivity() {
 
         fullScreenButton.setOnClickListener {
             pressKey(KeyEvent.KEYCODE_F)
+            showController()
         }
 
         muteButton.setOnClickListener {
@@ -336,14 +338,13 @@ class VideoPlayerActivity : AppCompatActivity() {
         VideoWebView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
                 Log.d("VideoWebView", "onPageFinished called for URL: $url")
-                if(!url.contains("kw.ac.kr")) return;
+                if (!url.contains("kw.ac.kr")) return;
                 VideoWebView.evaluateJavascript(
                     """
             (function() {
                 var currSpeed = ${'$'}(".vc-pctrl-playback-rate-toggle-btn").text().replace('x ', '');
                 Android.receiveInitSpeed(currSpeed);
                 setInterval(() => {
-                    ${'$'}("#play-controller").remove();
                     ${'$'}("#content-metadata").remove();
                     var currTime = bcPlayController.getPlayController()._currTime;
                     var duration = bcPlayController.getPlayController()._duration;
@@ -355,6 +356,7 @@ class VideoPlayerActivity : AppCompatActivity() {
             })();
             """, null
                 )
+                hideController()
             }
         }
 
@@ -460,6 +462,7 @@ class VideoPlayerActivity : AppCompatActivity() {
             if (!isFullscreen) {
                 pressKey(KeyEvent.KEYCODE_F)
             }
+            hideController()
 
             val test = PendingIntent.getBroadcast(
                 this,
@@ -478,18 +481,27 @@ class VideoPlayerActivity : AppCompatActivity() {
                     PendingIntent.getBroadcast(
                         this,
                         REQUEST_BACKWARD,
-                        Intent(ACTION_MEDIA_CONTROL).putExtra(EXTRA_CONTROL_TYPE, CONTROL_TYPE_BACKWARD),
+                        Intent(ACTION_MEDIA_CONTROL).putExtra(
+                            EXTRA_CONTROL_TYPE,
+                            CONTROL_TYPE_BACKWARD
+                        ),
                         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
                     )
                 ),
                 RemoteAction(
-                    Icon.createWithResource(this, if (isPlaying) R.drawable.baseline_pause_24 else R.drawable.baseline_play_arrow_24),
+                    Icon.createWithResource(
+                        this,
+                        if (isPlaying) R.drawable.baseline_pause_24 else R.drawable.baseline_play_arrow_24
+                    ),
                     if (isPlaying) "Pause" else "Play",
                     if (isPlaying) "Pause" else "Play",
                     PendingIntent.getBroadcast(
                         this,
                         if (isPlaying) REQUEST_PAUSE else REQUEST_PLAY,
-                        Intent(ACTION_MEDIA_CONTROL).putExtra(EXTRA_CONTROL_TYPE, if (isPlaying) CONTROL_TYPE_PAUSE else CONTROL_TYPE_PLAY),
+                        Intent(ACTION_MEDIA_CONTROL).putExtra(
+                            EXTRA_CONTROL_TYPE,
+                            if (isPlaying) CONTROL_TYPE_PAUSE else CONTROL_TYPE_PLAY
+                        ),
                         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
                     )
                 ),
@@ -500,7 +512,10 @@ class VideoPlayerActivity : AppCompatActivity() {
                     PendingIntent.getBroadcast(
                         this,
                         REQUEST_FORWARD,
-                        Intent(ACTION_MEDIA_CONTROL).putExtra(EXTRA_CONTROL_TYPE, CONTROL_TYPE_FORWARD),
+                        Intent(ACTION_MEDIA_CONTROL).putExtra(
+                            EXTRA_CONTROL_TYPE,
+                            CONTROL_TYPE_FORWARD
+                        ),
                         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
                     )
                 )
@@ -522,18 +537,27 @@ class VideoPlayerActivity : AppCompatActivity() {
                 PendingIntent.getBroadcast(
                     this,
                     REQUEST_BACKWARD,
-                    Intent(ACTION_MEDIA_CONTROL).putExtra(EXTRA_CONTROL_TYPE, CONTROL_TYPE_BACKWARD),
+                    Intent(ACTION_MEDIA_CONTROL).putExtra(
+                        EXTRA_CONTROL_TYPE,
+                        CONTROL_TYPE_BACKWARD
+                    ),
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
                 )
             ),
             RemoteAction(
-                Icon.createWithResource(this, if (isPlaying) R.drawable.baseline_pause_24 else R.drawable.baseline_play_arrow_24),
+                Icon.createWithResource(
+                    this,
+                    if (isPlaying) R.drawable.baseline_pause_24 else R.drawable.baseline_play_arrow_24
+                ),
                 if (isPlaying) "Pause" else "Play",
                 if (isPlaying) "Pause" else "Play",
                 PendingIntent.getBroadcast(
                     this,
                     if (isPlaying) REQUEST_PAUSE else REQUEST_PLAY,
-                    Intent(ACTION_MEDIA_CONTROL).putExtra(EXTRA_CONTROL_TYPE, if (isPlaying) CONTROL_TYPE_PAUSE else CONTROL_TYPE_PLAY),
+                    Intent(ACTION_MEDIA_CONTROL).putExtra(
+                        EXTRA_CONTROL_TYPE,
+                        if (isPlaying) CONTROL_TYPE_PAUSE else CONTROL_TYPE_PLAY
+                    ),
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
                 )
             ),
@@ -558,33 +582,38 @@ class VideoPlayerActivity : AppCompatActivity() {
 
     private val MediaControlReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            when(intent.getIntExtra(EXTRA_CONTROL_TYPE, 0)) {
+            when (intent.getIntExtra(EXTRA_CONTROL_TYPE, 0)) {
                 CONTROL_TYPE_PLAY -> {
                     VideoWebView.evaluateJavascript(
                         "bcPlayController._uniPlayerEventTarget.fire(VCPlayControllerEvent.PLAY);",
                         null
                     )
                 }
+
                 CONTROL_TYPE_PAUSE -> {
                     VideoWebView.evaluateJavascript(
                         "bcPlayController._uniPlayerEventTarget.fire(VCPlayControllerEvent.PAUSE);",
                         null
                     )
                 }
+
                 CONTROL_TYPE_FORWARD -> {
                     Log.e("MediaControlReceiver", "Forward")
-                    VideoWebView.evaluateJavascript(" var a = bcPlayController.getPlayController();\n" +
-                            "        if (a._duration) {\n" +
-                            "            var b = (a._currTime + VCPlayControllerMedia.MOVING_TIME);\n" +
-                            "        b = (b > a._duration) ? a._duration : b;\n" +
-                            "        if (this._seekLimit) {\n" +
-                            "            b = b > a._limitTime ? a._limitTime : b\n" +
-                            "        }\n" +
-                            "        a.changeCurrTimeManually(b, VCPlayControllerEvent.SEEK_END)\n" +
-                            "        }\n" +
-                            "        \n" +
-                            "   ", null)
+                    VideoWebView.evaluateJavascript(
+                        " var a = bcPlayController.getPlayController();\n" +
+                                "        if (a._duration) {\n" +
+                                "            var b = (a._currTime + VCPlayControllerMedia.MOVING_TIME);\n" +
+                                "        b = (b > a._duration) ? a._duration : b;\n" +
+                                "        if (this._seekLimit) {\n" +
+                                "            b = b > a._limitTime ? a._limitTime : b\n" +
+                                "        }\n" +
+                                "        a.changeCurrTimeManually(b, VCPlayControllerEvent.SEEK_END)\n" +
+                                "        }\n" +
+                                "        \n" +
+                                "   ", null
+                    )
                 }
+
                 CONTROL_TYPE_BACKWARD -> {
                     VideoWebView.evaluateJavascript(
                         " var a = bcPlayController.getPlayController();\n" +
@@ -600,6 +629,31 @@ class VideoPlayerActivity : AppCompatActivity() {
         }
     }
 
+    fun hideController() {
+        VideoWebView.evaluateJavascript(
+            """
+    document.head.appendChild(Object.assign(document.createElement('style'), { textContent: `
+        #play-controller {
+            display: none !important;
+        }
+    ` }));
+    ${'$'}(".vc-pctrl-playback-rate-toggle-btn").remove();
+""".trimIndent(), null
+        )
+    }
+
+    fun showController() {
+        VideoWebView.evaluateJavascript(
+            """
+    document.head.appendChild(Object.assign(document.createElement('style'), { textContent: `
+        #play-controller {
+            display: block !important;
+        }
+    ` }));
+""".trimIndent(), null
+        )
+    }
+
     override fun onStop() {
         super.onStop()
         onStopCalled = true
@@ -609,7 +663,7 @@ class VideoPlayerActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         onStopCalled = false
-        if(isFullscreen) {
+        if (isFullscreen) {
             VideoWebView.evaluateJavascript(
                 "bcPlayController.getPlayController()._eventTarget.fire(VCPlayControllerEvent.CLOSE_FULL_SCREEN);",
                 null
@@ -790,6 +844,9 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
             videoPlayerActivity.isPlaying = (isPlaying == "true")
             videoPlayerActivity.updatePipActions()
             videoPlayerActivity.isFullscreen = (isFullscreen == "true")
+            if(isFullscreen != "true") {
+                videoPlayerActivity.hideController()
+            }
             videoPlayerActivity.playPauseButton.setIconResource(
                 if (isPlaying == "true") R.drawable.baseline_pause_24 else R.drawable.baseline_play_arrow_24
             )
@@ -812,7 +869,7 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
     @JavascriptInterface
     fun receiveInitSpeed(currSpeed: String) {
         mainHandler.post {
-            if(currSpeed.isNullOrEmpty()) {
+            if (currSpeed.isNullOrEmpty()) {
                 videoPlayerActivity.speedButton.text = "  1.0x"
             } else {
                 videoPlayerActivity.speedButton.text = "  ${currSpeed}x"

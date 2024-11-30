@@ -7,19 +7,6 @@
     android:background="#f8f9fa"
     tools:context=".LectureActivity">
 
-
-    <TextView
-        android:id="@+id/LctName"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginLeft="20dp"
-        android:layout_marginTop="20dp"
-        android:layout_marginBottom="10dp"
-        android:text="강의명"
-        android:textColor="@android:color/black"
-        android:textSize="20sp"
-        android:textStyle="bold" />
-
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -30,50 +17,25 @@
             android:layout_height="wrap_content" />
     </LinearLayout>
 
+    <WebView
+        android:id="@+id/webView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"/>
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/scrollView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_weight="1"
-        android:layout_marginBottom="10dp"
         android:visibility="gone">
 
         <WebView
-            android:id="@+id/webView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_marginTop="-180dp"/>
+            android:id="@+id/uiWebView"/>
+
 
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginBottom="20dp">
-
-        <com.icecream.kwklasplus.components.AnimatedButtonSecondary
-            android:id="@+id/LctPlanBtn"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="강의계획서"
-            android:textColor="@android:color/black"
-            android:layout_marginLeft="20dp"
-            android:layout_marginRight="5dp"
-            android:stateListAnimator="@null"/>
-
-        <com.icecream.kwklasplus.components.AnimatedButton
-            android:id="@+id/QRBtn"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="QR 출석"
-            android:layout_marginLeft="5dp"
-            android:layout_marginRight="20dp"
-            android:stateListAnimator="@null"/>
-
-    </LinearLayout>
 
 </LinearLayout>
