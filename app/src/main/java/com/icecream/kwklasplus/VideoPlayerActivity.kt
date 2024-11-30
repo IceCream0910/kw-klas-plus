@@ -634,7 +634,7 @@ class VideoPlayerActivity : AppCompatActivity() {
             """
     document.head.appendChild(Object.assign(document.createElement('style'), { textContent: `
         #play-controller {
-            display: none !important;
+            display: none !important;   
         }
     ` }));
     ${'$'}(".vc-pctrl-playback-rate-toggle-btn").remove();

@@ -74,6 +74,10 @@
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation"
             android:exported="true" />
         <activity
+            android:name=".BoardActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation"
+            android:exported="true" />
+        <activity
             android:name=".LctPlanActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation"
             android:exported="false" />

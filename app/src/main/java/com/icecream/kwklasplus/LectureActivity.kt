@@ -34,6 +34,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.gms.common.util.DeviceProperties.isTablet
@@ -53,6 +54,8 @@ import java.nio.charset.StandardCharsets
 
 
 class LectureActivity : AppCompatActivity() {
+    lateinit var boardNoticePath: String
+    lateinit var boardPdsPath: String
     lateinit var webView: WebView
     lateinit var uiWebView: WebView
     lateinit var scrollView: SwipeRefreshLayout
@@ -73,10 +76,8 @@ class LectureActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_lecture)
 
-        window.statusBarColor = Color.parseColor("#3A051F")
+        window.statusBarColor = ContextCompat.getColor(this, R.color.md_theme_background)
 
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = Color.TRANSPARENT
         // 모바일에서는 세로 모드 고정
         if (isTablet(this)) {
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
@@ -133,6 +134,12 @@ class LectureActivity : AppCompatActivity() {
                     scrollView.visibility = View.VISIBLE
                     isShowingKLAS = false
                 }
+
+                if(!url.contains("klas.kw.ac.kr")) {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    startActivity(intent)
+                    return true
+                }
                 return false
             }
 
@@ -170,6 +177,13 @@ class LectureActivity : AppCompatActivity() {
                     progressBar.visibility = ProgressBar.GONE
                 }
                 if(url.contains("LctrumHomeStdPage.do")) {
+                    webView.evaluateJavascript("""
+                        const noticePath = $("a:contains('강의 공지사항')").attr("onclick").split("linkUrl('/std/lis/sport/")[1].split("/")[0];
+                        const pdsPath = $("a:contains('강의 자료실')").attr("onclick").split("linkUrl('/std/lis/sport/")[1].split("/")[0];
+                        Android.getBoardPath(noticePath, pdsPath);
+                    """.trimIndent(),
+                        null
+                    )
                     webView.clearHistory()
                 }
             }
@@ -577,6 +591,53 @@ class WebAppInterfaceLectureHome(private val lectureActivity: LectureActivity) {
             lectureActivity.startActivity(intent)
         }
     }
+
+    @JavascriptInterface
+    fun getBoardPath(noticePath: String, pdsPath: String) {
+        lectureActivity.runOnUiThread {
+            lectureActivity.boardNoticePath = noticePath
+            lectureActivity.boardPdsPath = pdsPath
+        }
+    }
+
+    @JavascriptInterface
+    fun openBoardList(type: String, title: String) {
+        lectureActivity.runOnUiThread {
+            val intent = Intent(lectureActivity, BoardActivity::class.java)
+            if(type == "notice") {
+                intent.putExtra("path", lectureActivity.boardNoticePath)
+            } else if(type == "pds") {
+                intent.putExtra("path", lectureActivity.boardPdsPath)
+            }
+            intent.putExtra("title", title)
+            intent.putExtra("type", "list")
+            intent.putExtra("sessionID", lectureActivity.sessionId)
+            intent.putExtra("subjID", lectureActivity.subjID)
+            intent.putExtra("yearHakgi", lectureActivity.yearHakgi)
+            lectureActivity.startActivity(intent)
+        }
+    }
+
+    @JavascriptInterface
+    fun openBoardView(type: String, boardNo: String, masterNo: String) {
+        lectureActivity.runOnUiThread {
+            val intent = Intent(lectureActivity, BoardActivity::class.java)
+            if(type == "notice") {
+                intent.putExtra("path", lectureActivity.boardNoticePath)
+            } else if(type == "pds") {
+                intent.putExtra("path", lectureActivity.boardPdsPath)
+            }
+            intent.putExtra("title", "")
+            intent.putExtra("type", "view")
+            intent.putExtra("boardNo", boardNo)
+            intent.putExtra("masterNo", masterNo)
+            intent.putExtra("sessionID", lectureActivity.sessionId)
+            intent.putExtra("subjID", lectureActivity.subjID)
+            intent.putExtra("yearHakgi", lectureActivity.yearHakgi)
+            lectureActivity.startActivity(intent)
+        }
+    }
+
     @JavascriptInterface
     fun openExternalLink(url: String) {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
