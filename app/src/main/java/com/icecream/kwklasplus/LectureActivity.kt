@@ -54,8 +54,8 @@ import java.nio.charset.StandardCharsets
 
 
 class LectureActivity : AppCompatActivity() {
-    lateinit var boardNoticePath: String
-    lateinit var boardPdsPath: String
+    var boardNoticePath: String = ""
+    var boardPdsPath: String = ""
     lateinit var webView: WebView
     lateinit var uiWebView: WebView
     lateinit var scrollView: SwipeRefreshLayout
@@ -603,6 +603,10 @@ class WebAppInterfaceLectureHome(private val lectureActivity: LectureActivity) {
     @JavascriptInterface
     fun openBoardList(type: String, title: String) {
         lectureActivity.runOnUiThread {
+            if(lectureActivity.boardNoticePath.isNullOrEmpty() || lectureActivity.boardPdsPath.isNullOrEmpty()) {
+                Toast.makeText(lectureActivity, "아직 정보를 불러오지 못했어요. 몇 초 후에 다시 시도해주세요.", Toast.LENGTH_SHORT).show()
+                return@runOnUiThread
+            }
             val intent = Intent(lectureActivity, BoardActivity::class.java)
             if(type == "notice") {
                 intent.putExtra("path", lectureActivity.boardNoticePath)
@@ -621,6 +625,10 @@ class WebAppInterfaceLectureHome(private val lectureActivity: LectureActivity) {
     @JavascriptInterface
     fun openBoardView(type: String, boardNo: String, masterNo: String) {
         lectureActivity.runOnUiThread {
+            if(lectureActivity.boardNoticePath.isNullOrEmpty() || lectureActivity.boardPdsPath.isNullOrEmpty()) {
+                Toast.makeText(lectureActivity, "아직 정보를 불러오지 못했어요. 몇 초 후에 다시 시도해주세요.", Toast.LENGTH_SHORT).show()
+                return@runOnUiThread
+            }
             val intent = Intent(lectureActivity, BoardActivity::class.java)
             if(type == "notice") {
                 intent.putExtra("path", lectureActivity.boardNoticePath)
