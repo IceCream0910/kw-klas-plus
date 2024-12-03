@@ -66,6 +66,15 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="end"/>
 
+            <Button
+                android:id="@+id/selectYearHakgiBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:text="YYYY년도 N학기"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                />
+
         </LinearLayout>
 
 

@@ -78,6 +78,7 @@ class HomeActivity : AppCompatActivity() {
     lateinit var subjList: JSONArray
     lateinit var yearHakgiList: Array<String>
     lateinit var selectYearHakgiBtn: Button
+    lateinit var selectYearHakgiBtnInDrawer: Button
     var yearHakgi: String = ""
     private var isKeyboardShowing = false
 
@@ -273,56 +274,79 @@ class HomeActivity : AppCompatActivity() {
         val headerView = navigationView.getHeaderView(0)
         val viewTitleInDrawer = headerView.findViewById<TextView>(R.id.viewTitle)
         val menuBtnInDrawer = headerView.findViewById<Button>(R.id.menuBtn)
+        selectYearHakgiBtnInDrawer = headerView.findViewById(R.id.selectYearHakgiBtn)
+
+        selectYearHakgiBtnInDrawer.setOnClickListener {
+            val yearHakgiDialog = YearHakgiBottomSheetDialog(yearHakgiList).apply {
+                setSpeedSelectionListener(object : YearHakgiBottomSheetDialog.YearHakgiSelectionListener {
+                    override fun onYearHakgiSelected(value: String) {
+                        updateYearHakgi(value)
+                    }
+                })
+            }
+
+            yearHakgiDialog.show(supportFragmentManager, YearHakgiBottomSheetDialog.TAG)
+        }
 
         navigationView.setCheckedItem(R.id.item_1)
 
         navigationView.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.item_1 -> {
-                    viewTitle.text = "KLAS+"
+                    viewTitleInDrawer.text = "KLAS+"
                     homeView.visibility = View.VISIBLE
                     timetableView.visibility = View.GONE
                     calendarView.visibility = View.GONE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.GONE
+                    menuBtnInDrawer.visibility = View.VISIBLE
+                    selectYearHakgiBtnInDrawer.visibility = View.GONE
                     true
                 }
 
                 R.id.item_2 -> {
-                    viewTitle.text = "시간표"
+                    viewTitleInDrawer.text = "시간표"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.VISIBLE
                     calendarView.visibility = View.GONE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.GONE
+                    menuBtnInDrawer.visibility = View.GONE
+                    selectYearHakgiBtnInDrawer.visibility = View.VISIBLE
                     true
                 }
                 R.id.item_5 -> {
-                    viewTitle.text = "캘린더"
+                    viewTitleInDrawer.text = "캘린더"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.GONE
                     calendarView.visibility = View.VISIBLE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.GONE
+                    menuBtnInDrawer.visibility = View.VISIBLE
+                    selectYearHakgiBtnInDrawer.visibility = View.GONE
                     true
                 }
                 R.id.item_3 -> {
-                    viewTitle.text = "KLAS GPT"
+                    viewTitleInDrawer.text = "KLAS GPT"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.GONE
                     calendarView.visibility = View.GONE
                     qrView.visibility = View.VISIBLE
                     menuView.visibility = View.GONE
+                    menuBtnInDrawer.visibility = View.VISIBLE
+                    selectYearHakgiBtnInDrawer.visibility = View.GONE
                     true
                 }
 
                 R.id.item_4 -> {
-                    viewTitle.text = "전체"
+                    viewTitleInDrawer.text = "전체"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.GONE
                     calendarView.visibility = View.GONE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.VISIBLE
+                    menuBtnInDrawer.visibility = View.VISIBLE
+                    selectYearHakgiBtnInDrawer.visibility = View.GONE
                     true
                 }
 
@@ -500,6 +524,7 @@ class HomeActivity : AppCompatActivity() {
                 yearHakgi = jsonObject.getString("value")
                 val btnText = yearHakgi.replace(",3", ",하계계절").replace(",4", ",동계계절").replace(",", "년도 ") + "학기"
                 selectYearHakgiBtn.text = btnText
+                selectYearHakgiBtnInDrawer.text = btnText
 
                 CoroutineScope(Dispatchers.IO).launch {
                     launch { getTimetableData(sessionId) }
@@ -518,6 +543,7 @@ class HomeActivity : AppCompatActivity() {
     private fun updateYearHakgi(selectedYearHakgi: String) {
         val btnText = selectedYearHakgi.replace(",3", ",하계계절").replace(",4", ",동계계절").replace(",", "년도 ") + "학기"
         selectYearHakgiBtn.text = btnText
+        selectYearHakgiBtnInDrawer.text = btnText
 
         yearHakgi = selectedYearHakgi
         val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
@@ -528,7 +554,7 @@ class HomeActivity : AppCompatActivity() {
         reload()
     }
 
-    public fun reload() {
+    fun reload() {
         loadingDialog.show()
         val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
         val sessionId = sharedPreferences.getString("kwSESSION", null)
