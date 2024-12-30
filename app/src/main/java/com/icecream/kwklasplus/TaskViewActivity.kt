@@ -29,6 +29,9 @@ import android.webkit.DownloadListener
 import android.webkit.JsResult
 import android.webkit.WebResourceRequest
 import android.widget.FrameLayout
+import androidx.activity.enableEdgeToEdge
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.gms.common.util.DeviceProperties.isTablet
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -46,7 +49,12 @@ class TaskViewActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_task_view)
 
-        window.statusBarColor = Color.parseColor("#3A051F")
+        enableEdgeToEdge()
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            insets
+        }
 
         // 모바일에서는 세로 모드 고정
         if (isTablet(this)) {

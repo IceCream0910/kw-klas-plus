@@ -31,9 +31,12 @@ import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.DialogFragment
 import com.github.tlaabs.timetableview.Schedule
 import com.github.tlaabs.timetableview.Time
@@ -86,9 +89,12 @@ class HomeActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_home)
-
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = Color.TRANSPARENT
+        enableEdgeToEdge()
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            insets
+        }
 
         // 모바일에서는 세로 모드 고정
         if (isTablet(this)) {
@@ -1171,19 +1177,9 @@ fun openQRActivity(sessionId: String, subjID: String, subjName: String) {
                     builder.show()
                 }
 
-                R.id.info -> {
-                    val builder = MaterialAlertDialogBuilder(this)
-                    builder.setTitle("앱 정보")
-                        .setMessage("광운대학교 KLAS 앱의 기능과 UI를 추가 및 수정한 안드로이드 앱입니다.\n\n⚠️ 주의 : 개인 사용 용도로 제작된 앱으로 학교의 공식 앱이 아닙니다. 불법적인 목적으로 사용 시 발생하는 불이익에 대해서 개발자는 어떠한 책임도 지지 않음을 밝힙니다.")
-                        .setPositiveButton("닫기") { _, _ -> }
-                        .setNeutralButton("GitHub") { _, _ ->
-                            val intent = Intent(
-                                Intent.ACTION_VIEW,
-                                Uri.parse("https://github.com/IceCream0910/kw-klas-plus")
-                            )
-                            startActivity(intent)
-                        }
-                    builder.show()
+                R.id.settings -> {
+                    val intent = Intent(this, SettingsActivity::class.java)
+                    startActivity(intent)
                 }
             }
             true

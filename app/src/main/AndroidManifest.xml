@@ -10,8 +10,6 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
-
-
     <queries>
         <package android:name="kr.ac.kw.SmartLearning" />
         <package android:name="idoit.slpck.kwangwoon" />
@@ -28,6 +26,10 @@
         android:theme="@style/Theme.KWQRCheckin"
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false" />
+
         <meta-data
             android:name="io.sentry.dsn"
             android:value="https://19c58b75c900974d23ce97ab67230e1f@o4508145411031040.ingest.us.sentry.io/4508145449304064" />
@@ -40,13 +42,13 @@
         <meta-data
             android:name="io.sentry.attach-view-hierarchy"
             android:value="true" />
+
         <activity
             android:name=".VideoPlayerActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation"
             android:exported="false"
             android:resizeableActivity="true"
             android:supportsPictureInPicture="true" />
-
         <activity
             android:name=".LibraryQRWidgetActivity"
             android:exported="false"
@@ -108,6 +110,7 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>

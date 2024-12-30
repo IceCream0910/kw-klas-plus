@@ -8,6 +8,7 @@
     android:orientation="vertical"
     android:gravity="center_vertical"
     android:padding="20dp"
+    android:id="@+id/main"
     tools:context=".MainActivity">
 
     <WebView

@@ -5,6 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:id="@+id/main"
     tools:context=".HomeActivity">
 
 
@@ -21,7 +22,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginTop="40dp"
+        android:layout_marginTop="20dp"
         android:layout_marginLeft="20dp"
         android:layout_marginRight="20dp"
         android:gravity="center">
@@ -48,12 +49,11 @@
 
         <Button
             android:id="@+id/selectYearHakgiBtn"
+            style="@style/Widget.Material3.Button.OutlinedButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:visibility="gone"
             android:text="YYYY년도 N학기"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            />
+            android:visibility="gone" />
 
     </LinearLayout>
 
