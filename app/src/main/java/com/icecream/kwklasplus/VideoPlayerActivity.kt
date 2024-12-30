@@ -464,14 +464,6 @@ class VideoPlayerActivity : AppCompatActivity() {
             }
             hideController()
 
-            val test = PendingIntent.getBroadcast(
-                this,
-                REQUEST_BACKWARD,
-                Intent(ACTION_MEDIA_CONTROL).putExtra(EXTRA_CONTROL_TYPE, CONTROL_TYPE_BACKWARD),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-            Log.e("MediaControlReceiver", "$test")
-
 
             val actions = listOf(
                 RemoteAction(
@@ -598,7 +590,6 @@ class VideoPlayerActivity : AppCompatActivity() {
                 }
 
                 CONTROL_TYPE_FORWARD -> {
-                    Log.e("MediaControlReceiver", "Forward")
                     VideoWebView.evaluateJavascript(
                         " var a = bcPlayController.getPlayController();\n" +
                                 "        if (a._duration) {\n" +

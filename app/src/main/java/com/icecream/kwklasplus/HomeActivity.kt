@@ -191,15 +191,7 @@ class HomeActivity : AppCompatActivity() {
         }
 
         selectYearHakgiBtn.setOnClickListener {
-            val yearHakgiDialog = YearHakgiBottomSheetDialog(yearHakgiList).apply {
-                setSpeedSelectionListener(object : YearHakgiBottomSheetDialog.YearHakgiSelectionListener {
-                    override fun onYearHakgiSelected(value: String) {
-                        updateYearHakgi(value)
-                    }
-                })
-            }
-
-            yearHakgiDialog.show(supportFragmentManager, YearHakgiBottomSheetDialog.TAG)
+            openYearHakgiBottomSheetDialog()
         }
 
         NavigationBarView.setOnItemSelectedListener { item: MenuItem ->
@@ -262,6 +254,8 @@ class HomeActivity : AppCompatActivity() {
                     calendarView.visibility = View.GONE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.VISIBLE
+                    menuBtn.visibility = View.VISIBLE
+                    selectYearHakgiBtn.visibility = View.GONE
                     true
                 }
 
@@ -277,15 +271,7 @@ class HomeActivity : AppCompatActivity() {
         selectYearHakgiBtnInDrawer = headerView.findViewById(R.id.selectYearHakgiBtn)
 
         selectYearHakgiBtnInDrawer.setOnClickListener {
-            val yearHakgiDialog = YearHakgiBottomSheetDialog(yearHakgiList).apply {
-                setSpeedSelectionListener(object : YearHakgiBottomSheetDialog.YearHakgiSelectionListener {
-                    override fun onYearHakgiSelected(value: String) {
-                        updateYearHakgi(value)
-                    }
-                })
-            }
-
-            yearHakgiDialog.show(supportFragmentManager, YearHakgiBottomSheetDialog.TAG)
+            openYearHakgiBottomSheetDialog()
         }
 
         navigationView.setCheckedItem(R.id.item_1)
@@ -358,6 +344,18 @@ class HomeActivity : AppCompatActivity() {
             showOptionsMenu(it)
         }
 
+    }
+
+    private fun openYearHakgiBottomSheetDialog(isUpdate: Boolean = false) {
+        val yearHakgiDialog = YearHakgiBottomSheetDialog(yearHakgiList, isUpdate).apply {
+            setSpeedSelectionListener(object : YearHakgiBottomSheetDialog.YearHakgiSelectionListener {
+                override fun onYearHakgiSelected(value: String) {
+                    updateYearHakgi(value)
+                }
+            })
+        }
+
+        yearHakgiDialog.show(supportFragmentManager, YearHakgiBottomSheetDialog.TAG)
     }
 
     private fun initWebView() {
@@ -513,10 +511,20 @@ class HomeActivity : AppCompatActivity() {
 
                 val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
                 val savedYearHakgi = sharedPreferences.getString("yearHakgi", "")
+                val savedYearHakgiList = sharedPreferences.getString("yearHakgiList", "")
+
+                val editor: SharedPreferences.Editor = sharedPreferences.edit()
+                editor.putString("yearHakgiList", yearHakgiList.joinToString(","))
+                editor.apply()
+
                 var index = 0
 
                 if(!savedYearHakgi.isNullOrEmpty()){
                     index = yearHakgiList.indexOf(savedYearHakgi)
+                }
+
+                if (!savedYearHakgiList.isNullOrEmpty() && yearHakgiList.joinToString(",") != savedYearHakgiList) {
+                    openYearHakgiBottomSheetDialog(true)
                 }
 
                 val jsonObject = jsonArray.getJSONObject(index)
@@ -1077,7 +1085,6 @@ fun openQRActivity(sessionId: String, subjID: String, subjName: String) {
                 showSessionExpiredDialog()
                 loadingDialog.dismiss()
             }
-            Log.e("postRandomKey", "Error: ${e.message}")
             callback(JSONObject())
         }
     }
@@ -1315,7 +1322,6 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
                 "javascript:window.receiveToken('${homeActivity.sessionIdForOtherClass}')",
                 null
             )
-            Log.e("taein", homeActivity.subjList.toString())
             homeActivity.aiWebView.evaluateJavascript(
                 "javascript:window.receiveSubjList('${homeActivity.subjList}')",
                 null

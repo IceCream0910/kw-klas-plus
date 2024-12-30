@@ -128,7 +128,6 @@ class LectureActivity : AppCompatActivity() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url.toString()
 
-                Log.e("taein", url)
                 if (url.contains("LctrumHomeStdPage.do")) {
                     webView.visibility = View.GONE
                     scrollView.visibility = View.VISIBLE

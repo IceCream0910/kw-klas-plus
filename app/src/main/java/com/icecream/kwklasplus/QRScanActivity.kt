@@ -57,7 +57,6 @@ class QRScanActivity : AppCompatActivity() {
 
     fun qrScanComplete(qr: String) {
         checkin(qr, bodyJSON) { result ->
-            Log.e("teain", "result: $result")
             when (result) {
                 is CheckinResult.Success -> {
                     val jsonObject = result.data

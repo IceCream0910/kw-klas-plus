@@ -374,7 +374,7 @@ class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment(
             val backgroundColor = Color.TRANSPARENT
 
             name.text = qrData.getString("user_name")
-            numberAndDepartment.text = "${qrData.getString("user_code").trim()}\n${qrData.getString("user_deptName")} ${qrData.getString("user_patName")}"
+            numberAndDepartment.text = "광운대학교 ${qrData.getString("user_code").trim()}\n${qrData.getString("user_deptName")} ${qrData.getString("user_patName")}"
 
             val qrValue = qrData.getString("qr_code")
             val qrgEncoder = QRGEncoder(qrValue, null, QRGContents.Type.TEXT, 200)
