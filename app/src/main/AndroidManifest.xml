@@ -18,6 +18,7 @@
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
+        android:enableOnBackInvokedCallback="true"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -25,11 +26,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.KWQRCheckin"
         android:usesCleartextTraffic="true"
-        android:enableOnBackInvokedCallback="false"
         tools:targetApi="31">
         <activity
             android:name=".SettingsActivity"
-            android:enableOnBackInvokedCallback="true"
             android:exported="false" />
 
         <meta-data
@@ -50,11 +49,11 @@
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation"
             android:exported="false"
             android:resizeableActivity="true"
+            android:enableOnBackInvokedCallback="false"
             android:supportsPictureInPicture="true" />
         <activity
             android:name=".LibraryQRWidgetActivity"
             android:exported="false"
-            android:enableOnBackInvokedCallback="true"
             android:theme="@style/Theme.AppCompat.Transparent.NoActionBar" />
 
         <receiver
@@ -85,10 +84,11 @@
         <activity
             android:name=".LctPlanActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation"
-            android:enableOnBackInvokedCallback="true"
+
             android:exported="false" />
         <activity
             android:name=".LectureActivity"
+            android:enableOnBackInvokedCallback="false"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation"
             android:exported="true" />
         <activity
@@ -107,7 +107,7 @@
             android:name=".LoginActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation"
             android:exported="false"
-            android:enableOnBackInvokedCallback="true"
+
             android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".MainActivity"

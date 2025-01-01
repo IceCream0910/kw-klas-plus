@@ -25,6 +25,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.JsResult
 import android.webkit.WebResourceRequest
 import android.widget.FrameLayout
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -40,6 +41,7 @@ class LinkViewActivity : AppCompatActivity() {
     private var uploadMessage: ValueCallback<Array<Uri>>? = null
     private val FILECHOOSER_RESULTCODE = 1
     lateinit var webView: WebView
+    lateinit var onBackPressedCallback: OnBackPressedCallback
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,6 +54,15 @@ class LinkViewActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+
+        onBackPressedCallback = object: OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                when {
+                    webView.canGoBack() -> webView.goBack()
+                }
+            }
+        }
+        onBackPressedDispatcher.addCallback(onBackPressedCallback)
 
         // 모바일에서는 세로 모드 고정
         if (isTablet(this)) {
@@ -113,6 +124,9 @@ class LinkViewActivity : AppCompatActivity() {
         })
 
         webView.webViewClient = object : WebViewClient() {
+            override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+                onBackPressedCallback.isEnabled = webView.canGoBack()
+            }
 
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)

@@ -29,6 +29,8 @@ import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import android.window.OnBackInvokedDispatcher
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.Nullable
 import androidx.appcompat.app.AlertDialog
@@ -84,6 +86,7 @@ class HomeActivity : AppCompatActivity() {
     var isKeyboardShowing = false
     lateinit var navBar: NavigationBarView
     var isOpenWebViewBottomSheet: Boolean = false
+    lateinit var onBackPressedCallback: OnBackPressedCallback
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -95,6 +98,19 @@ class HomeActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, 0)
             insets
         }
+
+        onBackPressedCallback = object: OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if(isOpenWebViewBottomSheet) {
+                    calendarWebView.evaluateJavascript("window.closeWebViewBottomSheet();", null)
+                    menuWebView.evaluateJavascript("window.closeWebViewBottomSheet();", null)
+                } else {
+                    finishAffinity()
+                    exitProcess(0)
+                }
+            }
+        }
+        onBackPressedDispatcher.addCallback(onBackPressedCallback)
 
 
         // 모바일에서는 세로 모드 고정
@@ -1286,6 +1302,7 @@ class HomeActivity : AppCompatActivity() {
             }
         }
     }
+
 
     fun showDatePicker(calendar: Calendar, isStart: Boolean) {
         val datePicker = MaterialDatePicker.Builder.datePicker()
