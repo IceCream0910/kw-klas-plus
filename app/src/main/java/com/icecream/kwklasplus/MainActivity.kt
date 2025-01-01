@@ -18,6 +18,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.ProgressBar
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -35,6 +36,15 @@ class MainActivity : AppCompatActivity() {
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
+        }
+
+        val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
+        val appTheme = sharedPreferences.getString("appTheme", "system")
+        when (appTheme) {
+            "dark" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            "light" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+            "system" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+            else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         }
 
         // 모바일에서는 세로 모드 고정
@@ -58,7 +68,6 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
         val kwID = sharedPreferences.getString("kwID", null)
         val kwPWD = sharedPreferences.getString("kwPWD", null)
         var isInstantLogin = false

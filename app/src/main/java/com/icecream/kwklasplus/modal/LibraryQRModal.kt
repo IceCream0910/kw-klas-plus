@@ -27,6 +27,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.google.zxing.WriterException
 import com.icecream.kwklasplus.R
+import com.icecream.kwklasplus.modal.LibraryQRSettingsBottomSheetDialog
 import kotlinx.coroutines.*
 import okhttp3.*
 import org.json.JSONObject
@@ -145,57 +146,8 @@ class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment(
     }
 
     private fun showSettingsDialog() {
-        val dialogView = LayoutInflater.from(context).inflate(R.layout.library_qr_settings, null)
-        val sharedPreferences =
-            activity?.getSharedPreferences("com.icecream.kwklasplus", Context.MODE_PRIVATE)
-        var stdNumber = sharedPreferences?.getString("library_stdNumber", "")
-        if (stdNumber.isNullOrEmpty()) {
-            stdNumber = sharedPreferences?.getString("kwID", "")
-        }
-        val phone = sharedPreferences?.getString("library_phone", "")
-        val password = sharedPreferences?.getString("library_password", "")
-
-        val stdNumberEditText =
-            dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.stdNumber)
-        val phoneEditText =
-            dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.phone)
-        val passwordEditText =
-            dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.password)
-
-        stdNumberEditText.setText(stdNumber)
-        phoneEditText.setText(phone)
-        passwordEditText.setText(password)
-
-        val builder = context?.let { ctx ->
-            MaterialAlertDialogBuilder(ctx)
-                .setTitle("모바일 학생증 설정")
-                .setView(dialogView)
-                .setCancelable(true)
-                .setPositiveButton("완료") { dialog, _ ->
-                    val newStdNumber = stdNumberEditText.text.toString()
-                    val newPhone = phoneEditText.text.toString()
-                    val newPassword = passwordEditText.text.toString()
-
-                    if (newStdNumber.isEmpty() || newPhone.isEmpty() || newPassword.isEmpty()) {
-                        Snackbar.make(dialogView, "모든 항목을 입력해주세요.", Snackbar.LENGTH_SHORT).show()
-                    } else {
-                        val editor = sharedPreferences?.edit()
-                        editor?.putString("library_stdNumber", newStdNumber)
-                        editor?.putString("library_phone", newPhone)
-                        editor?.putString("library_password", newPassword)
-                        editor?.apply()
-                        dialog.dismiss()
-                        Snackbar.make(dialogView, "저장되었습니다.", Snackbar.LENGTH_SHORT).show()
-                        coroutineScope.launch {
-                            displayQR(newStdNumber, newPhone, newPassword)
-                        }
-                    }
-                }
-                .setNegativeButton("취소") { dialog, _ ->
-                    dialog.dismiss()
-                }
-        }
-        builder?.show()
+        val settingsModal = LibraryQRSettingsBottomSheetDialog()
+        settingsModal.show(parentFragmentManager, "LibraryQRSettingsModal")
     }
 
     private fun startCountDownTimer() {

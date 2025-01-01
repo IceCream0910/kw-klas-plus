@@ -27,6 +27,14 @@
         android:layout_marginRight="20dp"
         android:gravity="center">
 
+        <Button
+            android:id="@+id/selectYearHakgiBtn"
+            style="@style/Widget.Material3.Button.ElevatedButton.Icon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="YYYY년도 N학기"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/viewTitle"
             android:layout_width="wrap_content"
@@ -35,7 +43,6 @@
             android:textSize="25dp"
             android:textStyle="bold"
             android:layout_weight="1"/>
-
 
         <Button
             android:id="@+id/menuBtn"
@@ -46,14 +53,6 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="end"/>
-
-        <Button
-            android:id="@+id/selectYearHakgiBtn"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="YYYY년도 N학기"
-            android:visibility="gone" />
 
     </LinearLayout>
 
