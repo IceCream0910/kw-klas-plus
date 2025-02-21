@@ -557,9 +557,22 @@ class HomeActivity : AppCompatActivity() {
         fetchSubjectList(sessionId) { jsonArray ->
             runOnUiThread {
                 yearHakgiList = Array(jsonArray.length()) { "" }
+
                 for (i in 0 until jsonArray.length()) {
                     val jsonObject = jsonArray.getJSONObject(i)
                     yearHakgiList[i] = jsonObject.getString("value")
+                }
+
+                if(yearHakgiList.isEmpty()) {
+                    var builder = MaterialAlertDialogBuilder(this)
+                    builder.setTitle("안내")
+                        .setMessage("등록된 학기 정보가 없어요. 신입생의 경우 첫 학기 수강신청 이후 접속해주세요.")
+                        .setPositiveButton("확인") { dialog, id ->
+                            finish()
+                        }
+                        .setCancelable(false)
+                        .show()
+                    return@runOnUiThread
                 }
 
                 val sharedPreferences =
