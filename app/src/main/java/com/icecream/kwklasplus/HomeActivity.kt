@@ -99,9 +99,9 @@ class HomeActivity : AppCompatActivity() {
             insets
         }
 
-        onBackPressedCallback = object: OnBackPressedCallback(true) {
+        onBackPressedCallback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if(isOpenWebViewBottomSheet) {
+                if (isOpenWebViewBottomSheet) {
                     calendarWebView.evaluateJavascript("window.closeWebViewBottomSheet();", null)
                     menuWebView.evaluateJavascript("window.closeWebViewBottomSheet();", null)
                 } else {
@@ -158,12 +158,14 @@ class HomeActivity : AppCompatActivity() {
                 aiWebView.layoutParams = (aiWebView.layoutParams as ViewGroup.LayoutParams).apply {
                     height = newHeight
                 }
-                menuWebView.layoutParams = (menuWebView.layoutParams as ViewGroup.LayoutParams).apply {
-                    height = newHeight
-                }
-                calendarWebView.layoutParams = (calendarWebView.layoutParams as ViewGroup.LayoutParams).apply {
-                    height = screenHeight - keypadHeight - 100
-                }
+                menuWebView.layoutParams =
+                    (menuWebView.layoutParams as ViewGroup.LayoutParams).apply {
+                        height = newHeight
+                    }
+                calendarWebView.layoutParams =
+                    (calendarWebView.layoutParams as ViewGroup.LayoutParams).apply {
+                        height = screenHeight - keypadHeight - 100
+                    }
                 navBar.visibility = View.GONE
             } else if (isKeyboardShowing && keypadHeight < screenHeight * 0.15) {
                 isKeyboardShowing = false
@@ -194,7 +196,7 @@ class HomeActivity : AppCompatActivity() {
         if (requestCode == 7777) { // 설정 창에서 이동한 경우 새로고침(변경사항 반영 필요)
             val savedYearHakgi = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
                 .getString("yearHakgi", "")
-            if(!savedYearHakgi.isNullOrEmpty()) {
+            if (!savedYearHakgi.isNullOrEmpty()) {
                 yearHakgi = savedYearHakgi
                 updateYearHakgi(yearHakgi)
             }
@@ -563,7 +565,7 @@ class HomeActivity : AppCompatActivity() {
                     yearHakgiList[i] = jsonObject.getString("value")
                 }
 
-                if(yearHakgiList.isEmpty()) {
+                if (yearHakgiList.isEmpty()) {
                     var builder = MaterialAlertDialogBuilder(this)
                     builder.setTitle("안내")
                         .setMessage("등록된 학기 정보가 없어요. 신입생의 경우 첫 학기 수강신청 이후 접속해주세요.")
@@ -804,6 +806,7 @@ class HomeActivity : AppCompatActivity() {
 
                 for (i in 0 until jsonArray.length()) {
                     val jsonObject = jsonArray.getJSONObject(i)
+                    val wtTime = jsonObject.getInt("wtTime")
                     if (jsonObject.getString("wtHasSchedule") == "N") {
                         continue
                     } else {
@@ -829,12 +832,12 @@ class HomeActivity : AppCompatActivity() {
                                 schedule.professorName = courseKey
                                 schedule.day = k - 1
 
-                                val (startHour, startMinute) = getStartTime(i + 1)
+                                val (startHour, startMinute) = getStartTime(wtTime)
                                 schedule.startTime = Time(startHour, startMinute)
 
                                 val wtSpan =
                                     if (jsonObject.has(wtSpanKey)) jsonObject.getInt(wtSpanKey) else 1
-                                val (endHour, endMinute) = getEndTime(i + wtSpan)
+                                val (endHour, endMinute) = getEndTime(wtTime + wtSpan - 1)
                                 schedule.endTime = Time(endHour, endMinute)
 
                                 if (courseSchedulesMap.containsKey(courseKey)) {
@@ -871,6 +874,7 @@ class HomeActivity : AppCompatActivity() {
                     jsonObject.put(key, jsonArray)
                 }
                 timetableForWebview = jsonObject.toString()
+                Log.e("taein", timetableForWebview)
                 initTimetable(sessionId)
             }
         }
@@ -1305,7 +1309,7 @@ class HomeActivity : AppCompatActivity() {
         if (webView.canGoBack()) {
             webView.goBack()
         } else {
-            if(isOpenWebViewBottomSheet) {
+            if (isOpenWebViewBottomSheet) {
                 calendarWebView.evaluateJavascript("window.closeWebViewBottomSheet();", null)
                 menuWebView.evaluateJavascript("window.closeWebViewBottomSheet();", null)
             } else {
@@ -1471,7 +1475,8 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
                 homeActivity.isKeyboardShowing = false
                 homeActivity.aiWebView.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
                 homeActivity.menuWebView.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
-                homeActivity.calendarWebView.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
+                homeActivity.calendarWebView.layoutParams.height =
+                    ViewGroup.LayoutParams.MATCH_PARENT
             } catch (e: Exception) {
                 e.printStackTrace()
             }
