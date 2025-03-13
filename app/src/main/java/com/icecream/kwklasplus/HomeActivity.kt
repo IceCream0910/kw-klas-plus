@@ -433,6 +433,25 @@ class HomeActivity : AppCompatActivity() {
                     webView.visibility = View.VISIBLE
                     webViewProgress.visibility = View.GONE
                 }
+
+                override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
+                    if(url.contains("klasplus.yuntae.in")) {
+                        return false
+                    } else {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                            startActivity(intent)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            Toast.makeText(
+                                this@HomeActivity,
+                                "이 링크를 열 수 없습니다.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                        return true
+                    }
+                }
             }
         })
 
@@ -874,7 +893,6 @@ class HomeActivity : AppCompatActivity() {
                     jsonObject.put(key, jsonArray)
                 }
                 timetableForWebview = jsonObject.toString()
-                Log.e("taein", timetableForWebview)
                 initTimetable(sessionId)
             }
         }
