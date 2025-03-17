@@ -78,7 +78,7 @@ class HomeActivity : AppCompatActivity() {
     private var timetableForWebview: String = ""
     lateinit var sessionIdForOtherClass: String
     lateinit var loadingDialog: AlertDialog
-    lateinit var subjList: JSONArray
+    var subjList: JSONArray = JSONArray()
     lateinit var yearHakgiList: Array<String>
     lateinit var selectYearHakgiBtn: Button
     lateinit var selectYearHakgiBtnInDrawer: Button
@@ -420,7 +420,7 @@ class HomeActivity : AppCompatActivity() {
             try {
                 val pInfo: PackageInfo =
                     baseContext.packageManager.getPackageInfo(baseContext.packageName, 0)
-                val version = pInfo.versionName
+                val version = pInfo.longVersionCode
                 webView.settings.userAgentString += " AndroidApp_v${version}"
             } catch (e: PackageManager.NameNotFoundException) {
                 e.printStackTrace()
@@ -465,7 +465,7 @@ class HomeActivity : AppCompatActivity() {
             try {
                 val pInfo: PackageInfo =
                     baseContext.packageManager.getPackageInfo(baseContext.packageName, 0)
-                val version = pInfo.versionName
+                val version = pInfo.longVersionCode
                 menuWebView.settings.userAgentString += " AndroidApp_v${version}"
             } catch (e: PackageManager.NameNotFoundException) {
                 e.printStackTrace()
@@ -686,7 +686,11 @@ class HomeActivity : AppCompatActivity() {
 
     private suspend fun fetchDeadlines(sessionId: String, subjList: JSONArray) {
         val deadline = ArrayList<JSONObject>()
-        val client = OkHttpClient()
+        val client = OkHttpClient.Builder()
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
         val jobList = mutableListOf<Job>()
 
         for (i in 0 until subjList.length()) {
@@ -799,7 +803,11 @@ class HomeActivity : AppCompatActivity() {
 
     private fun getTimetableData(sessionId: String) {
         CoroutineScope(Dispatchers.IO).launch {
-            val client = OkHttpClient()
+            val client = OkHttpClient.Builder()
+                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
             val json = JSONObject()
                 .put("list", JSONArray())
                 .put("searchYear", getCurrentYear())

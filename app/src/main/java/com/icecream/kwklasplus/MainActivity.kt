@@ -109,16 +109,18 @@ class MainActivity : AppCompatActivity() {
                 result: JsResult?
             ): Boolean {
                 runOnUiThread {
-                    val builder = MaterialAlertDialogBuilder(this@MainActivity)
-                    builder.setTitle("오류")
-                        .setMessage(message)
-                        .setPositiveButton("확인") { _, _ ->
-                            result?.confirm()
-                            finish()
-                            startActivity(Intent(this@MainActivity, LoginActivity::class.java))
-                        }
-                        .setCancelable(false)
-                        .show()
+                    if(!isFinishing) {
+                        val builder = MaterialAlertDialogBuilder(this@MainActivity)
+                        builder.setTitle("오류")
+                            .setMessage(message)
+                            .setPositiveButton("확인") { _, _ ->
+                                result?.confirm()
+                                finish()
+                                startActivity(Intent(this@MainActivity, LoginActivity::class.java))
+                            }
+                            .setCancelable(false)
+                            .show()
+                    }
                 }
                 return true
             }

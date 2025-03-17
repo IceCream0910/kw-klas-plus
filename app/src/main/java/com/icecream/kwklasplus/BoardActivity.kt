@@ -96,7 +96,6 @@ class BoardActivity : AppCompatActivity() {
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = true
         webView.settings.allowContentAccess = true
-        webView.settings.supportMultipleWindows()
         webView.setBackgroundColor(0)
         webView.settings.javaScriptCanOpenWindowsAutomatically = true
         webView.isVerticalScrollBarEnabled = false
@@ -156,40 +155,68 @@ class BoardActivity : AppCompatActivity() {
                         if (uri.trim() == "sms:") {
                             val intent = Intent("android.intent.action.VIEW")
                             intent.type = "vnd.android-dir/mms-sms"
-                            webView.context.startActivity(intent)
-                            return true
+                            if (intent.resolveActivity(webView.context.packageManager) != null) {
+                                webView.context.startActivity(intent)
+                                return true
+                            }
+                        } else {
+                            val intent = Intent("android.intent.action.VIEW", Uri.parse(uri))
+                            intent.addCategory("android.intent.category.BROWSABLE")
+                            intent.putExtra("com.android.browser.application_id", webView.context.packageName)
+                            if (intent.resolveActivity(webView.context.packageManager) != null) {
+                                webView.context.startActivity(intent)
+                                return true
+                            }
                         }
-                        val intent = Intent("android.intent.action.VIEW", Uri.parse(uri))
-                        intent.addCategory("android.intent.category.BROWSABLE")
-                        intent.putExtra("com.android.browser.application_id", webView.context.packageName)
-                        webView.context.startActivity(intent)
-                        return true
                     } else {
                         if (uri.startsWith("http:") || uri.startsWith("https:")) {
                             if (uri.startsWith("https://klas.kw.ac.kr")) {
                                 if (uri.startsWith("https://klas.kw.ac.kr/common/file/DownloadFile/")) {
-                                    webView.context.startActivity(Intent("android.intent.action.VIEW", Uri.parse(uri)))
-                                    return true
+                                    val intent = Intent("android.intent.action.VIEW", Uri.parse(uri))
+                                    if (intent.resolveActivity(webView.context.packageManager) != null) {
+                                        webView.context.startActivity(intent)
+                                        return true
+                                    }
                                 } else if (uri.endsWith(".hwp") || uri.endsWith(".pdf") || uri.endsWith(".zip") || uri.endsWith(".mp4") || uri.endsWith(".jpg") || uri.endsWith(".png") || uri.endsWith(".xls") || uri.endsWith(".ppt") || uri.endsWith(".ppt") || uri.endsWith(".gif") || uri.endsWith(".avi") || uri.endsWith(".mp3")) {
-                                    webView.context.startActivity(Intent("android.intent.action.VIEW", Uri.parse(uri)))
-                                    return true
+                                    val intent = Intent("android.intent.action.VIEW", Uri.parse(uri))
+                                    if (intent.resolveActivity(webView.context.packageManager) != null) {
+                                        webView.context.startActivity(intent)
+                                        return true
+                                    }
                                 } else if (uri.startsWith("https://klas.kw.ac.kr/std/") || uri.startsWith("https://klas.kw.ac.kr/spv/")) {
-                                    webView.context.startActivity(Intent("android.intent.action.VIEW", Uri.parse(uri)))
-                                    return true
+                                    val intent = Intent("android.intent.action.VIEW", Uri.parse(uri))
+                                    if (intent.resolveActivity(webView.context.packageManager) != null) {
+                                        webView.context.startActivity(intent)
+                                        return true
+                                    }
                                 } else if (uri.startsWith("about:blank#blocked")) {
                                     return true
                                 } else {
                                     if (uri.contains("/usr/cmn/login/AutoLoginForm.do")) {
-                                        webView.context.startActivity(Intent("android.intent.action.VIEW", Uri.parse(uri)))
+                                        val intent = Intent("android.intent.action.VIEW", Uri.parse(uri))
+                                        if (intent.resolveActivity(webView.context.packageManager) != null) {
+                                            webView.context.startActivity(intent)
+                                            return true
+                                        }
+                                    }
+                                    val intent = Intent("android.intent.action.VIEW", Uri.parse(uri))
+                                    if (intent.resolveActivity(webView.context.packageManager) != null) {
+                                        webView.context.startActivity(intent)
                                         return true
                                     }
-                                    webView.context.startActivity(Intent("android.intent.action.VIEW", Uri.parse(uri)))
-                                    return true
                                 }
+                            } else {
+                                val intent = Intent("android.intent.action.VIEW", Uri.parse(uri))
+                                    webView.context.startActivity(intent)
+                                    return true
                             }
                             return false
                         } else {
-                            webView.context.startActivity(Intent("android.intent.action.VIEW", Uri.parse(uri)))
+                            val intent = Intent("android.intent.action.VIEW", Uri.parse(uri))
+                            if (intent.resolveActivity(webView.context.packageManager) != null) {
+                                webView.context.startActivity(intent)
+                                return false // or true based on desired behavior when external app handles it
+                            }
                             return false
                         }
                     }

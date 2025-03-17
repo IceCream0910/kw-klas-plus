@@ -94,11 +94,13 @@ class QRScanActivity : AppCompatActivity() {
 
     private fun showDialog(title: String, message: String) {
         runOnUiThread {
-            val builder = MaterialAlertDialogBuilder(this)
-            builder.setTitle(title)
-                .setMessage(message)
-                .setPositiveButton("확인") { _, _ -> finish() }
-            builder.show()
+            if(!isFinishing) {
+                val builder = MaterialAlertDialogBuilder(this)
+                builder.setTitle(title)
+                    .setMessage(message)
+                    .setPositiveButton("확인") { _, _ -> finish() }
+                builder.show()
+            }
         }
     }
 

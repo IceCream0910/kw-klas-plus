@@ -528,6 +528,7 @@ class VideoPlayerActivity : AppCompatActivity() {
     }
 
     fun updatePipActions() {
+        if (isFinishing || isDestroyed) return
         val actions = listOf(
             RemoteAction(
                 Icon.createWithResource(this, R.drawable.baseline_replay_10_24),
@@ -841,7 +842,9 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
         mainHandler.post {
             videoPlayerActivity.isPlaying = (isPlaying == "true")
             videoPlayerActivity.updatePipActions()
+            if (videoPlayerActivity.isFinishing || videoPlayerActivity.isDestroyed) return@post
             videoPlayerActivity.isFullscreen = (isFullscreen == "true")
+
             if(isFullscreen != "true") {
                 videoPlayerActivity.hideController()
             }

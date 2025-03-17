@@ -264,14 +264,16 @@ class LectureActivity : AppCompatActivity() {
                 result: JsResult?
             ): Boolean {
                 runOnUiThread {
-                    val builder = MaterialAlertDialogBuilder(this@LectureActivity)
-                    builder.setTitle("안내")
-                        .setMessage(message)
-                        .setPositiveButton("확인") { dialog, id ->
-                            result?.confirm()
-                        }
-                        .setCancelable(false)
-                        .show()
+                    if(!isFinishing) {
+                        val builder = MaterialAlertDialogBuilder(this@LectureActivity)
+                        builder.setTitle("안내")
+                            .setMessage(message)
+                            .setPositiveButton("확인") { dialog, id ->
+                                result?.confirm()
+                            }
+                            .setCancelable(false)
+                            .show()
+                    }
                 }
                 return true
             }
