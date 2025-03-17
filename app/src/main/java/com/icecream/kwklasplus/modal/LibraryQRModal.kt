@@ -1,8 +1,13 @@
 import android.annotation.SuppressLint
+import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.DialogInterface
+import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.util.Base64
@@ -26,6 +31,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.google.zxing.WriterException
+import com.icecream.kwklasplus.LibraryQRWidget
 import com.icecream.kwklasplus.R
 import com.icecream.kwklasplus.modal.LibraryQRSettingsBottomSheetDialog
 import kotlinx.coroutines.*
@@ -72,10 +78,18 @@ class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment(
         return inflater.inflate(R.layout.library_qr_modal, container, false)
     }
 
+    private fun isWidgetAdded(): Boolean {
+        val appWidgetManager = AppWidgetManager.getInstance(context)
+        val widgetComponent = context?.let { ComponentName(it, LibraryQRWidget::class.java) }
+        val widgetIds = appWidgetManager.getAppWidgetIds(widgetComponent)
+        return widgetIds.isNotEmpty()
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
         val settingBtn = view.findViewById<TextView>(R.id.settingButton)
+        val addWidget = view.findViewById<com.google.android.material.card.MaterialCardView>(R.id.addWidget)
         val refreshImageButtonForWidget =
             view.findViewById<ImageView>(R.id.refreshImageButtonForWidget)
         refreshButtonForWidget = view.findViewById(R.id.refreshButtonForWidget)
@@ -91,10 +105,26 @@ class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment(
             refreshImageButtonForWidget.visibility = View.VISIBLE
             refreshButtonForWidget.visibility = View.VISIBLE
             refreshButton.visibility = View.GONE
+            addWidget.visibility = View.GONE
         } else {
             refreshImageButtonForWidget.visibility = View.GONE
             refreshButtonForWidget.visibility = View.GONE
             refreshButton.visibility = View.VISIBLE
+            if(!isWidgetAdded()) {
+                addWidget.visibility = View.VISIBLE
+            }
+        }
+        addWidget.setOnClickListener {
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val provider = context?.let { it1 -> ComponentName(it1, LibraryQRWidget::class.java) }
+
+            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && appWidgetManager.isRequestPinAppWidgetSupported){
+                val intent = Intent(context, LibraryQRWidget::class.java)
+                val successCallback = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+                if (provider != null) {
+                    appWidgetManager.requestPinAppWidget(provider, null, successCallback)
+                }
+            }
         }
 
         refreshButton.setOnClickListener {
