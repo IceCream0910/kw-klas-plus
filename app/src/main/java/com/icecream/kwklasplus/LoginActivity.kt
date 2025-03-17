@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Color
+import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.text.Editable
@@ -11,6 +12,7 @@ import android.text.TextWatcher
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
@@ -64,11 +66,23 @@ class LoginActivity : AppCompatActivity() {
         tilPwd = findViewById(R.id.tilPwd)
         btnLogin = findViewById(R.id.btnLogin)
         tvTitle = findViewById(R.id.tvTitle)
+        var cbAgree: CheckBox = findViewById(R.id.cbAgree)
+        var cbAgreeBtn: Button = findViewById(R.id.cbAgreeBtn)
+
+        cbAgreeBtn.setOnClickListener {
+            val intent = Intent(Intent.ACTION_VIEW)
+            intent.data = Uri.parse("https://blog.yuntae.in/11cfc9b9-3eca-8078-96a0-c41c4ca9cb8f")
+            startActivity(intent)
+        }
 
         btnStart.setOnClickListener {
-            clOnboarding.visibility = View.GONE
-            clLogin.visibility = View.VISIBLE
-            etId.requestFocus()
+            if(cbAgree.isChecked) {
+                clOnboarding.visibility = View.GONE
+                clLogin.visibility = View.VISIBLE
+                etId.requestFocus()
+            } else {
+                Toast.makeText(this, "개인정보 수집 및 제공에 동의해주세요.", Toast.LENGTH_SHORT).show()
+            }
         }
 
         setupInputListeners()
