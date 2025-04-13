@@ -59,7 +59,7 @@ class QRScanActivity : AppCompatActivity() {
                 finish()
             }
             .addOnFailureListener { e ->
-                Toast.makeText(this, "QR 스캔 중 오류가 발생했습니다.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "QR 스캔 중 오류가 발생했습니다. Google Play 서비스가 사용 설정되어있는지 확인해보세요.", Toast.LENGTH_SHORT).show()
                 finish()
             }
     }

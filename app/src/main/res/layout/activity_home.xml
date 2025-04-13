@@ -17,45 +17,6 @@
         android:visibility="gone"
         android:indeterminate="true"/>
 
-    <LinearLayout
-        android:id="@+id/headerLayout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="20dp"
-        android:layout_marginLeft="20dp"
-        android:layout_marginRight="20dp"
-        android:gravity="center">
-
-        <Button
-            android:id="@+id/selectYearHakgiBtn"
-            style="@style/Widget.Material3.Button.ElevatedButton.Icon"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="YYYY년도 N학기"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/viewTitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="KLAS+"
-            android:textSize="25dp"
-            android:textStyle="bold"
-            android:layout_weight="1"/>
-
-        <Button
-            android:id="@+id/menuBtn"
-            style="@style/Widget.Material3.Button.IconButton"
-            app:icon="@drawable/baseline_more_vert_24"
-            android:textAlignment="textEnd"
-            android:layout_marginRight="-10dp"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="end"/>
-
-    </LinearLayout>
-
 
     <androidx.appcompat.widget.LinearLayoutCompat
         android:id="@+id/homeView"

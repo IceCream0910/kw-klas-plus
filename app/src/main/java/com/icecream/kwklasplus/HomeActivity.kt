@@ -15,6 +15,7 @@ import android.util.Log
 import android.view.Gravity
 import android.view.MenuInflater
 import android.view.MenuItem
+import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
@@ -46,6 +47,8 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.navigation.NavigationBarView
 import com.google.android.material.timepicker.MaterialTimePicker
 import com.google.android.material.timepicker.TimeFormat
+import com.icecream.kwklasplus.modal.MenuBottomSheetDialog
+import com.icecream.kwklasplus.modal.WebViewBottomSheetDialog
 import com.icecream.kwklasplus.modal.YearHakgiBottomSheetDialog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -73,20 +76,19 @@ class HomeActivity : AppCompatActivity() {
     lateinit var menuWebView: WebView
     lateinit var aiWebView: WebView
     lateinit var calendarWebView: WebView
-    private lateinit var timetableWebView: WebView
+    lateinit var timetableWebView: WebView
     private var deadlineForWebview: String = ""
     private var timetableForWebview: String = ""
     lateinit var sessionIdForOtherClass: String
     lateinit var loadingDialog: AlertDialog
     var subjList: JSONArray = JSONArray()
     lateinit var yearHakgiList: Array<String>
-    lateinit var selectYearHakgiBtn: Button
-    lateinit var selectYearHakgiBtnInDrawer: Button
     var yearHakgi: String = ""
     var isKeyboardShowing = false
     lateinit var navBar: NavigationBarView
     var isOpenWebViewBottomSheet: Boolean = false
     lateinit var onBackPressedCallback: OnBackPressedCallback
+    var main: androidx.appcompat.widget.LinearLayoutCompat? = null
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -98,6 +100,8 @@ class HomeActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, 0)
             insets
         }
+
+        main = findViewById(R.id.main)
 
         onBackPressedCallback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -154,7 +158,7 @@ class HomeActivity : AppCompatActivity() {
 
             if (!isKeyboardShowing && keypadHeight > screenHeight * 0.15) {
                 isKeyboardShowing = true
-                val newHeight = screenHeight - keypadHeight - 300
+                val newHeight = screenHeight - keypadHeight - 100
                 aiWebView.layoutParams = (aiWebView.layoutParams as ViewGroup.LayoutParams).apply {
                     height = newHeight
                 }
@@ -197,7 +201,6 @@ class HomeActivity : AppCompatActivity() {
             val savedYearHakgi = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
                 .getString("yearHakgi", "")
             if (!savedYearHakgi.isNullOrEmpty()) {
-                yearHakgi = savedYearHakgi
                 updateYearHakgi(yearHakgi)
             }
         }
@@ -220,10 +223,9 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun initNavigationMenu() {
-        val headerLayout = findViewById<LinearLayout>(R.id.headerLayout)
         val viewTitle = findViewById<TextView>(R.id.viewTitle)
         val menuBtn = findViewById<Button>(R.id.menuBtn)
-        selectYearHakgiBtn = findViewById<Button>(R.id.selectYearHakgiBtn)
+        //selectYearHakgiBtn = findViewById<Button>(R.id.selectYearHakgiBtn)
         val homeView = findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.homeView)
         val timetableView =
             findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.timetableView)
@@ -235,6 +237,7 @@ class HomeActivity : AppCompatActivity() {
             findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_navigation)
 
 
+        /*
         menuBtn.setOnClickListener {
             showOptionsMenu(it)
         }
@@ -242,66 +245,52 @@ class HomeActivity : AppCompatActivity() {
         selectYearHakgiBtn.setOnClickListener {
             openYearHakgiBottomSheetDialog()
         }
+        */
 
         NavigationBarView.setOnItemSelectedListener { item: MenuItem ->
             when (item.itemId) {
                 R.id.item_1 -> {
-                    headerLayout.visibility = View.VISIBLE
-                    viewTitle.text = "KLAS+"
                     homeView.visibility = View.VISIBLE
                     timetableView.visibility = View.GONE
                     calendarView.visibility = View.GONE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.GONE
-                    selectYearHakgiBtn.visibility = View.GONE
                     true
                 }
 
                 R.id.item_2 -> {
-                    headerLayout.visibility = View.VISIBLE
-                    viewTitle.text = ""
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.VISIBLE
                     calendarView.visibility = View.GONE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.GONE
-                    selectYearHakgiBtn.visibility = View.VISIBLE
                     true
                 }
 
                 R.id.item_5 -> {
-                    headerLayout.visibility = View.GONE
-                    viewTitle.text = "캘린더"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.GONE
                     calendarView.visibility = View.VISIBLE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.GONE
-                    selectYearHakgiBtn.visibility = View.GONE
                     true
                 }
 
                 R.id.item_3 -> {
-                    headerLayout.visibility = View.VISIBLE
-                    viewTitle.text = "KLAS GPT"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.GONE
                     calendarView.visibility = View.GONE
                     qrView.visibility = View.VISIBLE
                     menuView.visibility = View.GONE
-                    selectYearHakgiBtn.visibility = View.GONE
                     true
                 }
 
                 R.id.item_4 -> {
-                    headerLayout.visibility = View.VISIBLE
-                    viewTitle.text = "전체"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.GONE
                     calendarView.visibility = View.GONE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.VISIBLE
-                    selectYearHakgiBtn.visibility = View.GONE
                     true
                 }
 
@@ -312,89 +301,64 @@ class HomeActivity : AppCompatActivity() {
         val navigationView =
             findViewById<com.google.android.material.navigation.NavigationView>(R.id.navigation_drawer)
         val headerView = navigationView.getHeaderView(0)
-        val viewTitleInDrawer = headerView.findViewById<TextView>(R.id.viewTitle)
-        val menuBtnInDrawer = headerView.findViewById<Button>(R.id.menuBtn)
-        selectYearHakgiBtnInDrawer = headerView.findViewById(R.id.selectYearHakgiBtn)
-
-        selectYearHakgiBtnInDrawer.setOnClickListener {
-            openYearHakgiBottomSheetDialog()
-        }
 
         navigationView.setCheckedItem(R.id.item_1)
 
         navigationView.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.item_1 -> {
-                    viewTitleInDrawer.text = "KLAS+"
                     homeView.visibility = View.VISIBLE
                     timetableView.visibility = View.GONE
                     calendarView.visibility = View.GONE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.GONE
-                    menuBtnInDrawer.visibility = View.VISIBLE
-                    selectYearHakgiBtnInDrawer.visibility = View.GONE
                     true
                 }
 
                 R.id.item_2 -> {
-                    viewTitleInDrawer.text = "시간표"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.VISIBLE
                     calendarView.visibility = View.GONE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.GONE
-                    menuBtnInDrawer.visibility = View.GONE
-                    selectYearHakgiBtnInDrawer.visibility = View.VISIBLE
                     true
                 }
 
                 R.id.item_5 -> {
-                    viewTitleInDrawer.text = "캘린더"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.GONE
                     calendarView.visibility = View.VISIBLE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.GONE
-                    menuBtnInDrawer.visibility = View.VISIBLE
-                    selectYearHakgiBtnInDrawer.visibility = View.GONE
                     true
                 }
 
                 R.id.item_3 -> {
-                    viewTitleInDrawer.text = "KLAS GPT"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.GONE
                     calendarView.visibility = View.GONE
                     qrView.visibility = View.VISIBLE
                     menuView.visibility = View.GONE
-                    menuBtnInDrawer.visibility = View.VISIBLE
-                    selectYearHakgiBtnInDrawer.visibility = View.GONE
                     true
                 }
 
                 R.id.item_4 -> {
-                    viewTitleInDrawer.text = "전체"
                     homeView.visibility = View.GONE
                     timetableView.visibility = View.GONE
                     calendarView.visibility = View.GONE
                     qrView.visibility = View.GONE
                     menuView.visibility = View.VISIBLE
-                    menuBtnInDrawer.visibility = View.VISIBLE
-                    selectYearHakgiBtnInDrawer.visibility = View.GONE
                     true
                 }
 
                 else -> false
             }
         }
-
-        menuBtnInDrawer.setOnClickListener {
-            showOptionsMenu(it)
-        }
-
     }
 
-    private fun openYearHakgiBottomSheetDialog(isUpdate: Boolean = false) {
+
+
+    fun openYearHakgiBottomSheetDialog(isUpdate: Boolean = false) {
         val yearHakgiDialog = YearHakgiBottomSheetDialog(yearHakgiList, isUpdate).apply {
             setSpeedSelectionListener(object :
                 YearHakgiBottomSheetDialog.YearHakgiSelectionListener {
@@ -414,6 +378,7 @@ class HomeActivity : AppCompatActivity() {
             webView.settings.domStorageEnabled = true
             webView.isVerticalScrollBarEnabled = false
             webView.isHorizontalScrollBarEnabled = false
+            webView.overScrollMode = WebView.OVER_SCROLL_NEVER
             webView.setBackgroundColor(0)
             webView.addJavascriptInterface(JavaScriptInterface(this), "Android")
 
@@ -460,6 +425,7 @@ class HomeActivity : AppCompatActivity() {
             menuWebView.settings.domStorageEnabled = true
             menuWebView.isVerticalScrollBarEnabled = false
             menuWebView.isHorizontalScrollBarEnabled = false
+            menuWebView.overScrollMode = WebView.OVER_SCROLL_NEVER
             menuWebView.setBackgroundColor(0)
             menuWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
             try {
@@ -478,10 +444,18 @@ class HomeActivity : AppCompatActivity() {
             calendarWebView.settings.domStorageEnabled = true
             calendarWebView.isVerticalScrollBarEnabled = false
             calendarWebView.isHorizontalScrollBarEnabled = false
+            calendarWebView.overScrollMode = WebView.OVER_SCROLL_NEVER
             calendarWebView.setBackgroundColor(0)
             calendarWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
             calendarWebView.loadUrl("https://klasplus.yuntae.in/calendar?yearHakgi=${yearHakgi}")
-
+            try {
+                val pInfo: PackageInfo =
+                    baseContext.packageManager.getPackageInfo(baseContext.packageName, 0)
+                val version = pInfo.longVersionCode
+                calendarWebView.settings.userAgentString += " AndroidApp_v${version}"
+            } catch (e: PackageManager.NameNotFoundException) {
+                e.printStackTrace()
+            }
             calendarWebView.webChromeClient = object : WebChromeClient() {
                 override fun onJsAlert(
                     view: WebView?,
@@ -531,7 +505,16 @@ class HomeActivity : AppCompatActivity() {
             aiWebView.settings.domStorageEnabled = true
             aiWebView.isVerticalScrollBarEnabled = false
             aiWebView.isHorizontalScrollBarEnabled = false
+            aiWebView.overScrollMode = WebView.OVER_SCROLL_NEVER
             aiWebView.setBackgroundColor(0)
+            try {
+                val pInfo: PackageInfo =
+                    baseContext.packageManager.getPackageInfo(baseContext.packageName, 0)
+                val version = pInfo.longVersionCode
+                aiWebView.settings.userAgentString += " AndroidApp_v${version}"
+            } catch (e: PackageManager.NameNotFoundException) {
+                e.printStackTrace()
+            }
             aiWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
             aiWebView.loadUrl("https://klasplus.yuntae.in/ai?yearHakgi=${yearHakgi}")
         })
@@ -553,11 +536,20 @@ class HomeActivity : AppCompatActivity() {
             timetableWebView.settings.javaScriptEnabled = true
             timetableWebView.settings.domStorageEnabled = true
             timetableWebView.isVerticalScrollBarEnabled = false
+            timetableWebView.overScrollMode = WebView.OVER_SCROLL_NEVER
             timetableWebView.isHorizontalScrollBarEnabled = false
             timetableWebView.setBackgroundColor(0)
             timetableWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
-            timetableWebView.loadUrl("https://klasplus.yuntae.in/timetable.html?yearHakgi=${yearHakgi}")
 
+            timetableWebView.loadUrl("https://klasplus.yuntae.in/timetableTab?yearHakgi=${yearHakgi}")
+            try {
+                val pInfo: PackageInfo =
+                    baseContext.packageManager.getPackageInfo(baseContext.packageName, 0)
+                val version = pInfo.longVersionCode
+                timetableWebView.settings.userAgentString += " AndroidApp_v${version}"
+            } catch (e: PackageManager.NameNotFoundException) {
+                e.printStackTrace()
+            }
             timetableWebView.webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView, url: String) {
                     if (timetableForWebview.isNotEmpty()) {
@@ -623,9 +615,6 @@ class HomeActivity : AppCompatActivity() {
                 val btnText = yearHakgi.replace(",3", ",하계계절").replace(",4", ",동계계절")
                     .replace(",", "년도 ") + "학기"
 
-                selectYearHakgiBtn.text = btnText
-                selectYearHakgiBtnInDrawer.text = btnText
-
                 CoroutineScope(Dispatchers.IO).launch {
                     launch { getTimetableData(sessionId) }
                     launch { fetchDeadlines(sessionId, newSubjList) }
@@ -643,15 +632,16 @@ class HomeActivity : AppCompatActivity() {
     private fun updateYearHakgi(selectedYearHakgi: String) {
         val btnText = selectedYearHakgi.replace(",3", ",하계계절").replace(",4", ",동계계절")
             .replace(",", "년도 ") + "학기"
-        selectYearHakgiBtn.text = btnText
-        selectYearHakgiBtnInDrawer.text = btnText
+        timetableWebView.evaluateJavascript(
+            "javascript:window.updateYearHakgiBtnText('${btnText}')",
+            null
+        )
 
         yearHakgi = selectedYearHakgi
         val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
         val editor: SharedPreferences.Editor = sharedPreferences.edit()
         editor.putString("yearHakgi", yearHakgi)
         editor.apply()
-
         reload()
     }
 
@@ -680,8 +670,6 @@ class HomeActivity : AppCompatActivity() {
                 runOnUiThread { sendDeadlineAndTimetableToWebView() }
             }
         }
-
-        initWebView()
     }
 
     private suspend fun fetchDeadlines(sessionId: String, subjList: JSONArray) {
@@ -901,6 +889,9 @@ class HomeActivity : AppCompatActivity() {
                     jsonObject.put(key, jsonArray)
                 }
                 timetableForWebview = jsonObject.toString()
+            }
+        }.invokeOnCompletion {
+            runOnUiThread {
                 initTimetable(sessionId)
             }
         }
@@ -1225,7 +1216,7 @@ class HomeActivity : AppCompatActivity() {
         Toast.makeText(this, "인증에 실패했습니다.", Toast.LENGTH_SHORT).show()
     }
 
-    private fun showOptionsMenu(view: View) {
+    fun showOptionsMenu(view: View) {
         val popup = PopupMenu(this, view, Gravity.END, 0, R.style.popupOverflowMenu)
         val inflater: MenuInflater = popup.menuInflater
         inflater.inflate(R.menu.main_option_menu, popup.menu)
@@ -1258,26 +1249,7 @@ class HomeActivity : AppCompatActivity() {
                 }
 
                 R.id.logout -> {
-                    val builder = MaterialAlertDialogBuilder(this)
-                    builder.setTitle("로그아웃")
-                        .setMessage("정말 로그아웃할까요?")
-                        .setPositiveButton("확인") { _, _ ->
-                            val sharedPreferences =
-                                getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
-                            val editor = sharedPreferences.edit()
-                            editor.clear()
-                            editor.apply()
-
-                            val sharedPreferences_library =
-                                getSharedPreferences("LibraryQRCache", MODE_PRIVATE)
-                            val editor_library = sharedPreferences_library.edit()
-                            editor_library.clear()
-                            editor_library.apply()
-                            finish()
-                            startActivity(Intent(this@HomeActivity, LoginActivity::class.java))
-                        }
-                        .setNegativeButton("취소") { _, _ -> }
-                    builder.show()
+                    logout()
                 }
 
                 R.id.settings -> {
@@ -1288,6 +1260,29 @@ class HomeActivity : AppCompatActivity() {
             true
         }
         popup.show()
+    }
+
+    public fun logout() {
+        val builder = MaterialAlertDialogBuilder(this)
+        builder.setTitle("로그아웃")
+            .setMessage("정말 로그아웃할까요?")
+            .setPositiveButton("확인") { _, _ ->
+                val sharedPreferences =
+                    getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
+                val editor = sharedPreferences.edit()
+                editor.clear()
+                editor.apply()
+
+                val sharedPreferences_library =
+                    getSharedPreferences("LibraryQRCache", MODE_PRIVATE)
+                val editor_library = sharedPreferences_library.edit()
+                editor_library.clear()
+                editor_library.apply()
+                finish()
+                startActivity(Intent(this@HomeActivity, LoginActivity::class.java))
+            }
+            .setNegativeButton("취소") { _, _ -> }
+        builder.show()
     }
 
     private fun handleSessionExpired(sessionId: String) {
@@ -1439,6 +1434,12 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
                 "javascript:window.receiveToken('${homeActivity.sessionIdForOtherClass}')",
                 null
             )
+            val btnText = homeActivity.yearHakgi.replace(",3", ",여름").replace(",4", ",겨울")
+                .replace(",", "년도 ") + "학기"
+            homeActivity.timetableWebView.evaluateJavascript(
+                "javascript:window.updateYearHakgiBtnText('${btnText}')",
+                null
+            )
         }
     }
 
@@ -1505,6 +1506,31 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
                     ViewGroup.LayoutParams.MATCH_PARENT
             } catch (e: Exception) {
                 e.printStackTrace()
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun openOptionsMenu() {
+        homeActivity.runOnUiThread {
+            homeActivity.main?.let {
+                MenuBottomSheetDialog().show(homeActivity.supportFragmentManager, MenuBottomSheetDialog.TAG)
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun openYearHakgiBottomSheet() {
+        homeActivity.runOnUiThread {
+            homeActivity.openYearHakgiBottomSheetDialog()
+        }
+    }
+
+    @JavascriptInterface
+    fun openCustomBottomSheet(url: String, isCancelable: Boolean = true) {
+        homeActivity.runOnUiThread {
+            homeActivity.main?.let {
+                WebViewBottomSheetDialog(url, isCancelable).show(homeActivity.supportFragmentManager, MenuBottomSheetDialog.TAG)
             }
         }
     }

@@ -13,7 +13,8 @@
         android:id="@+id/navigation_drawer"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
-        app:headerLayout="@layout/header_navigation_drawer"
+        android:maxWidth="300dp"
+        android:paddingTop="20dp"
         app:menu="@menu/bottom_navigation_menu" />
 
     <com.google.android.material.bottomnavigation.BottomNavigationView
@@ -85,10 +86,8 @@
             android:layout_height="0dp"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:layout_marginLeft="15dp"
-            android:layout_marginRight="15dp"
             android:layout_marginTop="20dp"
-            android:layout_marginBottom="40dp"
+            android:layout_marginBottom="20dp"
             android:gravity="center">
 
 
@@ -128,6 +127,7 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
+            android:paddingTop="20dp"
             android:orientation="vertical"
             android:visibility="gone">
 
