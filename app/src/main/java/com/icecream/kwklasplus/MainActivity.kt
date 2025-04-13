@@ -7,9 +7,11 @@ import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.net.Uri
 import android.os.Build
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.JsResult
@@ -17,15 +19,21 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.ProgressBar
+import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.ViewCompat
-import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.gms.common.util.DeviceProperties.isTablet
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class MainActivity : AppCompatActivity() {
+
+    private lateinit var loadingText: TextView
+    private val handler = Handler(Looper.getMainLooper())
+    private lateinit var loadingTimeoutRunnable: Runnable
+    private var isLoginActivityStarted = false
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,6 +45,7 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+        loadingText = findViewById(R.id.loadingText)
 
         val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
         val appTheme = sharedPreferences.getString("appTheme", "system")
@@ -58,7 +67,7 @@ class MainActivity : AppCompatActivity() {
         if (!isNetworkConnected()) {
             var builder = MaterialAlertDialogBuilder(this)
             builder
-            .setTitle("네트워크 연결 오류")
+                .setTitle("네트워크 연결 오류")
                 .setMessage("네트워크 연결 상태를 확인해주세요.")
                 .setPositiveButton("확인") { _, _ ->
                     finish()
@@ -89,6 +98,8 @@ class MainActivity : AppCompatActivity() {
                             apply()
                         }
                         if (!isInstantLogin) {
+                            handler.removeCallbacks(loadingTimeoutRunnable)
+                            isLoginActivityStarted = true
                             startActivity(
                                 Intent(
                                     this@MainActivity,
@@ -109,7 +120,7 @@ class MainActivity : AppCompatActivity() {
                 result: JsResult?
             ): Boolean {
                 runOnUiThread {
-                    if(!isFinishing) {
+                    if (!isFinishing) {
                         val builder = MaterialAlertDialogBuilder(this@MainActivity)
                         builder.setTitle("오류")
                             .setMessage(message)
@@ -146,6 +157,17 @@ class MainActivity : AppCompatActivity() {
 
             webView.loadUrl("https://klas.kw.ac.kr/mst/cmn/login/LoginForm.do")
         }
+
+        loadingTimeoutRunnable = Runnable {
+            if (!isLoginActivityStarted) {
+                loadingText.text = "로딩이 오래 걸리고 있어요.\n여기를 눌러 현재 서버 상태를 확인해보세요."
+                loadingText.setOnClickListener {
+                    val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://status.klasplus.yuntae.in"))
+                    startActivity(browserIntent)
+                }
+            }
+        }
+        handler.postDelayed(loadingTimeoutRunnable, 5000)
     }
 
     // 네트워크 연결 여부 확인 함수
@@ -167,4 +189,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        handler.removeCallbacks(loadingTimeoutRunnable)
+    }
 }
