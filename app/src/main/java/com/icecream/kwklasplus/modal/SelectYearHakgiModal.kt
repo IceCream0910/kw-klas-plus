@@ -47,12 +47,12 @@ class YearHakgiBottomSheetDialog(yearHakgiList: Array<String>, isUpdate: Boolean
             desc.text = "앱 실행 시 기본적으로 보여질 학기를 선택해주세요."
         }
 
-        val speedContainer = view.findViewById<LinearLayout>(R.id.speedContainer)
+        val optionsContainer = view.findViewById<LinearLayout>(R.id.optionsContainer)
 
         yearHakgiList.forEach { value ->
             val yearHakgiButton = layoutInflater.inflate(
-                R.layout.item_speed_option,
-                speedContainer,
+                R.layout.item_modal_select,
+                optionsContainer,
                 false
             ) as Button
 
@@ -61,7 +61,7 @@ class YearHakgiBottomSheetDialog(yearHakgiList: Array<String>, isUpdate: Boolean
                 listener?.onYearHakgiSelected(value)
                 dismiss()
             }
-            speedContainer.addView(yearHakgiButton)
+            optionsContainer.addView(yearHakgiButton)
         }
 
         // FIX: 태블릿에서 완전히 펼쳐지지 않는 이슈

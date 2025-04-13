@@ -37,15 +37,15 @@ class SpeedBottomSheetDialog : BottomSheetDialogFragment() {
 
         val title = view.findViewById<TextView>(R.id.title)
         val desc = view.findViewById<TextView>(R.id.desc)
-        title.text = "재생 속도 선택"
+        title.text = "재생 속도"
         desc.visibility = View.GONE
 
         val speedOptions = listOf(0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0)
-        val speedContainer = view.findViewById<LinearLayout>(R.id.speedContainer)
+        val speedContainer = view.findViewById<LinearLayout>(R.id.optionsContainer)
 
         speedOptions.forEach { speed ->
             val speedButton = layoutInflater.inflate(
-                R.layout.item_speed_option,
+                R.layout.item_modal_select,
                 speedContainer,
                 false
             ) as Button
