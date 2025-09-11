@@ -18,221 +18,11 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <androidx.core.widget.NestedScrollView
+        <WebView
+            android:id="@+id/onboarding_webView"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:fillViewport="true"
-            app:layout_constraintBottom_toTopOf="@id/cbAgreeView"
-            app:layout_constraintTop_toTopOf="parent">
-
-            <androidx.appcompat.widget.LinearLayoutCompat
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="20dp"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="30dp"
-                    android:text="만나서 반가워요 👋\nKLAS+를 시작해볼까요?"
-                    android:textSize="25sp"
-                    android:textStyle="bold"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="15dp"
-                    android:text="KLAS+는 개인이 UI/UX를 개선하고 편의 기능을 추가해 만든 것으로, 학교의 공식 앱이 아닙니다."
-                    android:textColor="@color/md_theme_outline"
-                    android:textSize="14sp" />
-
-                <com.google.android.material.card.MaterialCardView
-                    style="@style/Widget.Material3.CardView.Elevated"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-
-                        <ImageView
-                            android:layout_width="30dp"
-                            android:layout_height="30dp"
-                            android:layout_gravity="center_vertical"
-                            android:layout_marginEnd="16dp"
-                            android:background="?attr/selectableItemBackgroundBorderless"
-                            android:scaleType="fitCenter"
-                            android:shape="oval"
-                            android:src="@drawable/baseline_calendar_month_24"
-                            app:tint="@color/md_theme_primary" />
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginBottom="4dp"
-                                android:text="놓치는 일정이 없도록"
-                                android:textSize="18sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:text="아직 마무리하지 않은 과제와 온라인 강의를 한 번에 확인할 수 있어요. 캘린더 탭에서는 학사 일정과 개인 일정을 모아 관리해보세요."
-                                android:textSize="14sp"
-                                android:textColor="@color/md_theme_outline"/>
-
-                        </LinearLayout>
-
-                    </LinearLayout>
-
-                </com.google.android.material.card.MaterialCardView>
-
-                <com.google.android.material.card.MaterialCardView
-                    style="@style/Widget.Material3.CardView.Elevated"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-
-                        <ImageView
-                            android:layout_width="30dp"
-                            android:layout_height="30dp"
-                            android:layout_gravity="center_vertical"
-                            android:layout_marginEnd="16dp"
-                            android:background="?attr/selectableItemBackgroundBorderless"
-                            android:scaleType="fitCenter"
-                            android:shape="oval"
-                            android:src="@drawable/baseline_qr_code_24"
-                            app:tint="@color/md_theme_primary" />
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginBottom="4dp"
-                                android:text="재빠른 QR 출석체크"
-                                android:textSize="18sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:text="메인에서 현재 진행 중인 수업의 정보를 확인하고, 번거로운 메뉴 이동 없이 출석체크를 위한 QR 코드를 스캔할 수 있어요."
-                                android:textSize="14sp"
-                                android:textColor="@color/md_theme_outline"/>
-
-                        </LinearLayout>
-
-                    </LinearLayout>
-
-                </com.google.android.material.card.MaterialCardView>
-
-                <com.google.android.material.card.MaterialCardView
-                    style="@style/Widget.Material3.CardView.Elevated"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:layout_marginBottom="20dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-
-                        <ImageView
-                            android:layout_width="30dp"
-                            android:layout_height="30dp"
-                            android:layout_gravity="center_vertical"
-                            android:layout_marginEnd="16dp"
-                            android:background="?attr/selectableItemBackgroundBorderless"
-                            android:scaleType="fitCenter"
-                            android:shape="oval"
-                            android:src="@drawable/baseline_play_arrow_24"
-                            app:tint="@color/md_theme_primary" />
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginBottom="4dp"
-                                android:text="더 쾌적한 강의 시청"
-                                android:textSize="18sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:text="모바일 환경에 최적화된 온라인 강의 시청 화면을 만나보세요. PIP 기능으로 다른 앱을 사용하면서도 강의를 끊김 없이 시청할 수 있어요."
-                                android:textSize="14sp"
-                                android:textColor="@color/md_theme_outline"/>
-
-                        </LinearLayout>
-
-                    </LinearLayout>
-
-                </com.google.android.material.card.MaterialCardView>
-
-            </androidx.appcompat.widget.LinearLayoutCompat>
-
-        </androidx.core.widget.NestedScrollView>
-
-        <LinearLayout
-            android:id="@+id/cbAgreeView"
-            android:orientation="horizontal"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="15dp"
-            android:layout_marginBottom="10dp"
-            android:weightSum="3"
-            app:layout_constraintBottom_toTopOf="@+id/btnStart">
-
-            <com.google.android.material.checkbox.MaterialCheckBox
-                android:id="@+id/cbAgree"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="3"
-                android:textSize="12sp"
-                android:layout_marginLeft="10dp"
-                android:text="개인정보 수집 및 이용/제공 동의" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/cbAgreeBtn"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textAlignment="textEnd"
-                android:text="보기"
-                android:textSize="12sp"
-                android:layout_weight="1"
-                android:textColor="@color/md_theme_primary"
-                android:background="@android:color/transparent"/>
-        </LinearLayout>
+            android:layout_height="match_parent"
+            />
 
         <com.icecream.kwklasplus.components.AnimatedButton
             android:id="@+id/btnStart"
@@ -342,6 +132,39 @@
 
         </androidx.core.widget.NestedScrollView>
 
+
+
+        <LinearLayout
+            android:id="@+id/cbAgreeView"
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="15dp"
+            android:layout_marginBottom="10dp"
+            android:weightSum="3"
+            app:layout_constraintBottom_toTopOf="@+id/btnLogin">
+
+            <com.google.android.material.checkbox.MaterialCheckBox
+                android:id="@+id/cbAgree"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="3"
+                android:textSize="12sp"
+                android:layout_marginLeft="10dp"
+                android:text="개인정보 수집 및 이용/제공 동의" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/cbAgreeBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAlignment="textEnd"
+                android:text="보기"
+                android:textSize="12sp"
+                android:layout_weight="1"
+                android:textColor="@color/md_theme_primary"
+                android:background="@android:color/transparent"/>
+        </LinearLayout>
+
         <com.icecream.kwklasplus.components.AnimatedButton
             android:id="@+id/btnLogin"
             android:layout_width="match_parent"
@@ -350,7 +173,8 @@
             android:layout_marginBottom="25dp"
             android:enabled="false"
             android:text="확인"
-            app:layout_constraintBottom_toBottomOf="parent" />
+            android:layout_alignParentBottom="true"
+            app:layout_constraintBottom_toBottomOf="parent"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

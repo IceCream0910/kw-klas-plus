@@ -1,6 +1,7 @@
 package com.icecream.kwklasplus
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Color
@@ -9,8 +10,11 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.webkit.WebView
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.TextView
@@ -36,8 +40,10 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var etPwd: TextInputEditText
     private lateinit var tilPwd: TextInputLayout
     private lateinit var btnLogin: Button
+    private lateinit var cbAgree: CheckBox
     private lateinit var tvTitle: TextView
     private lateinit var btnStart: Button
+    private lateinit var webView: WebView
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,13 +57,13 @@ class LoginActivity : AppCompatActivity() {
             insets
         }
 
-        // 모바일에서는 세로 모드 고정
         if (isTablet(this)) {
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         } else {
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         }
 
+        webView = findViewById(R.id.onboarding_webView)
         clOnboarding = findViewById(R.id.clOnboarding)
         clLogin = findViewById(R.id.clLogin)
         btnStart = findViewById(R.id.btnStart)
@@ -66,8 +72,19 @@ class LoginActivity : AppCompatActivity() {
         tilPwd = findViewById(R.id.tilPwd)
         btnLogin = findViewById(R.id.btnLogin)
         tvTitle = findViewById(R.id.tvTitle)
-        var cbAgree: CheckBox = findViewById(R.id.cbAgree)
+        cbAgree = findViewById(R.id.cbAgree)
         var cbAgreeBtn: Button = findViewById(R.id.cbAgreeBtn)
+
+        webView.loadUrl("https://klasplus.yuntae.in/onboarding")
+        webView.settings.javaScriptEnabled = true
+        webView.settings.domStorageEnabled = true
+        webView.isVerticalScrollBarEnabled = false
+        webView.isHorizontalScrollBarEnabled = false
+        webView.setBackgroundColor(0)
+
+        cbAgree.setOnCheckedChangeListener { _, _ ->
+            updateLoginButtonState()
+        }
 
         cbAgreeBtn.setOnClickListener {
             val intent = Intent(Intent.ACTION_VIEW)
@@ -76,17 +93,49 @@ class LoginActivity : AppCompatActivity() {
         }
 
         btnStart.setOnClickListener {
+            clOnboarding.visibility = View.GONE
+            clLogin.visibility = View.VISIBLE
+            etId.requestFocus()
+        }
+
+        btnLogin.setOnClickListener {
             if(cbAgree.isChecked) {
-                clOnboarding.visibility = View.GONE
-                clLogin.visibility = View.VISIBLE
-                etId.requestFocus()
+                val kwId = etId.text.toString()
+                val kwPwd = etPwd.text.toString()
+
+                if (kwId.isNotEmpty() && kwPwd.isNotEmpty()) {
+                    encrypt(kwId, kwPwd)
+                } else {
+                    Toast.makeText(this, "학번과 비밀번호를 입력해주세요.", Toast.LENGTH_SHORT).show()
+                }
             } else {
                 Toast.makeText(this, "개인정보 수집 및 제공에 동의해주세요.", Toast.LENGTH_SHORT).show()
             }
         }
 
         setupInputListeners()
-        setupLoginButton()
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (ev.action == MotionEvent.ACTION_DOWN) {
+            currentFocus?.let { v ->
+                if (v is TextInputEditText) {
+                    val outRect = android.graphics.Rect()
+                    v.getGlobalVisibleRect(outRect)
+                    if (!outRect.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
+                        hideKeyboardFrom(v)
+                        v.clearFocus()
+                    }
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+
+    private fun hideKeyboardFrom(view: View) {
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(view.windowToken, 0)
     }
 
     private fun setupInputListeners() {
@@ -126,6 +175,9 @@ class LoginActivity : AppCompatActivity() {
             if (actionId == EditorInfo.IME_ACTION_DONE) {
                 if (btnLogin.isEnabled) {
                     btnLogin.performClick()
+                } else {
+                    etPwd.clearFocus()
+                    hideKeyboardFrom(view = etPwd)
                 }
                 true
             } else {
@@ -135,20 +187,7 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun updateLoginButtonState() {
-        btnLogin.isEnabled = etId.text?.length == 10 && !etPwd.text.isNullOrEmpty()
-    }
-
-    private fun setupLoginButton() {
-        btnLogin.setOnClickListener {
-            val kwId = etId.text.toString()
-            val kwPwd = etPwd.text.toString()
-
-            if (kwId.isNotEmpty() && kwPwd.isNotEmpty()) {
-                encrypt(kwId, kwPwd)
-            } else {
-                Toast.makeText(this, "학번과 비밀번호를 입력해주세요.", Toast.LENGTH_SHORT).show()
-            }
-        }
+        btnLogin.isEnabled = etId.text?.length == 10 && !etPwd.text.isNullOrEmpty() && cbAgree.isChecked
     }
 
     private fun encrypt(id: String, str: String) {
