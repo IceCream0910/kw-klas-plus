@@ -81,7 +81,7 @@
 
 
         <androidx.appcompat.widget.LinearLayoutCompat
-            android:id="@+id/homeView"
+            android:id="@+id/webViewContainer"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
@@ -89,7 +89,6 @@
             android:layout_marginTop="20dp"
             android:layout_marginBottom="20dp"
             android:gravity="center">
-
 
             <ProgressBar
                 android:id="@+id/progressBar_webview"
@@ -103,81 +102,6 @@
                 android:layout_height="match_parent"
                 android:visibility="gone"/>
 
-
-
-        </androidx.appcompat.widget.LinearLayoutCompat>
-
-        <androidx.appcompat.widget.LinearLayoutCompat
-            android:id="@+id/timetableView"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:paddingTop="20dp"
-            android:orientation="vertical"
-            android:visibility="gone">
-
-            <WebView
-                android:id="@+id/timetableWebview"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"/>
-        </androidx.appcompat.widget.LinearLayoutCompat>
-
-        <androidx.appcompat.widget.LinearLayoutCompat
-            android:id="@+id/calendarView"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:paddingTop="20dp"
-            android:orientation="vertical"
-            android:visibility="gone">
-
-        <WebView
-            android:id="@+id/calendarWebview"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"/>
-
-        </androidx.appcompat.widget.LinearLayoutCompat>
-
-        <androidx.appcompat.widget.LinearLayoutCompat
-            android:id="@+id/qrView"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:layout_marginTop="20dp"
-            android:layout_marginBottom="40dp"
-            android:visibility="gone">
-
-            <WebView
-                android:id="@+id/aiWebview"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"/>
-
-            <ListView
-                android:visibility="gone"
-                android:id="@+id/subjectListView"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:layout_marginTop="20dp"
-                android:layout_marginLeft="-15dp"/>
-
-        </androidx.appcompat.widget.LinearLayoutCompat>
-
-        <androidx.appcompat.widget.LinearLayoutCompat
-            android:id="@+id/menuView"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:layout_marginTop="20dp"
-            android:layout_marginBottom="40dp"
-            android:visibility="gone">
-
-
-            <WebView
-                android:id="@+id/menuWebView"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"/>
 
         </androidx.appcompat.widget.LinearLayoutCompat>
 

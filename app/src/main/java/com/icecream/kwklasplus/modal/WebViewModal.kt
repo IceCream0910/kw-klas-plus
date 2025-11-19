@@ -6,12 +6,16 @@ import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.net.http.SslError
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.SslErrorHandler
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
@@ -40,14 +44,18 @@ class WebViewBottomSheetDialog(url: String, cancelable: Boolean = true) :
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        return inflater.inflate(R.layout.bottom_sheet_webview, container, false)
         isCancelable = cancelable
+        return inflater.inflate(R.layout.bottom_sheet_webview, container, false)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         val webViewProgress: LinearLayout = view.findViewById(R.id.webViewProgress)
         val webView: WebView = view.findViewById(R.id.webview)
+
+        // 항상 초기에는 로딩 스피너만 보이도록 강제
+        webViewProgress.visibility = View.VISIBLE
+        webView.visibility = View.GONE
 
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -62,7 +70,6 @@ class WebViewBottomSheetDialog(url: String, cancelable: Boolean = true) :
             JavaScriptInterfaceForWebViewModal(requireActivity(), this),
             "Android"
         )
-        webView.loadUrl(url)
 
         try {
             val pInfo: PackageInfo =
@@ -79,7 +86,35 @@ class WebViewBottomSheetDialog(url: String, cancelable: Boolean = true) :
                 webView.visibility = View.VISIBLE
                 webViewProgress.visibility = View.GONE
             }
+
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?
+            ) {
+                super.onReceivedError(view, request, error)
+                webViewProgress.visibility = View.GONE
+                webView.visibility = View.VISIBLE
+            }
+
+            override fun onReceivedHttpError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                errorResponse: android.webkit.WebResourceResponse?
+            ) {
+                super.onReceivedHttpError(view, request, errorResponse)
+                webViewProgress.visibility = View.GONE
+                webView.visibility = View.VISIBLE
+            }
+
+            override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
+                super.onReceivedSslError(view, handler, error)
+                webViewProgress.visibility = View.GONE
+                webView.visibility = View.VISIBLE
+            }
         }
+
+        webView.loadUrl(url)
 
         // FIX: 태블릿에서 완전히 펼쳐지지 않는 이슈
         view.viewTreeObserver.addOnGlobalLayoutListener {

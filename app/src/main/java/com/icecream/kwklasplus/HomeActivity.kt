@@ -73,10 +73,7 @@ import kotlin.system.exitProcess
 class HomeActivity : AppCompatActivity() {
     @SuppressLint("MissingInflatedId")
     lateinit var webView: WebView
-    lateinit var menuWebView: WebView
-    lateinit var aiWebView: WebView
-    lateinit var calendarWebView: WebView
-    lateinit var timetableWebView: WebView
+    internal var currentTab: String = "" // "feed", "timetable", "calendar", "menu"
     private var deadlineForWebview: String = ""
     private var timetableForWebview: String = ""
     lateinit var sessionIdForOtherClass: String
@@ -106,9 +103,9 @@ class HomeActivity : AppCompatActivity() {
         onBackPressedCallback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (isOpenWebViewBottomSheet) {
-                    calendarWebView.evaluateJavascript("window.closeWebViewBottomSheet();", null)
-                    menuWebView.evaluateJavascript("window.closeWebViewBottomSheet();", null)
+                    webView.evaluateJavascript("window.closeWebViewBottomSheet();", null)
                 } else {
+                    // Always exit app on back press, ignore WebView history
                     finishAffinity()
                     exitProcess(0)
                 }
@@ -159,33 +156,20 @@ class HomeActivity : AppCompatActivity() {
             if (!isKeyboardShowing && keypadHeight > screenHeight * 0.15) {
                 isKeyboardShowing = true
                 val newHeight = screenHeight - keypadHeight - 100
-                aiWebView.layoutParams = (aiWebView.layoutParams as ViewGroup.LayoutParams).apply {
-                    height = newHeight
-                }
-                menuWebView.layoutParams =
-                    (menuWebView.layoutParams as ViewGroup.LayoutParams).apply {
+                webView.layoutParams =
+                    (webView.layoutParams as ViewGroup.LayoutParams).apply {
                         height = newHeight
-                    }
-                calendarWebView.layoutParams =
-                    (calendarWebView.layoutParams as ViewGroup.LayoutParams).apply {
-                        height = screenHeight - keypadHeight - 100
                     }
                 navBar.visibility = View.GONE
             } else if (isKeyboardShowing && keypadHeight < screenHeight * 0.15) {
                 isKeyboardShowing = false
-                aiWebView.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
-                menuWebView.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
-                calendarWebView.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
+                webView.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
                 navBar.visibility = View.VISIBLE
             }
 
         }
 
         webView = findViewById(R.id.webView)
-        menuWebView = findViewById<WebView>(R.id.menuWebView)
-        calendarWebView = findViewById<WebView>(R.id.calendarWebview)
-        aiWebView = findViewById<WebView>(R.id.aiWebview)
-        timetableWebView = findViewById(R.id.timetableWebview)
         initSubjectList(sessionId)
         initLoadingDialog()
         initNavigationMenu()
@@ -223,74 +207,28 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun initNavigationMenu() {
-        val viewTitle = findViewById<TextView>(R.id.viewTitle)
-        val menuBtn = findViewById<Button>(R.id.menuBtn)
-        //selectYearHakgiBtn = findViewById<Button>(R.id.selectYearHakgiBtn)
-        val homeView = findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.homeView)
-        val timetableView =
-            findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.timetableView)
-        val calendarView =
-            findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.calendarView)
-        val qrView = findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.qrView)
-        val menuView = findViewById<androidx.appcompat.widget.LinearLayoutCompat>(R.id.menuView)
         val NavigationBarView =
             findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_navigation)
-
-
-        /*
-        menuBtn.setOnClickListener {
-            showOptionsMenu(it)
-        }
-
-        selectYearHakgiBtn.setOnClickListener {
-            openYearHakgiBottomSheetDialog()
-        }
-        */
 
         NavigationBarView.setOnItemSelectedListener { item: MenuItem ->
             when (item.itemId) {
                 R.id.item_1 -> {
-                    homeView.visibility = View.VISIBLE
-                    timetableView.visibility = View.GONE
-                    calendarView.visibility = View.GONE
-                    qrView.visibility = View.GONE
-                    menuView.visibility = View.GONE
+                    switchToTab("feed")
                     true
                 }
 
                 R.id.item_2 -> {
-                    homeView.visibility = View.GONE
-                    timetableView.visibility = View.VISIBLE
-                    calendarView.visibility = View.GONE
-                    qrView.visibility = View.GONE
-                    menuView.visibility = View.GONE
+                    switchToTab("timetable")
                     true
                 }
 
                 R.id.item_5 -> {
-                    homeView.visibility = View.GONE
-                    timetableView.visibility = View.GONE
-                    calendarView.visibility = View.VISIBLE
-                    qrView.visibility = View.GONE
-                    menuView.visibility = View.GONE
-                    true
-                }
-
-                R.id.item_3 -> {
-                    homeView.visibility = View.GONE
-                    timetableView.visibility = View.GONE
-                    calendarView.visibility = View.GONE
-                    qrView.visibility = View.VISIBLE
-                    menuView.visibility = View.GONE
+                    switchToTab("calendar")
                     true
                 }
 
                 R.id.item_4 -> {
-                    homeView.visibility = View.GONE
-                    timetableView.visibility = View.GONE
-                    calendarView.visibility = View.GONE
-                    qrView.visibility = View.GONE
-                    menuView.visibility = View.VISIBLE
+                    switchToTab("menu")
                     true
                 }
 
@@ -300,59 +238,56 @@ class HomeActivity : AppCompatActivity() {
 
         val navigationView =
             findViewById<com.google.android.material.navigation.NavigationView>(R.id.navigation_drawer)
-        val headerView = navigationView.getHeaderView(0)
 
         navigationView.setCheckedItem(R.id.item_1)
 
         navigationView.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.item_1 -> {
-                    homeView.visibility = View.VISIBLE
-                    timetableView.visibility = View.GONE
-                    calendarView.visibility = View.GONE
-                    qrView.visibility = View.GONE
-                    menuView.visibility = View.GONE
+                    switchToTab("feed")
                     true
                 }
 
                 R.id.item_2 -> {
-                    homeView.visibility = View.GONE
-                    timetableView.visibility = View.VISIBLE
-                    calendarView.visibility = View.GONE
-                    qrView.visibility = View.GONE
-                    menuView.visibility = View.GONE
+                    switchToTab("timetable")
                     true
                 }
 
                 R.id.item_5 -> {
-                    homeView.visibility = View.GONE
-                    timetableView.visibility = View.GONE
-                    calendarView.visibility = View.VISIBLE
-                    qrView.visibility = View.GONE
-                    menuView.visibility = View.GONE
-                    true
-                }
-
-                R.id.item_3 -> {
-                    homeView.visibility = View.GONE
-                    timetableView.visibility = View.GONE
-                    calendarView.visibility = View.GONE
-                    qrView.visibility = View.VISIBLE
-                    menuView.visibility = View.GONE
+                    switchToTab("calendar")
                     true
                 }
 
                 R.id.item_4 -> {
-                    homeView.visibility = View.GONE
-                    timetableView.visibility = View.GONE
-                    calendarView.visibility = View.GONE
-                    qrView.visibility = View.GONE
-                    menuView.visibility = View.VISIBLE
+                    switchToTab("menu")
                     true
                 }
 
                 else -> false
             }
+        }
+    }
+
+    private fun switchToTab(tab: String) {
+        if (currentTab == tab && currentTab.isNotEmpty()) return // Already on this tab (skip check if initial load)
+
+        currentTab = tab
+        val url = when (tab) {
+            "feed" -> "https://klasplus.yuntae.in/feed?yearHakgi=${yearHakgi}"
+            "timetable" -> "https://klasplus.yuntae.in/timetableTab?yearHakgi=${yearHakgi}"
+            "calendar" -> "https://klasplus.yuntae.in/calendar?yearHakgi=${yearHakgi}"
+            "menu" -> "https://klasplus.yuntae.in/profile"
+            else -> "https://klasplus.yuntae.in/feed?yearHakgi=${yearHakgi}"
+        }
+
+        Log.d("HomeActivity", "Switching to tab: $tab, URL: $url")
+        webView.loadUrl(url)
+
+        // Apply tab-specific WebView client if needed
+        when (tab) {
+            "timetable" -> setupTimetableWebViewClient()
+            "calendar" -> setupCalendarWebViewClient()
+            else -> setupDefaultWebViewClient()
         }
     }
 
@@ -372,7 +307,6 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun initWebView() {
-        val webViewProgress = findViewById<ProgressBar>(R.id.progressBar_webview)
         webView.post(Runnable {
             webView.settings.javaScriptEnabled = true
             webView.settings.domStorageEnabled = true
@@ -391,180 +325,129 @@ class HomeActivity : AppCompatActivity() {
                 e.printStackTrace()
             }
 
-            webView.webViewClient = object : WebViewClient() {
-                override fun onPageFinished(view: WebView, url: String) {
+            setupDefaultWebViewClient()
+        })
+    }
+
+    private fun setupDefaultWebViewClient() {
+        val webViewProgress = findViewById<ProgressBar>(R.id.progressBar_webview)
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView, url: String) {
+                Log.d("HomeActivity", "Page finished loading: $url, currentTab: $currentTab")
+                if (currentTab == "feed") {
                     sendDeadlineAndTimetableToWebView()
-
-                    webView.visibility = View.VISIBLE
-                    webViewProgress.visibility = View.GONE
                 }
+                webView.visibility = View.VISIBLE
+                webViewProgress.visibility = View.GONE
+            }
 
-                override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-                    if(url.contains("klasplus.yuntae.in")) {
-                        return false
-                    } else {
-                        try {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                            startActivity(intent)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                            Toast.makeText(
-                                this@HomeActivity,
-                                "이 링크를 열 수 없습니다.",
-                                Toast.LENGTH_SHORT
-                            ).show()
+            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
+                if(url.contains("klasplus.yuntae.in")) {
+                    return false
+                } else {
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        Toast.makeText(
+                            this@HomeActivity,
+                            "이 링크를 열 수 없습니다.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    return true
+                }
+            }
+        }
+    }
+
+    private fun setupTimetableWebViewClient() {
+        val webViewProgress = findViewById<ProgressBar>(R.id.progressBar_webview)
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView, url: String) {
+                if (timetableForWebview.isNotEmpty()) {
+                    webView.evaluateJavascript(
+                        "javascript:receiveTimetableData(`${timetableForWebview}`)",
+                        null
+                    )
+                } else {
+                    Toast.makeText(this@HomeActivity, "시간표를 불러오는데 실패했습니다.", Toast.LENGTH_SHORT)
+                        .show()
+                }
+                webView.visibility = View.VISIBLE
+                webViewProgress.visibility = View.GONE
+            }
+        }
+    }
+
+    private fun setupCalendarWebViewClient() {
+        val webViewProgress = findViewById<ProgressBar>(R.id.progressBar_webview)
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView, url: String) {
+                webView.visibility = View.VISIBLE
+                webViewProgress.visibility = View.GONE
+            }
+        }
+
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onJsAlert(
+                view: WebView?,
+                url: String?,
+                message: String?,
+                result: JsResult?
+            ): Boolean {
+                runOnUiThread {
+                    val builder = MaterialAlertDialogBuilder(this@HomeActivity)
+                    builder.setTitle("안내")
+                        .setMessage(message)
+                        .setPositiveButton("확인") { dialog, id ->
+                            result?.confirm()
                         }
-                        return true
-                    }
+                        .setCancelable(false)
+                        .show()
                 }
+                return true
             }
-        })
 
-        menuWebView.post(Runnable {
-            menuWebView.settings.javaScriptEnabled = true
-            menuWebView.settings.domStorageEnabled = true
-            menuWebView.isVerticalScrollBarEnabled = false
-            menuWebView.isHorizontalScrollBarEnabled = false
-            menuWebView.overScrollMode = WebView.OVER_SCROLL_NEVER
-            menuWebView.setBackgroundColor(0)
-            menuWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
-            try {
-                val pInfo: PackageInfo =
-                    baseContext.packageManager.getPackageInfo(baseContext.packageName, 0)
-                val version = pInfo.longVersionCode
-                menuWebView.settings.userAgentString += " AndroidApp_v${version}"
-            } catch (e: PackageManager.NameNotFoundException) {
-                e.printStackTrace()
-            }
-            menuWebView.loadUrl("https://klasplus.yuntae.in/profile")
-        })
-
-        calendarWebView.post(Runnable {
-            calendarWebView.settings.javaScriptEnabled = true
-            calendarWebView.settings.domStorageEnabled = true
-            calendarWebView.isVerticalScrollBarEnabled = false
-            calendarWebView.isHorizontalScrollBarEnabled = false
-            calendarWebView.overScrollMode = WebView.OVER_SCROLL_NEVER
-            calendarWebView.setBackgroundColor(0)
-            calendarWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
-            calendarWebView.loadUrl("https://klasplus.yuntae.in/calendar?yearHakgi=${yearHakgi}")
-            try {
-                val pInfo: PackageInfo =
-                    baseContext.packageManager.getPackageInfo(baseContext.packageName, 0)
-                val version = pInfo.longVersionCode
-                calendarWebView.settings.userAgentString += " AndroidApp_v${version}"
-            } catch (e: PackageManager.NameNotFoundException) {
-                e.printStackTrace()
-            }
-            calendarWebView.webChromeClient = object : WebChromeClient() {
-                override fun onJsAlert(
-                    view: WebView?,
-                    url: String?,
-                    message: String?,
-                    result: JsResult?
-                ): Boolean {
-                    runOnUiThread {
-                        val builder = MaterialAlertDialogBuilder(this@HomeActivity)
-                        builder.setTitle("안내")
-                            .setMessage(message)
-                            .setPositiveButton("확인") { dialog, id ->
-                                result?.confirm()
-                            }
-                            .setCancelable(false)
-                            .show()
-                    }
-                    return true
+            override fun onJsConfirm(
+                view: WebView?,
+                url: String?,
+                message: String?,
+                result: JsResult?
+            ): Boolean {
+                runOnUiThread {
+                    val builder = MaterialAlertDialogBuilder(this@HomeActivity)
+                    builder.setTitle("안내")
+                        .setMessage(message)
+                        .setPositiveButton("확인") { dialog, id ->
+                            result?.confirm()
+                        }
+                        .setNegativeButton("취소") { dialog, id ->
+                            result?.cancel()
+                        }
+                        .setCancelable(false)
+                        .show()
                 }
-
-                override fun onJsConfirm(
-                    view: WebView?,
-                    url: String?,
-                    message: String?,
-                    result: JsResult?
-                ): Boolean {
-                    runOnUiThread {
-                        val builder = MaterialAlertDialogBuilder(this@HomeActivity)
-                        builder.setTitle("안내")
-                            .setMessage(message)
-                            .setPositiveButton("확인") { dialog, id ->
-                                result?.confirm()
-                            }
-                            .setNegativeButton("취소") { dialog, id ->
-                                result?.cancel()
-                            }
-                            .setCancelable(false)
-                            .show()
-                    }
-                    return true
-                }
+                return true
             }
-        })
-
-        aiWebView.post(Runnable {
-            aiWebView.settings.javaScriptEnabled = true
-            aiWebView.settings.domStorageEnabled = true
-            aiWebView.isVerticalScrollBarEnabled = false
-            aiWebView.isHorizontalScrollBarEnabled = false
-            aiWebView.overScrollMode = WebView.OVER_SCROLL_NEVER
-            aiWebView.setBackgroundColor(0)
-            try {
-                val pInfo: PackageInfo =
-                    baseContext.packageManager.getPackageInfo(baseContext.packageName, 0)
-                val version = pInfo.longVersionCode
-                aiWebView.settings.userAgentString += " AndroidApp_v${version}"
-            } catch (e: PackageManager.NameNotFoundException) {
-                e.printStackTrace()
-            }
-            aiWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
-            aiWebView.loadUrl("https://klasplus.yuntae.in/ai?yearHakgi=${yearHakgi}")
-        })
+        }
     }
 
     private fun sendDeadlineAndTimetableToWebView() {
         webView.evaluateJavascript(
-            "javascript:window.receiveDeadlineData(`${deadlineForWebview}`)",
+            "javascript:window.receiveDeadlineData(`$deadlineForWebview`)",
             null
         )
         webView.evaluateJavascript(
-            "javascript:window.receiveTimetableData(`${timetableForWebview}`)",
+            "javascript:window.receiveTimetableData(`$timetableForWebview`)",
             null
         )
+        webView.evaluateJavascript("javascript:window.localStorage.setItem('klasSessionToken', '$sessionIdForOtherClass')", null)
+        webView.evaluateJavascript("javascript:window.localStorage.setItem('currentYearHakgi', '$yearHakgi')", null)
     }
 
-    private fun initTimetable(sessionId: String) {
-        timetableWebView.post(Runnable {
-            timetableWebView.settings.javaScriptEnabled = true
-            timetableWebView.settings.domStorageEnabled = true
-            timetableWebView.isVerticalScrollBarEnabled = false
-            timetableWebView.overScrollMode = WebView.OVER_SCROLL_NEVER
-            timetableWebView.isHorizontalScrollBarEnabled = false
-            timetableWebView.setBackgroundColor(0)
-            timetableWebView.addJavascriptInterface(JavaScriptInterface(this), "Android")
 
-            timetableWebView.loadUrl("https://klasplus.yuntae.in/timetableTab?yearHakgi=${yearHakgi}")
-            try {
-                val pInfo: PackageInfo =
-                    baseContext.packageManager.getPackageInfo(baseContext.packageName, 0)
-                val version = pInfo.longVersionCode
-                timetableWebView.settings.userAgentString += " AndroidApp_v${version}"
-            } catch (e: PackageManager.NameNotFoundException) {
-                e.printStackTrace()
-            }
-            timetableWebView.webViewClient = object : WebViewClient() {
-                override fun onPageFinished(view: WebView, url: String) {
-                    if (timetableForWebview.isNotEmpty()) {
-                        timetableWebView.evaluateJavascript(
-                            "javascript:receiveTimetableData(`${timetableForWebview}`)",
-                            null
-                        )
-                    } else {
-                        Toast.makeText(this@HomeActivity, "시간표를 불러오는데 실패했습니다.", Toast.LENGTH_SHORT)
-                            .show()
-                    }
-                }
-            }
-        })
-    }
 
     private fun initSubjectList(sessionId: String) {
         fetchSubjectList(sessionId) { jsonArray ->
@@ -618,31 +501,64 @@ class HomeActivity : AppCompatActivity() {
                 CoroutineScope(Dispatchers.IO).launch {
                     launch { getTimetableData(sessionId) }
                     launch { fetchDeadlines(sessionId, newSubjList) }
-                    withContext(Dispatchers.Main) {
-                        initWebView()
-                        loadingDialog.dismiss()
-                    }
                 }.invokeOnCompletion {
-                    runOnUiThread { sendDeadlineAndTimetableToWebView() }
+                    runOnUiThread {
+                        initWebView()
+                        // Switch to feed tab after WebView is initialized and data is loaded
+                        webView.postDelayed({
+                            switchToTab("feed")
+                            loadingDialog.dismiss()
+                        }, 100) // Small delay to ensure WebView is ready
+                    }
                 }
             }
         }
     }
 
     private fun updateYearHakgi(selectedYearHakgi: String) {
-        val btnText = selectedYearHakgi.replace(",3", ",하계계절").replace(",4", ",동계계절")
-            .replace(",", "년도 ") + "학기"
-        timetableWebView.evaluateJavascript(
-            "javascript:window.updateYearHakgiBtnText('${btnText}')",
-            null
-        )
-
         yearHakgi = selectedYearHakgi
         val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
         val editor: SharedPreferences.Editor = sharedPreferences.edit()
         editor.putString("yearHakgi", yearHakgi)
         editor.apply()
-        reload()
+
+        // Reload data in background
+        reloadData()
+    }
+
+    private fun reloadData() {
+        // Reload data in background without changing UI
+        loadingDialog.show()
+        val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
+        val sessionId = sharedPreferences.getString("kwSESSION", null)
+        if (sessionId == null) {
+            showLoginErrorToast()
+            finish()
+            startActivity(Intent(this@HomeActivity, MainActivity::class.java))
+            return
+        }
+
+        fetchSubjectList(sessionId) { jsonArray ->
+            val jsonObject = jsonArray.getJSONObject(0)
+            val subjList = jsonObject.getJSONArray("subjList")
+            CoroutineScope(Dispatchers.IO).launch {
+                launch { getTimetableData(sessionId) }
+                launch { fetchDeadlines(sessionId, subjList) }
+            }.invokeOnCompletion {
+                runOnUiThread {
+                    // Reload current tab with updated data
+                    reloadCurrentTab()
+                    loadingDialog.dismiss()
+                }
+            }
+        }
+    }
+
+    private fun reloadCurrentTab() {
+        // Force reload current tab by temporarily clearing currentTab
+        val currentTabTemp = currentTab
+        currentTab = ""
+        switchToTab(currentTabTemp)
     }
 
     fun reload() {
@@ -662,12 +578,15 @@ class HomeActivity : AppCompatActivity() {
             CoroutineScope(Dispatchers.IO).launch {
                 launch { getTimetableData(sessionId) }
                 launch { fetchDeadlines(sessionId, subjList) }
-                withContext(Dispatchers.Main) {
-                    initWebView()
-                    loadingDialog.dismiss()
-                }
             }.invokeOnCompletion {
-                runOnUiThread { sendDeadlineAndTimetableToWebView() }
+                runOnUiThread {
+                    initWebView()
+                    // Switch to feed tab after reload is complete
+                    webView.postDelayed({
+                        switchToTab("feed")
+                        loadingDialog.dismiss()
+                    }, 100) // Small delay to ensure WebView is ready
+                }
             }
         }
     }
@@ -727,9 +646,6 @@ class HomeActivity : AppCompatActivity() {
         }
         jobList.joinAll()
         deadlineForWebview = deadline.toString()
-        webView.post(Runnable {
-            webView.loadUrl("https://klasplus.yuntae.in/feed?yearHakgi=${yearHakgi}")
-        })
     }
 
     private fun parseOnlineLecture(
@@ -889,10 +805,6 @@ class HomeActivity : AppCompatActivity() {
                     jsonObject.put(key, jsonArray)
                 }
                 timetableForWebview = jsonObject.toString()
-            }
-        }.invokeOnCompletion {
-            runOnUiThread {
-                initTimetable(sessionId)
             }
         }
     }
@@ -1326,20 +1238,7 @@ class HomeActivity : AppCompatActivity() {
         return requestBuilder.build()
     }
 
-    override fun onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack()
-        } else {
-            if (isOpenWebViewBottomSheet) {
-                calendarWebView.evaluateJavascript("window.closeWebViewBottomSheet();", null)
-                menuWebView.evaluateJavascript("window.closeWebViewBottomSheet();", null)
-            } else {
-                super.onBackPressed()
-                finishAffinity()
-                exitProcess(0)
-            }
-        }
-    }
+
 
 
     fun showDatePicker(calendar: Calendar, isStart: Boolean) {
@@ -1372,7 +1271,7 @@ class HomeActivity : AppCompatActivity() {
 
             val selectedDateTime =
                 SimpleDateFormat("yyyy-MM-dd'T'HH:mm", Locale.getDefault()).format(calendar.time)
-            calendarWebView.evaluateJavascript(
+            webView.evaluateJavascript(
                 "javascript:window.setDateTime('$selectedDateTime', $isStart);",
                 null
             )
@@ -1418,28 +1317,14 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
                 "javascript:window.receiveToken('${homeActivity.sessionIdForOtherClass}')",
                 null
             )
-            homeActivity.menuWebView.evaluateJavascript(
-                "javascript:window.receiveToken('${homeActivity.sessionIdForOtherClass}')",
-                null
-            )
-            homeActivity.aiWebView.evaluateJavascript(
-                "javascript:window.receiveToken('${homeActivity.sessionIdForOtherClass}')",
-                null
-            )
-            homeActivity.aiWebView.evaluateJavascript(
-                "javascript:window.receiveSubjList('${homeActivity.subjList}')",
-                null
-            )
-            homeActivity.calendarWebView.evaluateJavascript(
-                "javascript:window.receiveToken('${homeActivity.sessionIdForOtherClass}')",
-                null
-            )
-            val btnText = homeActivity.yearHakgi.replace(",3", ",여름").replace(",4", ",겨울")
-                .replace(",", "년도 ") + "학기"
-            homeActivity.timetableWebView.evaluateJavascript(
-                "javascript:window.updateYearHakgiBtnText('${btnText}')",
-                null
-            )
+            if (homeActivity.currentTab == "timetable") {
+                val btnText = homeActivity.yearHakgi.replace(",3", ",여름").replace(",4", ",겨울")
+                    .replace(",", "년도 ") + "학기"
+                homeActivity.webView.evaluateJavascript(
+                    "javascript:window.updateYearHakgiBtnText('${btnText}')",
+                    null
+                )
+            }
         }
     }
 
@@ -1500,10 +1385,7 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
                 homeActivity.navBar.visibility = View.VISIBLE
 
                 homeActivity.isKeyboardShowing = false
-                homeActivity.aiWebView.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
-                homeActivity.menuWebView.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
-                homeActivity.calendarWebView.layoutParams.height =
-                    ViewGroup.LayoutParams.MATCH_PARENT
+                homeActivity.webView.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
             } catch (e: Exception) {
                 e.printStackTrace()
             }
