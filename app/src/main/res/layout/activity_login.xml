@@ -118,12 +118,49 @@
 
                     </com.google.android.material.textfield.TextInputLayout>
 
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/forgetIdBtn"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:textAlignment="textStart"
+                        android:text="학번이 생각나지 않나요?"
+                        android:textSize="12sp"
+                        android:layout_weight="1"
+                        android:paddingLeft="0dp"
+                        android:textColor="@color/md_theme_primary"
+                        android:background="@android:color/transparent"/>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/forgetPwdBtn"
+                        android:visibility="gone"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:textAlignment="textStart"
+                        android:text="비밀번호를 잊어버렸나요?"
+                        android:textSize="12sp"
+                        android:layout_weight="1"
+                        android:paddingLeft="0dp"
+                        android:textColor="@color/md_theme_primary"
+                        android:background="@android:color/transparent"/>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/registerBtn"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:textAlignment="textStart"
+                        android:text="KLAS에 처음 로그인하시나요?"
+                        android:textSize="12sp"
+                        android:layout_weight="1"
+                        android:paddingLeft="0dp"
+                        android:textColor="@color/md_theme_primary"
+                        android:background="@android:color/transparent"/>
+
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="KLAS 로그인 시 사용하는 정보를 입력해주세요. 입력한 정보는 학교 공식 서버로만 전송되며, 별도 데이터베이스에 저장되지 않습니다."
+                        android:text="ⓘ 입력한 정보는 학교 공식 KLAS 서버로만 전송되며, KLAS+ 서버에는 별도로 저장되지 않습니다."
                         android:textSize="14sp"
-                        android:layout_marginTop="20dp"
+                        android:layout_marginTop="10dp"
                         android:textColor="@color/md_theme_outline"/>
 
                 </LinearLayout>

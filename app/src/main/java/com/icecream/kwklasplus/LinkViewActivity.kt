@@ -25,11 +25,11 @@ import android.webkit.JavascriptInterface
 import android.webkit.JsResult
 import android.webkit.WebResourceRequest
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.gms.common.util.DeviceProperties.isTablet
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
@@ -41,6 +41,7 @@ class LinkViewActivity : AppCompatActivity() {
     private var uploadMessage: ValueCallback<Array<Uri>>? = null
     private val FILECHOOSER_RESULTCODE = 1
     lateinit var webView: WebView
+    lateinit var loadingIndicator: LinearLayout
     lateinit var onBackPressedCallback: OnBackPressedCallback
 
     @SuppressLint("MissingInflatedId")
@@ -84,13 +85,10 @@ class LinkViewActivity : AppCompatActivity() {
             return
         }
         sessionId = intent.getStringExtra("sessionID").toString()
-        val swipeLayout = findViewById<SwipeRefreshLayout>(R.id.swipeLayout)
-
-        swipeLayout.setOnRefreshListener {
-            webView.reload()
-        }
 
         webView = findViewById<WebView>(R.id.webView)
+        loadingIndicator = findViewById(R.id.progressBar)
+
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = true
@@ -124,13 +122,62 @@ class LinkViewActivity : AppCompatActivity() {
         })
 
         webView.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                showLoading()
+            }
+
             override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
                 onBackPressedCallback.isEnabled = webView.canGoBack()
             }
 
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                swipeLayout.isRefreshing = false
+                hideLoading()
+                webView.visibility = View.VISIBLE
+
+                if(url.contains("UserFindMemberNoPage.do")) {
+                    webView.evaluateJavascript(
+                        "document.querySelectorAll('[data-page-btn=\"close\"]').forEach(button => {\n" +
+                                "    button.onclick = function(e) {\n" +
+                                "        e.preventDefault();\n" +
+                                "        e.stopPropagation();\n" +
+                                "        window.close();\n" +
+                                "    };\n" +
+                                "});" +
+                                "var container = document.querySelector('.ax-search-tbl > div:first-child');\n" +
+                                "    \n" +
+                                "    if (container) {\n" +
+                                "        // A div에 display: flex; flex-direction: column; 적용\n" +
+                                "        container.style.display = 'flex';\n" +
+                                "        container.style.flexDirection = 'column';\n" +
+                                "        \n" +
+                                "        // 2. A div의 첫번째 child div, 두번째 child div 선택\n" +
+                                "        var child1 = container.children[0];\n" +
+                                "        var child2 = container.children[1];\n" +
+                                "        \n" +
+                                "        // 3. 각각 style.width를 100%로 적용\n" +
+                                "        if (child1) {\n" +
+                                "            child1.style.width = '100%';\n" +
+                                "            child1.style.boxSizing = 'border-box'; // 패딩/보더 포함 100% 설정 권장\n" +
+                                "        }\n" +
+                                "        if (child2) {\n" +
+                                "            child2.style.width = '100%';\n" +
+                                "            child2.style.boxSizing = 'border-box';\n" +
+                                "        }\n" +
+                                "    }",
+                        null
+                    )
+                } else if(url.contains("UserFrstModPwdPage.do") || url.contains("UserFindPwdPage.do")) {
+                    webView.evaluateJavascript(
+                        "document.querySelector('.closeB').onclick = function(e) {\n" +
+                                "e.preventDefault();\n" +
+                                "e.stopPropagation();\n" +
+                                "window.close();\n" +
+                                "    };",
+                        null
+                    )
+                }
             }
 
             override fun shouldOverrideUrlLoading(webView: WebView, webResourceRequest: WebResourceRequest): Boolean {
@@ -272,6 +319,15 @@ class LinkViewActivity : AppCompatActivity() {
         } else {
             super.onBackPressed()
         }
+    }
+
+    private fun showLoading() {
+        loadingIndicator.visibility = View.VISIBLE
+        webView.visibility = View.GONE
+    }
+
+    private fun hideLoading() {
+        loadingIndicator.visibility = View.GONE
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, intent: Intent?) {

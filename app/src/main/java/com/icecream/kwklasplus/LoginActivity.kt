@@ -44,6 +44,10 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var tvTitle: TextView
     private lateinit var btnStart: Button
     private lateinit var webView: WebView
+    private lateinit var cbAgreeBtn: Button
+    private lateinit var forgetPwdBtn: Button
+    private lateinit var forgetIdBtn: Button
+    private lateinit var registerBtn: Button
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,7 +77,10 @@ class LoginActivity : AppCompatActivity() {
         btnLogin = findViewById(R.id.btnLogin)
         tvTitle = findViewById(R.id.tvTitle)
         cbAgree = findViewById(R.id.cbAgree)
-        var cbAgreeBtn: Button = findViewById(R.id.cbAgreeBtn)
+        cbAgreeBtn = findViewById(R.id.cbAgreeBtn)
+        forgetIdBtn = findViewById(R.id.forgetIdBtn)
+        forgetPwdBtn= findViewById(R.id.forgetPwdBtn)
+        registerBtn = findViewById(R.id.registerBtn)
 
         webView.loadUrl("https://klasplus.yuntae.in/onboarding")
         webView.settings.javaScriptEnabled = true
@@ -96,6 +103,27 @@ class LoginActivity : AppCompatActivity() {
             clOnboarding.visibility = View.GONE
             clLogin.visibility = View.VISIBLE
             etId.requestFocus()
+        }
+
+        forgetIdBtn.setOnClickListener {
+            val intent = Intent(this, LinkViewActivity::class.java)
+            intent.putExtra("url", "https://klas.kw.ac.kr/usr/cmn/login/modal/UserFindMemberNoPage.do")
+            intent.putExtra("sessionID", "")
+            this.startActivity(intent)
+        }
+
+        forgetPwdBtn.setOnClickListener {
+            val intent = Intent(this, LinkViewActivity::class.java)
+            intent.putExtra("url", "https://klas.kw.ac.kr/usr/cmn/login/modal/UserFindPwdPage.do")
+            intent.putExtra("sessionID", "")
+            this.startActivity(intent)
+        }
+
+        registerBtn.setOnClickListener {
+            val intent = Intent(this, LinkViewActivity::class.java)
+            intent.putExtra("url", "https://klas.kw.ac.kr/usr/cmn/login/modal/UserFrstModPwdPage.do")
+            intent.putExtra("sessionID", "")
+            this.startActivity(intent)
         }
 
         btnLogin.setOnClickListener {
@@ -145,9 +173,15 @@ class LoginActivity : AppCompatActivity() {
                     tilPwd.visibility = View.VISIBLE
                     etPwd.requestFocus()
                     tvTitle.text = "KLAS 비밀번호를 입력해주세요."
+                    forgetIdBtn.visibility = View.GONE
+                    forgetPwdBtn.visibility = View.VISIBLE
+                    registerBtn.visibility = View.GONE
                 } else {
                     tilPwd.visibility = View.GONE
                     tvTitle.text = "학번을 입력해주세요."
+                    forgetIdBtn.visibility = View.VISIBLE
+                    forgetPwdBtn.visibility = View.GONE
+                    registerBtn.visibility = View.VISIBLE
                 }
                 updateLoginButtonState()
             }

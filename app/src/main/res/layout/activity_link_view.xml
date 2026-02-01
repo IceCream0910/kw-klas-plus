@@ -7,18 +7,29 @@
     android:id="@+id/main"
     tools:context=".LinkViewActivity">
 
-    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+    <LinearLayout
+        android:id="@+id/progressBar"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:id="@+id/swipeLayout">
+        android:gravity="center"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
-        <WebView
+        <com.google.android.material.loadingindicator.LoadingIndicator
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:id="@+id/webView"/>
+            android:layout_height="wrap_content" />
+    </LinearLayout>
 
-
-    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
-
+    <WebView
+        android:id="@+id/webView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
