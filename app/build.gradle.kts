@@ -12,8 +12,8 @@ android {
         applicationId = "com.icecream.kwklasplus"
         minSdk = 29
         targetSdk = 36
-        versionCode = 23
-        versionName = "1.1.6"
+        versionCode = 25
+        versionName = "1.1.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -62,6 +62,10 @@ dependencies {
     implementation("androidx.preference:preference:1.2.1")
     implementation("androidx.preference:preference-ktx:1.2.1")
     implementation("androidx.activity:activity:1.10.1")
+    
+    // Play In-app Update
+    implementation("com.google.android.play:app-update-ktx:2.1.0")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")

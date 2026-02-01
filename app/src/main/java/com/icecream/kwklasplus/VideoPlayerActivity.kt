@@ -20,6 +20,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.MediaStore.Video
 import android.util.Log
+import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
 import android.view.View
 import android.webkit.JavascriptInterface
@@ -30,7 +31,7 @@ import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.ProgressBar
+import com.google.android.material.loadingindicator.LoadingIndicator
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
@@ -920,6 +921,30 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
                     e.printStackTrace()
                 }
             }.start()
+        }
+    }
+
+    @JavascriptInterface
+    fun performHapticFeedback(type: String) {
+        val hapticType = when (type) {
+            "CLOCK_TICK" -> HapticFeedbackConstants.CLOCK_TICK
+            "KEYBOARD_TAP" -> HapticFeedbackConstants.KEYBOARD_TAP
+            "KEYBOARD_RELEASE" -> HapticFeedbackConstants.KEYBOARD_RELEASE
+            "LONG_PRESS" -> HapticFeedbackConstants.LONG_PRESS
+            "VIRTUAL_KEY" -> HapticFeedbackConstants.VIRTUAL_KEY
+            "VIRTUAL_KEY_RELEASE" -> HapticFeedbackConstants.VIRTUAL_KEY_RELEASE
+            "TEXT_HANDLE_MOVE" -> HapticFeedbackConstants.TEXT_HANDLE_MOVE
+            "CONFIRM" -> HapticFeedbackConstants.CONFIRM
+            "REJECT" -> HapticFeedbackConstants.REJECT
+            "DRAG_START" -> HapticFeedbackConstants.DRAG_START
+            "GESTURE_START" -> HapticFeedbackConstants.GESTURE_START
+            "GESTURE_END" -> HapticFeedbackConstants.GESTURE_END
+            "TOGGLE_OFF" -> HapticFeedbackConstants.TOGGLE_OFF
+            "TOGGLE_ON" -> HapticFeedbackConstants.TOGGLE_ON
+            else -> HapticFeedbackConstants.CLOCK_TICK
+        }
+        videoPlayerActivity.runOnUiThread {
+            videoPlayerActivity.listWebView.performHapticFeedback(hapticType)
         }
     }
 }

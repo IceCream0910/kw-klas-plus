@@ -12,7 +12,7 @@
         android:layout_height="match_parent"
         android:id="@+id/progressBar"
         android:gravity="center">
-        <ProgressBar
+        <com.google.android.material.loadingindicator.LoadingIndicator
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
     </LinearLayout>

@@ -7,17 +7,22 @@ import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.graphics.Rect
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Bundle
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.JsResult
 import android.webkit.WebChromeClient
@@ -27,15 +32,17 @@ import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.PopupMenu
-import android.widget.ProgressBar
+import com.google.android.material.loadingindicator.LoadingIndicator
 import android.widget.TextView
 import android.widget.Toast
 import android.window.OnBackInvokedDispatcher
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.DrawableRes
 import androidx.annotation.Nullable
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.DialogFragment
@@ -45,8 +52,16 @@ import com.google.android.gms.common.util.DeviceProperties.isTablet
 import com.google.android.material.datepicker.MaterialDatePicker
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.navigation.NavigationBarView
+import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.timepicker.MaterialTimePicker
 import com.google.android.material.timepicker.TimeFormat
+import com.google.android.play.core.appupdate.AppUpdateManager
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory
+import com.google.android.play.core.appupdate.AppUpdateOptions
+import com.google.android.play.core.install.InstallStateUpdatedListener
+import com.google.android.play.core.install.model.AppUpdateType
+import com.google.android.play.core.install.model.InstallStatus
+import com.google.android.play.core.install.model.UpdateAvailability
 import com.icecream.kwklasplus.modal.MenuBottomSheetDialog
 import com.icecream.kwklasplus.modal.WebViewBottomSheetDialog
 import com.icecream.kwklasplus.modal.YearHakgiBottomSheetDialog
@@ -82,10 +97,19 @@ class HomeActivity : AppCompatActivity() {
     lateinit var yearHakgiList: Array<String>
     var yearHakgi: String = ""
     var isKeyboardShowing = false
-    lateinit var navBar: NavigationBarView
     var isOpenWebViewBottomSheet: Boolean = false
     lateinit var onBackPressedCallback: OnBackPressedCallback
     var main: androidx.appcompat.widget.LinearLayoutCompat? = null
+    private var webViewOriginalHeight: Int = ViewGroup.LayoutParams.MATCH_PARENT
+
+    private lateinit var appUpdateManager: AppUpdateManager
+    private val MY_REQUEST_CODE = 1001
+
+    private val installStateUpdatedListener = InstallStateUpdatedListener { state ->
+        if (state.installStatus() == InstallStatus.DOWNLOADED) {
+            popupSnackbarForCompleteUpdate()
+        }
+    }
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -94,7 +118,10 @@ class HomeActivity : AppCompatActivity() {
         enableEdgeToEdge()
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, 0)
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
+            val imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom + 80
+            adjustWebViewHeightForIme(imeVisible, imeHeight)
             insets
         }
 
@@ -105,7 +132,6 @@ class HomeActivity : AppCompatActivity() {
                 if (isOpenWebViewBottomSheet) {
                     webView.evaluateJavascript("window.closeWebViewBottomSheet();", null)
                 } else {
-                    // Always exit app on back press, ignore WebView history
                     finishAffinity()
                     exitProcess(0)
                 }
@@ -114,7 +140,6 @@ class HomeActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(onBackPressedCallback)
 
 
-        // 모바일에서는 세로 모드 고정
         if (isTablet(this)) {
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         } else {
@@ -131,48 +156,64 @@ class HomeActivity : AppCompatActivity() {
             return
         }
 
-        val rootView = findViewById<View>(android.R.id.content)
-        rootView.viewTreeObserver.addOnGlobalLayoutListener {
-            // 태블릿에서는 무시
-            val metrics = DisplayMetrics()
-            windowManager.defaultDisplay.getMetrics(metrics)
-            val widthPixels = metrics.widthPixels
-            val heightPixels = metrics.heightPixels
-            val scaleFactor = metrics.density
-            val widthDp = widthPixels / scaleFactor
-            val isTablet: Boolean = widthDp >= 600
-            if (isTablet) {
-                return@addOnGlobalLayoutListener
-            }
-
-            val r = Rect()
-            rootView.getWindowVisibleDisplayFrame(r)
-            val screenHeight = rootView.height
-
-            val keypadHeight = screenHeight - r.bottom
-            navBar = findViewById<NavigationBarView>(R.id.bottom_navigation)
-
-
-            if (!isKeyboardShowing && keypadHeight > screenHeight * 0.15) {
-                isKeyboardShowing = true
-                val newHeight = screenHeight - keypadHeight - 100
-                webView.layoutParams =
-                    (webView.layoutParams as ViewGroup.LayoutParams).apply {
-                        height = newHeight
-                    }
-                navBar.visibility = View.GONE
-            } else if (isKeyboardShowing && keypadHeight < screenHeight * 0.15) {
-                isKeyboardShowing = false
-                webView.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
-                navBar.visibility = View.VISIBLE
-            }
-
-        }
+        webViewOriginalHeight = ViewGroup.LayoutParams.MATCH_PARENT
 
         webView = findViewById(R.id.webView)
         initSubjectList(sessionId)
         initLoadingDialog()
-        initNavigationMenu()
+
+        // Play In-app Update
+        appUpdateManager = AppUpdateManagerFactory.create(this)
+        appUpdateManager.registerListener(installStateUpdatedListener)
+        checkForUpdates()
+    }
+
+    private fun checkForUpdates() {
+        val appUpdateInfoTask = appUpdateManager.appUpdateInfo
+        appUpdateInfoTask.addOnSuccessListener { appUpdateInfo ->
+            if (appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
+                && appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)
+            ) {
+                appUpdateManager.startUpdateFlowForResult(
+                    appUpdateInfo,
+                    this,
+                    AppUpdateOptions.newBuilder(AppUpdateType.FLEXIBLE).build(),
+                    MY_REQUEST_CODE
+                )
+            }
+        }
+    }
+
+    private fun popupSnackbarForCompleteUpdate() {
+        val snackbar = Snackbar.make(
+            findViewById(R.id.main),
+            "업데이트 다운로드가 완료되었습니다.",
+            Snackbar.LENGTH_INDEFINITE
+        )
+        snackbar.setAction("설치") {
+            appUpdateManager.completeUpdate()
+        }
+        snackbar.show()
+    }
+
+    private fun adjustWebViewHeightForIme(visible: Boolean, imeHeight: Int) {
+        // 태블릿은 레이아웃 변경 없이 리턴
+        val metrics = DisplayMetrics()
+        windowManager.defaultDisplay.getMetrics(metrics)
+        val widthDp = metrics.widthPixels / metrics.density
+        if (widthDp >= 600) return
+
+        val lp = webView.layoutParams ?: return
+        if (visible) {
+            isKeyboardShowing = true
+            lp.height = (webView.rootView.height - imeHeight)
+            if (lp.height < 0) lp.height = webViewOriginalHeight
+        } else {
+            isKeyboardShowing = false
+            lp.height = webViewOriginalHeight
+        }
+        webView.layoutParams = lp
+        webView.requestLayout()
     }
 
     override fun onActivityResult(
@@ -185,18 +226,30 @@ class HomeActivity : AppCompatActivity() {
             val savedYearHakgi = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
                 .getString("yearHakgi", "")
             if (!savedYearHakgi.isNullOrEmpty()) {
-                updateYearHakgi(yearHakgi)
+                updateYearHakgi(savedYearHakgi)
+            }
+        }
+        if (requestCode == MY_REQUEST_CODE) {
+            if (resultCode != RESULT_OK) {
+                Log.d("HomeActivity", "Update flow failed! Result code: $resultCode")
             }
         }
     }
 
     override fun onResume() {
         super.onResume()
-        loadingDialog.dismiss()
+        hideLoading()
+
+        appUpdateManager.appUpdateInfo.addOnSuccessListener { appUpdateInfo ->
+            if (appUpdateInfo.installStatus() == InstallStatus.DOWNLOADED) {
+                popupSnackbarForCompleteUpdate()
+            }
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        appUpdateManager.unregisterListener(installStateUpdatedListener)
     }
 
     private fun initLoadingDialog() {
@@ -204,73 +257,36 @@ class HomeActivity : AppCompatActivity() {
         builder.setView(R.layout.layout_loading_dialog)
         builder.setCancelable(false)
         loadingDialog = builder.create()
+        loadingDialog.setOnShowListener {
+            loadingDialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            loadingDialog.window?.addFlags(
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
+            )
+        }
     }
 
-    private fun initNavigationMenu() {
-        val NavigationBarView =
-            findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_navigation)
-
-        NavigationBarView.setOnItemSelectedListener { item: MenuItem ->
-            when (item.itemId) {
-                R.id.item_1 -> {
-                    switchToTab("feed")
-                    true
-                }
-
-                R.id.item_2 -> {
-                    switchToTab("timetable")
-                    true
-                }
-
-                R.id.item_5 -> {
-                    switchToTab("calendar")
-                    true
-                }
-
-                R.id.item_4 -> {
-                    switchToTab("menu")
-                    true
-                }
-
-                else -> false
-            }
-        }
-
-        val navigationView =
-            findViewById<com.google.android.material.navigation.NavigationView>(R.id.navigation_drawer)
-
-        navigationView.setCheckedItem(R.id.item_1)
-
-        navigationView.setNavigationItemSelectedListener { menuItem ->
-            when (menuItem.itemId) {
-                R.id.item_1 -> {
-                    switchToTab("feed")
-                    true
-                }
-
-                R.id.item_2 -> {
-                    switchToTab("timetable")
-                    true
-                }
-
-                R.id.item_5 -> {
-                    switchToTab("calendar")
-                    true
-                }
-
-                R.id.item_4 -> {
-                    switchToTab("menu")
-                    true
-                }
-
-                else -> false
+    private fun showLoading() {
+        if (!loadingDialog.isShowing) {
+            try {
+                loadingDialog.show()
+            } catch (_: Exception) {
             }
         }
     }
 
-    private fun switchToTab(tab: String) {
-        if (currentTab == tab && currentTab.isNotEmpty()) return // Already on this tab (skip check if initial load)
+    private fun hideLoading() {
+        if (loadingDialog.isShowing) {
+            try {
+                loadingDialog.dismiss()
+            } catch (_: Exception) {
+            }
+        }
+    }
 
+    fun switchToTab(tab: String) {
+        if (currentTab == tab && currentTab.isNotEmpty()) return
         currentTab = tab
         val url = when (tab) {
             "feed" -> "https://klasplus.yuntae.in/feed?yearHakgi=${yearHakgi}"
@@ -282,8 +298,13 @@ class HomeActivity : AppCompatActivity() {
 
         Log.d("HomeActivity", "Switching to tab: $tab, URL: $url")
         webView.loadUrl(url)
+        webView.evaluateJavascript(
+            "javascript:window.localStorage.setItem('currentYearHakgi', '$yearHakgi')",
+            null
+        )
 
-        // Apply tab-specific WebView client if needed
+        runOnUiThread { webView.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK) }
+
         when (tab) {
             "timetable" -> setupTimetableWebViewClient()
             "calendar" -> setupCalendarWebViewClient()
@@ -291,7 +312,55 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
+    fun getCurrentTab(): String {
+        if (webView.url?.contains("feed") == true) {
+            return "feed"
+        } else if (webView.url?.contains("timetable") == true) {
+            return "timetable"
+        } else if (webView.url?.contains("calendar") == true) {
+            return "calendar"
+        } else if (webView.url?.contains("profile") == true) {
+            return "menu"
+        } else {
+            return ""
+        }
+    }
 
+    fun injectDataIntoWebView() {
+        webView.evaluateJavascript(
+            "javascript:window.localStorage.setItem('currentYearHakgi', '$yearHakgi')",
+            null
+        )
+
+        hideLoading()
+        currentTab = getCurrentTab()
+
+        when (currentTab) {
+            "feed" -> sendDeadlineAndTimetableToWebView()
+            "timetable" -> {
+                setupCalendarWebViewClient()
+                val btnText = yearHakgi.replace(",3", ",여름").replace(",4", ",겨울")
+                    .replace(",", "년도 ") + "학기"
+                webView.evaluateJavascript(
+                    "javascript:window.updateYearHakgiBtnText('${btnText}')",
+                    null
+                )
+
+                if (timetableForWebview.isNotEmpty()) {
+                    webView.evaluateJavascript(
+                        "javascript:receiveTimetableData(`${timetableForWebview}`)",
+                        null
+                    )
+                } else {
+                    Toast.makeText(this@HomeActivity, "시간표를 불러오는데 실패했습니다.", Toast.LENGTH_SHORT)
+                        .show()
+                }
+            }
+
+            "calendar" -> setupCalendarWebViewClient()
+            else -> setupDefaultWebViewClient()
+        }
+    }
 
     fun openYearHakgiBottomSheetDialog(isUpdate: Boolean = false) {
         val yearHakgiDialog = YearHakgiBottomSheetDialog(yearHakgiList, isUpdate).apply {
@@ -330,8 +399,17 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun setupDefaultWebViewClient() {
-        val webViewProgress = findViewById<ProgressBar>(R.id.progressBar_webview)
         webView.webViewClient = object : WebViewClient() {
+            val webViewProgress = findViewById<LoadingIndicator>(R.id.progressBar_webview)
+            override fun onPageStarted(
+                view: WebView?,
+                url: String?,
+                favicon: android.graphics.Bitmap?
+            ) {
+                super.onPageStarted(view, url, favicon)
+                showLoading()
+            }
+
             override fun onPageFinished(view: WebView, url: String) {
                 Log.d("HomeActivity", "Page finished loading: $url, currentTab: $currentTab")
                 if (currentTab == "feed") {
@@ -339,10 +417,11 @@ class HomeActivity : AppCompatActivity() {
                 }
                 webView.visibility = View.VISIBLE
                 webViewProgress.visibility = View.GONE
+                hideLoading()
             }
 
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-                if(url.contains("klasplus.yuntae.in")) {
+                if (url.contains("klasplus.yuntae.in")) {
                     return false
                 } else {
                     try {
@@ -363,30 +442,46 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun setupTimetableWebViewClient() {
-        val webViewProgress = findViewById<ProgressBar>(R.id.progressBar_webview)
         webView.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(
+                view: WebView?,
+                url: String?,
+                favicon: android.graphics.Bitmap?
+            ) {
+                super.onPageStarted(view, url, favicon)
+            }
+
             override fun onPageFinished(view: WebView, url: String) {
                 if (timetableForWebview.isNotEmpty()) {
                     webView.evaluateJavascript(
                         "javascript:receiveTimetableData(`${timetableForWebview}`)",
                         null
                     )
+                    showLoading()
                 } else {
                     Toast.makeText(this@HomeActivity, "시간표를 불러오는데 실패했습니다.", Toast.LENGTH_SHORT)
                         .show()
                 }
                 webView.visibility = View.VISIBLE
-                webViewProgress.visibility = View.GONE
+                hideLoading()
             }
         }
     }
 
     private fun setupCalendarWebViewClient() {
-        val webViewProgress = findViewById<ProgressBar>(R.id.progressBar_webview)
         webView.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(
+                view: WebView?,
+                url: String?,
+                favicon: android.graphics.Bitmap?
+            ) {
+                super.onPageStarted(view, url, favicon)
+                showLoading()
+            }
+
             override fun onPageFinished(view: WebView, url: String) {
                 webView.visibility = View.VISIBLE
-                webViewProgress.visibility = View.GONE
+                hideLoading()
             }
         }
 
@@ -443,10 +538,15 @@ class HomeActivity : AppCompatActivity() {
             "javascript:window.receiveTimetableData(`$timetableForWebview`)",
             null
         )
-        webView.evaluateJavascript("javascript:window.localStorage.setItem('klasSessionToken', '$sessionIdForOtherClass')", null)
-        webView.evaluateJavascript("javascript:window.localStorage.setItem('currentYearHakgi', '$yearHakgi')", null)
+        webView.evaluateJavascript(
+            "javascript:window.localStorage.setItem('klasSessionToken', '$sessionIdForOtherClass')",
+            null
+        )
+        webView.evaluateJavascript(
+            "javascript:window.localStorage.setItem('currentYearHakgi', '$yearHakgi')",
+            null
+        )
     }
-
 
 
     private fun initSubjectList(sessionId: String) {
@@ -460,15 +560,11 @@ class HomeActivity : AppCompatActivity() {
                 }
 
                 if (yearHakgiList.isEmpty()) {
-                    var builder = MaterialAlertDialogBuilder(this)
-                    builder.setTitle("안내")
-                        .setMessage("등록된 학기 정보가 없어요. 신입생의 경우 첫 학기 수강신청 이후 접속해주세요.")
-                        .setPositiveButton("확인") { dialog, id ->
-                            finish()
-                        }
-                        .setCancelable(false)
-                        .show()
-                    return@runOnUiThread
+                    val intent = Intent(this, LinkViewActivity::class.java)
+                    intent.putExtra("url", "https://klasplus.yuntae.in/notReady")
+                    intent.putExtra("sessionID", sessionIdForOtherClass)
+                    startActivity(intent)
+                    finish()
                 }
 
                 val sharedPreferences =
@@ -486,6 +582,7 @@ class HomeActivity : AppCompatActivity() {
                     index = yearHakgiList.indexOf(savedYearHakgi)
                 }
 
+                // 학기 정보 변동 시 학기선택 모달 자동으로 띄우기
                 if (!savedYearHakgiList.isNullOrEmpty() && yearHakgiList.joinToString("&") != savedYearHakgiList) {
                     openYearHakgiBottomSheetDialog(true)
                 }
@@ -495,8 +592,6 @@ class HomeActivity : AppCompatActivity() {
                 yearHakgi = jsonObject.getString("value")
                 editor.putString("yearHakgi", yearHakgi)
                 editor.apply()
-                val btnText = yearHakgi.replace(",3", ",하계계절").replace(",4", ",동계계절")
-                    .replace(",", "년도 ") + "학기"
 
                 CoroutineScope(Dispatchers.IO).launch {
                     launch { getTimetableData(sessionId) }
@@ -504,11 +599,10 @@ class HomeActivity : AppCompatActivity() {
                 }.invokeOnCompletion {
                     runOnUiThread {
                         initWebView()
-                        // Switch to feed tab after WebView is initialized and data is loaded
                         webView.postDelayed({
                             switchToTab("feed")
                             loadingDialog.dismiss()
-                        }, 100) // Small delay to ensure WebView is ready
+                        }, 100)
                     }
                 }
             }
@@ -521,14 +615,11 @@ class HomeActivity : AppCompatActivity() {
         val editor: SharedPreferences.Editor = sharedPreferences.edit()
         editor.putString("yearHakgi", yearHakgi)
         editor.apply()
-
-        // Reload data in background
         reloadData()
     }
 
     private fun reloadData() {
-        // Reload data in background without changing UI
-        loadingDialog.show()
+        showLoading()
         val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
         val sessionId = sharedPreferences.getString("kwSESSION", null)
         if (sessionId == null) {
@@ -546,23 +637,23 @@ class HomeActivity : AppCompatActivity() {
                 launch { fetchDeadlines(sessionId, subjList) }
             }.invokeOnCompletion {
                 runOnUiThread {
-                    // Reload current tab with updated data
                     reloadCurrentTab()
-                    loadingDialog.dismiss()
+                    hideLoading()
                 }
             }
         }
     }
 
     private fun reloadCurrentTab() {
-        // Force reload current tab by temporarily clearing currentTab
         val currentTabTemp = currentTab
         currentTab = ""
         switchToTab(currentTabTemp)
     }
 
     fun reload() {
-        loadingDialog.show()
+        val root = findViewById<View>(R.id.main)
+        runOnUiThread { root.performHapticFeedback(HapticFeedbackConstants.TOGGLE_ON) }
+        showLoading()
         val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
         val sessionId = sharedPreferences.getString("kwSESSION", null)
         if (sessionId == null) {
@@ -581,11 +672,10 @@ class HomeActivity : AppCompatActivity() {
             }.invokeOnCompletion {
                 runOnUiThread {
                     initWebView()
-                    // Switch to feed tab after reload is complete
                     webView.postDelayed({
-                        switchToTab("feed")
-                        loadingDialog.dismiss()
-                    }, 100) // Small delay to ensure WebView is ready
+                        webView.reload()
+                        hideLoading()
+                    }, 100)
                 }
             }
         }
@@ -1128,53 +1218,7 @@ class HomeActivity : AppCompatActivity() {
         Toast.makeText(this, "인증에 실패했습니다.", Toast.LENGTH_SHORT).show()
     }
 
-    fun showOptionsMenu(view: View) {
-        val popup = PopupMenu(this, view, Gravity.END, 0, R.style.popupOverflowMenu)
-        val inflater: MenuInflater = popup.menuInflater
-        inflater.inflate(R.menu.main_option_menu, popup.menu)
-        popup.setOnMenuItemClickListener { menuItem ->
-            when (menuItem?.itemId) {
-                R.id.originApp -> {
-                    val intent = packageManager.getLaunchIntentForPackage("kr.ac.kw.SmartLearning")
-                    if (intent != null) {
-                        startActivity(intent)
-                    } else {
-                        val playStoreIntent = Intent(
-                            Intent.ACTION_VIEW,
-                            Uri.parse("https://play.google.com/store/apps/details?id=kr.ac.kw.SmartLearning")
-                        )
-                        startActivity(playStoreIntent)
-                    }
-                }
-
-                R.id.libraryApp -> {
-                    val intent = packageManager.getLaunchIntentForPackage("idoit.slpck.kwangwoon")
-                    if (intent != null) {
-                        startActivity(intent)
-                    } else {
-                        val playStoreIntent = Intent(
-                            Intent.ACTION_VIEW,
-                            Uri.parse("https://play.google.com/store/apps/details?id=idoit.slpck.kwangwoon")
-                        )
-                        startActivity(playStoreIntent)
-                    }
-                }
-
-                R.id.logout -> {
-                    logout()
-                }
-
-                R.id.settings -> {
-                    val intent = Intent(this, SettingsActivity::class.java)
-                    startActivityForResult(intent, 7777)
-                }
-            }
-            true
-        }
-        popup.show()
-    }
-
-    public fun logout() {
+    fun logout() {
         val builder = MaterialAlertDialogBuilder(this)
         builder.setTitle("로그아웃")
             .setMessage("정말 로그아웃할까요?")
@@ -1239,8 +1283,6 @@ class HomeActivity : AppCompatActivity() {
     }
 
 
-
-
     fun showDatePicker(calendar: Calendar, isStart: Boolean) {
         val datePicker = MaterialDatePicker.Builder.datePicker()
             .setTitleText("날짜 선택")
@@ -1281,6 +1323,13 @@ class HomeActivity : AppCompatActivity() {
 
 class JavaScriptInterface(private val homeActivity: HomeActivity) {
     @JavascriptInterface
+    fun changeTab(tab: String) {
+        homeActivity.runOnUiThread {
+            homeActivity.switchToTab(tab)
+        }
+    }
+
+    @JavascriptInterface
     fun evaluate(url: String, yearHakgi: String, subj: String) {
         homeActivity.runOnUiThread {
             val intent = Intent(homeActivity, TaskViewActivity::class.java)
@@ -1317,14 +1366,7 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
                 "javascript:window.receiveToken('${homeActivity.sessionIdForOtherClass}')",
                 null
             )
-            if (homeActivity.currentTab == "timetable") {
-                val btnText = homeActivity.yearHakgi.replace(",3", ",여름").replace(",4", ",겨울")
-                    .replace(",", "년도 ") + "학기"
-                homeActivity.webView.evaluateJavascript(
-                    "javascript:window.updateYearHakgiBtnText('${btnText}')",
-                    null
-                )
-            }
+            homeActivity.injectDataIntoWebView()
         }
     }
 
@@ -1369,11 +1411,6 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
     fun openWebViewBottomSheet() {
         homeActivity.runOnUiThread {
             homeActivity.isOpenWebViewBottomSheet = true
-            try {
-                homeActivity.navBar.visibility = View.GONE
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
         }
     }
 
@@ -1382,8 +1419,6 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
         homeActivity.runOnUiThread {
             homeActivity.isOpenWebViewBottomSheet = false
             try {
-                homeActivity.navBar.visibility = View.VISIBLE
-
                 homeActivity.isKeyboardShowing = false
                 homeActivity.webView.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
             } catch (e: Exception) {
@@ -1396,7 +1431,10 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
     fun openOptionsMenu() {
         homeActivity.runOnUiThread {
             homeActivity.main?.let {
-                MenuBottomSheetDialog().show(homeActivity.supportFragmentManager, MenuBottomSheetDialog.TAG)
+                MenuBottomSheetDialog().show(
+                    homeActivity.supportFragmentManager,
+                    MenuBottomSheetDialog.TAG
+                )
             }
         }
     }
@@ -1412,7 +1450,10 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
     fun openCustomBottomSheet(url: String, isCancelable: Boolean = true) {
         homeActivity.runOnUiThread {
             homeActivity.main?.let {
-                WebViewBottomSheetDialog(url, isCancelable).show(homeActivity.supportFragmentManager, MenuBottomSheetDialog.TAG)
+                WebViewBottomSheetDialog(
+                    url,
+                    isCancelable
+                ).show(homeActivity.supportFragmentManager, MenuBottomSheetDialog.TAG)
             }
         }
     }
@@ -1421,6 +1462,30 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
     fun reload() {
         homeActivity.runOnUiThread {
             homeActivity.reload()
+        }
+    }
+
+    @JavascriptInterface
+    fun performHapticFeedback(type: String) {
+        val hapticType = when (type) {
+            "CLOCK_TICK" -> HapticFeedbackConstants.CLOCK_TICK
+            "KEYBOARD_TAP" -> HapticFeedbackConstants.KEYBOARD_TAP
+            "KEYBOARD_RELEASE" -> HapticFeedbackConstants.KEYBOARD_RELEASE
+            "LONG_PRESS" -> HapticFeedbackConstants.LONG_PRESS
+            "VIRTUAL_KEY" -> HapticFeedbackConstants.VIRTUAL_KEY
+            "VIRTUAL_KEY_RELEASE" -> HapticFeedbackConstants.VIRTUAL_KEY_RELEASE
+            "TEXT_HANDLE_MOVE" -> HapticFeedbackConstants.TEXT_HANDLE_MOVE
+            "CONFIRM" -> HapticFeedbackConstants.CONFIRM
+            "REJECT" -> HapticFeedbackConstants.REJECT
+            "DRAG_START" -> HapticFeedbackConstants.DRAG_START
+            "GESTURE_START" -> HapticFeedbackConstants.GESTURE_START
+            "GESTURE_END" -> HapticFeedbackConstants.GESTURE_END
+            "TOGGLE_OFF" -> HapticFeedbackConstants.TOGGLE_OFF
+            "TOGGLE_ON" -> HapticFeedbackConstants.TOGGLE_ON
+            else -> HapticFeedbackConstants.CLOCK_TICK
+        }
+        homeActivity.runOnUiThread {
+            homeActivity.webView.performHapticFeedback(hapticType)
         }
     }
 }

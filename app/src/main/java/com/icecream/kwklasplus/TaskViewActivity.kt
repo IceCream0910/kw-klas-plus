@@ -29,6 +29,7 @@ import android.webkit.DownloadListener
 import android.webkit.JsResult
 import android.webkit.WebResourceRequest
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
@@ -44,6 +45,8 @@ class TaskViewActivity : AppCompatActivity() {
     private var uploadMessage: ValueCallback<Array<Uri>>? = null
     private val FILECHOOSER_RESULTCODE = 1
     lateinit var webView: WebView
+    lateinit var loadingIndicator: LinearLayout
+    private lateinit var swipeLayout: SwipeRefreshLayout
     lateinit var onBackPressedCallback: OnBackPressedCallback
 
     @SuppressLint("MissingInflatedId")
@@ -97,6 +100,8 @@ class TaskViewActivity : AppCompatActivity() {
         }
 
         webView = findViewById<WebView>(R.id.webView)
+        loadingIndicator = findViewById(R.id.progressBar)
+
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = true
@@ -139,6 +144,11 @@ class TaskViewActivity : AppCompatActivity() {
         })
 
         webView.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                showLoading()
+            }
+
             override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
                 onBackPressedCallback.isEnabled = webView.canGoBack()
             }
@@ -155,6 +165,9 @@ class TaskViewActivity : AppCompatActivity() {
                             "})()", null
                 )
                 swipeLayout.isRefreshing = false
+                hideLoading()
+                webView.visibility = View.VISIBLE
+
                 if (!isScriptExecuted) {
                     webView.evaluateJavascript(
                         "javascript:localStorage.setItem('selectYearhakgi', '$yearHakgi');",
@@ -311,6 +324,16 @@ class TaskViewActivity : AppCompatActivity() {
                 return true
             }
         }
+    }
+
+    private fun showLoading() {
+        loadingIndicator.visibility = View.VISIBLE
+        swipeLayout.visibility = View.GONE
+    }
+
+    private fun hideLoading() {
+        loadingIndicator.visibility = View.GONE
+        swipeLayout.visibility = View.VISIBLE
     }
 
     override fun onBackPressed() {

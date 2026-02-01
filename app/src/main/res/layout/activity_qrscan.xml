@@ -10,7 +10,7 @@
     android:padding="20dp"
     tools:context=".QRScanActivity">
 
-    <ProgressBar
+    <com.google.android.material.loadingindicator.LoadingIndicator
         android:id="@+id/progressBar"
         style="?android:attr/progressBarStyle"
         android:layout_width="match_parent"

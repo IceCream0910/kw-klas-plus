@@ -6,6 +6,7 @@ import android.content.SharedPreferences
 import android.content.pm.PackageInfo
 import android.net.Uri
 import android.os.Bundle
+import android.view.HapticFeedbackConstants
 import android.webkit.JavascriptInterface
 import android.webkit.JsResult
 import android.webkit.WebChromeClient
@@ -183,6 +184,30 @@ fun openLibraryQRSettingsModal() {
         activity.runOnUiThread {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(link))
             activity.startActivity(intent)
+        }
+    }
+
+    @JavascriptInterface
+    fun performHapticFeedback(type: String) {
+        val hapticType = when (type) {
+            "CLOCK_TICK" -> HapticFeedbackConstants.CLOCK_TICK
+            "KEYBOARD_TAP" -> HapticFeedbackConstants.KEYBOARD_TAP
+            "KEYBOARD_RELEASE" -> HapticFeedbackConstants.KEYBOARD_RELEASE
+            "LONG_PRESS" -> HapticFeedbackConstants.LONG_PRESS
+            "VIRTUAL_KEY" -> HapticFeedbackConstants.VIRTUAL_KEY
+            "VIRTUAL_KEY_RELEASE" -> HapticFeedbackConstants.VIRTUAL_KEY_RELEASE
+            "TEXT_HANDLE_MOVE" -> HapticFeedbackConstants.TEXT_HANDLE_MOVE
+            "CONFIRM" -> HapticFeedbackConstants.CONFIRM
+            "REJECT" -> HapticFeedbackConstants.REJECT
+            "DRAG_START" -> HapticFeedbackConstants.DRAG_START
+            "GESTURE_START" -> HapticFeedbackConstants.GESTURE_START
+            "GESTURE_END" -> HapticFeedbackConstants.GESTURE_END
+            "TOGGLE_OFF" -> HapticFeedbackConstants.TOGGLE_OFF
+            "TOGGLE_ON" -> HapticFeedbackConstants.TOGGLE_ON
+            else -> HapticFeedbackConstants.CLOCK_TICK
+        }
+        activity.runOnUiThread {
+            activity.webView.performHapticFeedback(hapticType)
         }
     }
 }

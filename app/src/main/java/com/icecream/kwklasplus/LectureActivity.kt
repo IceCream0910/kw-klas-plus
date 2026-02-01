@@ -28,7 +28,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.ProgressBar
+import com.google.android.material.loadingindicator.LoadingIndicator
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -126,8 +126,9 @@ class LectureActivity : AppCompatActivity() {
         webView.addJavascriptInterface(WebAppInterfaceLectureHome(this), "Android")
         webView.loadUrl("https://klas.kw.ac.kr/std/cmn/frame/Frame.do")
 
+        scrollView.isEnabled = false
         scrollView.visibility = ScrollView.GONE
-        progressBar.visibility = ProgressBar.VISIBLE
+        progressBar.visibility = View.VISIBLE
 
         scrollView.setOnRefreshListener {
             webView.evaluateJavascript("javascript:pageReload()", null)
@@ -183,7 +184,7 @@ class LectureActivity : AppCompatActivity() {
                     )
                     scrollView.visibility = View.VISIBLE
                     webView.visibility = View.GONE
-                    progressBar.visibility = ProgressBar.GONE
+                    progressBar.visibility = View.GONE
                 }
                 if(url.contains("LctrumHomeStdPage.do")) {
                     webView.evaluateJavascript("""

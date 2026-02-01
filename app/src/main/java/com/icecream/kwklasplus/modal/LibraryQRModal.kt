@@ -19,7 +19,7 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageView
-import android.widget.ProgressBar
+import com.google.android.material.loadingindicator.LoadingIndicator
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -51,7 +51,7 @@ class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment(
     private lateinit var name: TextView
     private lateinit var numberAndDepartment: TextView
     private lateinit var qrImg: ImageView
-    private lateinit var qrProgressBar: ProgressBar
+    private lateinit var qrProgressBar: LoadingIndicator
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)

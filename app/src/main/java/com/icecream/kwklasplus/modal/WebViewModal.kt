@@ -53,7 +53,6 @@ class WebViewBottomSheetDialog(url: String, cancelable: Boolean = true) :
         val webViewProgress: LinearLayout = view.findViewById(R.id.webViewProgress)
         val webView: WebView = view.findViewById(R.id.webview)
 
-        // 항상 초기에는 로딩 스피너만 보이도록 강제
         webViewProgress.visibility = View.VISIBLE
         webView.visibility = View.GONE
 

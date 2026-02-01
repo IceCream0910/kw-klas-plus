@@ -17,9 +17,8 @@
         android:id="@+id/webView"
         android:visibility="gone"/>
 
-    <ProgressBar
+    <com.google.android.material.loadingindicator.LoadingIndicator
         android:id="@+id/progressBar"
-        style="?android:attr/progressBarStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="10dp"/>

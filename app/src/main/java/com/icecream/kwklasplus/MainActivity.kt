@@ -12,18 +12,21 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.JsResult
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.ProgressBar
+import com.google.android.material.loadingindicator.LoadingIndicator
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.ViewCompat
+import androidx.core.view.ViewCompat.performHapticFeedback
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.gms.common.util.DeviceProperties.isTablet
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -34,6 +37,7 @@ class MainActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var loadingTimeoutRunnable: Runnable
     private var isLoginActivityStarted = false
+    private var errorDialog: AlertDialog? = null
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -120,18 +124,26 @@ class MainActivity : AppCompatActivity() {
                 result: JsResult?
             ): Boolean {
                 runOnUiThread {
-                    if (!isFinishing) {
-                        val builder = MaterialAlertDialogBuilder(this@MainActivity)
-                        builder.setTitle("오류")
-                            .setMessage(message)
-                            .setPositiveButton("확인") { _, _ ->
-                                result?.confirm()
+                    if (isFinishing || isDestroyed) {
+                        result?.cancel()
+                        return@runOnUiThread
+                    }
+                    val root = findViewById<View>(R.id.main)
+                    root.performHapticFeedback(HapticFeedbackConstants.REJECT)
+                    val dialog = MaterialAlertDialogBuilder(this@MainActivity)
+                        .setTitle("오류")
+                        .setMessage(message)
+                        .setPositiveButton("확인") { _, _ ->
+                            result?.confirm()
+                            if (!isFinishing && !isDestroyed) {
                                 finish()
                                 startActivity(Intent(this@MainActivity, LoginActivity::class.java))
                             }
-                            .setCancelable(false)
-                            .show()
-                    }
+                        }
+                        .setCancelable(false)
+                        .create()
+                    errorDialog = dialog
+                    dialog.show()
                 }
                 return true
             }
@@ -167,7 +179,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        handler.postDelayed(loadingTimeoutRunnable, 5000)
+        handler.postDelayed(loadingTimeoutRunnable, 7000)
     }
 
     // 네트워크 연결 여부 확인 함수
@@ -192,5 +204,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(loadingTimeoutRunnable)
+        errorDialog?.dismiss()
+        errorDialog = null
     }
 }

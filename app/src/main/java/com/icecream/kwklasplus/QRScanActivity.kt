@@ -7,6 +7,8 @@ import android.graphics.Color
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
+import android.view.HapticFeedbackConstants
+import android.view.View
 import android.webkit.WebSettings
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
@@ -68,6 +70,7 @@ class QRScanActivity : AppCompatActivity() {
         checkin(qr, bodyJSON) { result ->
             when (result) {
                 is CheckinResult.Success -> {
+                    val root = findViewById<View>(R.id.main)
                     val jsonObject = result.data
                     if (jsonObject.has("fieldErrors")) {
                         val fieldErrors = jsonObject.getJSONArray("fieldErrors")
@@ -77,11 +80,16 @@ class QRScanActivity : AppCompatActivity() {
                             message.append(" ")
                         }
                         if (message.toString().trim().isEmpty()) {
+                            runOnUiThread { root.performHapticFeedback(HapticFeedbackConstants.CONFIRM) }
                             showDialog("출석 체크 성공", "정상적으로 출석 처리 되었습니다.")
                         } else {
+                            val root = findViewById<View>(R.id.main)
+                            runOnUiThread { root.performHapticFeedback(HapticFeedbackConstants.REJECT) }
                             showDialog("출석 체크 실패", message.toString().trim())
                         }
                     } else {
+                        val root = findViewById<View>(R.id.main)
+                        runOnUiThread { root.performHapticFeedback(HapticFeedbackConstants.CONFIRM) }
                         showDialog("출석 체크 성공", "정상적으로 출석 처리 되었습니다.")
                     }
                 }
