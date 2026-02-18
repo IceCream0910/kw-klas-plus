@@ -177,6 +177,11 @@ class LinkViewActivity : AppCompatActivity() {
                                 "    };",
                         null
                     )
+                } else if(url.contains("notice.jsp")) {
+                    webView.evaluateJavascript(
+                        "document.querySelector('.contents').style.overflowY = 'scroll';",
+                        null
+                    )
                 }
             }
 
