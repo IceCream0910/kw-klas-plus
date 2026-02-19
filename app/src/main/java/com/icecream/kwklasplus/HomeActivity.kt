@@ -565,6 +565,7 @@ class HomeActivity : AppCompatActivity() {
                     intent.putExtra("sessionID", sessionIdForOtherClass)
                     startActivity(intent)
                     finish()
+                    return@runOnUiThread
                 }
 
                 val sharedPreferences =
