@@ -93,7 +93,7 @@ class TaskViewActivity : AppCompatActivity() {
         val subj = intent.getStringExtra("subj")
         var sessionId = intent.getStringExtra("sessionID")
 
-        val swipeLayout = findViewById<SwipeRefreshLayout>(R.id.swipeLayout)
+        swipeLayout = findViewById<SwipeRefreshLayout>(R.id.swipeLayout)
 
         swipeLayout.setOnRefreshListener {
             webView.reload()
