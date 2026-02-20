@@ -35,8 +35,10 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var loadingText: TextView
     private val handler = Handler(Looper.getMainLooper())
+    private var loadingHintRunnable: Runnable? = null
     private var loadingTimeoutRunnable: Runnable? = null
     private var isLoginActivityStarted = false
+    private var isHomeStarted = false
     private var errorDialog: AlertDialog? = null
 
     @SuppressLint("MissingInflatedId")
@@ -93,17 +95,21 @@ class MainActivity : AppCompatActivity() {
                     null
                 )
                 if (url != "https://klas.kw.ac.kr/mst/cmn/login/LoginForm.do") {
-                    val cookies = CookieManager.getInstance().getCookie(url)
-                    val session = cookies.split("; ").find { it.startsWith("SESSION=") }?.split("=")?.get(1)
-                    if (session != null) {
+                    val cookies = CookieManager.getInstance().getCookie(url).orEmpty()
+                    val session = cookies.split("; ")
+                        .firstOrNull { it.startsWith("SESSION=") }
+                        ?.split("=", limit = 2)
+                        ?.getOrNull(1)
+                    if (!session.isNullOrBlank()) {
                         with(sharedPreferences.edit()) {
                             putString("kwSESSION", session)
                             putString("kwSESSION_timestamp", System.currentTimeMillis().toString())
                             apply()
                         }
-                        if (!isInstantLogin) {
-                            loadingTimeoutRunnable?.let { handler.removeCallbacks(it) }
+                        if (!isInstantLogin && !isHomeStarted) {
+                            cancelLoginTimers()
                             isLoginActivityStarted = true
+                            isHomeStarted = true
                             startActivity(
                                 Intent(
                                     this@MainActivity,
@@ -163,24 +169,76 @@ class MainActivity : AppCompatActivity() {
                 val timestamp = instantSessionTimestamp.toLong()
                 if (System.currentTimeMillis() - timestamp < 1000 * 60 * 60) { // 1시간 이내 세션 정보 있으면 바로 실행
                     isInstantLogin = true
+                    isHomeStarted = true
                     startActivity(Intent(this, HomeActivity::class.java))
+                    finish()
+                    return
                 }
             }
 
+            startLoginTimers(webView)
             webView.loadUrl("https://klas.kw.ac.kr/mst/cmn/login/LoginForm.do")
         }
+    }
 
-        val timeoutRunnable = Runnable {
-            if (!isLoginActivityStarted) {
-                loadingText.text = "로딩이 오래 걸리고 있어요.\n여기를 눌러 현재 서버 상태를 확인해보세요."
-                loadingText.setOnClickListener {
-                    val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://status.klasplus.yuntae.in"))
-                    startActivity(browserIntent)
-                }
+    private fun startLoginTimers(webView: WebView) {
+        cancelLoginTimers()
+        loadingText.text = "로그인 중"
+        val hintRunnable = Runnable {
+            if (!isLoginActivityStarted && !isHomeStarted && !isFinishing && !isDestroyed) {
+                loadingText.text = "조금만 더 기다려주세요"
             }
         }
+        val timeoutRunnable = Runnable {
+            if (!isLoginActivityStarted && !isHomeStarted) {
+                showLoginFailedDialog(webView)
+            }
+        }
+        loadingHintRunnable = hintRunnable
         loadingTimeoutRunnable = timeoutRunnable
-        handler.postDelayed(timeoutRunnable, 7000)
+        handler.postDelayed(hintRunnable, 7000)
+        handler.postDelayed(timeoutRunnable, 15000)
+    }
+
+    private fun cancelLoginTimers() {
+        loadingHintRunnable?.let { handler.removeCallbacks(it) }
+        loadingTimeoutRunnable?.let { handler.removeCallbacks(it) }
+        loadingHintRunnable = null
+        loadingTimeoutRunnable = null
+    }
+
+    private fun showLoginFailedDialog(webView: WebView) {
+        if (isFinishing || isDestroyed || errorDialog != null) {
+            return
+        }
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle("로그인 실패")
+            .setMessage("알 수 없는 오류로 인해 로그인에 실패했어요. 먼저 기기의 네트워크 상태가 불안정한지 확인 후 다시 시도해보세요. 어쩌면 전체적인 서버 장애가 발생했을 수도 있어요. 이 경우 담당자가 빠르게 대응하고 있을거예요.")
+            .setNeutralButton("앱 종료") { _, _ ->
+                val sharedPreferences =
+                    getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
+                val editor = sharedPreferences.edit()
+                editor.clear()
+                editor.apply()
+                finish() }
+            .setNegativeButton("서버 상태 확인") { _, _ ->
+                val browserIntent = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("https://status.klasplus.yuntae.in")
+                )
+                startActivity(browserIntent)
+                finish()
+            }
+            .setPositiveButton("다시 시도") { _, _ ->
+                if (!isFinishing && !isDestroyed) {
+                    startLoginTimers(webView)
+                    webView.loadUrl("https://klas.kw.ac.kr/mst/cmn/login/LoginForm.do")
+                }
+            }
+            .setCancelable(false)
+            .create()
+        errorDialog = dialog
+        dialog.show()
     }
 
     // 네트워크 연결 여부 확인 함수
@@ -204,8 +262,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        loadingTimeoutRunnable?.let { handler.removeCallbacks(it) }
-        loadingTimeoutRunnable = null
+        cancelLoginTimers()
         errorDialog?.dismiss()
         errorDialog = null
     }

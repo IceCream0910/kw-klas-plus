@@ -1261,10 +1261,13 @@ class HomeActivity : AppCompatActivity() {
         builder.setTitle("인증 오류")
             .setMessage("로그인 후 일정 시간이 지나 세션이 만료되었어요. 앱을 재시작하면 정상적으로 정보가 표시될 거예요.")
             .setPositiveButton(
-                "확인"
+                "종료"
             ) { _, _ ->
+                 val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
+                val editor = sharedPreferences.edit()
+                editor.putString("kwSESSION", null)
+                editor.apply()
                 finish()
-                startActivity(Intent(this@HomeActivity, MainActivity::class.java))
             }
         builder.show()
     }

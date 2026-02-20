@@ -12,8 +12,8 @@ android {
         applicationId = "com.icecream.kwklasplus"
         minSdk = 29
         targetSdk = 36
-        versionCode = 27
-        versionName = "1.1.10"
+        versionCode = 29
+        versionName = "1.1.12"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
