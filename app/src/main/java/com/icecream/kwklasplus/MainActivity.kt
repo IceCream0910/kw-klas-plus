@@ -35,7 +35,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var loadingText: TextView
     private val handler = Handler(Looper.getMainLooper())
-    private lateinit var loadingTimeoutRunnable: Runnable
+    private var loadingTimeoutRunnable: Runnable? = null
     private var isLoginActivityStarted = false
     private var errorDialog: AlertDialog? = null
 
@@ -102,7 +102,7 @@ class MainActivity : AppCompatActivity() {
                             apply()
                         }
                         if (!isInstantLogin) {
-                            handler.removeCallbacks(loadingTimeoutRunnable)
+                            loadingTimeoutRunnable?.let { handler.removeCallbacks(it) }
                             isLoginActivityStarted = true
                             startActivity(
                                 Intent(
@@ -170,7 +170,7 @@ class MainActivity : AppCompatActivity() {
             webView.loadUrl("https://klas.kw.ac.kr/mst/cmn/login/LoginForm.do")
         }
 
-        loadingTimeoutRunnable = Runnable {
+        val timeoutRunnable = Runnable {
             if (!isLoginActivityStarted) {
                 loadingText.text = "로딩이 오래 걸리고 있어요.\n여기를 눌러 현재 서버 상태를 확인해보세요."
                 loadingText.setOnClickListener {
@@ -179,7 +179,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        handler.postDelayed(loadingTimeoutRunnable, 7000)
+        loadingTimeoutRunnable = timeoutRunnable
+        handler.postDelayed(timeoutRunnable, 7000)
     }
 
     // 네트워크 연결 여부 확인 함수
@@ -203,7 +204,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        handler.removeCallbacks(loadingTimeoutRunnable)
+        loadingTimeoutRunnable?.let { handler.removeCallbacks(it) }
+        loadingTimeoutRunnable = null
         errorDialog?.dismiss()
         errorDialog = null
     }
