@@ -27,6 +27,9 @@
 -keep class io.sentry.** { *; }
 -dontwarn io.sentry.**
 -keep class com.icecream.kwklasplus.** { *; }
+-keep public class * extends androidx.fragment.app.Fragment {
+    public <init>();
+}
 
 # Retrofit 관련 설정
 -keepattributes Signature, InnerClasses, EnclosingMethod
