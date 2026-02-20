@@ -552,20 +552,21 @@ class HomeActivity : AppCompatActivity() {
     private fun initSubjectList(sessionId: String) {
         fetchSubjectList(sessionId) { jsonArray ->
             runOnUiThread {
-                yearHakgiList = Array(jsonArray.length()) { "" }
-
-                for (i in 0 until jsonArray.length()) {
-                    val jsonObject = jsonArray.getJSONObject(i)
-                    yearHakgiList[i] = jsonObject.getString("value")
-                }
-
-                if (yearHakgiList.isEmpty()) {
+                val listSize = jsonArray.length()
+                if (listSize == 0) {
                     val intent = Intent(this, LinkViewActivity::class.java)
                     intent.putExtra("url", "https://klasplus.yuntae.in/notReady")
                     intent.putExtra("sessionID", sessionIdForOtherClass)
                     startActivity(intent)
                     finish()
                     return@runOnUiThread
+                }
+
+                yearHakgiList = Array(listSize) { "" }
+
+                for (i in 0 until listSize) {
+                    val jsonObject = jsonArray.getJSONObject(i)
+                    yearHakgiList[i] = jsonObject.getString("value")
                 }
 
                 val sharedPreferences =
@@ -580,7 +581,14 @@ class HomeActivity : AppCompatActivity() {
                 var index = 0
 
                 if (!savedYearHakgi.isNullOrEmpty()) {
-                    index = yearHakgiList.indexOf(savedYearHakgi)
+                    val savedIndex = yearHakgiList.indexOf(savedYearHakgi)
+                    if (savedIndex >= 0) {
+                        index = savedIndex
+                    }
+                }
+
+                if (index !in 0 until listSize) {
+                    index = 0
                 }
 
                 // 학기 정보 변동 시 학기선택 모달 자동으로 띄우기
