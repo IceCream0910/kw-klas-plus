@@ -327,11 +327,13 @@ class TaskViewActivity : AppCompatActivity() {
     }
 
     private fun showLoading() {
+        if (isFinishing || isDestroyed) return
         loadingIndicator.visibility = View.VISIBLE
         swipeLayout.visibility = View.GONE
     }
 
     private fun hideLoading() {
+        if (isFinishing || isDestroyed) return
         loadingIndicator.visibility = View.GONE
         swipeLayout.visibility = View.VISIBLE
     }
