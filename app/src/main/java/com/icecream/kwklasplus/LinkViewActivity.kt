@@ -19,6 +19,7 @@ import android.content.pm.ActivityInfo
 import android.net.MailTo
 import android.util.Log
 import android.view.View
+import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.DownloadListener
 import android.webkit.JavascriptInterface
@@ -43,6 +44,7 @@ class LinkViewActivity : AppCompatActivity() {
     lateinit var webView: WebView
     lateinit var loadingIndicator: LinearLayout
     lateinit var onBackPressedCallback: OnBackPressedCallback
+    var isOpenWebViewBottomSheet: Boolean = false
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,10 +53,15 @@ class LinkViewActivity : AppCompatActivity() {
 
         applyEdgeToEdgeInsets()
 
-        onBackPressedCallback = object: OnBackPressedCallback(false) {
+        onBackPressedCallback = object: OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                when {
-                    webView.canGoBack() -> webView.goBack()
+                if(isOpenWebViewBottomSheet) {
+                    webView.evaluateJavascript("window.closeWebViewBottomSheet();", null)
+                    isOpenWebViewBottomSheet = false
+                } else if(webView.canGoBack()){
+                    webView.goBack()
+                } else {
+                    finish()
                 }
             }
         }
@@ -114,10 +121,6 @@ class LinkViewActivity : AppCompatActivity() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 showLoading()
-            }
-
-            override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
-                onBackPressedCallback.isEnabled = webView.canGoBack()
             }
 
             override fun onPageFinished(view: WebView, url: String) {
@@ -306,15 +309,6 @@ class LinkViewActivity : AppCompatActivity() {
         }
     }
 
-    override fun onBackPressed() {
-        if(webView.canGoBack()){
-            webView.goBack()
-
-        } else {
-            super.onBackPressed()
-        }
-    }
-
     private fun showLoading() {
         loadingIndicator.visibility = View.VISIBLE
         webView.visibility = View.GONE
@@ -355,6 +349,20 @@ class JavaScriptInterfaceForLinkView(private val activity: LinkViewActivity) {
             intent.putExtra("subjID", id)
             intent.putExtra(IntentExtras.LEGACY_SESSION_ID, activity.sessionId)
             activity.startActivity(intent)
+        }
+    }
+
+    @JavascriptInterface
+    fun openWebViewBottomSheet() {
+        activity.runOnUiThread {
+            activity.isOpenWebViewBottomSheet = true
+        }
+    }
+
+    @JavascriptInterface
+    fun closeWebViewBottomSheet() {
+        activity.runOnUiThread {
+            activity.isOpenWebViewBottomSheet = false
         }
     }
 
