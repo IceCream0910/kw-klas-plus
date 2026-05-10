@@ -45,16 +45,11 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        enableEdgeToEdge()
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
+        applyEdgeToEdgeInsets()
         loadingText = findViewById(R.id.loadingText)
 
-        val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
-        val appTheme = sharedPreferences.getString("appTheme", "system")
+        val sharedPreferences = appPreferences
+        val appTheme = sharedPreferences.getString(AppPrefs.APP_THEME, "system")
         when (appTheme) {
             "dark" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
             "light" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
@@ -62,12 +57,7 @@ class MainActivity : AppCompatActivity() {
             else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         }
 
-        // 모바일에서는 세로 모드 고정
-        if (isTablet(this)) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        } else {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
+        lockPortraitOnPhone()
 
         // 네트워크 연결 상태 확인
         if (!isNetworkConnected()) {
@@ -83,18 +73,22 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        val kwID = sharedPreferences.getString("kwID", null)
-        val kwPWD = sharedPreferences.getString("kwPWD", null)
+        val kwID = sharedPreferences.getString(AppPrefs.KW_ID, null)
+        val kwPWD = sharedPreferences.getString(AppPrefs.KW_PASSWORD, null)
         var isInstantLogin = false
         val webView = findViewById<WebView>(R.id.webView)
-        webView.settings.javaScriptEnabled = true
+        webView.configureAppWebView(
+            disableScrollBars = false,
+            transparentBackground = false,
+            domStorageEnabled = false
+        )
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
                 webView.evaluateJavascript(
                     "javascript:appLogin.setInitial('on', '$kwID', '$kwPWD')",
                     null
                 )
-                if (url != "https://klas.kw.ac.kr/mst/cmn/login/LoginForm.do") {
+                if (url != AppUrls.KLAS_LOGIN) {
                     val cookies = CookieManager.getInstance().getCookie(url).orEmpty()
                     val session = cookies.split("; ")
                         .firstOrNull { it.startsWith("SESSION=") }
@@ -102,8 +96,11 @@ class MainActivity : AppCompatActivity() {
                         ?.getOrNull(1)
                     if (!session.isNullOrBlank()) {
                         with(sharedPreferences.edit()) {
-                            putString("kwSESSION", session)
-                            putString("kwSESSION_timestamp", System.currentTimeMillis().toString())
+                            putString(AppPrefs.KW_SESSION, session)
+                            putString(
+                                AppPrefs.KW_SESSION_TIMESTAMP,
+                                System.currentTimeMillis().toString()
+                            )
                             apply()
                         }
                         if (!isInstantLogin && !isHomeStarted) {
@@ -162,8 +159,9 @@ class MainActivity : AppCompatActivity() {
             finish()
             startActivity(Intent(this, LoginActivity::class.java))
         } else {
-            val instantSession = sharedPreferences.getString("kwSESSION", null)
-            val instantSessionTimestamp = sharedPreferences.getString("kwSESSION_timestamp", null)
+            val instantSession = sharedPreferences.getString(AppPrefs.KW_SESSION, null)
+            val instantSessionTimestamp =
+                sharedPreferences.getString(AppPrefs.KW_SESSION_TIMESTAMP, null)
             isInstantLogin = false
             if (instantSession != null && instantSessionTimestamp != null) {
                 val timestamp = instantSessionTimestamp.toLong()
@@ -177,7 +175,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             startLoginTimers(webView)
-            webView.loadUrl("https://klas.kw.ac.kr/mst/cmn/login/LoginForm.do")
+            webView.loadUrl(AppUrls.KLAS_LOGIN)
         }
     }
 
@@ -216,7 +214,7 @@ class MainActivity : AppCompatActivity() {
             .setMessage("알 수 없는 오류로 인해 로그인에 실패했어요. 먼저 기기의 네트워크 상태가 불안정한지 확인 후 다시 시도해보세요. 어쩌면 전체적인 서버 장애가 발생했을 수도 있어요. 이 경우 담당자가 빠르게 대응하고 있을거예요.")
             .setNeutralButton("앱 종료") { _, _ ->
                 val sharedPreferences =
-                    getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
+                    appPreferences
                 val editor = sharedPreferences.edit()
                 editor.clear()
                 editor.apply()
@@ -224,7 +222,7 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton("서버 상태 확인") { _, _ ->
                 val browserIntent = Intent(
                     Intent.ACTION_VIEW,
-                    Uri.parse("https://status.klasplus.yuntae.in")
+                    Uri.parse(AppUrls.STATUS)
                 )
                 startActivity(browserIntent)
                 finish()
@@ -232,7 +230,7 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("다시 시도") { _, _ ->
                 if (!isFinishing && !isDestroyed) {
                     startLoginTimers(webView)
-                    webView.loadUrl("https://klas.kw.ac.kr/mst/cmn/login/LoginForm.do")
+                    webView.loadUrl(AppUrls.KLAS_LOGIN)
                 }
             }
             .setCancelable(false)

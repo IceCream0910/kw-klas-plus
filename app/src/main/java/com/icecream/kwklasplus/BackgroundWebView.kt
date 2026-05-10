@@ -1,22 +1,15 @@
 package com.icecream.kwklasplus
 
 import android.content.Context
-import android.content.Intent
-import android.media.session.MediaSession
 import android.util.AttributeSet
 import android.view.View
 import android.webkit.WebView
 
-class BackgroundWebView : WebView {
-    constructor(context: Context?) : super(context!!)
-    constructor(context: Context?, attrs: AttributeSet?) : super(context!!, attrs)
-    constructor(context: Context?, attrs: AttributeSet?, defStyleAttr: Int) : super(
-        context!!,
-        attrs,
-        defStyleAttr
-    )
-
-
+class BackgroundWebView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) : WebView(context, attrs, defStyleAttr) {
     override fun onWindowVisibilityChanged(visibility: Int) {
         if (visibility != View.GONE) super.onWindowVisibilityChanged(View.VISIBLE)
     }

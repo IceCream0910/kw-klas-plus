@@ -29,32 +29,26 @@ class LctPlanActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_lct_plan)
-        enableEdgeToEdge()
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
+        applyEdgeToEdgeInsets()
 
-        // 모바일에서는 세로 모드 고정
-        if (isTablet(this)) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        } else {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
+        lockPortraitOnPhone()
 
-        sessionIdForOtherClass = intent.getStringExtra("sessionId").toString()
-        subjID = intent.getStringExtra("subjID").toString()
+        sessionIdForOtherClass =
+            intent.getStringExtra(IntentExtras.LEGACY_SESSION_ID)
+                ?: intent.getStringExtra(IntentExtras.SESSION_ID).toString()
+        subjID = intent.getStringExtra(IntentExtras.SUBJECT_ID).toString()
 
         webView = findViewById<WebView>(R.id.webView)
         loadingIndicator = findViewById(R.id.progressBar)
 
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.settings.setSupportMultipleWindows(true)
-        webView.settings.javaScriptCanOpenWindowsAutomatically = true
-        webView.addJavascriptInterface(JavaScriptInterfaceLecturePlan(this), "Android")
-        webView.loadUrl("https://klasplus.yuntae.in/lecturePlan")
+        webView.configureAppWebView(
+            javaScriptInterface = JavaScriptInterfaceLecturePlan(this),
+            supportMultipleWindows = true,
+            javaScriptCanOpenWindowsAutomatically = true,
+            transparentBackground = false,
+            disableScrollBars = false
+        )
+        webView.loadUrl(AppUrls.LECTURE_PLAN)
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
@@ -109,7 +103,7 @@ class JavaScriptInterfaceLecturePlan(private val lctPlanActivity: LctPlanActivit
         lctPlanActivity.runOnUiThread {
             val intent = Intent(lctPlanActivity, LinkViewActivity::class.java)
             intent.putExtra("url", url)
-            intent.putExtra("sessionID", lctPlanActivity.sessionIdForOtherClass)
+            intent.putExtra(IntentExtras.SESSION_ID, lctPlanActivity.sessionIdForOtherClass)
             lctPlanActivity.startActivity(intent)
         }
     }

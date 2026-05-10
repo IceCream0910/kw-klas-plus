@@ -23,16 +23,19 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity.MODE_PRIVATE
 import androidx.fragment.app.DialogFragment
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import com.icecream.kwklasplus.AppPrefs
 import com.icecream.kwklasplus.HomeActivity
+import com.icecream.kwklasplus.IntentExtras
 import com.icecream.kwklasplus.JavaScriptInterface
 import com.icecream.kwklasplus.LinkViewActivity
 import com.icecream.kwklasplus.R
 import com.icecream.kwklasplus.TaskViewActivity
+import com.icecream.kwklasplus.appPreferences
+import com.icecream.kwklasplus.configureAppWebView
 
 class WebViewBottomSheetDialog(url: String, cancelable: Boolean = true) :
     BottomSheetDialogFragment() {
@@ -56,19 +59,13 @@ class WebViewBottomSheetDialog(url: String, cancelable: Boolean = true) :
         webViewProgress.visibility = View.VISIBLE
         webView.visibility = View.GONE
 
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.isVerticalScrollBarEnabled = false
-        webView.isHorizontalScrollBarEnabled = false
+        webView.configureAppWebView(
+            javaScriptInterface = JavaScriptInterfaceForWebViewModal(requireActivity(), this)
+        )
         webView.overScrollMode = WebView.OVER_SCROLL_NEVER
         webView.setOnTouchListener { _, event ->
             event.action == MotionEvent.ACTION_MOVE
         }
-        webView.setBackgroundColor(0)
-        webView.addJavascriptInterface(
-            JavaScriptInterfaceForWebViewModal(requireActivity(), this),
-            "Android"
-        )
 
         try {
             val pInfo: PackageInfo =
@@ -136,9 +133,7 @@ class JavaScriptInterfaceForWebViewModal(
 ) {
     @JavascriptInterface
     fun completePageLoad() {
-        val sharedPreferences =
-            activity.getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
-        val sessionId = sharedPreferences.getString("kwSESSION", null)
+        val sessionId = activity.appPreferences.getString(AppPrefs.KW_SESSION, null)
 
         activity.runOnUiThread {
             val webView = dialog.view?.findViewById<WebView>(R.id.webview)
@@ -176,13 +171,11 @@ class JavaScriptInterfaceForWebViewModal(
 
     @JavascriptInterface
     fun openPage(url: String) {
-        val sharedPreferences =
-            activity.getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
-        val sessionId = sharedPreferences.getString("kwSESSION", null)
+        val sessionId = activity.appPreferences.getString(AppPrefs.KW_SESSION, null)
 
         val intent = Intent(activity, LinkViewActivity::class.java)
         intent.putExtra("url", url)
-        intent.putExtra("sessionID", sessionId)
+        intent.putExtra(IntentExtras.SESSION_ID, sessionId)
         activity.startActivity(intent)
     }
 }

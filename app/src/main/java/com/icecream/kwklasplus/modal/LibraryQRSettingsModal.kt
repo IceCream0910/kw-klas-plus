@@ -12,7 +12,9 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputEditText
+import com.icecream.kwklasplus.AppPrefs
 import com.icecream.kwklasplus.R
+import com.icecream.kwklasplus.appPreferences
 import com.icecream.kwklasplus.components.AnimatedButton
 
 class LibraryQRSettingsBottomSheetDialog() : BottomSheetDialogFragment() {
@@ -47,15 +49,15 @@ class LibraryQRSettingsBottomSheetDialog() : BottomSheetDialogFragment() {
     }
 
     private fun setupInitialValues() {
-        val sharedPreferences = activity?.getSharedPreferences("com.icecream.kwklasplus", Context.MODE_PRIVATE)
+        val sharedPreferences = activity?.appPreferences
 
-        var stdNumber = sharedPreferences?.getString("library_stdNumber", "")
+        var stdNumber = sharedPreferences?.getString(AppPrefs.LIBRARY_STD_NUMBER, "")
         if (stdNumber.isNullOrEmpty()) {
-            stdNumber = sharedPreferences?.getString("kwID", "")
+            stdNumber = sharedPreferences?.getString(AppPrefs.KW_ID, "")
         }
 
-        val phone = sharedPreferences?.getString("library_phone", "")
-        val password = sharedPreferences?.getString("library_password", "")
+        val phone = sharedPreferences?.getString(AppPrefs.LIBRARY_PHONE, "")
+        val password = sharedPreferences?.getString(AppPrefs.LIBRARY_PASSWORD, "")
 
         stdNumberEditText.setText(stdNumber)
         phoneEditText.setText(phone)
@@ -80,11 +82,11 @@ class LibraryQRSettingsBottomSheetDialog() : BottomSheetDialogFragment() {
     }
 
     private fun saveUserData(stdNumber: String, phone: String, password: String) {
-        val sharedPreferences = activity?.getSharedPreferences("com.icecream.kwklasplus", Context.MODE_PRIVATE)
+        val sharedPreferences = activity?.appPreferences
         sharedPreferences?.edit()?.apply {
-            putString("library_stdNumber", stdNumber)
-            putString("library_phone", phone)
-            putString("library_password", password)
+            putString(AppPrefs.LIBRARY_STD_NUMBER, stdNumber)
+            putString(AppPrefs.LIBRARY_PHONE, phone)
+            putString(AppPrefs.LIBRARY_PASSWORD, password)
             apply()
         }
     }

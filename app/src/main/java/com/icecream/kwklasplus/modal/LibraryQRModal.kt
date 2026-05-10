@@ -31,8 +31,11 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.google.zxing.WriterException
+import com.icecream.kwklasplus.AppPrefs
 import com.icecream.kwklasplus.LibraryQRWidget
 import com.icecream.kwklasplus.R
+import com.icecream.kwklasplus.appPreferences
+import com.icecream.kwklasplus.libraryQrCachePreferences
 import com.icecream.kwklasplus.modal.LibraryQRSettingsBottomSheetDialog
 import kotlinx.coroutines.*
 import okhttp3.*
@@ -145,11 +148,10 @@ class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment(
             }
         }
 
-        val sharedPreferences =
-            activity?.getSharedPreferences("com.icecream.kwklasplus", Context.MODE_PRIVATE)
-        val stdNumber = sharedPreferences?.getString("library_stdNumber", null)
-        val phone = sharedPreferences?.getString("library_phone", null)
-        val password = sharedPreferences?.getString("library_password", null)
+        val sharedPreferences = activity?.appPreferences
+        val stdNumber = sharedPreferences?.getString(AppPrefs.LIBRARY_STD_NUMBER, null)
+        val phone = sharedPreferences?.getString(AppPrefs.LIBRARY_PHONE, null)
+        val password = sharedPreferences?.getString(AppPrefs.LIBRARY_PASSWORD, null)
 
         if (stdNumber == null || phone == null || password == null) {
             showSettingsDialog()
@@ -201,11 +203,10 @@ class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment(
     }
 
     private suspend fun refreshQRCode() {
-        val sharedPreferences =
-            activity?.getSharedPreferences("com.icecream.kwklasplus", Context.MODE_PRIVATE)
-        val stdNumber = sharedPreferences?.getString("library_stdNumber", null)
-        val phone = sharedPreferences?.getString("library_phone", null)
-        val password = sharedPreferences?.getString("library_password", null)
+        val sharedPreferences = activity?.appPreferences
+        val stdNumber = sharedPreferences?.getString(AppPrefs.LIBRARY_STD_NUMBER, null)
+        val phone = sharedPreferences?.getString(AppPrefs.LIBRARY_PHONE, null)
+        val password = sharedPreferences?.getString(AppPrefs.LIBRARY_PASSWORD, null)
 
         if (stdNumber != null && phone != null && password != null) {
             qrProgressBar.visibility = View.VISIBLE
@@ -219,10 +220,10 @@ class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment(
     }
 
     private suspend fun refreshQRCodeWithoutCache() {
-        val sharedPreferences = activity?.getSharedPreferences("com.icecream.kwklasplus", Context.MODE_PRIVATE)
-        val stdNumber = sharedPreferences?.getString("library_stdNumber", null)
-        val phone = sharedPreferences?.getString("library_phone", null)
-        val password = sharedPreferences?.getString("library_password", null)
+        val sharedPreferences = activity?.appPreferences
+        val stdNumber = sharedPreferences?.getString(AppPrefs.LIBRARY_STD_NUMBER, null)
+        val phone = sharedPreferences?.getString(AppPrefs.LIBRARY_PHONE, null)
+        val password = sharedPreferences?.getString(AppPrefs.LIBRARY_PASSWORD, null)
 
         if (stdNumber != null && phone != null && password != null) {
             val realId = "0$stdNumber"
@@ -451,8 +452,7 @@ class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment(
 }
 
 class CacheManager(context: Context) {
-    private val sharedPreferences =
-        context.getSharedPreferences("LibraryQRCache", Context.MODE_PRIVATE)
+    private val sharedPreferences = context.libraryQrCachePreferences
 
     fun saveSecret(realId: String, userInfoHash: String, secret: String) {
         sharedPreferences.edit().putString("secret_${realId}_${userInfoHash}", secret).apply()

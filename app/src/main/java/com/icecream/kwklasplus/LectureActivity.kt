@@ -80,51 +80,39 @@ class LectureActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_lecture)
-        enableEdgeToEdge()
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
+        applyEdgeToEdgeInsets()
 
 
-        // 모바일에서는 세로 모드 고정
-        if (isTablet(this)) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        } else {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
+        lockPortraitOnPhone()
 
         subjID = intent.getStringExtra("subjID").toString()
         subjName = intent.getStringExtra("subjName").toString()
-        sessionId = intent.getStringExtra("sessionID")!!
-        yearHakgi = intent.getStringExtra("yearHakgi")!!
+        sessionId = intent.getStringExtra(IntentExtras.SESSION_ID)!!
+        yearHakgi = intent.getStringExtra(IntentExtras.YEAR_HAKGI)!!
 
 
         uiWebView = findViewById<WebView>(R.id.uiWebView)
-        uiWebView.settings.javaScriptEnabled = true
-        uiWebView.settings.domStorageEnabled = true
-        uiWebView.settings.allowFileAccess = true
-        uiWebView.settings.allowContentAccess = true
-        uiWebView.settings.supportMultipleWindows()
-        uiWebView.settings.javaScriptCanOpenWindowsAutomatically = true
+        uiWebView.configureAppWebView(
+            javaScriptInterface = WebAppInterfaceLectureHome(this),
+            allowFileAccess = true,
+            allowContentAccess = true,
+            javaScriptCanOpenWindowsAutomatically = true
+        )
         uiWebView.overScrollMode = WebView.OVER_SCROLL_NEVER
-        uiWebView.isVerticalScrollBarEnabled = false
-        uiWebView.isHorizontalScrollBarEnabled = false
-        uiWebView.addJavascriptInterface(WebAppInterfaceLectureHome(this), "Android")
-        uiWebView.loadUrl("https://klasplus.yuntae.in/lectureHome")
+        uiWebView.loadUrl(AppUrls.LECTURE_HOME)
 
         webView = findViewById<WebView>(R.id.webView)
         scrollView = findViewById<SwipeRefreshLayout>(R.id.scrollView)
         val progressBar = findViewById<LinearLayout>(R.id.progressBar)
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.settings.allowFileAccess = true
-        webView.settings.allowContentAccess = true
-        webView.settings.supportMultipleWindows()
-        webView.settings.javaScriptCanOpenWindowsAutomatically = true
-        webView.addJavascriptInterface(WebAppInterfaceLectureHome(this), "Android")
-        webView.loadUrl("https://klas.kw.ac.kr/std/cmn/frame/Frame.do")
+        webView.configureAppWebView(
+            javaScriptInterface = WebAppInterfaceLectureHome(this),
+            allowFileAccess = true,
+            allowContentAccess = true,
+            javaScriptCanOpenWindowsAutomatically = true,
+            transparentBackground = false,
+            disableScrollBars = false
+        )
+        webView.loadUrl(AppUrls.KLAS_FRAME)
 
         scrollView.isEnabled = false
         scrollView.visibility = ScrollView.GONE
@@ -161,10 +149,10 @@ class LectureActivity : AppCompatActivity() {
                         null
                     )
                     val intent = Intent(this@LectureActivity, VideoPlayerActivity::class.java)
-                    intent.putExtra("sessionID", sessionId)
-                    intent.putExtra("subj", subjID)
-                    intent.putExtra("yearHakgi", yearHakgi)
-                    webView.loadUrl("https://klas.kw.ac.kr/std/lis/evltn/LctrumHomeStdPage.do")
+                    intent.putExtra(IntentExtras.SESSION_ID, sessionId)
+                    intent.putExtra(IntentExtras.SUBJECT, subjID)
+                    intent.putExtra(IntentExtras.YEAR_HAKGI, yearHakgi)
+                    webView.loadUrl(AppUrls.KLAS_LECTURE_HOME)
                     startActivity(intent)
                 }
                 scrollView.isRefreshing = false
@@ -322,10 +310,10 @@ class LectureActivity : AppCompatActivity() {
             postTransformedData(sessionId, subjDetail2) { subjDetail3 ->
                 postRandomKey(sessionId, subjDetail3) { transformedJson ->
                     val intent = Intent(this@LectureActivity, QRScanActivity::class.java)
-                    intent.putExtra("bodyJSON", transformedJson.toString())
-                    intent.putExtra("subjID", subjID)
-                    intent.putExtra("subjName", subjName)
-                    intent.putExtra("sessionID", sessionId)
+                    intent.putExtra(IntentExtras.BODY_JSON, transformedJson.toString())
+                    intent.putExtra(IntentExtras.SUBJECT_ID, subjID)
+                    intent.putExtra(IntentExtras.SUBJECT_NAME, subjName)
+                    intent.putExtra(IntentExtras.SESSION_ID, sessionId)
                     startActivity(intent)
                 }
             }
@@ -339,7 +327,7 @@ class LectureActivity : AppCompatActivity() {
         callback: (JSONObject) -> Unit
     ): JSONObject {
         CoroutineScope(Dispatchers.IO).launch {
-            val client = OkHttpClient()
+            val client = AppHttpClient.default
 
             val json = JSONObject()
                 .put("list", JSONArray())
@@ -361,7 +349,7 @@ class LectureActivity : AppCompatActivity() {
                 RequestBody.create("application/json".toMediaTypeOrNull(), json.toString())
 
             val request = buildRequest(
-                "https://klas.kw.ac.kr/std/ads/admst/KwAttendStdGwakmokList.do",
+                AppUrls.KLAS_ATTEND_SUBJECTS,
                 sessionId,
                 requestBody
             )
@@ -424,7 +412,7 @@ class LectureActivity : AppCompatActivity() {
         callback: (JSONObject) -> Unit
     ): JSONObject {
         CoroutineScope(Dispatchers.IO).launch {
-            val client = OkHttpClient()
+            val client = AppHttpClient.default
 
             try {
                 val requestBody = RequestBody.create(
@@ -433,7 +421,7 @@ class LectureActivity : AppCompatActivity() {
                 )
 
                 val request = buildRequest(
-                    "https://klas.kw.ac.kr/mst/ads/admst/KwAttendStdAttendList.do",
+                    AppUrls.KLAS_ATTEND_LIST,
                     sessionId,
                     requestBody
                 )
@@ -465,7 +453,7 @@ class LectureActivity : AppCompatActivity() {
         callback: (JSONObject) -> Unit
     ): JSONObject {
         CoroutineScope(Dispatchers.IO).launch {
-            val client = OkHttpClient()
+            val client = AppHttpClient.default
 
             try {
                 val requestBody = RequestBody.create(
@@ -474,7 +462,7 @@ class LectureActivity : AppCompatActivity() {
                 )
 
                 val request = buildRequest(
-                    "https://klas.kw.ac.kr/std/lis/evltn/CertiPushSucStd.do",
+                    AppUrls.KLAS_RANDOM_KEY,
                     sessionId,
                     requestBody
                 )
@@ -505,21 +493,7 @@ class LectureActivity : AppCompatActivity() {
         sessionId: String,
         requestBody: RequestBody? = null
     ): Request {
-        val defaultUserAgent = WebSettings.getDefaultUserAgent(this)
-        val requestBuilder = Request.Builder()
-            .url(url)
-            .header("Content-Type", "application/json")
-            .header("Cookie", "SESSION=$sessionId")
-            .header(
-                "User-Agent",
-                "$defaultUserAgent NuriwareApp"
-            )
-
-        if (requestBody != null) {
-            requestBuilder.post(requestBody)
-        }
-
-        return requestBuilder.build()
+        return buildKlasJsonRequest(url, sessionId, requestBody)
     }
 
     private fun showSessionExpiredDialog() {
@@ -545,7 +519,7 @@ class LectureActivity : AppCompatActivity() {
             )
             uploadMessage = null
         } else {
-            webView.loadUrl("https://klas.kw.ac.kr/std/cmn/frame/Frame.do")
+            webView.loadUrl(AppUrls.KLAS_FRAME)
         }
     }
 
@@ -557,7 +531,7 @@ class LectureActivity : AppCompatActivity() {
                 webView.visibility = View.GONE
                 scrollView.visibility = View.VISIBLE
                 isShowingKLAS = false
-                webView.loadUrl("https://klas.kw.ac.kr/std/lis/evltn/LctrumHomeStdPage.do")
+                webView.loadUrl(AppUrls.KLAS_LECTURE_HOME)
             }
         } else {
             super.onBackPressed()
@@ -599,7 +573,7 @@ class WebAppInterfaceLectureHome(private val lectureActivity: LectureActivity) {
         lectureActivity.runOnUiThread {
             val intent = Intent(lectureActivity, LinkViewActivity::class.java)
             intent.putExtra("url", url)
-            intent.putExtra("sessionID", lectureActivity.sessionId)
+            intent.putExtra(IntentExtras.SESSION_ID, lectureActivity.sessionId)
             lectureActivity.startActivity(intent)
         }
     }
@@ -627,9 +601,9 @@ class WebAppInterfaceLectureHome(private val lectureActivity: LectureActivity) {
             }
             intent.putExtra("title", title)
             intent.putExtra("type", "list")
-            intent.putExtra("sessionID", lectureActivity.sessionId)
-            intent.putExtra("subjID", lectureActivity.subjID)
-            intent.putExtra("yearHakgi", lectureActivity.yearHakgi)
+            intent.putExtra(IntentExtras.SESSION_ID, lectureActivity.sessionId)
+            intent.putExtra(IntentExtras.SUBJECT_ID, lectureActivity.subjID)
+            intent.putExtra(IntentExtras.YEAR_HAKGI, lectureActivity.yearHakgi)
             lectureActivity.startActivity(intent)
         }
     }
@@ -651,9 +625,9 @@ class WebAppInterfaceLectureHome(private val lectureActivity: LectureActivity) {
             intent.putExtra("type", "view")
             intent.putExtra("boardNo", boardNo)
             intent.putExtra("masterNo", masterNo)
-            intent.putExtra("sessionID", lectureActivity.sessionId)
-            intent.putExtra("subjID", lectureActivity.subjID)
-            intent.putExtra("yearHakgi", lectureActivity.yearHakgi)
+            intent.putExtra(IntentExtras.SESSION_ID, lectureActivity.sessionId)
+            intent.putExtra(IntentExtras.SUBJECT_ID, lectureActivity.subjID)
+            intent.putExtra(IntentExtras.YEAR_HAKGI, lectureActivity.yearHakgi)
             lectureActivity.startActivity(intent)
         }
     }
@@ -678,9 +652,9 @@ class WebAppInterfaceLectureHome(private val lectureActivity: LectureActivity) {
     fun openOnlineLecture() {
         lectureActivity.runOnUiThread {
             val intent = Intent(lectureActivity, VideoPlayerActivity::class.java)
-            intent.putExtra("sessionID", lectureActivity.sessionId)
-            intent.putExtra("subj", lectureActivity.subjID)
-            intent.putExtra("yearHakgi", lectureActivity.yearHakgi)
+            intent.putExtra(IntentExtras.SESSION_ID, lectureActivity.sessionId)
+            intent.putExtra(IntentExtras.SUBJECT, lectureActivity.subjID)
+            intent.putExtra(IntentExtras.YEAR_HAKGI, lectureActivity.yearHakgi)
             lectureActivity.startActivity(intent)
         }
     }

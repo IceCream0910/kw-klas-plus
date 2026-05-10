@@ -115,14 +115,10 @@ class HomeActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_home)
-        enableEdgeToEdge()
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+        applyEdgeToEdgeInsets { insets ->
             val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
             val imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom + 80
             adjustWebViewHeightForIme(imeVisible, imeHeight)
-            insets
         }
 
         main = findViewById(R.id.main)
@@ -140,14 +136,10 @@ class HomeActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(onBackPressedCallback)
 
 
-        if (isTablet(this)) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        } else {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
+        lockPortraitOnPhone()
 
-        val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
-        val sessionId = sharedPreferences.getString("kwSESSION", null)
+        val sharedPreferences = appPreferences
+        val sessionId = sharedPreferences.getString(AppPrefs.KW_SESSION, null)
         sessionIdForOtherClass = sessionId ?: ""
         if (sessionId == null) {
             showLoginErrorToast()
@@ -223,8 +215,7 @@ class HomeActivity : AppCompatActivity() {
     ) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 7777) { // 설정 창에서 이동한 경우 새로고침(변경사항 반영 필요)
-            val savedYearHakgi = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
-                .getString("yearHakgi", "")
+            val savedYearHakgi = appPreferences.getString(AppPrefs.YEAR_HAKGI, "")
             if (!savedYearHakgi.isNullOrEmpty()) {
                 updateYearHakgi(savedYearHakgi)
             }
@@ -289,11 +280,11 @@ class HomeActivity : AppCompatActivity() {
         if (currentTab == tab && currentTab.isNotEmpty()) return
         currentTab = tab
         val url = when (tab) {
-            "feed" -> "https://klasplus.yuntae.in/feed?yearHakgi=${yearHakgi}"
-            "timetable" -> "https://klasplus.yuntae.in/timetableTab?yearHakgi=${yearHakgi}"
-            "calendar" -> "https://klasplus.yuntae.in/calendar?yearHakgi=${yearHakgi}"
-            "menu" -> "https://klasplus.yuntae.in/profile"
-            else -> "https://klasplus.yuntae.in/feed?yearHakgi=${yearHakgi}"
+            "feed" -> "${AppUrls.KLAS_PLUS_BASE}/feed?yearHakgi=${yearHakgi}"
+            "timetable" -> "${AppUrls.KLAS_PLUS_BASE}/timetableTab?yearHakgi=${yearHakgi}"
+            "calendar" -> "${AppUrls.KLAS_PLUS_BASE}/calendar?yearHakgi=${yearHakgi}"
+            "menu" -> "${AppUrls.KLAS_PLUS_BASE}/profile"
+            else -> "${AppUrls.KLAS_PLUS_BASE}/feed?yearHakgi=${yearHakgi}"
         }
 
         Log.d("HomeActivity", "Switching to tab: $tab, URL: $url")
@@ -377,13 +368,8 @@ class HomeActivity : AppCompatActivity() {
 
     private fun initWebView() {
         webView.post(Runnable {
-            webView.settings.javaScriptEnabled = true
-            webView.settings.domStorageEnabled = true
-            webView.isVerticalScrollBarEnabled = false
-            webView.isHorizontalScrollBarEnabled = false
+            webView.configureAppWebView(javaScriptInterface = JavaScriptInterface(this))
             webView.overScrollMode = WebView.OVER_SCROLL_NEVER
-            webView.setBackgroundColor(0)
-            webView.addJavascriptInterface(JavaScriptInterface(this), "Android")
 
             try {
                 val pInfo: PackageInfo =
@@ -555,8 +541,8 @@ class HomeActivity : AppCompatActivity() {
                 val listSize = jsonArray.length()
                 if (listSize == 0) {
                     val intent = Intent(this, LinkViewActivity::class.java)
-                    intent.putExtra("url", "https://klasplus.yuntae.in/notReady")
-                    intent.putExtra("sessionID", sessionIdForOtherClass)
+                    intent.putExtra("url", "${AppUrls.KLAS_PLUS_BASE}/notReady")
+                    intent.putExtra(IntentExtras.SESSION_ID, sessionIdForOtherClass)
                     startActivity(intent)
                     finish()
                     return@runOnUiThread
@@ -569,13 +555,12 @@ class HomeActivity : AppCompatActivity() {
                     yearHakgiList[i] = jsonObject.getString("value")
                 }
 
-                val sharedPreferences =
-                    getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
-                val savedYearHakgi = sharedPreferences.getString("yearHakgi", "")
-                val savedYearHakgiList = sharedPreferences.getString("yearHakgiList", "")
+                val sharedPreferences = appPreferences
+                val savedYearHakgi = sharedPreferences.getString(AppPrefs.YEAR_HAKGI, "")
+                val savedYearHakgiList = sharedPreferences.getString(AppPrefs.YEAR_HAKGI_LIST, "")
 
                 val editor: SharedPreferences.Editor = sharedPreferences.edit()
-                editor.putString("yearHakgiList", yearHakgiList.joinToString("&"))
+                editor.putString(AppPrefs.YEAR_HAKGI_LIST, yearHakgiList.joinToString("&"))
                 editor.apply()
 
                 var index = 0
@@ -599,7 +584,7 @@ class HomeActivity : AppCompatActivity() {
                 val jsonObject = jsonArray.getJSONObject(index)
                 val newSubjList = jsonObject.getJSONArray("subjList")
                 yearHakgi = jsonObject.getString("value")
-                editor.putString("yearHakgi", yearHakgi)
+                editor.putString(AppPrefs.YEAR_HAKGI, yearHakgi)
                 editor.apply()
 
                 CoroutineScope(Dispatchers.IO).launch {
@@ -620,17 +605,17 @@ class HomeActivity : AppCompatActivity() {
 
     private fun updateYearHakgi(selectedYearHakgi: String) {
         yearHakgi = selectedYearHakgi
-        val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
+        val sharedPreferences = appPreferences
         val editor: SharedPreferences.Editor = sharedPreferences.edit()
-        editor.putString("yearHakgi", yearHakgi)
+        editor.putString(AppPrefs.YEAR_HAKGI, yearHakgi)
         editor.apply()
         reloadData()
     }
 
     private fun reloadData() {
         showLoading()
-        val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
-        val sessionId = sharedPreferences.getString("kwSESSION", null)
+        val sharedPreferences = appPreferences
+        val sessionId = sharedPreferences.getString(AppPrefs.KW_SESSION, null)
         if (sessionId == null) {
             showLoginErrorToast()
             finish()
@@ -663,8 +648,8 @@ class HomeActivity : AppCompatActivity() {
         val root = findViewById<View>(R.id.main)
         runOnUiThread { root.performHapticFeedback(HapticFeedbackConstants.TOGGLE_ON) }
         showLoading()
-        val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
-        val sessionId = sharedPreferences.getString("kwSESSION", null)
+        val sharedPreferences = appPreferences
+        val sessionId = sharedPreferences.getString(AppPrefs.KW_SESSION, null)
         if (sessionId == null) {
             showLoginErrorToast()
             finish()
@@ -712,9 +697,9 @@ class HomeActivity : AppCompatActivity() {
                 val requestBody =
                     RequestBody.create("application/json".toMediaTypeOrNull(), json.toString())
                 val urls = listOf(
-                    "https://klas.kw.ac.kr/std/lis/evltn/SelectOnlineCntntsStdList.do",
-                    "https://klas.kw.ac.kr/std/lis/evltn/TaskStdList.do",
-                    "https://klas.kw.ac.kr/std/lis/evltn/PrjctStdList.do"
+                    "${AppUrls.KLAS_BASE}/std/lis/evltn/SelectOnlineCntntsStdList.do",
+                    "${AppUrls.KLAS_BASE}/std/lis/evltn/TaskStdList.do",
+                    "${AppUrls.KLAS_BASE}/std/lis/evltn/PrjctStdList.do"
                 )
 
                 val subjDeadline = JSONObject()
@@ -822,7 +807,7 @@ class HomeActivity : AppCompatActivity() {
                 RequestBody.create("application/json".toMediaTypeOrNull(), json.toString())
 
             val request = buildRequest(
-                "https://klas.kw.ac.kr/std/cps/atnlc/TimetableStdList.do",
+                "${AppUrls.KLAS_BASE}/std/cps/atnlc/TimetableStdList.do",
                 sessionId,
                 requestBody
             )
@@ -970,10 +955,10 @@ class HomeActivity : AppCompatActivity() {
                     postTransformedData(sessionId, subjDetail2) { subjDetail3 ->
                         postRandomKey(sessionId, subjDetail3) { transformedJson ->
                             val intent = Intent(this@HomeActivity, QRScanActivity::class.java)
-                            intent.putExtra("bodyJSON", transformedJson.toString())
-                            intent.putExtra("subjID", subjID)
-                            intent.putExtra("subjName", subjName)
-                            intent.putExtra("sessionID", sessionId)
+                            intent.putExtra(IntentExtras.BODY_JSON, transformedJson.toString())
+                            intent.putExtra(IntentExtras.SUBJECT_ID, subjID)
+                            intent.putExtra(IntentExtras.SUBJECT_NAME, subjName)
+                            intent.putExtra(IntentExtras.SESSION_ID, sessionId)
                             startActivity(intent)
                         }
                     }
@@ -993,18 +978,18 @@ class HomeActivity : AppCompatActivity() {
         sessionId: String, subjID: String, subjName: String
     ) {
         val intent = Intent(this, LectureActivity::class.java)
-        intent.putExtra("subjID", subjID)
-        intent.putExtra("subjName", subjName)
-        intent.putExtra("sessionID", sessionId)
-        intent.putExtra("yearHakgi", yearHakgi)
+        intent.putExtra(IntentExtras.SUBJECT_ID, subjID)
+        intent.putExtra(IntentExtras.SUBJECT_NAME, subjName)
+        intent.putExtra(IntentExtras.SESSION_ID, sessionId)
+        intent.putExtra(IntentExtras.YEAR_HAKGI, yearHakgi)
         startActivity(intent)
     }
 
     private fun fetchSubjectList(sessionId: String, callback: (JSONArray) -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
-            val client = OkHttpClient()
+            val client = AppHttpClient.default
             val request = buildRequest(
-                "https://klas.kw.ac.kr/mst/cmn/frame/YearhakgiAtnlcSbjectList.do",
+                "${AppUrls.KLAS_BASE}/mst/cmn/frame/YearhakgiAtnlcSbjectList.do",
                 sessionId,
                 RequestBody.create(null, "{}")
             )
@@ -1038,7 +1023,7 @@ class HomeActivity : AppCompatActivity() {
         callback: (JSONObject) -> Unit
     ): JSONObject {
         CoroutineScope(Dispatchers.IO).launch {
-            val client = OkHttpClient()
+            val client = AppHttpClient.default
 
             val json = JSONObject()
                 .put("list", JSONArray())
@@ -1060,7 +1045,7 @@ class HomeActivity : AppCompatActivity() {
                 RequestBody.create("application/json".toMediaTypeOrNull(), json.toString())
 
             val request = buildRequest(
-                "https://klas.kw.ac.kr/std/ads/admst/KwAttendStdGwakmokList.do",
+                AppUrls.KLAS_ATTEND_SUBJECTS,
                 sessionId,
                 requestBody
             )
@@ -1123,7 +1108,7 @@ class HomeActivity : AppCompatActivity() {
         callback: (JSONObject) -> Unit
     ): JSONObject {
         CoroutineScope(Dispatchers.IO).launch {
-            val client = OkHttpClient()
+            val client = AppHttpClient.default
 
             try {
                 val requestBody = RequestBody.create(
@@ -1132,7 +1117,7 @@ class HomeActivity : AppCompatActivity() {
                 )
 
                 val request = buildRequest(
-                    "https://klas.kw.ac.kr/mst/ads/admst/KwAttendStdAttendList.do",
+                    AppUrls.KLAS_ATTEND_LIST,
                     sessionId,
                     requestBody
                 )
@@ -1165,7 +1150,7 @@ class HomeActivity : AppCompatActivity() {
         callback: (JSONObject) -> Unit
     ): JSONObject {
         CoroutineScope(Dispatchers.IO).launch {
-            val client = OkHttpClient()
+            val client = AppHttpClient.default
 
             try {
                 val requestBody = RequestBody.create(
@@ -1174,7 +1159,7 @@ class HomeActivity : AppCompatActivity() {
                 )
 
                 val request = buildRequest(
-                    "https://klas.kw.ac.kr/std/lis/evltn/CertiPushSucStd.do",
+                    AppUrls.KLAS_RANDOM_KEY,
                     sessionId,
                     requestBody
                 )
@@ -1232,17 +1217,9 @@ class HomeActivity : AppCompatActivity() {
         builder.setTitle("로그아웃")
             .setMessage("정말 로그아웃할까요?")
             .setPositiveButton("확인") { _, _ ->
-                val sharedPreferences =
-                    getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
-                val editor = sharedPreferences.edit()
-                editor.clear()
-                editor.apply()
+                appPreferences.edit().clear().apply()
 
-                val sharedPreferences_library =
-                    getSharedPreferences("LibraryQRCache", MODE_PRIVATE)
-                val editor_library = sharedPreferences_library.edit()
-                editor_library.clear()
-                editor_library.apply()
+                libraryQrCachePreferences.edit().clear().apply()
                 finish()
                 startActivity(Intent(this@HomeActivity, LoginActivity::class.java))
             }
@@ -1263,9 +1240,8 @@ class HomeActivity : AppCompatActivity() {
             .setPositiveButton(
                 "종료"
             ) { _, _ ->
-                 val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
-                val editor = sharedPreferences.edit()
-                editor.putString("kwSESSION", null)
+                val editor = appPreferences.edit()
+                editor.putString(AppPrefs.KW_SESSION, null)
                 editor.apply()
                 finish()
             }
@@ -1277,21 +1253,7 @@ class HomeActivity : AppCompatActivity() {
         sessionId: String,
         requestBody: RequestBody? = null
     ): Request {
-        val defaultUserAgent = WebSettings.getDefaultUserAgent(this)
-        val requestBuilder = Request.Builder()
-            .url(url)
-            .header("Content-Type", "application/json")
-            .header("Cookie", "SESSION=$sessionId")
-            .header(
-                "User-Agent",
-                "$defaultUserAgent NuriwareApp"
-            )
-
-        if (requestBody != null) {
-            requestBuilder.post(requestBody)
-        }
-
-        return requestBuilder.build()
+        return buildKlasJsonRequest(url, sessionId, requestBody)
     }
 
 
@@ -1346,9 +1308,9 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
         homeActivity.runOnUiThread {
             val intent = Intent(homeActivity, TaskViewActivity::class.java)
             intent.putExtra("url", url)
-            intent.putExtra("yearHakgi", yearHakgi)
-            intent.putExtra("subj", subj)
-            intent.putExtra("sessionID", homeActivity.sessionIdForOtherClass)
+            intent.putExtra(IntentExtras.YEAR_HAKGI, yearHakgi)
+            intent.putExtra(IntentExtras.SUBJECT, subj)
+            intent.putExtra(IntentExtras.SESSION_ID, homeActivity.sessionIdForOtherClass)
             homeActivity.startActivity(intent)
         }
     }
@@ -1358,7 +1320,7 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
         homeActivity.runOnUiThread {
             val intent = Intent(homeActivity, LinkViewActivity::class.java)
             intent.putExtra("url", url)
-            intent.putExtra("sessionID", homeActivity.sessionIdForOtherClass)
+            intent.putExtra(IntentExtras.SESSION_ID, homeActivity.sessionIdForOtherClass)
             homeActivity.startActivity(intent)
         }
     }
@@ -1479,25 +1441,8 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
 
     @JavascriptInterface
     fun performHapticFeedback(type: String) {
-        val hapticType = when (type) {
-            "CLOCK_TICK" -> HapticFeedbackConstants.CLOCK_TICK
-            "KEYBOARD_TAP" -> HapticFeedbackConstants.KEYBOARD_TAP
-            "KEYBOARD_RELEASE" -> HapticFeedbackConstants.KEYBOARD_RELEASE
-            "LONG_PRESS" -> HapticFeedbackConstants.LONG_PRESS
-            "VIRTUAL_KEY" -> HapticFeedbackConstants.VIRTUAL_KEY
-            "VIRTUAL_KEY_RELEASE" -> HapticFeedbackConstants.VIRTUAL_KEY_RELEASE
-            "TEXT_HANDLE_MOVE" -> HapticFeedbackConstants.TEXT_HANDLE_MOVE
-            "CONFIRM" -> HapticFeedbackConstants.CONFIRM
-            "REJECT" -> HapticFeedbackConstants.REJECT
-            "DRAG_START" -> HapticFeedbackConstants.DRAG_START
-            "GESTURE_START" -> HapticFeedbackConstants.GESTURE_START
-            "GESTURE_END" -> HapticFeedbackConstants.GESTURE_END
-            "TOGGLE_OFF" -> HapticFeedbackConstants.TOGGLE_OFF
-            "TOGGLE_ON" -> HapticFeedbackConstants.TOGGLE_ON
-            else -> HapticFeedbackConstants.CLOCK_TICK
-        }
         homeActivity.runOnUiThread {
-            homeActivity.webView.performHapticFeedback(hapticType)
+            homeActivity.webView.performHapticFeedback(hapticFeedbackConstant(type))
         }
     }
 }

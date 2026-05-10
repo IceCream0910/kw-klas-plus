@@ -49,12 +49,7 @@ class LinkViewActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_link_view)
 
-        enableEdgeToEdge()
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
+        applyEdgeToEdgeInsets()
 
         onBackPressedCallback = object: OnBackPressedCallback(false) {
             override fun handleOnBackPressed() {
@@ -65,12 +60,7 @@ class LinkViewActivity : AppCompatActivity() {
         }
         onBackPressedDispatcher.addCallback(onBackPressedCallback)
 
-        // 모바일에서는 세로 모드 고정
-        if (isTablet(this)) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        } else {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
+        lockPortraitOnPhone()
 
         val url = intent.getStringExtra("url")?.let {
             val sanitizedUrl = Uri.parse(it).toString()
@@ -84,19 +74,18 @@ class LinkViewActivity : AppCompatActivity() {
             finish()
             return
         }
-        sessionId = intent.getStringExtra("sessionID").toString()
+        sessionId = intent.getStringExtra(IntentExtras.SESSION_ID).toString()
 
         webView = findViewById<WebView>(R.id.webView)
         loadingIndicator = findViewById(R.id.progressBar)
 
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.settings.allowFileAccess = true
-        webView.settings.allowContentAccess = true
-        webView.settings.supportMultipleWindows()
-        webView.setBackgroundColor(0)
-        webView.settings.javaScriptCanOpenWindowsAutomatically = true
-        webView.addJavascriptInterface(JavaScriptInterfaceForLinkView(this), "Android")
+        webView.configureAppWebView(
+            javaScriptInterface = JavaScriptInterfaceForLinkView(this),
+            allowFileAccess = true,
+            allowContentAccess = true,
+            javaScriptCanOpenWindowsAutomatically = true,
+            disableScrollBars = false
+        )
         if (url != null) {
             webView.loadUrl(url)
         }
@@ -354,7 +343,7 @@ class JavaScriptInterfaceForLinkView(private val activity: LinkViewActivity) {
         activity.runOnUiThread {
             val intent = Intent(activity, LinkViewActivity::class.java)
             intent.putExtra("url", url)
-            intent.putExtra("sessionId", activity.sessionId)
+            intent.putExtra(IntentExtras.SESSION_ID, activity.sessionId)
             activity.startActivity(intent)
         }
     }
@@ -364,7 +353,7 @@ class JavaScriptInterfaceForLinkView(private val activity: LinkViewActivity) {
         activity.runOnUiThread {
             val intent = Intent(activity, LctPlanActivity::class.java)
             intent.putExtra("subjID", id)
-            intent.putExtra("sessionId", activity.sessionId)
+            intent.putExtra(IntentExtras.LEGACY_SESSION_ID, activity.sessionId)
             activity.startActivity(intent)
         }
     }

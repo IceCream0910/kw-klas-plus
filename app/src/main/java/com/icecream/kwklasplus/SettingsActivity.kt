@@ -32,32 +32,29 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContentView(R.layout.activity_settings)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
+        applyEdgeToEdgeInsets()
 
-        val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
-        currentAppTheme = sharedPreferences.getString("appTheme", "system").toString()
-        savedYearHakgi = sharedPreferences.getString("yearHakgi", "").toString()
-        savedYearHakgiList = sharedPreferences.getString("yearHakgiList", "")?.split("&")?.toTypedArray()!!
+        sharedPreferences = appPreferences
+        currentAppTheme = sharedPreferences.getString(AppPrefs.APP_THEME, "system").toString()
+        savedYearHakgi = sharedPreferences.getString(AppPrefs.YEAR_HAKGI, "").toString()
+        savedYearHakgiList = sharedPreferences.getString(AppPrefs.YEAR_HAKGI_LIST, "")
+            .orEmpty()
+            .split("&")
+            .toTypedArray()
 
         val pInfo: PackageInfo =
             baseContext.packageManager.getPackageInfo(baseContext.packageName, 0)
         appVersion = pInfo.versionName.toString()
 
         webView = findViewById(R.id.webView)
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.settings.allowFileAccess = true
-        webView.settings.allowContentAccess = true
-        webView.settings.supportMultipleWindows()
-        webView.setBackgroundColor(0)
-        webView.settings.javaScriptCanOpenWindowsAutomatically = true
-        webView.addJavascriptInterface(JavaScriptInterfaceForSettings(this), "Android")
+        webView.configureAppWebView(
+            javaScriptInterface = JavaScriptInterfaceForSettings(this),
+            allowFileAccess = true,
+            allowContentAccess = true,
+            javaScriptCanOpenWindowsAutomatically = true,
+            disableScrollBars = false
+        )
         webView.webChromeClient = object : WebChromeClient() {
             override fun onJsAlert(
                 view: WebView?,
@@ -101,7 +98,7 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
-        webView.loadUrl("https://klasplus.yuntae.in/settings")
+        webView.loadUrl(AppUrls.SETTINGS)
     }
 
 
@@ -119,9 +116,8 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun updateYearHakgi(selectedYearHakgi: String) {
         savedYearHakgi = selectedYearHakgi
-        val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
         val editor: SharedPreferences.Editor = sharedPreferences.edit()
-        editor.putString("yearHakgi", selectedYearHakgi)
+        editor.putString(AppPrefs.YEAR_HAKGI, selectedYearHakgi)
         editor.apply()
         webView.evaluateJavascript(
             "window.receiveYearHakgi('$selectedYearHakgi')",
@@ -156,9 +152,8 @@ class JavaScriptInterfaceForSettings(private val activity: SettingsActivity) {
                 "system" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
                 else -> return@runOnUiThread
             }
-            val sharedPreferences = activity.getSharedPreferences("com.icecream.kwklasplus", AppCompatActivity.MODE_PRIVATE)
-            with(sharedPreferences.edit()) {
-                putString("appTheme", type)
+            with(activity.appPreferences.edit()) {
+                putString(AppPrefs.APP_THEME, type)
                 apply()
             }
         }
@@ -189,25 +184,8 @@ fun openLibraryQRSettingsModal() {
 
     @JavascriptInterface
     fun performHapticFeedback(type: String) {
-        val hapticType = when (type) {
-            "CLOCK_TICK" -> HapticFeedbackConstants.CLOCK_TICK
-            "KEYBOARD_TAP" -> HapticFeedbackConstants.KEYBOARD_TAP
-            "KEYBOARD_RELEASE" -> HapticFeedbackConstants.KEYBOARD_RELEASE
-            "LONG_PRESS" -> HapticFeedbackConstants.LONG_PRESS
-            "VIRTUAL_KEY" -> HapticFeedbackConstants.VIRTUAL_KEY
-            "VIRTUAL_KEY_RELEASE" -> HapticFeedbackConstants.VIRTUAL_KEY_RELEASE
-            "TEXT_HANDLE_MOVE" -> HapticFeedbackConstants.TEXT_HANDLE_MOVE
-            "CONFIRM" -> HapticFeedbackConstants.CONFIRM
-            "REJECT" -> HapticFeedbackConstants.REJECT
-            "DRAG_START" -> HapticFeedbackConstants.DRAG_START
-            "GESTURE_START" -> HapticFeedbackConstants.GESTURE_START
-            "GESTURE_END" -> HapticFeedbackConstants.GESTURE_END
-            "TOGGLE_OFF" -> HapticFeedbackConstants.TOGGLE_OFF
-            "TOGGLE_ON" -> HapticFeedbackConstants.TOGGLE_ON
-            else -> HapticFeedbackConstants.CLOCK_TICK
-        }
         activity.runOnUiThread {
-            activity.webView.performHapticFeedback(hapticType)
+            activity.webView.performHapticFeedback(hapticFeedbackConstant(type))
         }
     }
 }

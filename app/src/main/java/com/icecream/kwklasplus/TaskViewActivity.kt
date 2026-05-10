@@ -54,12 +54,7 @@ class TaskViewActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_task_view)
 
-        enableEdgeToEdge()
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
+        applyEdgeToEdgeInsets()
 
         onBackPressedCallback = object: OnBackPressedCallback(false) {
             override fun handleOnBackPressed() {
@@ -70,15 +65,10 @@ class TaskViewActivity : AppCompatActivity() {
         }
         onBackPressedDispatcher.addCallback(onBackPressedCallback)
 
-        // 모바일에서는 세로 모드 고정
-        if (isTablet(this)) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        } else {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
+        lockPortraitOnPhone()
 
         val url = intent.getStringExtra("url")?.let {
-            val sanitizedUrl = "https://klas.kw.ac.kr"+Uri.parse(it).toString()
+            val sanitizedUrl = AppUrls.KLAS_BASE + Uri.parse(it).toString()
             if (URLUtil.isValidUrl(sanitizedUrl)) {
                 sanitizedUrl
             } else {
@@ -89,9 +79,9 @@ class TaskViewActivity : AppCompatActivity() {
             finish()
             return
         }
-        val yearHakgi = intent.getStringExtra("yearHakgi")
-        val subj = intent.getStringExtra("subj")
-        var sessionId = intent.getStringExtra("sessionID")
+        val yearHakgi = intent.getStringExtra(IntentExtras.YEAR_HAKGI)
+        val subj = intent.getStringExtra(IntentExtras.SUBJECT)
+        var sessionId = intent.getStringExtra(IntentExtras.SESSION_ID)
 
         swipeLayout = findViewById<SwipeRefreshLayout>(R.id.swipeLayout)
 
@@ -102,12 +92,13 @@ class TaskViewActivity : AppCompatActivity() {
         webView = findViewById<WebView>(R.id.webView)
         loadingIndicator = findViewById(R.id.progressBar)
 
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.settings.allowFileAccess = true
-        webView.settings.allowContentAccess = true
-        webView.settings.supportMultipleWindows()
-        webView.settings.javaScriptCanOpenWindowsAutomatically = true
+        webView.configureAppWebView(
+            allowFileAccess = true,
+            allowContentAccess = true,
+            javaScriptCanOpenWindowsAutomatically = true,
+            transparentBackground = false,
+            disableScrollBars = false
+        )
         webView.loadUrl(url)
 
         var isOpenVideoAcitivity = false
@@ -115,9 +106,9 @@ class TaskViewActivity : AppCompatActivity() {
         if(url!=null && url.contains("OnlineCntntsStdPage.do")) {
             isOpenVideoAcitivity = true
             val intent = Intent(this@TaskViewActivity, VideoPlayerActivity::class.java)
-            intent.putExtra("sessionID", sessionId)
-            intent.putExtra("subj", subj)
-            intent.putExtra("yearHakgi", yearHakgi)
+            intent.putExtra(IntentExtras.SESSION_ID, sessionId)
+            intent.putExtra(IntentExtras.SUBJECT, subj)
+            intent.putExtra(IntentExtras.YEAR_HAKGI, yearHakgi)
             finish()
             startActivity(intent)
         }
@@ -187,9 +178,9 @@ class TaskViewActivity : AppCompatActivity() {
                             null
                         )
                         val intent = Intent(this@TaskViewActivity, VideoPlayerActivity::class.java)
-                        intent.putExtra("sessionID", sessionId)
-                        intent.putExtra("subj", subj)
-                        intent.putExtra("yearHakgi", yearHakgi)
+                        intent.putExtra(IntentExtras.SESSION_ID, sessionId)
+                        intent.putExtra(IntentExtras.SUBJECT, subj)
+                        intent.putExtra(IntentExtras.YEAR_HAKGI, yearHakgi)
                         finish()
                         startActivity(intent)
                     }

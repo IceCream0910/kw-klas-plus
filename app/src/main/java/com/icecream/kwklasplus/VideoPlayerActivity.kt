@@ -98,19 +98,9 @@ class VideoPlayerActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_video_player)
 
-        enableEdgeToEdge()
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
+        applyEdgeToEdgeInsets()
 
-        // 모바일에서는 세로 모드 고정
-        if (isTablet(this)) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        } else {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
+        lockPortraitOnPhone()
 
         lectureNameTextView = findViewById(R.id.lectureNameTextView)
         lectureTimeTextView = findViewById(R.id.lectureTimeTextView)
@@ -203,43 +193,40 @@ class VideoPlayerActivity : AppCompatActivity() {
                 .show()
         }
 
-        subj = intent.getStringExtra("subj").toString()
-        yearHakgi = intent.getStringExtra("yearHakgi").toString()
-        sessionId = intent.getStringExtra("sessionID").toString()
+        subj = intent.getStringExtra(IntentExtras.SUBJECT).toString()
+        yearHakgi = intent.getStringExtra(IntentExtras.YEAR_HAKGI).toString()
+        sessionId = intent.getStringExtra(IntentExtras.SESSION_ID).toString()
 
         listWebView = findViewById<BackgroundWebView>(R.id.listWebView)
         KLASWebView = findViewById<BackgroundWebView>(R.id.KLASWebView)
         VideoWebView = findViewById<BackgroundWebView>(R.id.VideoWebView)
 
-        listWebView.settings.javaScriptEnabled = true
-        listWebView.settings.domStorageEnabled = true
-        listWebView.settings.allowFileAccess = true
-        listWebView.settings.allowContentAccess = true
-        listWebView.settings.supportMultipleWindows()
-        listWebView.setBackgroundColor(0)
-        listWebView.settings.javaScriptCanOpenWindowsAutomatically = true
-        listWebView.addJavascriptInterface(WebAppInterface(this), "Android")
-        listWebView.loadUrl("https://klasplus.yuntae.in/onlineLecture")
+        listWebView.configureAppWebView(
+            javaScriptInterface = WebAppInterface(this),
+            allowFileAccess = true,
+            allowContentAccess = true,
+            javaScriptCanOpenWindowsAutomatically = true,
+            disableScrollBars = false
+        )
+        listWebView.loadUrl(AppUrls.ONLINE_LECTURE)
 
-        KLASWebView.settings.javaScriptEnabled = true
-        KLASWebView.settings.domStorageEnabled = true
-        KLASWebView.settings.allowFileAccess = true
-        KLASWebView.settings.allowContentAccess = true
-        KLASWebView.settings.supportMultipleWindows()
-        KLASWebView.setBackgroundColor(0)
-        KLASWebView.settings.javaScriptCanOpenWindowsAutomatically = true
-        KLASWebView.addJavascriptInterface(WebAppInterface(this), "Android")
-        KLASWebView.loadUrl("https://klas.kw.ac.kr/std/lis/evltn/OnlineCntntsStdPage.do")
+        KLASWebView.configureAppWebView(
+            javaScriptInterface = WebAppInterface(this),
+            allowFileAccess = true,
+            allowContentAccess = true,
+            javaScriptCanOpenWindowsAutomatically = true,
+            disableScrollBars = false
+        )
+        KLASWebView.loadUrl(AppUrls.KLAS_ONLINE_CONTENTS)
 
-        VideoWebView.settings.javaScriptEnabled = true
-        VideoWebView.settings.domStorageEnabled = true
-        VideoWebView.settings.allowFileAccess = true
-        VideoWebView.settings.allowContentAccess = true
-        VideoWebView.settings.mediaPlaybackRequiresUserGesture = false
-        VideoWebView.settings.supportMultipleWindows()
-        VideoWebView.setBackgroundColor(0)
-        VideoWebView.settings.javaScriptCanOpenWindowsAutomatically = true
-        VideoWebView.addJavascriptInterface(WebAppInterface(this), "Android")
+        VideoWebView.configureAppWebView(
+            javaScriptInterface = WebAppInterface(this),
+            allowFileAccess = true,
+            allowContentAccess = true,
+            javaScriptCanOpenWindowsAutomatically = true,
+            disableScrollBars = false,
+            mediaPlaybackRequiresUserGesture = false
+        )
 
 
         listLayout = findViewById(R.id.listLayout)
@@ -926,25 +913,8 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
 
     @JavascriptInterface
     fun performHapticFeedback(type: String) {
-        val hapticType = when (type) {
-            "CLOCK_TICK" -> HapticFeedbackConstants.CLOCK_TICK
-            "KEYBOARD_TAP" -> HapticFeedbackConstants.KEYBOARD_TAP
-            "KEYBOARD_RELEASE" -> HapticFeedbackConstants.KEYBOARD_RELEASE
-            "LONG_PRESS" -> HapticFeedbackConstants.LONG_PRESS
-            "VIRTUAL_KEY" -> HapticFeedbackConstants.VIRTUAL_KEY
-            "VIRTUAL_KEY_RELEASE" -> HapticFeedbackConstants.VIRTUAL_KEY_RELEASE
-            "TEXT_HANDLE_MOVE" -> HapticFeedbackConstants.TEXT_HANDLE_MOVE
-            "CONFIRM" -> HapticFeedbackConstants.CONFIRM
-            "REJECT" -> HapticFeedbackConstants.REJECT
-            "DRAG_START" -> HapticFeedbackConstants.DRAG_START
-            "GESTURE_START" -> HapticFeedbackConstants.GESTURE_START
-            "GESTURE_END" -> HapticFeedbackConstants.GESTURE_END
-            "TOGGLE_OFF" -> HapticFeedbackConstants.TOGGLE_OFF
-            "TOGGLE_ON" -> HapticFeedbackConstants.TOGGLE_ON
-            else -> HapticFeedbackConstants.CLOCK_TICK
-        }
         videoPlayerActivity.runOnUiThread {
-            videoPlayerActivity.listWebView.performHapticFeedback(hapticType)
+            videoPlayerActivity.listWebView.performHapticFeedback(hapticFeedbackConstant(type))
         }
     }
 }

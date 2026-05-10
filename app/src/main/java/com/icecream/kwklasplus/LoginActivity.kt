@@ -54,18 +54,9 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
-        enableEdgeToEdge()
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
+        applyEdgeToEdgeInsets()
 
-        if (isTablet(this)) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        } else {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
+        lockPortraitOnPhone()
 
         webView = findViewById(R.id.onboarding_webView)
         clOnboarding = findViewById(R.id.clOnboarding)
@@ -82,12 +73,8 @@ class LoginActivity : AppCompatActivity() {
         forgetPwdBtn= findViewById(R.id.forgetPwdBtn)
         registerBtn = findViewById(R.id.registerBtn)
 
-        webView.loadUrl("https://klasplus.yuntae.in/onboarding")
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.isVerticalScrollBarEnabled = false
-        webView.isHorizontalScrollBarEnabled = false
-        webView.setBackgroundColor(0)
+        webView.configureAppWebView()
+        webView.loadUrl(AppUrls.ONBOARDING)
 
         cbAgree.setOnCheckedChangeListener { _, _ ->
             updateLoginButtonState()
@@ -108,21 +95,21 @@ class LoginActivity : AppCompatActivity() {
         forgetIdBtn.setOnClickListener {
             val intent = Intent(this, LinkViewActivity::class.java)
             intent.putExtra("url", "https://klas.kw.ac.kr/usr/cmn/login/modal/UserFindMemberNoPage.do")
-            intent.putExtra("sessionID", "")
+            intent.putExtra(IntentExtras.SESSION_ID, "")
             this.startActivity(intent)
         }
 
         forgetPwdBtn.setOnClickListener {
             val intent = Intent(this, LinkViewActivity::class.java)
             intent.putExtra("url", "https://klas.kw.ac.kr/usr/cmn/login/modal/UserFindPwdPage.do")
-            intent.putExtra("sessionID", "")
+            intent.putExtra(IntentExtras.SESSION_ID, "")
             this.startActivity(intent)
         }
 
         registerBtn.setOnClickListener {
             val intent = Intent(this, LinkViewActivity::class.java)
             intent.putExtra("url", "https://klas.kw.ac.kr/usr/cmn/login/modal/UserFrstModPwdPage.do")
-            intent.putExtra("sessionID", "")
+            intent.putExtra(IntentExtras.SESSION_ID, "")
             this.startActivity(intent)
         }
 
@@ -226,12 +213,12 @@ class LoginActivity : AppCompatActivity() {
 
     private fun encrypt(id: String, str: String) {
         Thread {
-            val client = OkHttpClient()
+            val client = AppHttpClient.default
 
             val mediaType = "application/json".toMediaTypeOrNull()
             val body = RequestBody.create(mediaType, "{\"loginPwd\": \"$str\"}")
             val request = Request.Builder()
-                .url("https://klas.kw.ac.kr/mst/cmn/login/SelectScrtyPwd.do")
+                .url(AppUrls.KLAS_PASSWORD_ENCRYPT)
                 .post(body)
                 .build()
 
@@ -250,10 +237,10 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun saveLoginInfo(id: String, pwd: String) {
-        val sharedPreferences = getSharedPreferences("com.icecream.kwklasplus", MODE_PRIVATE)
+        val sharedPreferences = appPreferences
         with(sharedPreferences.edit()) {
-            putString("kwID", id)
-            putString("kwPWD", pwd)
+            putString(AppPrefs.KW_ID, id)
+            putString(AppPrefs.KW_PASSWORD, pwd)
             apply()
         }
 

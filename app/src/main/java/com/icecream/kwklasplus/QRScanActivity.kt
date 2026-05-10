@@ -35,15 +35,10 @@ class QRScanActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_qrscan)
-        enableEdgeToEdge()
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
+        applyEdgeToEdgeInsets()
 
-        bodyJSON = JSONObject(intent.getStringExtra("bodyJSON")!!)
-        sessionId = intent.getStringExtra("sessionID")!!
+        bodyJSON = JSONObject(intent.getStringExtra(IntentExtras.BODY_JSON)!!)
+        sessionId = intent.getStringExtra(IntentExtras.SESSION_ID)!!
 
         val options = GmsBarcodeScannerOptions.Builder()
             .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
@@ -119,18 +114,11 @@ class QRScanActivity : AppCompatActivity() {
 
     fun checkin(id: String, body: JSONObject, callback: (CheckinResult) -> Unit) {
         Thread {
-            val client = OkHttpClient()
+            val client = AppHttpClient.default
             body.put("encrypt", id)
             val requestBody = RequestBody.create("application/json".toMediaTypeOrNull(), body.toString())
 
-            val defaultUserAgent = WebSettings.getDefaultUserAgent(this)
-            val request = Request.Builder()
-                .url("https://klas.kw.ac.kr/mst/ads/admst/KwAttendQRCodeInsert.do")
-                .header("Content-Type", "application/json")
-                .header("Cookie", "SESSION=$sessionId")
-                .header("User-Agent", "$defaultUserAgent NuriwareApp")
-                .post(requestBody)
-                .build()
+            val request = buildKlasJsonRequest(AppUrls.KLAS_QR_CHECKIN, sessionId, requestBody)
 
             try {
                 val response = client.newCall(request).execute()

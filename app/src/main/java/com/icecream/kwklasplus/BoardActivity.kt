@@ -55,12 +55,7 @@ class BoardActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_board)
-        enableEdgeToEdge()
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
+        applyEdgeToEdgeInsets()
 
         onBackPressedCallback = object: OnBackPressedCallback(false) {
             override fun handleOnBackPressed() {
@@ -71,17 +66,12 @@ class BoardActivity : AppCompatActivity() {
         }
         onBackPressedDispatcher.addCallback(onBackPressedCallback)
 
-        // 모바일에서는 세로 모드 고정
-        if (isTablet(this)) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        } else {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
+        lockPortraitOnPhone()
 
         val type = intent.getStringExtra("type").toString()
-        sessionId = intent.getStringExtra("sessionID").toString()
-        yearHakgi = intent.getStringExtra("yearHakgi").toString()
-        subjID = intent.getStringExtra("subjID").toString()
+        sessionId = intent.getStringExtra(IntentExtras.SESSION_ID).toString()
+        yearHakgi = intent.getStringExtra(IntentExtras.YEAR_HAKGI).toString()
+        subjID = intent.getStringExtra(IntentExtras.SUBJECT_ID).toString()
         title = intent.getStringExtra("title").toString()
         path = intent.getStringExtra("path").toString()
 
@@ -92,22 +82,19 @@ class BoardActivity : AppCompatActivity() {
         }
 
         webView = findViewById<WebView>(R.id.webView)
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.settings.allowFileAccess = true
-        webView.settings.allowContentAccess = true
-        webView.setBackgroundColor(0)
-        webView.settings.javaScriptCanOpenWindowsAutomatically = true
-        webView.isVerticalScrollBarEnabled = false
-        webView.isHorizontalScrollBarEnabled = false
-        webView.addJavascriptInterface(JavaScriptInterfaceForBoard(this), "Android")
+        webView.configureAppWebView(
+            javaScriptInterface = JavaScriptInterfaceForBoard(this),
+            allowFileAccess = true,
+            allowContentAccess = true,
+            javaScriptCanOpenWindowsAutomatically = true
+        )
 
         if(type == "list") {
-            webView.loadUrl("https://klasplus.yuntae.in/boardList?title=$title")
+            webView.loadUrl("${AppUrls.KLAS_PLUS_BASE}/boardList?title=$title")
         } else if(type == "view"){
             boardNo = intent.getStringExtra("boardNo").toString()
             masterNo = intent.getStringExtra("masterNo").toString()
-            webView.loadUrl("https://klasplus.yuntae.in/boardView?boardNo=$boardNo&masterNo=$masterNo")
+            webView.loadUrl("${AppUrls.KLAS_PLUS_BASE}/boardView?boardNo=$boardNo&masterNo=$masterNo")
         } else {
             var builder = MaterialAlertDialogBuilder(this)
             builder.setTitle("안내")
@@ -334,7 +321,7 @@ class JavaScriptInterfaceForBoard(private val activity: BoardActivity) {
         activity.runOnUiThread {
             val intent = Intent(activity, LinkViewActivity::class.java)
             intent.putExtra("url", url)
-            intent.putExtra("sessionId", activity.sessionId)
+            intent.putExtra(IntentExtras.SESSION_ID, activity.sessionId)
             activity.startActivity(intent)
         }
     }

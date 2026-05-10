@@ -12,8 +12,8 @@ android {
         applicationId = "com.icecream.kwklasplus"
         minSdk = 29
         targetSdk = 36
-        versionCode = 29
-        versionName = "1.1.12"
+        versionCode = 30
+        versionName = "1.1.13"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -21,6 +21,9 @@ android {
 
     buildTypes {
         release {
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
