@@ -101,6 +101,7 @@ class HomeActivity : AppCompatActivity() {
     lateinit var onBackPressedCallback: OnBackPressedCallback
     var main: androidx.appcompat.widget.LinearLayoutCompat? = null
     private var webViewOriginalHeight: Int = ViewGroup.LayoutParams.MATCH_PARENT
+    private var backPressedTime: Long = 0L
 
     private lateinit var appUpdateManager: AppUpdateManager
     private val MY_REQUEST_CODE = 1001
@@ -128,8 +129,13 @@ class HomeActivity : AppCompatActivity() {
                 if (isOpenWebViewBottomSheet) {
                     webView.evaluateJavascript("window.closeWebViewBottomSheet();", null)
                 } else {
-                    finishAffinity()
-                    exitProcess(0)
+                    if (System.currentTimeMillis() > backPressedTime + 2000) {
+                        backPressedTime = System.currentTimeMillis()
+                        Toast.makeText(this@HomeActivity, "한 번 더 뒤로 가면 앱이 꺼져요.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        finishAffinity()
+                        exitProcess(0)
+                    }
                 }
             }
         }
