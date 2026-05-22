@@ -84,6 +84,18 @@ import java.util.Date
 import java.util.Locale
 import kotlin.system.exitProcess
 
+internal fun findYearHakgiIndex(subjectListBySemester: JSONArray, selectedYearHakgi: String): Int {
+    if (subjectListBySemester.length() == 0) return -1
+    if (selectedYearHakgi.isBlank()) return 0
+
+    for (i in 0 until subjectListBySemester.length()) {
+        if (subjectListBySemester.getJSONObject(i).optString("value") == selectedYearHakgi) {
+            return i
+        }
+    }
+    return 0
+}
+
 
 class HomeActivity : AppCompatActivity() {
     @SuppressLint("MissingInflatedId")
@@ -630,11 +642,14 @@ class HomeActivity : AppCompatActivity() {
         }
 
         fetchSubjectList(sessionId) { jsonArray ->
-            val jsonObject = jsonArray.getJSONObject(0)
-            val subjList = jsonObject.getJSONArray("subjList")
+            val selectedSubjList = resolveSelectedSubjList(jsonArray)
+            if (selectedSubjList == null) {
+                runOnUiThread { hideLoading() }
+                return@fetchSubjectList
+            }
             CoroutineScope(Dispatchers.IO).launch {
                 launch { getTimetableData(sessionId) }
-                launch { fetchDeadlines(sessionId, subjList) }
+                launch { fetchDeadlines(sessionId, selectedSubjList) }
             }.invokeOnCompletion {
                 runOnUiThread {
                     reloadCurrentTab()
@@ -664,11 +679,14 @@ class HomeActivity : AppCompatActivity() {
         }
 
         fetchSubjectList(sessionId) { jsonArray ->
-            val jsonObject = jsonArray.getJSONObject(0)
-            val subjList = jsonObject.getJSONArray("subjList")
+            val selectedSubjList = resolveSelectedSubjList(jsonArray)
+            if (selectedSubjList == null) {
+                runOnUiThread { hideLoading() }
+                return@fetchSubjectList
+            }
             CoroutineScope(Dispatchers.IO).launch {
                 launch { getTimetableData(sessionId) }
-                launch { fetchDeadlines(sessionId, subjList) }
+                launch { fetchDeadlines(sessionId, selectedSubjList) }
             }.invokeOnCompletion {
                 runOnUiThread {
                     initWebView()
@@ -679,6 +697,19 @@ class HomeActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun resolveSelectedSubjList(jsonArray: JSONArray): JSONArray? {
+        val yearHakgiIndex = findYearHakgiIndex(jsonArray, yearHakgi)
+        if (yearHakgiIndex < 0) return null
+
+        val jsonObject = jsonArray.getJSONObject(yearHakgiIndex)
+        val selectedYearHakgi = jsonObject.optString("value", yearHakgi)
+        if (selectedYearHakgi != yearHakgi) {
+            yearHakgi = selectedYearHakgi
+            appPreferences.edit().putString(AppPrefs.YEAR_HAKGI, yearHakgi).apply()
+        }
+        return jsonObject.getJSONArray("subjList")
     }
 
     private suspend fun fetchDeadlines(sessionId: String, subjList: JSONArray) {
