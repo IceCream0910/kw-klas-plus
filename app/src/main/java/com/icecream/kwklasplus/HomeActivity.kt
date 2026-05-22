@@ -84,6 +84,18 @@ import java.util.Date
 import java.util.Locale
 import kotlin.system.exitProcess
 
+internal fun findYearHakgiIndex(subjectListBySemester: JSONArray, selectedYearHakgi: String): Int {
+    if (subjectListBySemester.length() == 0) return -1
+    if (selectedYearHakgi.isBlank()) return 0
+
+    for (i in 0 until subjectListBySemester.length()) {
+        if (subjectListBySemester.getJSONObject(i).optString("value") == selectedYearHakgi) {
+            return i
+        }
+    }
+    return 0
+}
+
 
 class HomeActivity : AppCompatActivity() {
     @SuppressLint("MissingInflatedId")
@@ -630,7 +642,15 @@ class HomeActivity : AppCompatActivity() {
         }
 
         fetchSubjectList(sessionId) { jsonArray ->
-            val jsonObject = jsonArray.getJSONObject(0)
+            val yearHakgiIndex = findYearHakgiIndex(jsonArray, yearHakgi)
+            if (yearHakgiIndex < 0) {
+                runOnUiThread { hideLoading() }
+                return@fetchSubjectList
+            }
+
+            val jsonObject = jsonArray.getJSONObject(yearHakgiIndex)
+            yearHakgi = jsonObject.optString("value", yearHakgi)
+            appPreferences.edit().putString(AppPrefs.YEAR_HAKGI, yearHakgi).apply()
             val subjList = jsonObject.getJSONArray("subjList")
             CoroutineScope(Dispatchers.IO).launch {
                 launch { getTimetableData(sessionId) }
@@ -664,7 +684,15 @@ class HomeActivity : AppCompatActivity() {
         }
 
         fetchSubjectList(sessionId) { jsonArray ->
-            val jsonObject = jsonArray.getJSONObject(0)
+            val yearHakgiIndex = findYearHakgiIndex(jsonArray, yearHakgi)
+            if (yearHakgiIndex < 0) {
+                runOnUiThread { hideLoading() }
+                return@fetchSubjectList
+            }
+
+            val jsonObject = jsonArray.getJSONObject(yearHakgiIndex)
+            yearHakgi = jsonObject.optString("value", yearHakgi)
+            appPreferences.edit().putString(AppPrefs.YEAR_HAKGI, yearHakgi).apply()
             val subjList = jsonObject.getJSONArray("subjList")
             CoroutineScope(Dispatchers.IO).launch {
                 launch { getTimetableData(sessionId) }
