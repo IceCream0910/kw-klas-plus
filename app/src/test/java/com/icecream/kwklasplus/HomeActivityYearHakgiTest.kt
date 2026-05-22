@@ -30,7 +30,7 @@ class HomeActivityYearHakgiTest {
     }
 
     @Test
-    fun `findYearHakgiIndex returns minus one when semester list empty`() {
+    fun `findYearHakgiIndex returns negative one when semester list empty`() {
         val index = findYearHakgiIndex(JSONArray(), "2026,1")
 
         assertEquals(-1, index)
