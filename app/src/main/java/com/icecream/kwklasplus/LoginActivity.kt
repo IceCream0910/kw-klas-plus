@@ -54,7 +54,10 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
-        applyEdgeToEdgeInsets()
+        applyEdgeToEdgeInsets(R.id.main) { insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime())
+            findViewById<View>(R.id.main).setPadding(bars.left, bars.top, bars.right, bars.bottom)
+        }
 
         lockPortraitOnPhone()
 
@@ -90,6 +93,10 @@ class LoginActivity : AppCompatActivity() {
             clOnboarding.visibility = View.GONE
             clLogin.visibility = View.VISIBLE
             etId.requestFocus()
+            etId.post {
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.showSoftInput(etId, InputMethodManager.SHOW_IMPLICIT)
+            }
         }
 
         forgetIdBtn.setOnClickListener {
