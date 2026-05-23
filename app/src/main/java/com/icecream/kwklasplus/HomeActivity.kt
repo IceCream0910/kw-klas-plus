@@ -1,6 +1,5 @@
 package com.icecream.kwklasplus
 
-import LibraryQRModal
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.SharedPreferences
@@ -13,6 +12,7 @@ import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Bundle
+import android.util.Base64
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Gravity
@@ -62,6 +62,9 @@ import com.google.android.play.core.install.InstallStateUpdatedListener
 import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.InstallStatus
 import com.google.android.play.core.install.model.UpdateAvailability
+import com.icecream.kwklasplus.manager.LibraryManager
+import com.icecream.kwklasplus.modal.LibraryQRModal
+import com.icecream.kwklasplus.modal.LibraryQRSettingsBottomSheetDialog
 import com.icecream.kwklasplus.modal.MenuBottomSheetDialog
 import com.icecream.kwklasplus.modal.WebViewBottomSheetDialog
 import com.icecream.kwklasplus.modal.YearHakgiBottomSheetDialog
@@ -69,19 +72,31 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Runnable
+import kotlinx.coroutines.async
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import okhttp3.FormBody
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import org.jsoup.Jsoup
+import org.xmlpull.v1.XmlPullParser
+import org.xmlpull.v1.XmlPullParserFactory
+import java.io.IOException
+import java.io.StringReader
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import javax.crypto.Cipher
+import javax.crypto.spec.IvParameterSpec
+import javax.crypto.spec.SecretKeySpec
+import kotlin.coroutines.resume
 import kotlin.system.exitProcess
 
 internal fun findYearHakgiIndex(subjectListBySemester: JSONArray, selectedYearHakgi: String): Int {
@@ -114,6 +129,7 @@ class HomeActivity : AppCompatActivity() {
     var main: androidx.appcompat.widget.LinearLayoutCompat? = null
     private var webViewOriginalHeight: Int = ViewGroup.LayoutParams.MATCH_PARENT
     private var backPressedTime: Long = 0L
+    private var originalBrightness: Float = -1f
 
     private lateinit var appUpdateManager: AppUpdateManager
     private val MY_REQUEST_CODE = 1001
@@ -1237,6 +1253,120 @@ class HomeActivity : AppCompatActivity() {
         return if (currentMonth < 7) "1" else "2" // 8월 기준
     }
 
+    fun requestIdCardQRValue() {
+        setBrightness(true)
+        var idCardQR = "pending"
+        var libraryQR = "pending"
+
+        fun notifyWebView() {
+            webView.evaluateJavascript(
+                "javascript:window.receiveIdCardQRValue('$libraryQR', '$idCardQR')",
+                null
+            )
+        }
+
+        CoroutineScope(Dispatchers.Main).launch {
+            Log.e("taein", "Start fetching id card qr values: $sessionIdForOtherClass")
+
+            launch {
+                idCardQR = fetchIdCardQRFromWebView()
+                notifyWebView()
+            }
+
+            launch {
+                libraryQR = try {
+                    fetchLibraryQRCodeValue()
+                } catch (e: Exception) {
+                    Log.e("HomeActivity", "fetchLibraryQRCodeValue error: ${e.message}")
+                    ""
+                }
+                notifyWebView()
+            }
+        }
+    }
+
+    private suspend fun fetchIdCardQRFromWebView(): String = suspendCancellableCoroutine { continuation ->
+        val bgWebView = WebView(this@HomeActivity)
+        bgWebView.settings.javaScriptEnabled = true
+
+        bgWebView.webViewClient = object : WebViewClient() {
+            private var isFinished = false
+
+            override fun shouldInterceptRequest(
+                view: WebView?,
+                request: android.webkit.WebResourceRequest?
+            ): android.webkit.WebResourceResponse? {
+                val url = request?.url?.toString() ?: ""
+                if (url.contains("myidv2_main.php") && url.contains("menu=qid")) {
+                    try {
+                        val client = OkHttpClient()
+                        val cookies = android.webkit.CookieManager.getInstance().getCookie(url)
+                        val newRequest = Request.Builder()
+                            .url(url)
+                            .addHeader("Cookie", cookies ?: "")
+                            .build()
+                        
+                        val response = client.newCall(newRequest).execute()
+                        val bodyString = response.body?.string() ?: ""
+                        Log.e("taein", "$bodyString")
+                        
+                        val regex = Regex("""text:\s*"([^"]+)"""")
+                        val match = regex.find(bodyString)
+                        val qrValue = match?.groupValues?.get(1) ?: ""
+                        
+                        Log.e("taein", "Extracted QR: $qrValue")
+                        if (qrValue.isNotEmpty()) {
+                            finishWith(qrValue)
+                        }
+
+                        return android.webkit.WebResourceResponse(
+                            "text/html",
+                            "utf-8",
+                            bodyString.byteInputStream()
+                        )
+                    } catch (e: Exception) {
+                        Log.e("HomeActivity", "Intercept error: ${e.message}")
+                    }
+                }
+                return super.shouldInterceptRequest(view, request)
+            }
+
+            override fun onReceivedError(
+                view: WebView?,
+                request: android.webkit.WebResourceRequest?,
+                error: android.webkit.WebResourceError?
+            ) {
+                if (request?.isForMainFrame == true) {
+                    finishWith("")
+                }
+            }
+
+            private fun finishWith(value: String) {
+                if (!isFinished) {
+                    isFinished = true
+                    if (continuation.isActive) {
+                        continuation.resume(value)
+                    }
+                    bgWebView.post { bgWebView.destroy() }
+                }
+            }
+        }
+
+        bgWebView.loadUrl("https://klas.kw.ac.kr/mst/sys/optrn/MyNumberQrStdPage.do")
+    }
+
+    private suspend fun fetchLibraryQRCodeValue(): String = withContext(Dispatchers.IO) {
+        val sharedPreferences = appPreferences
+        val stdNumber = sharedPreferences.getString(AppPrefs.LIBRARY_STD_NUMBER, null)
+        val phone = sharedPreferences.getString(AppPrefs.LIBRARY_PHONE, null)
+        val password = sharedPreferences.getString(AppPrefs.LIBRARY_PASSWORD, null)
+
+        if (stdNumber == null || phone == null || password == null) return@withContext ""
+
+        val libraryManager = LibraryManager(this@HomeActivity)
+        val qrData = libraryManager.getLibraryQrData(stdNumber, phone, password)
+        qrData?.optString("qr_code", "") ?: ""
+    }
 
     fun openLibraryQRModal() {
         val modal = LibraryQRModal(false)
@@ -1330,6 +1460,22 @@ class HomeActivity : AppCompatActivity() {
             )
         }
     }
+
+    fun setBrightness(isFull: Boolean) {
+        runOnUiThread {
+            val layoutParams = window.attributes
+            if (isFull) {
+                if (originalBrightness == -1f) {
+                    originalBrightness = layoutParams.screenBrightness
+                }
+                layoutParams.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
+            } else {
+                layoutParams.screenBrightness = if (originalBrightness != -1f) originalBrightness else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                originalBrightness = -1f
+            }
+            window.attributes = layoutParams
+        }
+    }
 }
 
 class JavaScriptInterface(private val homeActivity: HomeActivity) {
@@ -1389,6 +1535,14 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
     }
 
     @JavascriptInterface
+    fun openLibraryQRSettingsModal() {
+        homeActivity.runOnUiThread {
+            val settingsModal = com.icecream.kwklasplus.modal.LibraryQRSettingsBottomSheetDialog()
+            settingsModal.show(homeActivity.supportFragmentManager, "LibraryQRSettingsModal")
+        }
+    }
+
+    @JavascriptInterface
     fun openLectureActivity(subj: String, subjName: String) {
         homeActivity.runOnUiThread {
             homeActivity.loadingDialog.show()
@@ -1428,6 +1582,7 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
     @JavascriptInterface
     fun closeWebViewBottomSheet() {
         homeActivity.runOnUiThread {
+            homeActivity.setBrightness(false)
             homeActivity.isOpenWebViewBottomSheet = false
             try {
                 homeActivity.isKeyboardShowing = false
@@ -1480,6 +1635,13 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
     fun performHapticFeedback(type: String) {
         homeActivity.runOnUiThread {
             homeActivity.webView.performHapticFeedback(hapticFeedbackConstant(type))
+        }
+    }
+
+    @JavascriptInterface
+    fun requestIdCardQRValue() {
+        homeActivity.runOnUiThread {
+            homeActivity.requestIdCardQRValue()
         }
     }
 }

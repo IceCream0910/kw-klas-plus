@@ -1,12 +1,12 @@
 <resources>
     <string name="app_name">KLAS+</string>
     <string name="add_widget">위젯 추가</string>
-    <string name="app_widget_description">모바일 학생증 QR 코드를 홈 화면에서 빠르게 열 수 있어요.</string>
-    <string name="app_widget_name">모바일 학생증</string>
-    <string name="shortcut_qr_short_label">모바일 학생증</string>
-    <string name="shortcut_qr_long_label">모바일 학생증 QR 열기</string>
-    <string name="shortcut_qr_disabled_message">먼저 KLAS+ 앱에서 모바일 학생증을 설정해주세요.</string>
+    <string name="app_widget_description">중앙도서관 출입증 QR 코드를 홈 화면에서 빠르게 열 수 있어요.</string>
+    <string name="app_widget_name">중앙도서관 출입증</string>
+    <string name="shortcut_qr_short_label">중앙도서관 출입증</string>
+    <string name="shortcut_qr_long_label">중앙도서관 출입증</string>
+    <string name="shortcut_qr_disabled_message">먼저 KLAS+ 앱에서 중앙도서관 출입증을 설정해주세요.</string>
     <string name="shortcut_feedback_short_label">불편한 점이 있으셨나요?</string>
-    <string name="shortcut_feedback_long_label">앱 피드백 보내기</string>
+    <string name="shortcut_feedback_long_label">불편한 점이 있으셨나요?</string>
     <string name="shortcut_feedback_disabled_message">지금은 피드백을 보낼 수 없어요.</string>
 </resources>
