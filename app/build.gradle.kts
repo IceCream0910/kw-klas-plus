@@ -6,14 +6,14 @@ plugins {
 
 android {
     namespace = "com.icecream.kwklasplus"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.icecream.kwklasplus"
         minSdk = 29
-        targetSdk = 36
-        versionCode = 30
-        versionName = "1.1.13"
+        targetSdk = 37
+        versionCode = 31
+        versionName = "1.1.14"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
