@@ -4,15 +4,16 @@
 #### ⚠️ 주의 : 개인 사용 용도로 제작된 앱으로 학교의 공식 앱이 아닙니다. 불법적인 목적으로 사용 시 발생하는 불이익에 대해서 개발자는 어떠한 책임도 지지 않음을 밝힙니다.
 
 ## 설치
-[<img src="https://github.com/michaelbel/movies/raw/develop/config/images/badges/badge-github.svg" alt="" height="60">](https://github.com/icecream0910/kw-klas-plus/releases)
-[<img src="https://github.com/michaelbel/movies/raw/develop/config/images/badges/badge-googleplay.svg" alt="" height="60">](https://play.google.com/store/apps/details?id=com.icecream.kwklasplus)
+[<img src="https://play.google.com/intl/en_us/badges/images/generic/en_badge_web_generic.png?hl=ko" alt="" height="60">](https://play.google.com/store/apps/details?id=com.icecream.kwklasplus)
 
 ## 스크린샷
 <p align="center">
-    <img src="https://i.imgur.com/mKwd1Ae.png" width="24%">
-    <img src="https://i.imgur.com/wLz4Bri.png" width="24%">
-    <img src="https://i.imgur.com/fF9M5sn.png" width="24%">
-    <img src="https://i.imgur.com/X4kMSua.png" width="24%">
+    <img src="https://play-lh.googleusercontent.com/W_q7oyiU3uDJsFnWbKf3Ojb8DfcwLhzr1UzDq-WHGBqWhrbUZGf3G9w4pdXMDBC4ssH5DeTQs1RWGxPadUbv=w5120-h2880-rw" width="19%">
+    <img src="https://play-lh.googleusercontent.com/UaYvUQ4ECyy82kfpNdGQc3-tKKBx_gKJrL5rhyLqM6sxcX9zl8SRL4Pjkuf9f2K5mIC5BIp9UdqEESabAF0E=w5120-h2880-rw" width="19%">
+    <img src="https://play-lh.googleusercontent.com/RftWXABYEzIPvXys0ha9C7IUm3PhameDpAHWVvJRGmyKexWCG5NI6sitbmGkVd8mbaxQ8y4qJ_YaY7tW4KXxGA=w5120-h2880-rw" width="19%">
+    <img src="https://play-lh.googleusercontent.com/ra1c6PjMZuQ6SLJMRyklub_ZVU6mwKn36taSOoqSx4bJebaYVA3zAiMCG7l8MchdW8o5nKyfUErj62g_xIl-=w5120-h2880-rw" width="19%">
+    <img src="https://play-lh.googleusercontent.com/iGWWI7hvzbTDVdmntUrdB7jIsqvJWN5ur_yBJq4krVZVGT7kkfYJZcBkIPyO-aseKDkiE9WtPDeZ3TO2j4Wqd3M=w5120-h2880-rw" width="19%">
+    
 </p>
 
 ## 주요 기능
