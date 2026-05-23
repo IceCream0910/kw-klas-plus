@@ -1,6 +1,5 @@
 package com.icecream.kwklasplus.modal
 
-import LibraryQRModal
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageInfo

@@ -10,7 +10,7 @@
         android:id="@+id/title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="모바일 학생증 설정"
+        android:text="중앙도서관 출입증 설정"
         android:textSize="24dp"
         android:layout_marginBottom="24dp"
         android:textStyle="bold"/>
