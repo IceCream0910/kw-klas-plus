@@ -167,12 +167,12 @@ class JavaScriptInterfaceForSettings(private val activity: SettingsActivity) {
     }
 
     @JavascriptInterface
-fun openLibraryQRSettingsModal() {
-    activity.runOnUiThread {
-        val settingsModal = LibraryQRSettingsBottomSheetDialog()
-        settingsModal.show(activity.supportFragmentManager, "LibraryQRSettingsModal")
+    fun openLibraryQRSettingsModal() {
+        activity.runOnUiThread {
+            val settingsModal = LibraryQRSettingsBottomSheetDialog()
+            settingsModal.show(activity.supportFragmentManager, "LibraryQRSettingsModal")
+        }
     }
-}
 
     @JavascriptInterface
     fun openExternalLink(link: String) {

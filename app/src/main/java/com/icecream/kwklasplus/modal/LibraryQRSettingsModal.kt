@@ -24,6 +24,16 @@ class LibraryQRSettingsBottomSheetDialog() : BottomSheetDialogFragment() {
     private lateinit var phoneEditText: TextInputEditText
     private lateinit var saveButton: AnimatedButton
 
+    fun interface OnSaveCompleteListener {
+        fun onSaveComplete()
+    }
+
+    private var onSaveCompleteListener: OnSaveCompleteListener? = null
+
+    fun setOnSaveCompleteListener(listener: OnSaveCompleteListener) {
+        this.onSaveCompleteListener = listener
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -77,6 +87,7 @@ class LibraryQRSettingsBottomSheetDialog() : BottomSheetDialogFragment() {
 
             saveUserData(newStdNumber, newPhone, newPassword)
             Toast.makeText(context, "저장되었습니다.", Toast.LENGTH_SHORT).show()
+            onSaveCompleteListener?.onSaveComplete()
             dismiss()
         }
     }
@@ -103,8 +114,10 @@ class LibraryQRSettingsBottomSheetDialog() : BottomSheetDialogFragment() {
     companion object {
         const val TAG = "LibraryQRSettingsBottomSheetDialog"
 
-        fun newInstance(onSaveComplete: () -> Unit): LibraryQRSettingsBottomSheetDialog {
-            return LibraryQRSettingsBottomSheetDialog()
+        fun newInstance(onSaveComplete: OnSaveCompleteListener): LibraryQRSettingsBottomSheetDialog {
+            val dialog = LibraryQRSettingsBottomSheetDialog()
+            dialog.setOnSaveCompleteListener(onSaveComplete)
+            return dialog
         }
     }
 }

@@ -163,6 +163,11 @@ class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment(
 
     private fun showSettingsDialog() {
         val settingsModal = LibraryQRSettingsBottomSheetDialog()
+        settingsModal.setOnSaveCompleteListener {
+            lifecycleScope.launch {
+                refreshQRCode()
+            }
+        }
         settingsModal.show(parentFragmentManager, "LibraryQRSettingsModal")
     }
 
