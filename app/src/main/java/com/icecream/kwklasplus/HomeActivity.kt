@@ -130,6 +130,7 @@ class HomeActivity : AppCompatActivity() {
     private var webViewOriginalHeight: Int = ViewGroup.LayoutParams.MATCH_PARENT
     private var backPressedTime: Long = 0L
     private var originalBrightness: Float = -1f
+    var isIdCardModalActive: Boolean = false
 
     private lateinit var appUpdateManager: AppUpdateManager
     private val MY_REQUEST_CODE = 1001
@@ -269,6 +270,13 @@ class HomeActivity : AppCompatActivity() {
             if (appUpdateInfo.installStatus() == InstallStatus.DOWNLOADED) {
                 popupSnackbarForCompleteUpdate()
             }
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (isIdCardModalActive) {
+            updateSecurityAndBrightness(false)
         }
     }
 
@@ -1254,7 +1262,8 @@ class HomeActivity : AppCompatActivity() {
     }
 
     fun requestIdCardQRValue() {
-        setBrightness(true)
+        isIdCardModalActive = true
+        updateSecurityAndBrightness(true)
         var idCardQR = "pending"
         var libraryQR = "pending"
 
@@ -1266,8 +1275,6 @@ class HomeActivity : AppCompatActivity() {
         }
 
         CoroutineScope(Dispatchers.Main).launch {
-            Log.e("taein", "Start fetching id card qr values: $sessionIdForOtherClass")
-
             launch {
                 idCardQR = fetchIdCardQRFromWebView()
                 notifyWebView()
@@ -1461,17 +1468,19 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    fun setBrightness(isFull: Boolean) {
+    fun updateSecurityAndBrightness(enabled: Boolean) {
         runOnUiThread {
             val layoutParams = window.attributes
-            if (isFull) {
+            if (enabled) {
                 if (originalBrightness == -1f) {
                     originalBrightness = layoutParams.screenBrightness
                 }
                 layoutParams.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
+                window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
             } else {
                 layoutParams.screenBrightness = if (originalBrightness != -1f) originalBrightness else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
                 originalBrightness = -1f
+                window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
             }
             window.attributes = layoutParams
         }
@@ -1538,6 +1547,9 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
     fun openLibraryQRSettingsModal() {
         homeActivity.runOnUiThread {
             val settingsModal = com.icecream.kwklasplus.modal.LibraryQRSettingsBottomSheetDialog()
+            settingsModal.setOnSaveCompleteListener {
+                homeActivity.requestIdCardQRValue()
+            }
             settingsModal.show(homeActivity.supportFragmentManager, "LibraryQRSettingsModal")
         }
     }
@@ -1582,7 +1594,10 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
     @JavascriptInterface
     fun closeWebViewBottomSheet() {
         homeActivity.runOnUiThread {
-            homeActivity.setBrightness(false)
+            if (homeActivity.isIdCardModalActive) {
+                homeActivity.updateSecurityAndBrightness(false)
+                homeActivity.isIdCardModalActive = false
+            }
             homeActivity.isOpenWebViewBottomSheet = false
             try {
                 homeActivity.isKeyboardShowing = false
