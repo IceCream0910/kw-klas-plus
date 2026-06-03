@@ -44,6 +44,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.gms.common.util.DeviceProperties.isTablet
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
+import com.icecream.kwklasplus.manager.AppDownloadManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -100,6 +101,7 @@ class LectureActivity : AppCompatActivity() {
         )
         uiWebView.overScrollMode = WebView.OVER_SCROLL_NEVER
         uiWebView.loadUrl(AppUrls.LECTURE_HOME)
+        AppDownloadManager(this).attachTo(uiWebView)
 
         webView = findViewById<WebView>(R.id.webView)
         scrollView = findViewById<SwipeRefreshLayout>(R.id.scrollView)
@@ -113,6 +115,7 @@ class LectureActivity : AppCompatActivity() {
             disableScrollBars = false
         )
         webView.loadUrl(AppUrls.KLAS_FRAME)
+        AppDownloadManager(this).attachTo(webView)
 
         scrollView.isEnabled = false
         scrollView.visibility = ScrollView.GONE
@@ -186,23 +189,6 @@ class LectureActivity : AppCompatActivity() {
                 }
             }
         }
-
-        webView.setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
-            val request = DownloadManager.Request(Uri.parse(url))
-            var filename = URLUtil.guessFileName(url, contentDisposition, mimetype)
-            filename = URLDecoder.decode(filename, StandardCharsets.UTF_8.name()) // 파일 이름 디코딩
-            val cookies = CookieManager.getInstance().getCookie(url)
-            request.addRequestHeader("cookie", cookies)
-            request.addRequestHeader("User-Agent", userAgent)
-            request.setDescription("파일 다운로드 중...")
-            request.setTitle(filename)
-            request.allowScanningByMediaScanner()
-            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename)
-            val dManager = this.getSystemService(DOWNLOAD_SERVICE) as DownloadManager
-            dManager.enqueue(request)
-            Snackbar.make(webView, "파일 다운로드 시작\n$filename", Snackbar.LENGTH_LONG).show()
-        })
 
         webView.webChromeClient = object : WebChromeClient() {
             private var customView: View? = null
