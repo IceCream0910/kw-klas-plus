@@ -40,6 +40,7 @@ class MainActivity : AppCompatActivity() {
     private var isLoginActivityStarted = false
     private var isHomeStarted = false
     private var errorDialog: AlertDialog? = null
+    private var loginAttempted = false
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,10 +85,19 @@ class MainActivity : AppCompatActivity() {
         )
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
-                webView.evaluateJavascript(
-                    "javascript:appLogin.setInitial('on', '$kwID', '$kwPWD')",
-                    null
-                )
+                if (url == AppUrls.KLAS_LOGIN) {
+                    if (loginAttempted) {
+                        // If we are still on login page after attempt, and no JS alert was shown
+                        showSecurityActionRequiredDialog()
+                    } else {
+                        webView.evaluateJavascript(
+                            "javascript:appLogin.setInitial('on', '$kwID', '$kwPWD')",
+                            null
+                        )
+                        loginAttempted = true
+                    }
+                }
+
                 if (url != AppUrls.KLAS_LOGIN) {
                     val cookies = CookieManager.getInstance().getCookie(url).orEmpty()
                     val session = cookies.split("; ")
@@ -233,6 +243,24 @@ class MainActivity : AppCompatActivity() {
                     webView.loadUrl(AppUrls.KLAS_LOGIN)
                 }
             }
+            .setCancelable(false)
+            .create()
+        errorDialog = dialog
+        dialog.show()
+    }
+
+    private fun showSecurityActionRequiredDialog() {
+        if (isFinishing || isDestroyed || errorDialog != null) return
+
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle("로그인 실패")
+            .setMessage("임시 비밀번호 변경이 필요하거나 자동완성 방지 문자(CAPTCHA) 입력이 필요할 수 있어요. 계정 보안을 위해 외부 브라우저에서 KLAS에 먼저 로그인하신 후 다시 시도해 주세요.")
+            .setPositiveButton("브라우저 열기") { _, _ ->
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(AppUrls.KLAS_LOGIN))
+                startActivity(intent)
+                finish()
+            }
+            .setNegativeButton("종료") { _, _ -> finish() }
             .setCancelable(false)
             .create()
         errorDialog = dialog
