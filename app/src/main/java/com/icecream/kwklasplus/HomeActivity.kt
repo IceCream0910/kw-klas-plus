@@ -131,6 +131,7 @@ class HomeActivity : AppCompatActivity() {
     private var backPressedTime: Long = 0L
     private var originalBrightness: Float = -1f
     var isIdCardModalActive: Boolean = false
+    private var isBrightnessCaptured: Boolean = false
 
     private lateinit var appUpdateManager: AppUpdateManager
     private val MY_REQUEST_CODE = 1001
@@ -1472,14 +1473,18 @@ class HomeActivity : AppCompatActivity() {
         runOnUiThread {
             val layoutParams = window.attributes
             if (enabled) {
-                if (originalBrightness == -1f) {
+                if (!isBrightnessCaptured) {
                     originalBrightness = layoutParams.screenBrightness
+                    isBrightnessCaptured = true
                 }
                 layoutParams.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
                 window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
             } else {
-                layoutParams.screenBrightness = if (originalBrightness != -1f) originalBrightness else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
-                originalBrightness = -1f
+                if (isBrightnessCaptured) {
+                    layoutParams.screenBrightness = originalBrightness
+                    isBrightnessCaptured = false
+                    originalBrightness = -1f
+                }
                 window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
             }
             window.attributes = layoutParams

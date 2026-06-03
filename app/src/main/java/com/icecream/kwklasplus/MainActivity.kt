@@ -262,9 +262,9 @@ class MainActivity : AppCompatActivity() {
 
         val dialog = MaterialAlertDialogBuilder(this)
             .setTitle("로그인 실패")
-            .setMessage("임시 비밀번호 변경이 필요하거나 자동완성 방지 문자(CAPTCHA) 입력이 필요할 수 있어요. 계정 보안을 위해 외부 브라우저에서 KLAS에 먼저 로그인하신 후 다시 시도해 주세요.")
+            .setMessage("임시 비밀번호 변경이 필요하거나 3회 이상 로그인 실패로 인해 CAPTCHA 입력이 필요해요. 계정 보안을 위해 KLAS 웹사이트에서 먼저 로그인하신 후 다시 시도해 주세요.")
             .setPositiveButton("브라우저 열기") { _, _ ->
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(AppUrls.KLAS_LOGIN))
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(AppUrls.KLAS_BASE))
                 startActivity(intent)
                 finish()
             }
