@@ -143,6 +143,13 @@ class MainActivity : AppCompatActivity() {
                     }
                     val root = findViewById<View>(R.id.main)
                     root.performHapticFeedback(HapticFeedbackConstants.REJECT)
+
+                    if (message?.contains("자동 입력 방지") == true) {
+                        result?.confirm()
+                        showSecurityActionRequiredDialog()
+                        return@runOnUiThread
+                    }
+
                     val dialog = MaterialAlertDialogBuilder(this@MainActivity)
                         .setTitle("오류")
                         .setMessage(message)
@@ -178,6 +185,7 @@ class MainActivity : AppCompatActivity() {
                 if (System.currentTimeMillis() - timestamp < 1000 * 60 * 60) { // 1시간 이내 세션 정보 있으면 바로 실행
                     isInstantLogin = true
                     isHomeStarted = true
+                    syncSessionCookie(instantSession)
                     startActivity(Intent(this, HomeActivity::class.java))
                     finish()
                     return

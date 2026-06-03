@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.view.HapticFeedbackConstants
+import android.webkit.CookieManager
 import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.activity.enableEdgeToEdge
@@ -96,6 +97,13 @@ fun hapticFeedbackConstant(type: String): Int = when (type) {
     "TOGGLE_OFF" -> HapticFeedbackConstants.TOGGLE_OFF
     "TOGGLE_ON" -> HapticFeedbackConstants.TOGGLE_ON
     else -> HapticFeedbackConstants.CLOCK_TICK
+}
+
+fun syncSessionCookie(sessionId: String) {
+    val cookieManager = CookieManager.getInstance()
+    cookieManager.setAcceptCookie(true)
+    cookieManager.setCookie(AppUrls.KLAS_BASE, "SESSION=$sessionId; Path=/; Domain=.kw.ac.kr; Secure; HttpOnly")
+    cookieManager.flush()
 }
 
 fun Context.buildKlasJsonRequest(
