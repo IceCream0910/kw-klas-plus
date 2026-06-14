@@ -16,6 +16,7 @@
     </queries>
 
     <application
+        android:name=".MainApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:enableOnBackInvokedCallback="true"
@@ -30,6 +31,11 @@
         <activity
             android:name=".SettingsActivity"
             android:exported="false" />
+        <activity
+            android:name=".LockActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.KWQRCheckin" />
         <meta-data
             android:name="io.sentry.dsn"
             android:value="https://19c58b75c900974d23ce97ab67230e1f@o4508145411031040.ingest.us.sentry.io/4508145449304064" />

@@ -87,7 +87,6 @@ class MainActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView, url: String) {
                 if (url == AppUrls.KLAS_LOGIN) {
                     if (loginAttempted) {
-                        // If we are still on login page after attempt, and no JS alert was shown
                         showSecurityActionRequiredDialog()
                     } else {
                         webView.evaluateJavascript(
@@ -117,7 +116,7 @@ class MainActivity : AppCompatActivity() {
                             cancelLoginTimers()
                             isLoginActivityStarted = true
                             isHomeStarted = true
-                            startActivity(
+                            startActivityWithLock(
                                 Intent(
                                     this@MainActivity,
                                     HomeActivity::class.java
@@ -175,7 +174,7 @@ class MainActivity : AppCompatActivity() {
         if (kwID == null || kwPWD == null) { // 로그인 정보 없으면 로그인 화면으로 이동
             finish()
             startActivity(Intent(this, LoginActivity::class.java))
-        } else {
+        } else { // 로그인 진행
             val instantSession = sharedPreferences.getString(AppPrefs.KW_SESSION, null)
             val instantSessionTimestamp =
                 sharedPreferences.getString(AppPrefs.KW_SESSION_TIMESTAMP, null)

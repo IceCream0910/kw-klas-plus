@@ -9,4 +9,11 @@
     <string name="shortcut_feedback_short_label">불편한 점이 있으셨나요?</string>
     <string name="shortcut_feedback_long_label">불편한 점이 있으셨나요?</string>
     <string name="shortcut_feedback_disabled_message">지금은 피드백을 보낼 수 없어요.</string>
+
+    <string name="app_lock_title">앱 잠금</string>
+    <string name="app_lock_description">비밀번호를 입력해주세요.</string>
+    <string name="app_lock_hint">비밀번호</string>
+    <string name="app_lock_unlock">잠금 해제</string>
+    <string name="app_lock_use_biometric">생체인증 사용</string>
+    <string name="app_lock_biometric_prompt_title">생체 정보로 인증해주세요</string>
 </resources>

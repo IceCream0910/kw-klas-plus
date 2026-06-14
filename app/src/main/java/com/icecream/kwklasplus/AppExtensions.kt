@@ -2,6 +2,7 @@ package com.icecream.kwklasplus
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.view.HapticFeedbackConstants
@@ -13,6 +14,8 @@ import androidx.annotation.IdRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import com.google.android.gms.common.util.DeviceProperties.isTablet
 import com.icecream.kwklasplus.R
 import okhttp3.OkHttpClient
@@ -21,6 +24,20 @@ import okhttp3.RequestBody
 
 val Context.appPreferences: SharedPreferences
     get() = getSharedPreferences(AppPrefs.MAIN, Context.MODE_PRIVATE)
+
+val Context.encryptedPreferences: SharedPreferences
+    get() {
+        val masterKey = MasterKey.Builder(this)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        return EncryptedSharedPreferences.create(
+            this,
+            "secure_prefs",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
 
 val Context.libraryQrCachePreferences: SharedPreferences
     get() = getSharedPreferences(AppPrefs.LIBRARY_QR_CACHE, Context.MODE_PRIVATE)
@@ -104,6 +121,20 @@ fun syncSessionCookie(sessionId: String) {
     cookieManager.setAcceptCookie(true)
     cookieManager.setCookie(AppUrls.KLAS_BASE, "SESSION=$sessionId; Path=/; Domain=.kw.ac.kr; Secure; HttpOnly")
     cookieManager.flush()
+}
+
+fun AppCompatActivity.startActivityWithLock(intent: Intent) {
+    if (com.icecream.kwklasplus.manager.AppLockManager.isAppLockEnabled(this) && !com.icecream.kwklasplus.manager.AppLockManager.isUnlocked) {
+        val lockIntent = Intent(this, LockActivity::class.java).apply {
+            putExtra("MODE", "UNLOCK")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+        }
+        // Save the original intent to launch after unlock if needed, 
+        // but typically the LifecycleObserver handles the overlay.
+        // However, if we want to BE SURE, we start LockActivity first.
+        startActivity(lockIntent)
+    }
+    startActivity(intent)
 }
 
 fun Context.buildKlasJsonRequest(

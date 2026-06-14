@@ -145,6 +145,16 @@ class HomeActivity : AppCompatActivity() {
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Security check
+        if (com.icecream.kwklasplus.manager.AppLockManager.isAppLockEnabled(this) && !com.icecream.kwklasplus.manager.AppLockManager.isUnlocked) {
+            val lockIntent = Intent(this, LockActivity::class.java).apply {
+                putExtra("MODE", "UNLOCK")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+            }
+            startActivity(lockIntent)
+        }
+
         setContentView(R.layout.activity_home)
         applyEdgeToEdgeInsets { insets ->
             val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
