@@ -34,6 +34,7 @@ import com.icecream.kwklasplus.AppPrefs
 import com.icecream.kwklasplus.LibraryQRWidget
 import com.icecream.kwklasplus.R
 import com.icecream.kwklasplus.appPreferences
+import com.icecream.kwklasplus.getLibraryPassword
 import com.icecream.kwklasplus.manager.LibraryManager
 import com.icecream.kwklasplus.modal.LibraryQRSettingsBottomSheetDialog
 import kotlinx.coroutines.*
@@ -134,7 +135,7 @@ class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment(
         val sharedPreferences = activity?.appPreferences
         val stdNumber = sharedPreferences?.getString(AppPrefs.LIBRARY_STD_NUMBER, null)
         val phone = sharedPreferences?.getString(AppPrefs.LIBRARY_PHONE, null)
-        val password = sharedPreferences?.getString(AppPrefs.LIBRARY_PASSWORD, null)
+        val password = activity?.getLibraryPassword()
 
         if (stdNumber == null || phone == null || password == null) {
             showSettingsDialog()
@@ -195,7 +196,7 @@ class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment(
         val sharedPreferences = activity?.appPreferences
         val stdNumber = sharedPreferences?.getString(AppPrefs.LIBRARY_STD_NUMBER, null)
         val phone = sharedPreferences?.getString(AppPrefs.LIBRARY_PHONE, null)
-        val password = sharedPreferences?.getString(AppPrefs.LIBRARY_PASSWORD, null)
+        val password = activity?.getLibraryPassword()
 
         if (stdNumber != null && phone != null && password != null) {
             qrProgressBar.visibility = View.VISIBLE
@@ -212,7 +213,7 @@ class LibraryQRModal(private var isWidget: Boolean) : BottomSheetDialogFragment(
         val sharedPreferences = activity?.appPreferences
         val stdNumber = sharedPreferences?.getString(AppPrefs.LIBRARY_STD_NUMBER, null)
         val phone = sharedPreferences?.getString(AppPrefs.LIBRARY_PHONE, null)
-        val password = sharedPreferences?.getString(AppPrefs.LIBRARY_PASSWORD, null)
+        val password = activity?.getLibraryPassword()
 
         if (stdNumber != null && phone != null && password != null) {
             libraryManager.clearCache(stdNumber, phone, password)

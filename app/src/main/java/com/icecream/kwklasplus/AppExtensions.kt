@@ -42,6 +42,36 @@ val Context.encryptedPreferences: SharedPreferences
 val Context.libraryQrCachePreferences: SharedPreferences
     get() = getSharedPreferences(AppPrefs.LIBRARY_QR_CACHE, Context.MODE_PRIVATE)
 
+val Context.libraryEncryptedCachePreferences: SharedPreferences
+    get() {
+        val masterKey = MasterKey.Builder(this)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        return EncryptedSharedPreferences.create(
+            this,
+            "library_secure_prefs",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
+
+fun Context.getLibraryPassword(): String? {
+    val encryptedPrefs = encryptedPreferences
+    val regularPrefs = appPreferences
+    
+    var password = encryptedPrefs.getString(AppPrefs.LIBRARY_PASSWORD, null)
+    if (password == null) {
+        password = regularPrefs.getString(AppPrefs.LIBRARY_PASSWORD, null)
+        if (password != null) {
+            // Migrate
+            encryptedPrefs.edit().putString(AppPrefs.LIBRARY_PASSWORD, password).apply()
+            regularPrefs.edit().let { it.remove(AppPrefs.LIBRARY_PASSWORD); it.apply() }
+        }
+    }
+    return password
+}
+
 object AppHttpClient {
     val default: OkHttpClient by lazy { OkHttpClient() }
 }
@@ -129,9 +159,6 @@ fun AppCompatActivity.startActivityWithLock(intent: Intent) {
             putExtra("MODE", "UNLOCK")
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         }
-        // Save the original intent to launch after unlock if needed, 
-        // but typically the LifecycleObserver handles the overlay.
-        // However, if we want to BE SURE, we start LockActivity first.
         startActivity(lockIntent)
     }
     startActivity(intent)

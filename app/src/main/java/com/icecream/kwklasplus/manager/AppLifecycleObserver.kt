@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
+import com.icecream.kwklasplus.LibraryQRWidgetActivity
 import com.icecream.kwklasplus.LockActivity
 
 class AppLifecycleObserver(private val context: Context) : DefaultLifecycleObserver, Application.ActivityLifecycleCallbacks {
@@ -21,8 +22,8 @@ class AppLifecycleObserver(private val context: Context) : DefaultLifecycleObser
         super.onStart(owner)
         
         if (AppLockManager.isAppLockEnabled(context) && !AppLockManager.isUnlocked) {
-            // Only start LockActivity if current top is not LockActivity
-            if (currentActivity !is LockActivity) {
+            // 위젯을 제외한 다른 Activity에서 LockActivity 표시
+            if (currentActivity !is LockActivity && currentActivity !is LibraryQRWidgetActivity) {
                 val intent = Intent(context, LockActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
                     putExtra("MODE", "UNLOCK")
@@ -34,11 +35,9 @@ class AppLifecycleObserver(private val context: Context) : DefaultLifecycleObser
 
     override fun onStop(owner: LifecycleOwner) {
         super.onStop(owner)
-        // Reset unlocked state when app goes to background
         AppLockManager.isUnlocked = false
     }
 
-    // ActivityLifecycleCallbacks implementation to track current activity
     override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
     override fun onActivityStarted(activity: Activity) { currentActivity = activity }
     override fun onActivityResumed(activity: Activity) { currentActivity = activity }

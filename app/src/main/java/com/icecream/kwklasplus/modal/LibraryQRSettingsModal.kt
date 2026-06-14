@@ -15,6 +15,8 @@ import com.google.android.material.textfield.TextInputEditText
 import com.icecream.kwklasplus.AppPrefs
 import com.icecream.kwklasplus.R
 import com.icecream.kwklasplus.appPreferences
+import com.icecream.kwklasplus.encryptedPreferences
+import com.icecream.kwklasplus.getLibraryPassword
 import com.icecream.kwklasplus.components.AnimatedButton
 
 class LibraryQRSettingsBottomSheetDialog() : BottomSheetDialogFragment() {
@@ -67,7 +69,7 @@ class LibraryQRSettingsBottomSheetDialog() : BottomSheetDialogFragment() {
         }
 
         val phone = sharedPreferences?.getString(AppPrefs.LIBRARY_PHONE, "")
-        val password = sharedPreferences?.getString(AppPrefs.LIBRARY_PASSWORD, "")
+        val password = activity?.getLibraryPassword() ?: ""
 
         stdNumberEditText.setText(stdNumber)
         phoneEditText.setText(phone)
@@ -94,9 +96,16 @@ class LibraryQRSettingsBottomSheetDialog() : BottomSheetDialogFragment() {
 
     private fun saveUserData(stdNumber: String, phone: String, password: String) {
         val sharedPreferences = activity?.appPreferences
+        val encryptedPrefs = activity?.encryptedPreferences
+        
         sharedPreferences?.edit()?.apply {
             putString(AppPrefs.LIBRARY_STD_NUMBER, stdNumber)
             putString(AppPrefs.LIBRARY_PHONE, phone)
+            remove(AppPrefs.LIBRARY_PASSWORD) // Ensure it's removed from regular prefs
+            apply()
+        }
+        
+        encryptedPrefs?.edit()?.apply {
             putString(AppPrefs.LIBRARY_PASSWORD, password)
             apply()
         }

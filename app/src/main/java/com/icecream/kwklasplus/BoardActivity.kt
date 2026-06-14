@@ -203,8 +203,6 @@ class BoardActivity : AppCompatActivity() {
                 return true
             }
 
-
-            // Enable file upload
             override fun onShowFileChooser(
                 webView: WebView,
                 filePathCallback: ValueCallback<Array<Uri>>,

@@ -75,7 +75,20 @@ class MainActivity : AppCompatActivity() {
         }
 
         val kwID = sharedPreferences.getString(AppPrefs.KW_ID, null)
-        val kwPWD = sharedPreferences.getString(AppPrefs.KW_PASSWORD, null)
+        
+        // v1.2.0 이전 사용자 마이그레이션
+        val encryptedPrefs = encryptedPreferences
+        var kwPWD = encryptedPrefs.getString(AppPrefs.KW_PASSWORD, null)
+        val oldPWD = sharedPreferences.getString(AppPrefs.KW_PASSWORD, null)
+        
+        if (oldPWD != null) {
+            if (kwPWD == null) {
+                encryptedPrefs.edit().putString(AppPrefs.KW_PASSWORD, oldPWD).apply()
+                kwPWD = oldPWD
+            }
+            sharedPreferences.edit().remove(AppPrefs.KW_PASSWORD).apply()
+        }
+
         var isInstantLogin = false
         val webView = findViewById<WebView>(R.id.webView)
         webView.configureAppWebView(

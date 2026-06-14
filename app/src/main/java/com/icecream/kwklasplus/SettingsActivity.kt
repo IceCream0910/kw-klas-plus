@@ -47,8 +47,7 @@ class SettingsActivity : AppCompatActivity() {
                 AppLockManager.setAppLockEnabled(this, false)
                 Toast.makeText(this, "앱 잠금이 비활성화되고 비밀번호가 초기화되었습니다.", Toast.LENGTH_SHORT).show()
             }
-            // If it was SET/CHANGE mode, AppLockManager already updated the state.
-            
+
             val settings = JavaScriptInterfaceForSettings(this).getAppLockSettings()
             webView.evaluateJavascript("window.onAppLockSettingChanged($settings)", null)
         }
@@ -252,7 +251,6 @@ class JavaScriptInterfaceForSettings(private val activity: SettingsActivity) {
     fun setBiometricEnabled(enabled: Boolean) {
         activity.runOnUiThread {
             if (enabled) {
-                // Require biometric authentication before enabling
                 val executor = ContextCompat.getMainExecutor(activity)
                 val biometricPrompt = BiometricPrompt(activity, executor,
                     object : BiometricPrompt.AuthenticationCallback() {

@@ -245,11 +245,13 @@ class LoginActivity : AppCompatActivity() {
 
     private fun saveLoginInfo(id: String, pwd: String) {
         val sharedPreferences = appPreferences
-        with(sharedPreferences.edit()) {
-            putString(AppPrefs.KW_ID, id)
-            putString(AppPrefs.KW_PASSWORD, pwd)
-            apply()
-        }
+        val encryptedPrefs = encryptedPreferences
+        
+        sharedPreferences.edit().putString(AppPrefs.KW_ID, id).apply()
+        
+        encryptedPrefs.edit().putString(AppPrefs.KW_PASSWORD, pwd).apply()
+        
+        sharedPreferences.edit().remove(AppPrefs.KW_PASSWORD).apply()
 
         finish()
         startActivity(Intent(this, MainActivity::class.java))

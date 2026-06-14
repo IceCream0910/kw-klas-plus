@@ -145,8 +145,7 @@ class HomeActivity : AppCompatActivity() {
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // Security check
+
         if (com.icecream.kwklasplus.manager.AppLockManager.isAppLockEnabled(this) && !com.icecream.kwklasplus.manager.AppLockManager.isUnlocked) {
             val lockIntent = Intent(this, LockActivity::class.java).apply {
                 putExtra("MODE", "UNLOCK")
@@ -1377,7 +1376,7 @@ class HomeActivity : AppCompatActivity() {
         val sharedPreferences = appPreferences
         val stdNumber = sharedPreferences.getString(AppPrefs.LIBRARY_STD_NUMBER, null)
         val phone = sharedPreferences.getString(AppPrefs.LIBRARY_PHONE, null)
-        val password = sharedPreferences.getString(AppPrefs.LIBRARY_PASSWORD, null)
+        val password = getLibraryPassword()
 
         if (stdNumber == null || phone == null || password == null) return@withContext ""
 

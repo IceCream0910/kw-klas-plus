@@ -49,7 +49,7 @@ object AppLockManager {
     fun setAppLockEnabled(context: Context, enabled: Boolean) {
         context.encryptedPreferences.edit().putBoolean(K_E, enabled).apply()
         if (!enabled) {
-            // Reset password and biometric settings when disabling
+            // 잠금 비활성화 시 데이터 초기화
             context.encryptedPreferences.edit().apply {
                 remove(K_H)
                 remove(K_S)

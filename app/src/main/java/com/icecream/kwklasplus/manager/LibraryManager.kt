@@ -3,6 +3,7 @@ package com.icecream.kwklasplus.manager
 import android.content.Context
 import android.util.Base64
 import android.util.Log
+import com.icecream.kwklasplus.libraryEncryptedCachePreferences
 import com.icecream.kwklasplus.libraryQrCachePreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -180,28 +181,50 @@ class LibraryManager(context: Context) {
 
 class CacheManager(context: Context) {
     private val sharedPreferences = context.libraryQrCachePreferences
+    private val encryptedPreferences = context.libraryEncryptedCachePreferences
 
     fun saveSecret(realId: String, userInfoHash: String, secret: String) {
-        sharedPreferences.edit().putString("secret_${realId}_${userInfoHash}", secret).apply()
+        encryptedPreferences.edit().putString("secret_${realId}_${userInfoHash}", secret).apply()
+        sharedPreferences.edit().remove("secret_${realId}_${userInfoHash}").apply()
     }
 
     fun getSecret(realId: String, userInfoHash: String): String? {
-        return sharedPreferences.getString("secret_${realId}_${userInfoHash}", null)
+        var secret = encryptedPreferences.getString("secret_${realId}_${userInfoHash}", null)
+        if (secret == null) {
+            secret = sharedPreferences.getString("secret_${realId}_${userInfoHash}", null)
+            if (secret != null) {
+                saveSecret(realId, userInfoHash, secret)
+            }
+        }
+        return secret
     }
 
     fun saveAuthKey(realId: String, userInfoHash: String, authKey: String) {
-        sharedPreferences.edit().putString("authKey_${realId}_${userInfoHash}", authKey).apply()
+        encryptedPreferences.edit().putString("authKey_${realId}_${userInfoHash}", authKey).apply()
+        sharedPreferences.edit().remove("authKey_${realId}_${userInfoHash}").apply()
     }
 
     fun getAuthKey(realId: String, userInfoHash: String): String? {
-        return sharedPreferences.getString("authKey_${realId}_${userInfoHash}", null)
+        var authKey = encryptedPreferences.getString("authKey_${realId}_${userInfoHash}", null)
+        if (authKey == null) {
+            authKey = sharedPreferences.getString("authKey_${realId}_${userInfoHash}", null)
+            if (authKey != null) {
+                saveAuthKey(realId, userInfoHash, authKey)
+            }
+        }
+        return authKey
     }
 
     fun clearCache(realId: String, userInfoHash: String) {
-        sharedPreferences.edit().apply {
-            remove("secret_${realId}_${userInfoHash}")
-            remove("authKey_${realId}_${userInfoHash}")
-            apply()
+        encryptedPreferences.edit().let { editor ->
+            editor.remove("secret_${realId}_${userInfoHash}")
+            editor.remove("authKey_${realId}_${userInfoHash}")
+            editor.apply()
+        }
+        sharedPreferences.edit().let { editor ->
+            editor.remove("secret_${realId}_${userInfoHash}")
+            editor.remove("authKey_${realId}_${userInfoHash}")
+            editor.apply()
         }
     }
 }
