@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    tools:context=".LockActivity">
+
+    <LinearLayout
+        android:id="@+id/llTopContainer"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:gravity="center"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toTopOf="@id/btnBiometric"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:id="@+id/tvTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/app_lock_title"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvDescription"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/app_lock_description"
+            android:textSize="16sp" />
+
+        <LinearLayout
+            android:id="@+id/llIndicators"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="40dp"
+            android:orientation="horizontal">
+
+            <View
+                android:id="@+id/indicator1"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/rounded_menu_background"
+                android:backgroundTint="@color/md_theme_outlineVariant" />
+
+            <View
+                android:id="@+id/indicator2"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/rounded_menu_background"
+                android:backgroundTint="@color/md_theme_outlineVariant" />
+
+            <View
+                android:id="@+id/indicator3"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/rounded_menu_background"
+                android:backgroundTint="@color/md_theme_outlineVariant" />
+
+            <View
+                android:id="@+id/indicator4"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/rounded_menu_background"
+                android:backgroundTint="@color/md_theme_outlineVariant" />
+
+            <View
+                android:id="@+id/indicator5"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/rounded_menu_background"
+                android:backgroundTint="@color/md_theme_outlineVariant" />
+
+            <View
+                android:id="@+id/indicator6"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/rounded_menu_background"
+                android:backgroundTint="@color/md_theme_outlineVariant" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnBiometric"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:text="@string/app_lock_use_biometric"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/keypad"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <include
+        android:id="@+id/keypad"
+        layout="@layout/layout_keypad"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="40dp"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:text="비밀번호를 잊어버린 경우 앱을 재설치해야 해요."
+        android:textColor="@color/md_theme_outline"
+        android:textSize="12sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/keypad" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
