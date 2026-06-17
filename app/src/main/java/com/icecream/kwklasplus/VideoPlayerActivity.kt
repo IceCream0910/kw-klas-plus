@@ -332,7 +332,6 @@ class VideoPlayerActivity : AppCompatActivity() {
 
         VideoWebView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
-                Log.d("VideoWebView", "onPageFinished called for URL: $url")
                 if (!url.contains("kw.ac.kr")) return;
                 VideoWebView.evaluateJavascript(
                     """

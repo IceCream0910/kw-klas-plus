@@ -339,7 +339,6 @@ class HomeActivity : AppCompatActivity() {
             else -> "${AppUrls.KLAS_PLUS_BASE}/feed?yearHakgi=${yearHakgi}"
         }
 
-        Log.d("HomeActivity", "Switching to tab: $tab, URL: $url")
         webView.loadUrl(url)
         webView.evaluateJavascript(
             "javascript:window.localStorage.setItem('currentYearHakgi', '$yearHakgi')",
@@ -449,7 +448,6 @@ class HomeActivity : AppCompatActivity() {
             }
 
             override fun onPageFinished(view: WebView, url: String) {
-                Log.d("HomeActivity", "Page finished loading: $url, currentTab: $currentTab")
                 if (currentTab == "feed") {
                     sendDeadlineAndTimetableToWebView()
                 }
@@ -1325,13 +1323,11 @@ class HomeActivity : AppCompatActivity() {
                         
                         val response = client.newCall(newRequest).execute()
                         val bodyString = response.body?.string() ?: ""
-                        Log.e("taein", "$bodyString")
                         
                         val regex = Regex("""text:\s*"([^"]+)"""")
                         val match = regex.find(bodyString)
                         val qrValue = match?.groupValues?.get(1) ?: ""
-                        
-                        Log.e("taein", "Extracted QR: $qrValue")
+
                         if (qrValue.isNotEmpty()) {
                             finishWith(qrValue)
                         }
