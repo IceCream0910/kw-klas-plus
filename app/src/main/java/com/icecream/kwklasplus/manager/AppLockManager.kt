@@ -4,10 +4,6 @@ import android.content.Context
 import com.icecream.kwklasplus.encryptedPreferences
 import com.icecream.kwklasplus.utils.SecurityUtils
 
-/**
- * Manages App Lock settings and authentication state.
- * All data is stored in EncryptedSharedPreferences, which uses Android KeyStore.
- */
 object AppLockManager {
     private const val K_E = "a_l_e" // isAppLockEnabled
     private const val K_H = "p_w_h" // appLockPasswordHash

@@ -62,7 +62,7 @@ class LockActivity : AppCompatActivity() {
             }
         })
 
-        if (mode == Mode.UNLOCK && AppLockManager.isBiometricEnabled(this)) {
+        if (mode == Mode.UNLOCK && AppLockManager.isBiometricEnabled(this) && SecurityUtils.canUseBiometric(this)) {
             showBiometricPrompt()
         }
     }
@@ -142,7 +142,7 @@ class LockActivity : AppCompatActivity() {
             Mode.UNLOCK -> {
                 tvTitle.text = getString(R.string.app_lock_title)
                 tvDescription.text = "비밀번호 6자리를 입력해주세요."
-                btnBiometric.visibility = if (AppLockManager.isBiometricEnabled(this)) View.VISIBLE else View.GONE
+                btnBiometric.visibility = if (AppLockManager.isBiometricEnabled(this) && SecurityUtils.canUseBiometric(this)) View.VISIBLE else View.GONE
             }
             Mode.SET -> {
                 tvTitle.text = "비밀번호 설정"

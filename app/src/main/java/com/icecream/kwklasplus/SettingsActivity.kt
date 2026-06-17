@@ -26,6 +26,7 @@ import androidx.core.content.ContextCompat
 import com.icecream.kwklasplus.modal.LibraryQRSettingsBottomSheetDialog
 import com.icecream.kwklasplus.modal.YearHakgiBottomSheetDialog
 import com.icecream.kwklasplus.manager.AppLockManager
+import com.icecream.kwklasplus.utils.SecurityUtils
 
 
 class SettingsActivity : AppCompatActivity() {
@@ -251,6 +252,13 @@ class JavaScriptInterfaceForSettings(private val activity: SettingsActivity) {
     fun setBiometricEnabled(enabled: Boolean) {
         activity.runOnUiThread {
             if (enabled) {
+                val errorMessage = SecurityUtils.getBiometricErrorMessage(activity)
+                if (errorMessage != null) {
+                    Toast.makeText(activity, errorMessage, Toast.LENGTH_LONG).show()
+                    activity.webView.evaluateJavascript("window.onBiometricSettingChanged(false)", null)
+                    return@runOnUiThread
+                }
+
                 val executor = ContextCompat.getMainExecutor(activity)
                 val biometricPrompt = BiometricPrompt(activity, executor,
                     object : BiometricPrompt.AuthenticationCallback() {
