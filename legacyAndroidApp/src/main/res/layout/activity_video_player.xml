@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:id="@+id/main"
+    tools:context=".VideoPlayerActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/KLASListLayout"
+        android:visibility="gone"
+        android:orientation="vertical">
+
+        <WebView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:id="@+id/KLASWebView"/>
+
+    </LinearLayout>
+
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="visible"
+        android:layout_marginTop="10dp"
+        android:id="@+id/listLayout">
+
+        <WebView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:id="@+id/listWebView"/>
+
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/videoPlayerLayout"
+            android:layout_weight="1"
+            android:visibility="visible"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <com.icecream.kwklasplus.BackgroundWebView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:id="@+id/VideoWebView"/>
+
+        </LinearLayout>
+
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="30dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/lectureNameTextView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textSize="22dp"
+                android:layout_marginHorizontal="20dp"
+                android:textStyle="bold" />
+
+
+            <TextView
+                android:id="@+id/lectureTimeTextView"
+                android:clickable="true"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="20dp"
+                android:layout_marginHorizontal="20dp"
+                android:text=""
+                android:textSize="14dp" />
+
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <com.google.android.material.slider.Slider
+                    android:id="@+id/timeProgressBar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:thumbHeight="20dp"
+                    android:value="0" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="-10dp"
+                    android:layout_marginHorizontal="15dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/seekbarCurrentTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="00:00" />
+
+                    <TextView
+                        android:id="@+id/seekbarTotalTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text=""
+                        android:textAlignment="textEnd" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="15dp"
+                android:gravity="center"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/muteButton"
+                    style="@style/Widget.Material3.Button.IconButton.Outlined"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginEnd="10dp"
+                    android:alpha="0.7"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:drawablePadding="0dp"
+                    android:padding="0dp"
+                    app:icon="@drawable/baseline_volume_off_24"
+                    app:iconSize="24dp" />
+
+                <Button
+                    android:id="@+id/backwardButton"
+                    style="@style/Widget.Material3.Button.IconButton.Outlined"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:drawablePadding="0dp"
+                    android:padding="0dp"
+                    app:icon="@drawable/baseline_replay_10_24"
+                    app:iconSize="36dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/playPauseButton"
+                    style="@style/Widget.Material3.Button.IconButton.Outlined"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:drawablePadding="0dp"
+                    android:padding="0dp"
+                    app:icon="@drawable/baseline_play_arrow_24"
+                    app:iconSize="86dp" />
+
+                <Button
+                    android:id="@+id/forwardButton"
+                    style="@style/Widget.Material3.Button.IconButton.Outlined"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:drawablePadding="0dp"
+                    android:padding="0dp"
+                    app:icon="@drawable/baseline_forward_10_24"
+                    app:iconSize="36dp" />
+
+                <Button
+                    android:id="@+id/fullScreenButton"
+                    style="@style/Widget.Material3.Button.IconButton.Outlined"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="10dp"
+                    android:alpha="0.7"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:drawablePadding="0dp"
+                    android:padding="0dp"
+                    app:icon="@drawable/baseline_fullscreen_24"
+                    app:iconSize="24dp" />
+
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="15dp"
+            android:background="@drawable/rounded_menu_background"
+            android:backgroundTint="@color/md_theme_onSecondary"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:layout_margin="20dp"
+            android:paddingHorizontal="20dp"
+            android:paddingVertical="5dp">
+
+            <Button
+                android:id="@+id/pipButton"
+                style="@style/Widget.Material3.Button.IconButton.Outlined"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginEnd="10dp"
+                android:alpha="0.8"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:drawablePadding="0dp"
+                android:padding="0dp"
+                android:text="  PIP"
+                app:icon="@drawable/baseline_picture_in_picture_alt_24"
+                app:iconSize="24dp" />
+
+            <Button
+                android:id="@+id/speedButton"
+                style="@style/Widget.Material3.Button.IconButton.Outlined"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginEnd="10dp"
+                android:alpha="0.8"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:drawablePadding="0dp"
+                android:padding="0dp"
+                android:text="  1.0x"
+                app:icon="@drawable/baseline_speed_24"
+                app:iconSize="24dp" />
+
+
+            <Button
+                android:id="@+id/closeButton"
+                style="@style/Widget.Material3.Button.IconButton.Outlined"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginEnd="10dp"
+                android:alpha="0.8"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:drawablePadding="0dp"
+                android:padding="0dp"
+                android:text="  수강 종료"
+                app:icon="@drawable/baseline_close_24"
+                app:iconSize="24dp" />
+
+
+        </LinearLayout>
+    </LinearLayout>
+
+
+</androidx.appcompat.widget.LinearLayoutCompat>

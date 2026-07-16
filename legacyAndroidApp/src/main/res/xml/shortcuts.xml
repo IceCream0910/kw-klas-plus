@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="idcard"
+        android:enabled="true"
+        android:icon="@drawable/shortcut_idcard_icon"
+        android:shortcutShortLabel="@string/shortcut_qr_short_label"
+        android:shortcutLongLabel="@string/shortcut_qr_long_label"
+        android:shortcutDisabledMessage="@string/shortcut_qr_disabled_message">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.icecream.kwklasplus"
+            android:targetClass="com.icecream.kwklasplus.LibraryQRWidgetActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="feedback"
+        android:enabled="true"
+        android:icon="@drawable/shortcut_feedback_icon"
+        android:shortcutShortLabel="@string/shortcut_feedback_short_label"
+        android:shortcutLongLabel="@string/shortcut_feedback_long_label"
+        android:shortcutDisabledMessage="@string/shortcut_feedback_disabled_message">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="mailto:hey@yuntae.in?subject=[KLAS+ 피드백] "/>
+    </shortcut>
+</shortcuts>
