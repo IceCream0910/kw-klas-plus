@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <exclude domain="sharedpref" path="com.icecream.kwklasplus.xml" />
+    <exclude domain="sharedpref" path="secure_prefs.xml" />
+    <exclude domain="sharedpref" path="library_secure_prefs.xml" />
+    <exclude domain="sharedpref" path="kmp_secure_store_v1.xml" />
+    <exclude domain="sharedpref" path="LibraryQRCache.xml" />
+</full-backup-content>

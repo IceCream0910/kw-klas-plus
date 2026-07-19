@@ -1,0 +1,52 @@
+package com.icecream.kwklasplus.manager
+
+import android.app.Activity
+import android.app.Application
+import android.content.Context
+import android.content.Intent
+import android.os.Bundle
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import com.icecream.kwklasplus.LibraryQRWidgetActivity
+import com.icecream.kwklasplus.LockActivity
+import com.icecream.kwklasplus.core.lock.AppLockEvent
+import com.icecream.kwklasplus.core.lock.AppLockPolicy
+import com.icecream.kwklasplus.core.lock.AppLockState
+
+class AppLifecycleObserver(private val context: Context) : DefaultLifecycleObserver, Application.ActivityLifecycleCallbacks {
+
+    private var currentActivity: Activity? = null
+    private val policy = AppLockPolicy()
+
+    init {
+        (context.applicationContext as Application).registerActivityLifecycleCallbacks(this)
+    }
+
+    override fun onStart(owner: LifecycleOwner) {
+        super.onStart(owner)
+        
+        val state = AppLockState(AppLockManager.isAppLockEnabled(context), AppLockManager.isUnlocked)
+        val isExemptHost = currentActivity is LockActivity || currentActivity is LibraryQRWidgetActivity
+        if (policy.shouldRequestUnlock(state, isExemptHost)) {
+            val intent = Intent(context, LockActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                putExtra("MODE", "UNLOCK")
+            }
+            context.startActivity(intent)
+        }
+    }
+
+    override fun onStop(owner: LifecycleOwner) {
+        super.onStop(owner)
+        val state = AppLockState(AppLockManager.isAppLockEnabled(context), AppLockManager.isUnlocked)
+        AppLockManager.isUnlocked = policy.reduce(state, AppLockEvent.EnteredBackground).unlocked
+    }
+
+    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+    override fun onActivityStarted(activity: Activity) { currentActivity = activity }
+    override fun onActivityResumed(activity: Activity) { currentActivity = activity }
+    override fun onActivityPaused(activity: Activity) {}
+    override fun onActivityStopped(activity: Activity) { if (currentActivity == activity) currentActivity = null }
+    override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+    override fun onActivityDestroyed(activity: Activity) {}
+}

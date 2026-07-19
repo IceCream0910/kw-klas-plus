@@ -2,22 +2,43 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.androidApplication)
-    alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
 }
 
 kotlin {
     compilerOptions {
-        jvmTarget = JvmTarget.JVM_11
+        jvmTarget = JvmTarget.JVM_21
     }
 }
 dependencies {
-    implementation(projects.sharedUI)
+    implementation(projects.shared)
 
     implementation(libs.androidx.activity.compose)
 
-    implementation(libs.compose.uiToolingPreview)
-    debugImplementation(libs.compose.uiTooling)
+    implementation("io.sentry:sentry-android:8.20.0")
+    implementation("androidx.core:core-ktx:1.17.0")
+    implementation("androidx.appcompat:appcompat:1.7.1")
+    implementation(libs.androidx.webkit)
+    implementation("com.google.android.material:material:1.14.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.9.3")
+    implementation("androidx.lifecycle:lifecycle-process:2.9.3")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.3")
+    implementation("androidx.biometric:biometric:1.4.0-alpha02")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("androidx.constraintlayout:constraintlayout:2.2.1")
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
+    implementation("com.github.tlaabs:TimetableView:1.0.3-fx1")
+    implementation("com.github.androidmads:QRGenerator:1.0.1")
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+    implementation("androidx.preference:preference:1.2.1")
+    implementation("androidx.preference:preference-ktx:1.2.1")
+    implementation("com.google.android.play:app-update-ktx:2.1.0")
+
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.testExt.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
 }
 
 android {
@@ -28,8 +49,9 @@ android {
         applicationId = "com.icecream.kwklasplus"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 33
+        versionName = "2.0.0-alpha1"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     packaging {
         resources {
@@ -38,11 +60,28 @@ android {
     }
     buildTypes {
         getByName("release") {
-            isMinifyEnabled = false
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+    buildFeatures {
+        viewBinding = true
+        compose = true
+    }
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 }

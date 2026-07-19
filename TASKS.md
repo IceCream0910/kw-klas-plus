@@ -51,7 +51,9 @@
     - 각 remote URL과 SHA로 재현 가능
     - 이후 upstream 변경 수용 절차 정의
 
-- [ ] **M0-004 (P0, M)** Android 기준 앱을 debug/release-like로 빌드한다.
+- [x] **M0-004 (P0, M)** Android 기준 앱을 debug/release-like로 빌드한다.
+  - 완료: JDK 21/Gradle 9.4.1/AGP 9.2.1 조합에서 debug와 R8 minify release APK 및 manifest processing을 완료했다. 현재 release 산출물이 production signing 미설정에 따른 unsigned APK임을 확인했으며 배포 서명 연결은 M8-004에서 수행한다.
+  - 검증: `./gradlew :androidApp:assembleDebug :androidApp:assembleRelease --console=plain` 통과(2026-07-17).
   - Depends on: M0-002, M0-003
   - Acceptance:
     - 빌드 명령과 JDK/Gradle/SDK 버전 기록
@@ -62,10 +64,11 @@
   - Depends on: M0-001
   - Acceptance:
     - Android debug assemble 성공
-    - `sharedLogic` Android/iOS 테스트 task 확인
+    - `shared` Android/iOS 테스트 task 확인
     - macOS CI/개발 환경에서 iOS framework와 Xcode build 경로 문서화
 
-- [ ] **M0-006 (P0, M)** 기준 기기/OS 매트릭스와 수동 smoke checklist를 만든다.
+- [x] **M0-006 (P0, M)** 기준 기기/OS 매트릭스와 수동 smoke checklist를 만든다.
+  - 완료: `docs/ANDROID_REGRESSION_CHECKLIST.md`에 API 29 phone, 최신 Android phone, tablet, 생체 미등록/미지원 환경과 F-001~F-032/A-001~A-012 실행 조건·기대 결과·증거 형식을 고정했다. 실제 실행 결과는 M5-007에서 기록한다.
   - Depends on: M0-003
   - 최소 범위:
     - Android API 29, 최신 target 수준, 폰, 태블릿
@@ -83,6 +86,7 @@
 ## M1 — 기존 동작 특성화 및 계약 고정
 
 - [ ] **M1-001 (P0, L)** 인증 흐름 fixture와 상태 전이 테스트를 만든다.
+  - 진행: 로그인 URL, 허용 host, SESSION cookie(`=` 포함), 로그인 페이지 재노출, CAPTCHA/일반 alert, timeout 및 저장 실패를 순수 정책·유스케이스 테스트로 고정. 실제 KLAS redirect/alert fixture와 전체 A-001~A-012 실기기 증거는 미완료.
   - Depends on: M0-003, M0-004
   - 시나리오: A-001~A-012
   - Acceptance:
@@ -91,14 +95,18 @@
     - CAPTCHA, 임시 비밀번호, timeout을 구분
     - fixture와 test log에 실제 credential/session 없음
 
-- [ ] **M1-002 (P0, L)** legacy Web → Native 브리지 스키마를 코드로 캡처한다.
+- [x] **M1-002 (P0, L)** legacy Web → Native 브리지 스키마를 코드로 캡처한다.
+  - 완료: `LegacyBridgeCatalog`, `BridgeValidatorTest`; 8개 surface, 64개 메서드
+  - 검증: `./gradlew :shared:testAndroidHostTest`
   - Depends on: M0-003
   - Acceptance:
     - `FEATURE_PARITY_MATRIX` 5장의 모든 메서드, 인자 수/타입, return 방식 포함
     - `getAppLockSettings` 동기 반환과 `evaluteKLASScript` 철자 고정
     - 알 수 없는 메서드/잘못된 인자 거부 테스트
 
-- [ ] **M1-003 (P0, L)** Native → Web callback과 JS 주입 fixture를 캡처한다.
+- [x] **M1-003 (P0, L)** Native → Web callback과 JS 주입 fixture를 캡처한다.
+  - 완료: `LegacyWebScripts`, JSON-safe 인자 encoder, callback별 arity, localStorage/login/KLAS lecture/온라인 강의/player 명령 팩토리와 `docs/BRIDGE_INJECTION_INVENTORY.md`를 추가. 특수문자·따옴표·역슬래시·Unicode·개행·70 KiB JSON·숫자 범위 fixture를 고정하고 `WebScript.toString()`을 redaction 처리했다.
+  - 검증: `WebScriptTest`, `WebAutomationScriptsTest`, `BridgeJsonCodecTest`, `:shared:testAndroidHostTest` 114개 통과.
   - Depends on: M0-003
   - Acceptance:
     - token/timetable/deadline/lecture/board/settings/player callback 포함
@@ -114,6 +122,7 @@
     - 앱/Web 독립 배포 호환표 작성
 
 - [ ] **M1-005 (P0, L)** Android 화면별 golden flow를 기록한다.
+  - 진행: `docs/ANDROID_REGRESSION_CHECKLIST.md`에 화면별 P0/P1 단계, back/회전/백그라운드/프로세스 재시작, 민감정보 마스킹과 기대 결과를 기록했다. 기준 화면 캡처/동영상 증거는 일괄 수동 검증 때 추가한다.
   - Depends on: M0-006
   - Acceptance:
     - F-001~F-032의 P0/P1 수동 단계와 기대 결과
@@ -121,6 +130,7 @@
     - back/회전/백그라운드/프로세스 재생성 포함
 
 - [ ] **M1-006 (P0, M)** 저장 데이터 migration fixture를 만든다.
+  - 진행: SecureStore write-read/충돌/실패, 세션 timestamp 누락, legacy fallback·미러링 공통 테스트 구현. 실제 1.1.x/1.2.0 설치 데이터와 backup key 불일치 fixture, 동적 library cache는 미완료.
   - Depends on: M0-003
   - Acceptance:
     - 일반 prefs의 구 `kwPWD`, secure prefs의 신규 `kwPWD`
@@ -129,6 +139,7 @@
     - 백업 복원 시 키 불일치 사례
 
 - [ ] **M1-007 (P1, M)** 플랫폼 기능 특성화 테스트를 작성한다.
+  - 진행: QR typed 결과/workflow, PIP state, biometric 결과, 14개 haptic mapping, download URL/MIME/filename, file picker MIME/다중 선택 요청을 공통 또는 Android host 테스트로 고정했다. Widget observable 결과와 Activity lifecycle instrumentation/실기기 증거는 일괄 회귀 검증에서 보완한다.
   - Depends on: M0-006
   - 범위: PIP event/state, Widget 진입/갱신, QR 결과, download/file chooser, biometric lifecycle
   - Acceptance: 신규 구현이 비교할 observable result 정의
@@ -136,10 +147,11 @@
 ## M2 — 프로젝트/모듈 기반 정렬
 
 - [x] **M2-001 (P0, M)** ADR-001로 shared module 노출 전략을 확정한다.
-  - 완료: `docs/adr/ADR-001-shared-module-strategy.md`
+  - 완료: 단일 `shared` KMP 코어와 플랫폼별 UI(Android Compose/iOS SwiftUI) 구조를 `docs/adr/ADR-001-shared-module-strategy.md`에 확정. `sharedLogic`을 `shared`로 변경하고 `sharedUI`를 제거했으며 Android WebView 어댑터를 `androidApp`으로 이전했다. Android Kotlin 54개 파일은 `src/main/kotlin`으로 정렬하고 `commonMain` 플랫폼 import 검증 task를 추가했다.
+  - 검증: 2026-07-19 `:shared:testAndroidHostTest` 강제 재실행, `:androidApp:compileDebugKotlin` 강제 재컴파일, Android unit/instrumentation Kotlin/debug/R8 release 빌드 통과. Windows에서는 iOS 실행 불가하며 `iosArm64`/`iosSimulatorArm64` task와 Xcode `:shared:embedAndSignAppleFrameworkForXcode` 연결만 확인했다.
   - Depends on: M0-005
   - Acceptance:
-    - `sharedLogic`+`sharedUI` 유지 또는 통합 근거
+    - 단일 `shared` 모듈 사용 근거
     - iOS에 노출되는 Kotlin framework는 하나
     - public Swift API surface 최소화
 
@@ -150,21 +162,23 @@
     - Android와 iOS CI 모두 통과
     - version catalog와 문서 일치
 
-- [ ] **M2-003 (P0, M)** `sharedUI`에 iOS device/simulator 타깃과 framework를 추가한다.
+- [ ] **M2-003 (P0, M)** `shared` iOS device/simulator 타깃과 framework 연결을 검증한다.
   - Depends on: M2-001, M2-002
   - Acceptance:
     - `iosArm64`, `iosSimulatorArm64` build
-    - 공통 `App()`이 iOS simulator에 표시
+    - SwiftUI 앱이 `Shared.framework`의 공통 API를 호출
     - framework 중복/링커 경고 없음
 
-- [ ] **M2-004 (P0, M)** iOS SwiftUI entry가 Compose UIViewController를 호스팅하게 한다.
+- [ ] **M2-004 (P0, M)** iOS SwiftUI entry와 공통 상태/ViewModel을 연결한다.
   - Depends on: M2-003
   - Acceptance:
-    - SwiftUI wrapper와 lifecycle 전달
+    - SwiftUI lifecycle과 공통 상태/event 전달
     - safe area/keyboard/orientation smoke test
-    - 기존 `SharedLogic` 직접 import 정리
+    - `Shared.framework` 단일 import와 Swift API surface 검증
 
-- [ ] **M2-005 (P0, M)** 공통 coroutine, serialization, Ktor 의존성을 도입한다.
+- [x] **M2-005 (P0, M)** 공통 coroutine, serialization, Ktor 의존성을 도입한다.
+  - 완료: Ktor 3.5.0/serialization 1.11.0/coroutines 1.10.2, 공통 client 설정, Android OkHttp/iOS Darwin engine, timeout·오류 mapping 및 body/header logging 비활성 정책 구현.
+  - 검증: MockEngine/fake 기반 공통 테스트와 `:shared:testAndroidHostTest` 통과. iOS binary 실행 검증은 M2-003에서 추적.
   - Depends on: M2-002
   - Acceptance:
     - common core + Android OkHttp engine + iOS Darwin engine
@@ -172,6 +186,7 @@
     - Android/iOS MockEngine 또는 fake 기반 테스트
 
 - [ ] **M2-006 (P0, L)** 플랫폼 port와 app dependency container를 정의한다.
+  - 진행: SecureStore, PreferencesStore, ExternalNavigator, Biometrics, Haptics, FileTransfer, FilePicker, QRScanner, PictureInPicture, capability 모델을 `commonMain`에 정의. Android dependency container에 인증 repository, Keystore SecureStore, SessionCoordinator와 QR/외부 이동/햅틱/생체인식/PIP/다운로드/파일 선택 adapter를 명시적으로 주입. Android 구현과 테스트 fake는 완료했으며 iOS entry의 명시적 구현 주입만 M6/M7에서 진행한다.
   - Depends on: M2-001, M2-005
   - Ports: SecureStore, PreferencesStore, WebCookieStore, WebAuthDriver, ExternalNavigator, Biometrics, Haptics, FileTransfer, QRScanner, PictureInPicture, Clock
   - Acceptance:
@@ -179,20 +194,34 @@
     - Android/iOS entry에서 명시적으로 구현 주입
     - 테스트 fake 제공
 
-- [ ] **M2-007 (P1, M)** 공통 navigation 및 capability 모델을 정의한다.
+- [x] **M2-007 (P1, M)** 공통 navigation 및 capability 모델을 정의한다.
+  - 완료: Web/Lecture/LecturePlan/Task/Video/Board/overlay/platform feature를 `AppRoute`로 분리하고 잘못된 URL·필수 payload·제어문자를 route factory에서 거부. Android navigator가 legacy Intent extra를 한 곳에서 기록하며 unsupported/permission-required capability 상태를 공통 모델로 표현한다.
+  - 검증: `AppRouteFactoryTest`, `ExternalNavigationPolicyTest`, `:shared:testAndroidHostTest`, `:androidApp:compileDebugKotlin` 통과.
   - Depends on: M2-003, M2-006
   - Acceptance:
     - Web route, native overlay, modal, platform feature route 구분
     - unsupported/permission-required 상태 표현
     - deep link/Intent extra가 typed route로 검증됨
 
-- [ ] **M2-008 (P0, S)** 최소 Android/iOS OS와 폰/태블릿 정책 ADR을 확정한다.
+- [x] **M2-008 (P0, S)** 최소 Android/iOS OS와 폰/태블릿 정책 ADR을 확정한다.
+  - 완료: ADR-005에서 Android API 29, iOS/iPadOS 16.0, arm64, phone 세로 기본, tablet 회전/멀티윈도우, PIP 예외와 검증 matrix를 확정. Xcode deployment target을 18.2에서 16.0으로 조정.
   - Depends on: M0-006, M2-002
   - Acceptance: Store 배포 조건, Compose 지원 범위, QR/PIP/Widget API 요구사항 반영
 
+- [x] **M2-009 (P0, L)** Android 플랫폼 구현을 KMP source set 경계에 맞게 재배치한다.
+  - 완료: credential/session/cookie/legacy secret migration/app lock secret/library crypto·cache/external navigation/haptics와 repository·use case 조립을 `shared/androidMain`으로 이동. `AndroidSharedDependencies`가 공통 코어를 조립하고 `androidApp`은 Activity·View·WebView 기반 기능만 생성한다. 앱의 잔여 플랫폼 구현은 biometric/file/PIP/QR/navigation/web/legacy bridge 패키지로 분리했다.
+  - 검증: `commonMain` 플랫폼 import와 `androidMain`/`iosMain`의 플랫폼 앱 역참조를 Gradle task로 차단. legacy session key/string timestamp, secret migration store, 도서관 AES/cache migration·expiry, 앱 잠금 SHA-256/Base64 형식 테스트를 추가했다. 2026-07-19 공통 Android host test 147개, Android unit, instrumentation Kotlin, debug APK, R8 release APK 통과.
+  - Depends on: M2-005, M2-006, M5-001
+  - Acceptance:
+    - `shared/androidMain`이 `androidApp` 클래스·리소스·전역 dependency를 참조하지 않음
+    - 앱 UI 수명주기 구현과 공통 port의 Android 구현이 패키지·생성 책임으로 분리됨
+    - 기존 preference/cookie/cache/암호화 계약 테스트 유지
+
 ## M3 — 공통 코어 추출
 
-- [ ] **M3-001 (P0, M)** URL, preference key, intent payload를 typed model로 옮긴다.
+- [x] **M3-001 (P0, M)** URL, preference key, intent payload를 typed model로 옮긴다.
+  - 완료: `SecureKey`/`PreferenceKey`, `ExternalDestination`, `AppRoute`를 공통 모델로 정의. `http/https/mailto/tel` scheme·길이·제어문자·authority 정책을 테스트로 고정하고 Android bridge 외부 이동과 Web/Lecture/LecturePlan/Task/Video/Board Activity payload를 검증형 navigator로 전환. legacy key/extra reader는 대상 Activity에서 유지한다.
+  - 검증: `ExternalNavigationPolicyTest`, `AppRouteFactoryTest`, `:shared:testAndroidHostTest`, `:androidApp:compileDebugKotlin` 통과.
   - Depends on: M1-006, M2-006
   - Acceptance:
     - legacy key reader는 유지
@@ -200,6 +229,8 @@
     - common model에 Android Intent/Bundle 없음
 
 - [ ] **M3-002 (P0, L)** AuthStateMachine과 LoginUseCase를 구현한다.
+  - 진행: `AuthStateMachine`, `PrepareCredentialUseCase`, `LoginUseCase`, PasswordEncryptionApi/WebAuthDriver 계약과 성공·네트워크·timeout·CAPTCHA·임시 비밀번호·저장 실패 테스트 구현. Android WebAuthDriver를 기존 Main WebView에 연결하고 `LoginActivity`의 암호화→저장을 공통 유스케이스로 전환. 실제 KLAS redirect/alert와 전체 A-001~A-012 실기기 검증은 미완료.
+  - 검증: `:shared:testAndroidHostTest`, `:androidApp:compileDebugKotlin`, `:androidApp:compileDebugAndroidTestKotlin` 통과.
   - Depends on: M1-001, M2-005, M2-006
   - Acceptance:
     - A-001~A-012 공통 테스트 통과
@@ -207,13 +238,17 @@
     - 평문 password 저장/로그 없음
 
 - [ ] **M3-003 (P0, L)** SessionCoordinator를 구현한다.
+  - 진행: 1시간 정책, restore/observe/expire, 저장소-cookie rollback과 Android View 시작·로그인·로그아웃·만료 경로 연결 완료. SESSION은 Keystore SecureStore를 primary로 사용하며 기존 View reader 호환을 위해 legacy prefs를 한시적으로 미러링. 실기기 신규/복구/만료/프로세스 재시작 검증은 미완료.
+  - 검증: `:shared:testAndroidHostTest`, `:androidApp:compileDebugKotlin`, `:androidApp:compileDebugAndroidTestKotlin` 통과.
   - Depends on: M1-001, M2-006
   - Acceptance:
     - secure store와 cookie store 동기화의 단일 소유자
     - set/refresh/expire/logout 원자적 의미
     - Android legacy 1시간 instant session 동작 보존
 
-- [ ] **M3-004 (P0, L)** KLAS API repository를 구현한다.
+- [x] **M3-004 (P0, L)** KLAS API repository를 구현한다.
+    - 완료: 비밀번호 암호화, 학기별 수강과목, 시간표, 온라인 강의·과제·팀 프로젝트 마감일, QR 출석 workflow를 공통 repository로 구현하고 Android에 연결. SESSION/User-Agent, 30초 legacy 조회 timeout, 교시/날짜/Web JSON 계약과 typed 오류 mapping 포함.
+    - 검증: 2026-07-18 과거 학기 응답의 누락 교수명을 허용하는 호환 fixture 추가. 공통 host test 121개, `:androidApp:assembleDebug` 통과. 수정 빌드 실기기 재검증과 iOS 날짜 parser 연결은 후속 단계에서 추적.
   - Depends on: M2-005, M3-003
   - 우선 범위: password encryption, QR check-in, attendance/semester 요청
   - Acceptance:
@@ -222,6 +257,8 @@
     - HTTP body/header 로그 redaction
 
 - [ ] **M3-005 (P1, L)** LibraryRepository를 공통화한다.
+    - 진행: 비밀키→로그인→QR workflow, typed 실패, legacy Java hash 캐시 identity, XML parser, 캐시 만료/실패 clear 정책과 세 API의 Ktor form gateway를 `commonMain`으로 이동. Android `LibraryManager`는 cache/crypto adapter만 연결하며 Android Base64 및 AES/CBC/zero-IV fixture 통과. 2026-07-18 실서버 CDATA parser 회귀를 수정. `device_gb=A`는 ADR-004에 따라 Android에서 유지하며 iOS 서버 허용값 확인은 미완료.
+    - 검증: CDATA/주석/비정상 XML 및 HTTP form/오류 fixture 포함 공통 host test 136개, `:androidApp:testDebugUnitTest`, `:androidApp:compileDebugKotlin` 통과. 실서버 재검증 대기.
   - Depends on: M1-006, M2-005, M2-006
   - Acceptance:
     - XML parsing, Base64, AES 호환 fixture 통과
@@ -229,6 +266,7 @@
     - secret/authKey cache expiry와 clear 정책
 
 - [ ] **M3-006 (P0, L)** SecureStore migration을 구현한다.
+  - 진행: write-read 검증 후 삭제, 중간 실패/충돌 시 구 데이터 보존 정책과 공통 테스트 구현. Android AES-GCM Keystore store를 실제 로그인 credential reader/writer, SESSION primary store, 앱 잠금 hash/salt에 연결. SESSION은 레거시 View 호환 미러를 유지하고 credential·PIN은 read-through 검증 후 구 키를 삭제한다. Keystore/legacy secure/session mirror/QR cache SharedPreferences를 cloud backup 및 device transfer에서 제외. 동적 도서관 캐시 키, 기존 설치·백업 복원 실기기 검증은 미완료.
   - Depends on: M1-006, M2-006, ADR-003
   - Acceptance:
     - Android 구 일반/EncryptedSharedPreferences → 신규 store
@@ -237,6 +275,7 @@
     - backup rules 테스트
 
 - [ ] **M3-007 (P0, M)** 앱 잠금 도메인과 정책을 추출한다.
+  - 진행: `AppLockSettings`, `AppLockPolicy`를 구현하고 Android lifecycle 및 동기 settings bridge에 연결. PIN hash/salt는 Keystore SecureStore 우선 read-through migration 및 신규 쓰기로 전환. 실제 업그레이드·전체 lifecycle·위젯 예외 fixture는 미완료.
   - Depends on: M2-006, M3-006
   - Acceptance:
     - enabled/biometric/password/lifecycle 상태 모델
@@ -244,15 +283,27 @@
     - 위젯 예외 정책 명시
 
 - [ ] **M3-008 (P0, L)** 기존 Android View UI가 신규 auth/session/repository를 사용하게 연결한다.
+  - 진행: `MainActivity`의 credential restore·WebAuthDriver·LoginUseCase·세션 판정/관찰, `LoginActivity`의 PrepareCredentialUseCase, Home 로그아웃/만료를 신규 core에 연결. Home 학기/과목/시간표/마감일, Home/Lecture/QR 출석, 학생증·도서관 QR, 온라인 강의 metadata/state/진도/Web 자동화 경로를 공통 repository·codec·script factory로 전환. 2026-07-17 사용자 Android 빌드·실행 smoke 성공. A-001~A-012 업그레이드/실서버 실기기 검증은 미완료.
   - Depends on: M3-002~M3-007
   - Acceptance:
     - 아직 Compose 전환 전인 UI에서 A-001~A-012 통과
     - 신규 core 문제 시 legacy implementation으로 되돌릴 수 있음
     - Android 사용자 동작 차이 없음
 
+- [x] **M3-009 (P0, L)** Compose/iOS 전 Android 앱 계층 공통화 감사를 완료한다.
+  - 완료: `androidApp`의 직접 OkHttp/Jsoup/JSON/XML 요청·파싱을 제거하고 학생증 QR, 도서관 gateway, 강의 metadata와 player bridge 파싱을 `shared`로 이동. Ktor client는 `shared/androidMain` 컨테이너 내부에 숨기고 URL/prefs 계약과 KLAS/Web/player script를 공통 단일 원본으로 통합했다. 잔여 Android-only 경계와 iOS adapter 범위를 `docs/ANDROID_COMMONIZATION_AUDIT.md`에 고정했다.
+  - 검증: 2026-07-19 `:shared:testAndroidHostTest` 136개(실패 0), `:androidApp:testDebugUnitTest`, `:androidApp:compileDebugAndroidTestKotlin`, `:androidApp:assembleDebug`, R8 `:androidApp:assembleRelease` 통과. Android 직접 HTTP/응답 parser 검색 0건, 직접 JS 실행은 executor와 legacy `evaluteKLASScript` 전달 2건만 존재.
+  - Depends on: M3-004, M3-005, M3-008
+  - Acceptance:
+    - Android 앱 계층에 직접 HTTP client/응답 parser 없음
+    - iOS가 repository/DTO/cache policy/Web script를 재작성하지 않고 재사용 가능
+    - 플랫폼 SDK와 lifecycle adapter만 Android에 잔류
+
 ## M4 — 버전형 브리지와 Android Web/Compose 전환
 
-- [ ] **M4-001 (P0, L)** Bridge v1 command/event schema와 router를 구현한다.
+- [x] **M4-001 (P0, L)** Bridge v1 command/event schema와 router를 구현한다.
+  - 완료: strict JSON request/response/event envelope, UTF-8 64 KiB 측정, 안정된 오류 code, async/sync router, handler 오류 redaction과 cancellation 전파 구현. 64개 legacy 계약을 `BridgeMethodId`로 1:1 typed mapping하고 13개 Native→Web event ID 정의. `ADR-002` 승인.
+  - 검증: `:shared:testAndroidHostTest` 93개 및 `:androidApp:assembleDebug` 통과. 64개 catalog mapping, origin/main-frame/인자/크기/version/id, malformed JSON, 동기 반환, 특수문자 event payload 테스트 포함.
   - Depends on: M1-002, M1-003, M2-006
   - Acceptance:
     - version/id/method/args/result envelope
@@ -260,13 +311,17 @@
     - 모든 legacy 메서드가 typed command로 매핑
 
 - [ ] **M4-002 (P0, L)** Android legacy `Android` façade를 router에 연결한다.
+  - 진행: AndroidX WebKit origin-aware message listener를 8개 surface와 해당 WebView 생명주기에 연결하고 64개 typed command를 기존 façade에 위임. `window.Android`와 동기 `getAppLockSettings`는 Web 저장소 전환 전까지 병행 유지. Link/Web modal은 exact HTTPS trusted top-level에서만 façade를 등록하고 외부 top-level 이동 시 제거한다. trusted top-level의 untrusted subframe 격리는 Web 저장소의 M4-008 전환과 실기기 전체 bridge flow 검증이 남았다.
+  - 검증: `TrustedOriginPolicy` exact-origin fixture 포함 공통 테스트 114개, `:androidApp:compileDebugKotlin` 통과.
   - Depends on: M4-001
   - Acceptance:
     - 기존 Web commit 변경 없이 P0/P1 flow 동작
     - 동기 `getAppLockSettings` 보존
     - 외부 origin에는 façade 미노출
 
-- [ ] **M4-003 (P0, M)** Native → JS 전달을 JSON-safe dispatcher로 교체한다.
+- [x] **M4-003 (P0, M)** Native → JS 전달을 JSON-safe dispatcher로 교체한다.
+  - 완료: legacy callback/localStorage/KLAS 자동화/온라인 강의 payload를 `WebScript`와 JSON encoder 기반 팩토리로 전환. 특수문자·따옴표·역슬래시·Unicode·개행 및 숫자 범위를 테스트하고 동적 비디오 강의 인자의 직접 문자열 보간을 제거했다. 공개 계약인 `evaluteKLASScript`의 trusted Web 제공 script 실행은 호환 경로로 유지한다.
+  - 검증: `LegacyWebScriptsTest`, `WebAutomationScriptsTest`, `:shared:testAndroidHostTest` 114개 통과.
   - Depends on: M4-001
   - Acceptance:
     - callback 문자열 직접 결합 제거
@@ -274,6 +329,8 @@
     - secret이 오류 로그에 포함되지 않음
 
 - [ ] **M4-004 (P0, L)** `WebSurface` 공통 계약과 Android WebView holder를 구현한다.
+  - 진행: loading/ready/error/disposed, back/forward/reload/stop/evaluate snapshot 계약을 `shared/commonMain`에 정의하고 Android holder/client를 `androidApp`에 구현. Home/강의/게시판/계획서/Task/Link/설정/비디오 3면/Web modal의 page callback과 dispose를 연결했다. SESSION cookie 소유권은 `SessionCoordinator`/`WebCookieStore`로 분리 유지하며 configuration change 보존/누수 instrumentation과 실기기 검증이 남았다.
+  - 검증: 공통 테스트 114개, `:shared:testAndroidHostTest`, `:androidApp:compileDebugKotlin` 통과.
   - Depends on: M2-006, M2-007, M4-001
   - Acceptance:
     - navigation/loading/error/back/reload/evaluate/cookie
@@ -320,7 +377,9 @@
 
 ## M5 — Android 네이티브 기능 패리티
 
-- [ ] **M5-001 (P0, L)** QR 출석을 `QRScanner`/`AttendanceRepository`에 연결한다.
+- [x] **M5-001 (P0, L)** QR 출석을 `QRScanner`/`AttendanceRepository`에 연결한다.
+    - 진행: `HomeActivity`/`LectureActivity`의 3단계 전처리와 스캔 성공 이후 체크인 판정을 공통 `AttendanceRepository`로 교체. Google ML Kit #1018과 동일한 AGP 9 R8 full-mode 내부 생성자 제거 문제로 확정하고 `mlkit_code_scanner` keep 규칙을 추가했다. 직접 Google Activity/내부 Parcelable 우회는 제거했으며 `QRScanActivity`가 공통 `QrScanner` port의 `AndroidQrScanner`를 사용한다. adapter는 Activity context에서 공식 `GmsBarcodeScanning.getClient()`를 1회 호출하고 typed 결과를 반환한다. 무스캔 종료는 무알림 취소로 처리하고 Home/Lecture의 연속 탭은 scanner Activity 반환까지 single-flight로 제한했다. 2026-07-19 사용자 실기기 전체 체크리스트 통과.
+    - 검증: `QrScanLaunchGuardTest` 포함 공통 host test 137개, Android unit test, instrumentation Kotlin 컴파일, debug APK 및 R8 release APK 빌드 통과.
   - Depends on: M3-004, M2-006
   - Acceptance: F-019와 성공/실패/취소/권한/세션 만료 통과
 
@@ -329,6 +388,7 @@
   - Acceptance: F-022, F-023; foreground/background race와 widget 예외 포함
 
 - [ ] **M5-003 (P0, XL)** 비디오 플레이어와 Android PIP를 새 경계로 이전한다.
+    - 진행: 공통 `PictureInPictureState`/port와 Android PIP adapter를 연결하고 기존 RemoteAction을 보존. player command와 온라인 강의 payload를 typed `PlayerWebScripts`로 이동해 동적 문자열 주입을 제거했으며 3개 WebView를 공통 WebSurface 수명주기에 연결. 2026-07-18 KLAS 영상 subdomain이 exact app origin에서 제외되어 state 주입이 중단된 회귀를 별도 HTTPS host-family 정책으로 수정하고, callback 문자열 변환·유효 범위 처리와 PIP 종료 fullscreen/방향 복구 상태를 추가. 수정 빌드 실기기 재검증 대기.
   - Depends on: M4-001, M4-007
   - Acceptance:
     - F-017, F-018 Android parity
@@ -336,14 +396,18 @@
     - 회전/백그라운드/복귀 시 상태 보존
 
 - [ ] **M5-004 (P1, L)** 도서관 QR UI와 AppWidget을 신규 repository/store에 연결한다.
+    - 진행: `LibraryManager`를 공통 `LibraryRepository`의 Android gateway/cache/crypto adapter로 전환해 Home/도서관 modal/Widget 진입 Activity가 동일 workflow와 SecureStore read-through 경로를 사용한다. cache 만료·오류 clear 정책과 AES/XML fixture 완료. 2026-07-18 QR CDATA parsing과 위젯 진입 시 Fragment 생성자 복원 crash를 수정하고 no-arg 재생성 계측 테스트를 추가. 위젯 만료/테마/잠금 및 수정 빌드 실서버 회귀가 남았다.
   - Depends on: M3-005, M3-006
   - Acceptance: F-020, F-021 Android parity; 만료/테마/잠금 포함
 
 - [ ] **M5-005 (P1, L)** download/file chooser/external navigation을 port에 연결한다.
+  - 진행: `FileTransfer`/`FilePicker` 요청·결과 모델과 URL/MIME/파일명/header 정책을 공통화. Android DownloadManager adapter가 SESSION cookie/User-Agent/content-disposition을 보존하며 Board/Lecture/Link/Task 다운로드에 연결되고, Activity Result 기반 단일·다중 파일 picker가 네 화면의 legacy requestCode 경로를 대체했다. 외부 이동 7개 bridge 경로도 allowlist navigator를 사용한다. 실기기 다운로드/업로드/취소 회귀만 남았다.
+  - 검증: `FileTransferPolicyTest`, `FilePickerRequestTest`, `ExternalNavigationPolicyTest`, `:androidApp:compileDebugKotlin` 통과.
   - Depends on: M4-004, M4-007
   - Acceptance: F-025~F-027; session cookie, MIME, filename, malicious URL 검증
 
 - [ ] **M5-006 (P1, M)** 테마/방향/태블릿/햅틱/인앱 업데이트를 정리한다.
+  - 진행: ADR-005에 phone/tablet 방향·멀티윈도우 정책을 고정하고 14개 legacy haptic 이름을 semantic port와 Android 상수 adapter로 이전했다. 기존 테마/인앱 업데이트 경로는 회귀 방지를 위해 유지하며 Compose shell 연결과 phone/tablet/업데이트 실기기 검증이 남았다.
   - Depends on: M4-006
   - Acceptance: F-024, F-028~F-030 Android parity
 
@@ -434,6 +498,7 @@
 ## M8 — 보안, 관측, 릴리스
 
 - [ ] **M8-001 (P0, L)** WebView 보안 경계를 강화한다.
+  - 진행: cleartext traffic 기본 차단, 내부 Activity exported 제거, exact trusted origin/main-frame Bridge v1, Link/Web modal 외부 top-level legacy façade 제거, SSL 오류 우회 금지를 구현. trusted top-level 내 legacy 하위 프레임 노출은 M4-008 완료 시 제거하고 Android/iOS 전체 exported/deep-link 검증은 남았다.
   - Depends on: M4-004, M6-001
   - Acceptance:
     - cleartext traffic 필요성 조사 후 기본 차단
@@ -442,6 +507,7 @@
     - exported Activity/Intent/deep link 검증
 
 - [ ] **M8-002 (P0, M)** 민감정보 redaction과 crash attachment 정책을 적용한다.
+  - 진행: 네트워크 body/header logging 비활성, bridge/repository 오류의 일반화된 메시지, Sentry screenshot/view hierarchy 첨부 비활성화를 적용. 알려진 secret key 전체 자동 redaction 테스트와 iOS 설정은 미완료.
   - Depends on: M3-006, M4-003
   - Acceptance:
     - credential/session/library secret/QR payload 로그 없음
@@ -480,7 +546,7 @@
 
 1. M0-001~M0-005: 이력/기준 SHA/두 빌드 확보
 2. M1-001~M1-003: 인증과 브리지 계약 fixture
-3. M2-001~M2-004: iOS에서도 `sharedUI`가 실제로 뜨는 smoke slice
+3. M2-001~M2-004: iOS SwiftUI에서 `Shared.framework` 공통 API를 호출하는 smoke slice
 4. M2-005~M2-006: 공통 port와 네트워크 기반
 5. M3-002~M3-003: 인증 상태 머신 + SessionCoordinator
 6. M3-008: 신규 core를 기존 Android UI에 먼저 연결

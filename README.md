@@ -1,6 +1,6 @@
-This is a Kotlin Multiplatform project targeting Android, iOS.
+This is a Kotlin Multiplatform project targeting Android and iOS.
 
-> 이 저장소는 기존 Android View 앱을 KMP + Compose Multiplatform으로 점진 이전하기 위한 작업 공간입니다. Android 기능 패리티가 iOS 확장보다 우선합니다.
+> 이 저장소는 기존 Android View 앱을 KMP 공통 코어 + Android Compose + iOS SwiftUI 구조로 점진 이전하기 위한 작업 공간입니다. Android 기능 패리티가 iOS 확장보다 우선합니다.
 
 ### Migration documents
 
@@ -10,18 +10,14 @@ This is a Kotlin Multiplatform project targeting Android, iOS.
 - [기능·화면·브리지 패리티 매트릭스](./docs/FEATURE_PARITY_MATRIX.md)
 - [고정 기준선과 툴체인](./docs/BASELINE.md)
 
-* [/iosApp](./iosApp/iosApp) contains an iOS application. Even if you’re sharing your UI with Compose Multiplatform,
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+* [/androidApp](./androidApp/src/main) contains Android entry points, Compose UI, WebView adapters, and Android system integrations.
 
-* [/sharedLogic](./sharedLogic/src) is for the code that will be shared between app targets in the project.
-  The most important subfolder is [commonMain](./sharedLogic/src/commonMain/kotlin). If preferred, you
-  can add code to the platform-specific folders here too.
+* [/iosApp](./iosApp/iosApp) contains the SwiftUI application, WKWebView adapters, and iOS system integrations.
 
-* [/sharedUI](./sharedUI/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - [commonMain](./sharedUI/src/commonMain/kotlin) is for code that’s common for all targets.
-  - `androidMain` is currently the only platform source set configured in this module.
-  - Adding `iosMain` and iOS targets is a required migration task; see `M2-003` in [TASKS.md](./TASKS.md).
+* [/shared](./shared/src) contains Kotlin code shared by both applications.
+  - [commonMain](./shared/src/commonMain/kotlin) owns network APIs, models, entities, use cases, platform-neutral state/ViewModels, and ports.
+  - [androidMain](./shared/src/androidMain/kotlin) owns Android-specific implementations of shared APIs, including the Ktor OkHttp engine.
+  - [iosMain](./shared/src/iosMain/kotlin) owns iOS-specific implementations of shared APIs, including the Ktor Darwin engine.
 
 ### Running the apps
 
@@ -34,8 +30,8 @@ Use the run configurations provided by the run widget in your IDE's toolbar. You
 
 Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
 
-- Android tests: `./gradlew :sharedUI:testAndroidHostTest :sharedLogic:testAndroidHostTest`
-- iOS tests: `./gradlew :sharedLogic:iosSimulatorArm64Test`
+- Android tests: `./gradlew :shared:testAndroidHostTest :androidApp:testDebugUnitTest`
+- iOS tests: `./gradlew :shared:iosSimulatorArm64Test`
 
 ---
 

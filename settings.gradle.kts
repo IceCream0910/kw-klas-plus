@@ -6,7 +6,9 @@ pluginManagement {
         google {
             mavenContent {
                 includeGroupAndSubgroups("androidx")
+                includeGroupAndSubgroups("android.arch")
                 includeGroupAndSubgroups("com.android")
+                includeGroupAndSubgroups("com.android.support")
                 includeGroupAndSubgroups("com.google")
             }
         }
@@ -20,7 +22,9 @@ dependencyResolutionManagement {
         google {
             mavenContent {
                 includeGroupAndSubgroups("androidx")
+                includeGroupAndSubgroups("android.arch")
                 includeGroupAndSubgroups("com.android")
+                includeGroupAndSubgroups("com.android.support")
                 includeGroupAndSubgroups("com.google")
             }
         }
@@ -31,5 +35,4 @@ dependencyResolutionManagement {
 
 include(":androidApp")
 include(":legacyAndroidApp")
-include(":sharedLogic")
-include(":sharedUI")
+include(":shared")

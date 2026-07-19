@@ -2,17 +2,17 @@
 
 - 문서 상태: 제안안
 - 분석일: 2026-07-15
-- 대상: 기존 Android View 앱 → KMP + Compose Multiplatform Android/iOS 앱
+- 대상: 기존 Android View 앱 → KMP 공통 코어 + Android Compose + iOS SwiftUI 앱
 - 최우선 성공 조건: 기존 Android 기능과 사용자 데이터의 무회귀 이전
 
 ## 1. 결론
 
-이 프로젝트는 전체 재작성보다 **strangler 방식의 점진 이전**이 적합하다. 먼저 기존 Android 앱을 현재 저장소에서 그대로 빌드 가능한 기준선으로 복원하고, 인증·세션·브리지 계약을 테스트로 고정한다. 그 다음 공통 코어를 추출하고, Android 화면을 한 경로씩 Compose로 감싼 뒤 교체한다. Android 패리티가 확보된 공통 코어와 UI만 iOS에서 재사용한다.
+이 프로젝트는 전체 재작성보다 **strangler 방식의 점진 이전**이 적합하다. 먼저 기존 Android 앱을 현재 저장소에서 그대로 빌드 가능한 기준선으로 복원하고, 인증·세션·브리지 계약을 테스트로 고정한다. 그 다음 `shared` 공통 코어를 추출하고, Android 화면을 한 경로씩 Compose로 교체한다. Android에서 검증된 공통 코어는 iOS SwiftUI에서 재사용하되 UI 코드는 공유하지 않는다.
 
 권장 목표는 다음과 같다.
 
-- 공통화: 인증 상태 머신, 세션 정책, KLAS API, DTO, 저장소 계약, 브리지 명령/이벤트 모델, Compose 셸과 공통 오버레이 UI
-- 플랫폼 유지: 실제 WebView, 쿠키 저장소, 보안 저장소, 생체인식, 앱 잠금 수명주기, QR 스캔, 다운로드/파일 선택, 위젯, PIP
+- 공통화: API 네트워크 통신, DTO/엔티티, 인증 상태 머신, 세션 정책, 유스케이스, 플랫폼 중립 상태/ViewModel, 저장소 계약, 브리지 명령/이벤트 모델
+- 플랫폼 유지: Android Compose, iOS SwiftUI, 실제 WebView/WKWebView, 쿠키 저장소, 보안 저장소, 생체인식, 앱 잠금 수명주기, QR 스캔, 다운로드/파일 선택, 위젯, PIP
 - 호환 전략: 현재 웹의 `window.Android.*` 계약을 먼저 그대로 지원하고, 버전이 있는 `KlasNativeBridge` 프로토콜로 병행 이전
 - 릴리스 전략: Android를 각 단계마다 배포 가능한 상태로 유지하고, iOS는 공통 코어가 안정화된 뒤 기능 슬라이스 단위로 추가
 
@@ -24,10 +24,10 @@
 
 | 모듈 | 현재 상태 | 필요한 변화 |
 |---|---|---|
-| `androidApp` | Compose 샘플, Android application | 기존 앱 기준선 수용, 플랫폼 진입점/기능 소유 |
-| `sharedLogic` | Android+iOS 타깃, 인사말 샘플 | 공통 도메인·데이터·계약 구현 |
-| `sharedUI` | 이름과 달리 Android 타깃만 있음 | iOS 타깃 및 framework 추가, 공통 Compose 셸 구현 |
-| `iosApp` | SwiftUI 샘플, `SharedLogic` 직접 사용 | `SharedUI` Compose 진입점 포함, iOS 플랫폼 구현 연결 |
+| `androidApp` | 기존 View 앱과 Android 플랫폼 어댑터 | View→Compose 점진 전환, Android WebView·시스템 기능 소유 |
+| `shared` | Android+iOS KMP 타깃 | 공통 네트워크·모델·엔티티·유스케이스·상태·플랫폼 API 구현 |
+| `iosApp` | SwiftUI 진입점 | `Shared.framework` 연결, SwiftUI·WKWebView·iOS 시스템 기능 소유 |
+| `legacyAndroidApp` | 원본 비교용 Android 앱 | 기능 패리티 기준선으로 보존 후 별도 ADR로 제거 결정 |
 
 관찰된 설정 차이도 선행 해결이 필요하다.
 
@@ -69,89 +69,90 @@ Next.js 웹 앱이 홈 피드, 시간표, 강의, 캘린더, 성적, 프로필, 
 
 ```mermaid
 flowchart TB
-    subgraph Apps["Platform applications"]
-        A["androidApp\nActivity / Widget / PIP / QR / Keystore"]
-        I["iosApp\nSwift entry / WidgetKit / AVKit / Keychain"]
+    subgraph Android["androidApp"]
+        A["Compose / Activity / WebView"]
+        AP["Widget / PIP / QR / Keystore"]
     end
 
-    subgraph UI["sharedUI"]
-        C["commonMain\nCompose shell / navigation / overlays"]
-        AW["androidMain\nAndroidView + WebView adapter"]
-        IW["iosMain\nUIKit interop + WKWebView adapter"]
+    subgraph IOS["iosApp"]
+        I["SwiftUI / WKWebView"]
+        IP["WidgetKit / AVKit / Keychain"]
     end
 
-    subgraph Core["sharedLogic"]
-        D["Domain\nAuth state / use cases / models"]
-        R["Data\nRepositories / Ktor / serialization"]
-        P["Ports\nSecureStore / CookieStore / Browser / Biometrics"]
-        B["Bridge protocol\ncommands / events / validation"]
+    subgraph Core["shared"]
+        D["commonMain\nAPI / models / entities / use cases / state"]
+        R["commonMain\nrepositories / Ktor / serialization"]
+        P["commonMain\nplatform ports / bridge protocol"]
+        PA["androidMain\nOkHttp engine / Android-specific shared APIs"]
+        PI["iosMain\nDarwin engine / iOS-specific shared APIs"]
     end
 
     W["kw-klas-plus-webview\nKlasNativeBridge + Android fallback"]
     K["KLAS and library servers"]
 
-    A --> C
-    I --> C
-    C --> AW
-    C --> IW
-    C --> D
-    AW --> B
-    IW --> B
+    A --> D
+    I --> D
+    AP --> P
+    IP --> P
     D --> R
     D --> P
-    W <--> AW
-    W <--> IW
+    R --> PA
+    R --> PI
+    W <--> A
+    W <--> I
     R <--> K
 ```
 
 ### 3.1 모듈 구조
 
-권장 디렉터리 구조는 현재 모듈을 유지하되 역할을 명확히 하는 형태다.
+권장 디렉터리 구조는 단일 KMP 코어와 플랫폼별 UI의 역할을 명확히 하는 형태다.
 
 ```text
 androidApp/
   src/main/
     kotlin/.../app/                 # Application, MainActivity
-    kotlin/.../platform/            # Android capability implementations
+    kotlin/.../platform/biometric/  # FragmentActivity/BiometricPrompt
+    kotlin/.../platform/file/       # Activity Result/WebChromeClient
+    kotlin/.../platform/pip/        # Activity/PIP UI
+    kotlin/.../platform/qr/         # Activity/Google scanner UI
+    kotlin/.../platform/navigation/ # 앱 Activity route
+    kotlin/.../platform/web/        # WebView holder/auth/bridge adapter
+    kotlin/.../platform/bridge/     # legacy 앱 bridge handler
     kotlin/.../widget/              # AppWidgetProvider, RemoteViews/Glance 선택
     kotlin/.../video/               # PIP 전용 Activity/controller
     kotlin/.../migration/           # 구 SharedPreferences 데이터 이전
 
-sharedLogic/
+shared/
   src/commonMain/kotlin/.../
-    auth/                            # AuthStateMachine, LoginUseCase
-    session/                         # Session, SessionPolicy, SessionRepository
-    bridge/                          # versioned command/event schema
-    klas/                            # KLAS API repository and DTO
-    library/                         # 도서관 QR domain/repository
-    settings/                        # 일반 설정 모델
-    platform/                        # ports/interfaces only
-  src/androidMain/kotlin/.../        # Ktor OkHttp engine, small adapters
-  src/iosMain/kotlin/.../            # Ktor Darwin engine, small adapters
-
-sharedUI/
-  src/commonMain/kotlin/.../
-    app/                             # App root, navigation, theme
-    feature/auth/                    # onboarding/login/loading/error
-    feature/shell/                   # Web container chrome and overlays
-    feature/lock/                    # common lock presentation
-    web/                             # WebSurface contract, bridge binding
-  src/androidMain/kotlin/.../web/    # WebView host
-  src/iosMain/kotlin/.../web/        # WKWebView host
+    core/network/                    # Ktor client, API transport, error mapping
+    core/model/                      # DTO, entity, value object
+    core/auth/                       # AuthStateMachine, LoginUseCase
+    core/session/                    # Session policy and repository
+    core/bridge/                     # versioned command/event schema
+    core/platform/                   # ports/interfaces only
+    core/presentation/               # platform-neutral state/ViewModel
+  src/androidMain/kotlin/.../
+    core/AndroidSharedDependencies  # Android 공통 코어 composition
+    core/network/                   # OkHttp engine
+    core/auth/                      # SharedPreferences credential adapter
+    core/session/                   # session/timestamp/CookieManager adapter
+    core/security/                  # Keystore SecureStore
+    core/migration/                 # legacy secret source/mapping
+    core/library/                   # AES codec, cache, Android service
+    core/platform/                  # external navigation, haptics
+    core/lock/                      # app lock secret adapter
+  src/iosMain/kotlin/.../            # Darwin engine, iOS-specific shared APIs
 
 iosApp/
-  iosApp/                            # Swift entry and native integrations
+  iosApp/                            # SwiftUI entry, WKWebView and native integrations
   widgetExtension/                   # WidgetKit + App Group
 ```
 
 ### 3.2 iOS framework 구성
 
-현재 `sharedUI`에는 iOS 타깃이 없고 iOS 앱은 `SharedLogic`만 import한다. 목표는 다음 중 하나의 framework만 iOS 앱에 노출하는 것이다.
+`shared`에 `iosArm64`와 `iosSimulatorArm64` 타깃을 두고 정적 `Shared.framework` 하나만 iOS 앱에 노출한다. SwiftUI는 공통 상태와 유스케이스를 직접 소비하며 Compose UIViewController를 호스팅하지 않는다. WKWebView와 iOS 시스템 기능은 `iosApp`이 소유하고, 필요한 구현을 `shared`의 port에 주입한다. 이번 Android 구조 정리 단계에서는 iOS 기능을 구현하지 않고 framework 빌드 연결과 소스셋 경계만 유지한다.
 
-- 권장: `sharedUI`가 `sharedLogic`에 의존하고 `SharedUI.framework` 하나를 iOS 앱이 사용
-- 대안: 단일 `sharedApp` 모듈로 두 모듈을 합침
-
-별도 Kotlin framework 두 개가 같은 공통 코드를 중복 포함하지 않도록 한다. `sharedUI`에 `iosArm64`와 `iosSimulatorArm64` 타깃, `ComposeUIViewController` 진입점, 필요한 export 설정을 추가한다. SwiftUI `UIViewControllerRepresentable`이 이 진입점을 감싼다.
+`AndroidSharedDependencies`는 Android의 network engine, storage adapter와 공통 repository/use case를 조립한다. iOS 확장 시 동일한 공통 계약에 Darwin engine, Keychain/UserDefaults/cache adapter를 주입하는 `IosSharedDependencies`를 `iosMain`에 둔다. 플랫폼 앱은 이 container가 제공하는 공통 기능과 상태를 소비하고, UI 수명주기가 필요한 adapter만 자체 composition root에서 생성한다.
 
 ## 4. 핵심 계약
 
@@ -184,9 +185,11 @@ Authenticated
 
 구현 원칙:
 
-- 상태 전이는 `sharedLogic`에서 순수하게 테스트한다.
+- 상태 전이는 `shared`에서 순수하게 테스트한다.
 - 실제 로그인 페이지 제어와 쿠키 관찰은 `WebAuthDriver` 플랫폼 구현이 맡는다.
 - `CredentialStore`, `SessionStore`, `WebCookieStore`, `Clock`, `KlasAuthApi`를 주입한다.
+- 평문 입력의 암호화와 credential 검증 저장은 `PrepareCredentialUseCase`, 저장 credential을 이용한 Web 로그인과 SESSION 반영은 `LoginUseCase`가 소유한다.
+- URL/허용 host/SESSION cookie/로그인 재노출/alert 판정은 공통 `WebAuthObservationPolicy`가 담당하고, Android WebView와 iOS WKWebView는 이벤트 전달만 담당한다.
 - 세션의 1시간 로컬 캐시 정책은 기존 호환 기본값으로 시작하되 서버 401/로그인 리다이렉트가 최종 진실이다.
 - 앱 시작 시 WebView 쿠키와 네이티브 세션 저장소를 한 방향으로만 우연히 복사하지 않는다. 명시적인 `SessionCoordinator`가 갱신·삭제·타임스탬프를 함께 처리한다.
 - 로그아웃/계정 변경 시 일반 세션, WebView cookie, localStorage의 토큰, 보안 자격증명을 정책에 따라 원자적으로 삭제한다.
@@ -197,23 +200,27 @@ Authenticated
 |---|---|---|---|
 | 학번, 테마, 학기, UI 설정 | 일반 설정 | SharedPreferences/DataStore adapter | UserDefaults adapter |
 | 서버 암호화 KLAS 비밀번호 | 비밀 | Keystore 보호 SecureStore | Keychain |
-| `SESSION` 및 타임스탬프 | 비밀/세션 | SecureStore + CookieManager | Keychain + WKHTTPCookieStore |
+| `SESSION` 및 타임스탬프 | 비밀/세션 메타데이터 | 토큰 SecureStore + 일반 timestamp + CookieManager | 토큰 Keychain + 일반 timestamp + WKHTTPCookieStore |
 | 도서관 비밀번호, secret, authKey | 비밀 | Keystore 보호 SecureStore | Keychain |
 | 앱 잠금 hash/salt/flags | 비밀 설정 | Keystore 보호 SecureStore | Keychain |
 | Widget 표시용 최소 데이터 | 공유 캐시 | 위젯 접근 가능한 앱 내부 저장소 | App Group UserDefaults/파일, 비밀 원문 금지 |
 
 기존 Android의 `EncryptedSharedPreferences`는 AndroidX에서 deprecated 상태다. 신규 구현은 Keystore로 키를 보호하는 자체 `SecureStore` 또는 검증된 대안을 사용하되, 기존 파일을 먼저 읽어 신규 저장소에 기록하고 검증한 뒤 구 키를 삭제한다. 앱 백업/복원에서 키가 없는 암호문이 복원되지 않도록 backup rule을 함께 검증한다.
 
+Android View 전환 기간에는 `SessionCoordinator`가 Keystore 저장소를 primary로 사용하면서 기존 Activity의 직접 reader를 위해 `kwSESSION`을 한시적으로 미러링한다. credential과 앱 잠금 hash/salt는 신규 reader 연결이 끝난 값부터 read-through 검증 후 구 키를 삭제한다. 미러 제거는 모든 직접 reader가 공통 session port로 전환되고 업그레이드 실기기 검증이 끝난 뒤 수행한다.
+
+Android Auto Backup과 device transfer에서는 Keystore 암호문, legacy secure prefs, SESSION 미러가 포함된 메인 prefs, 도서관 QR 캐시를 제외한다. 따라서 기기 복원 후에는 재로그인이 필요하며, 일반 설정의 선택적 백업은 SESSION 미러 제거 후 별도 설정 파일로 분리해 다시 허용한다.
+
 ### 4.3 네트워크
 
-`sharedLogic`의 공통 네트워크 계층은 Ktor Client + kotlinx.serialization을 우선 후보로 한다.
+`shared`의 공통 네트워크 계층은 Ktor Client + kotlinx.serialization을 사용한다.
 
 - Android engine: OkHttp
 - iOS engine: Darwin/NSURLSession
 - 공통 처리: content type, timeout 정책, DTO, 오류 매핑, 세션 헤더, 민감정보 redaction
 - 플랫폼 처리: engine/TLS 설정, User-Agent, 네트워크 진단
 
-현재 직접 Thread/OkHttp/JSONObject로 구현된 KLAS 출석 API와 도서관 API부터 작은 repository로 추출한다. WebView에서만 가능한 DOM 스크래핑·페이지 조작은 HTTP repository처럼 위장하지 말고 `WebAutomationPort`로 구분한다.
+KLAS 인증/학기/시간표/마감일/출석, 도서관, 학생증 QR와 강의 metadata 요청은 공통 repository/gateway가 소유한다. Android 앱에는 HTTP client와 응답 parser를 노출하지 않으며 `shared/androidMain` 컨테이너가 OkHttp engine과 timeout 구성을 캡슐화한다. WebView에서만 가능한 URL/cookie 발견과 페이지 실행은 HTTP repository처럼 위장하지 않고 공통 `WebScript` factory와 플랫폼 `WebSurface`로 구분한다. 완료된 경계와 재유입 감사 명령은 `docs/ANDROID_COMMONIZATION_AUDIT.md`를 따른다.
 
 ### 4.4 WebView와 쿠키
 
@@ -317,7 +324,7 @@ WebView 콘텐츠를 Compose 네이티브 화면으로 재작성하는 것은 �
 
 iOS는 Android 전환 완료를 기다려 한 번에 만들지 않고, 공통 계약이 안정된 슬라이스부터 병행한다.
 
-1. `sharedUI` iOS framework와 빈 Compose 셸
+1. `Shared.framework`와 빈 SwiftUI 앱의 공통 API 연결
 2. WKWebView + origin 제한 + `window.Android` 호환 shim
 3. 수동 로그인 → 웹 로그인 → SESSION 추출 → 앱 재시작 세션 복구
 4. 홈/시간표/프로필 등 읽기 중심 WebView 경로
@@ -337,6 +344,7 @@ iOS WidgetKit과 PIP는 앱 본체와 별도의 extension/entitlement/실기기 
   - 모든 브리지 메서드/인자/콜백 스냅샷
   - AppPrefs 구키 → 신규 모델 매핑
   - URL/origin allowlist
+  - 온라인 강의 player는 HTTPS `kw.ac.kr` host boundary만 허용하고 suffix 위장·userinfo·port를 거부
 - 공통 단위 테스트
   - 인증 상태 전이, session TTL, 오류 매핑, repository
   - 고정 Clock/Fake SecureStore/Ktor MockEngine 사용
@@ -380,6 +388,7 @@ iOS WidgetKit과 PIP는 앱 본체와 별도의 extension/entitlement/실기기 
 |---|---|---|
 | credential을 JS 문자열에 직접 삽입 | 따옴표/escape 문제, script injection | JSON 직렬화 envelope 사용 |
 | `addJavascriptInterface`가 WebView에 광범위 노출 | 외부 페이지가 native 기능 호출 가능 | trusted origin/main frame에서만 bridge 연결 |
+| 온라인 강의 player가 `klas.kw.ac.kr` 외 KLAS subdomain 사용 | exact 앱 origin만 적용하면 state 주입 중단, 문자열 포함 검사는 host 위장 허용 | 앱 bridge origin과 player content host 정책을 분리하고 HTTPS `kw.ac.kr` DNS boundary 검증 |
 | `usesCleartextTraffic=true` | 불필요한 평문 트래픽 허용 | endpoint 조사 후 false 및 예외 최소화 |
 | 여러 Activity가 CookieManager 직접 조작 | 세션 불일치/삭제 누락 | SessionCoordinator 단일 소유 |
 | 세션을 일반 preferences에 저장 | 토큰 노출 위험 | SecureStore로 이전 |
@@ -402,6 +411,16 @@ iOS WidgetKit과 PIP는 앱 본체와 별도의 extension/entitlement/실기기 
 | iOS PIP가 현재 웹 플레이어와 호환되지 않음 | 중간/높음 | 초기 spike, AVPlayer 전환 fallback 설계 |
 | Widget에서 비밀 데이터 접근 | 중간/높음 | 최소 파생 데이터만 App Group 공유, 만료/잠금 정책 |
 | 라이브러리 API의 Android 식별값 `device_gb=A` | 높음/중간 | 서버 허용값 조사, iOS 요청 계약 테스트 |
+
+도서관 QR의 Ktor form gateway, 공통 workflow, XML 파싱, 캐시 identity와 만료 정책은 `shared`가 소유한다. Android는 AES/CBC/zero-IV codec과 SharedPreferences cache adapter만 제공한다. `device_gb=A` 유지 및 iOS 확인 조건, secret 30일/authKey 12시간 정책은 ADR-004를 따른다.
+
+외부 이동은 공통 `ExternalNavigationPolicy`가 `http`, `https`, `mailto`, `tel`만 허용한다. Android `Intent` 생성은 정책이 반환한 typed destination에 대해서만 수행하며 `javascript`, `intent`, `file` 및 제어문자 포함 값은 거부한다. legacy 햅틱 14개 이름은 공통 enum으로 보존하고 플랫폼에는 selection/confirm/reject/long-press 의미로 전달한다.
+
+`WebSurface`는 URL 로드와 WebView 객체를 노출하지 않고 loading/ready/error, back/forward, reload/stop, JSON-safe script 평가, dispose 상태를 제공한다. Android holder는 기존 Activity의 WebViewClient callback을 입력받는 방식으로 공존하며, Compose 전환 전까지 기존 client를 교체하지 않는다. 생체인식과 PIP는 각각 typed platform result와 `PictureInPictureState`를 통해 Android adapter에 연결하고 플랫폼 UI callback/RemoteAction은 Android app이 소유한다.
+
+Android holder/client 구현은 `androidApp`이 소유하고 기존 View Activity는 page callback과 dispose만 전달한다. iOS WKWebView holder/client는 iOS 확장 시 `iosApp`이 소유한다. SESSION cookie는 WebSurface가 복제하지 않고 `SessionCoordinator`와 `WebCookieStore`가 단일 소유한다. Link/Web modal처럼 외부 top-level URL을 표시할 수 있는 surface는 exact HTTPS trusted origin에서만 legacy `window.Android`를 등록하고 이동 시 제거한다. 다만 `addJavascriptInterface`는 trusted top-level의 하위 프레임 origin을 식별할 수 없으므로, 완전한 하위 프레임 격리는 Web 저장소가 main-frame 검증형 Bridge v1로 전환되는 M4-008에서 완료한다.
+
+Android 앱은 코드/콘텐츠 endpoint가 모두 HTTPS임을 확인한 상태에서 cleartext traffic을 기본 차단한다. 외부 진입 계약이 없는 Activity는 exported하지 않으며, 오류 수집에는 screenshot과 view hierarchy를 첨부하지 않는다.
 | 현재 로컬 폴더에 Git 이력 없음 | 높음/높음 | 구현 전 저장소 초기화/remote/기준 커밋 고정 |
 | SDK/AGP/Kotlin 버전 불일치 | 높음/중간 | 호환 매트릭스 및 CI로 한 조합 고정 |
 
@@ -409,8 +428,8 @@ iOS WidgetKit과 PIP는 앱 본체와 별도의 extension/entitlement/실기기 
 
 구현 전에 다음 ADR을 작성한다.
 
-1. `ADR-001`: `sharedLogic` + `sharedUI` 유지 vs 단일 shared module
-2. `ADR-002`: 브리지 v1 envelope와 웹/앱 버전 협상
+1. `ADR-001`: 단일 `shared` 코어 + Android Compose/iOS SwiftUI
+2. `ADR-002`: 브리지 v1 envelope와 웹/앱 버전 협상 — `docs/adr/ADR-002-bridge-v1-protocol.md` 승인
 3. `ADR-003`: Android SecureStore 및 구 데이터 이전 방식
 4. `ADR-004`: 네트워크 계층(Ktor engine, cookie ownership, User-Agent)
 5. `ADR-005`: iOS PIP 방식(WKWebView media vs AVPlayer)
@@ -432,10 +451,10 @@ iOS WidgetKit과 PIP는 앱 본체와 별도의 extension/entitlement/실기기 
 
 - Kotlin Multiplatform의 플랫폼 API 분리: <https://kotlinlang.org/docs/multiplatform/multiplatform-connect-to-apis.html>
 - `expect`/`actual` 규칙: <https://kotlinlang.org/docs/multiplatform/multiplatform-expect-actual.html>
-- Compose Multiplatform와 SwiftUI/WKWebView 상호운용: <https://kotlinlang.org/docs/multiplatform/compose-swiftui-integration.html>
-- Compose Multiplatform 버전 호환성: <https://kotlinlang.org/docs/multiplatform/compose-compatibility-and-versioning.html>
+- Kotlin Multiplatform iOS framework 연결: <https://kotlinlang.org/docs/multiplatform/multiplatform-direct-integration.html>
+- Android Compose 아키텍처: <https://developer.android.com/develop/ui/compose/architecture>
+- Apple SwiftUI: <https://developer.apple.com/documentation/swiftui>
 - Ktor Android/iOS client engine: <https://ktor.io/docs/client-engines.html>
 - Android Keystore: <https://developer.android.com/privacy-and-security/keystore>
 - `EncryptedSharedPreferences` deprecation: <https://developer.android.com/reference/androidx/security/crypto/EncryptedSharedPreferences>
 - Apple Keychain: <https://developer.apple.com/documentation/security/keychain-services>
-

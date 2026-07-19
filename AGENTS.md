@@ -1,6 +1,6 @@
 # KLAS+ 마이그레이션 작업 규칙
 
-이 저장소의 최우선 목표는 기존 Android 앱의 모든 동작을 보존하면서 KMP + Compose Multiplatform 구조로 점진적으로 이전하고, 그 위에 iOS 지원을 추가하는 것이다. 새 구조의 미관이나 코드 정리보다 Android 회귀 방지가 우선한다.
+이 저장소의 최우선 목표는 기존 Android 앱의 모든 동작을 보존하면서 KMP 공통 코어와 플랫폼별 UI 구조로 점진적으로 이전하고, 그 위에 iOS 지원을 추가하는 것이다. Android UI는 Compose, iOS UI는 SwiftUI로 각각 구현한다. 새 구조의 미관이나 코드 정리보다 Android 회귀 방지가 우선한다.
 
 ## 작업 전 필수 확인
 
@@ -23,23 +23,20 @@
 
 ## 아키텍처 경계
 
-- `sharedLogic/commonMain`
-  - 인증 상태 머신, 세션 정책, DTO, 유스케이스, 저장소 인터페이스, 브리지 명령/이벤트 모델을 둔다.
+- `shared/commonMain`
+  - API 네트워크 통신, 직렬화 데이터 모델, 엔티티, 인증·세션 정책, 유스케이스, 플랫폼 중립 ViewModel/상태, 저장소 인터페이스, 브리지 명령/이벤트 모델을 둔다.
   - Android `Context`, `WebView`, `Activity`, iOS `UIViewController`, `WKWebView`를 참조하지 않는다.
-- `sharedLogic/androidMain`, `sharedLogic/iosMain`
-  - 공통 인터페이스에 필요한 작은 플랫폼 어댑터 또는 플랫폼별 네트워크 엔진 구성을 둔다.
+- `shared/androidMain`, `shared/iosMain`
+  - 공통 인터페이스에 필요한 플랫폼별 API, 네트워크 엔진, 저장소와 작은 어댑터 구현을 둔다.
   - 큰 플랫폼 기능은 생성자 주입 가능한 인터페이스 구현으로 분리한다. 복잡한 기능을 무조건 `expect/actual` 클래스로 만들지 않는다.
-- `sharedUI/commonMain`
-  - Compose 화면, 내비게이션 상태, 프레젠테이션 모델을 둔다.
-  - WebView 자체가 아니라 `WebSurface`와 `PlatformCapabilities` 같은 추상 계약에 의존한다.
-- `sharedUI/androidMain`, `sharedUI/iosMain`
-  - `AndroidView(WebView)` 및 UIKit/WKWebView 상호운용 같은 UI 어댑터를 둔다.
+  - 플랫폼 SDK를 사용하더라도 Activity/View/WebView/UIViewController/WKWebView 수명주기나 앱 화면을 몰라도 되는 저장소·암호화·세션·캐시·작은 OS 어댑터는 플랫폼 source set이 소유한다.
 - `androidApp`
-  - Android 진입점, Manifest, 위젯, PIP Activity, QR 스캐너, 다운로드/파일 선택, 생체인식 및 Keystore 구현을 소유한다.
+  - Compose UI, Android 진입점, Manifest, WebView, 위젯, PIP Activity, QR 스캐너, 다운로드/파일 선택, 생체인식과 앱별 preference 생성을 소유한다.
+  - 공통 port 구현 중 Activity Result, FragmentActivity, View/WebView, 앱 리소스 또는 앱의 특정 Activity에 결합된 구현만 소유한다.
 - `iosApp`
-  - iOS 진입점, entitlements, WidgetKit extension, LocalAuthentication, Keychain, AVKit 및 앱 수명주기 연결을 소유한다.
+  - SwiftUI, WKWebView, iOS 진입점, entitlements, WidgetKit extension, LocalAuthentication, Keychain, AVKit 및 앱 수명주기 연결을 소유한다.
 
-의존 방향은 플랫폼 앱 → `sharedUI` → `sharedLogic`이다. `sharedLogic`이 `sharedUI`나 플랫폼 앱을 참조하면 안 된다.
+의존 방향은 `androidApp`/`iosApp` → `shared`이다. `shared`가 플랫폼 앱을 참조하거나 Compose·SwiftUI·Android View·UIKit 타입을 공개 API에 노출하면 안 된다.
 
 ## 호환성 규칙
 

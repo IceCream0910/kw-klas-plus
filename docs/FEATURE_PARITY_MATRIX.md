@@ -22,45 +22,45 @@
 | Web commit | `870f94d13f74bf0ffc1963d39d6640658cf32cba` |
 | Play 배포 기준 version | 1.2.0 / versionCode 32 (분석 시 소스) |
 | Android applicationId | `com.icecream.kwklasplus` |
-| Android 비교 기기/OS | `TBD (M0-006)` |
-| iOS 최소 버전/기기 | `TBD (M2-008, ADR-007)` |
+| Android 비교 기기/OS | API 29 phone, 최신 Android phone, Android tablet, 생체 미등록/미지원 환경 (`docs/ANDROID_REGRESSION_CHECKLIST.md`) |
+| iOS 최소 버전/기기 | iOS/iPadOS 16.0, arm64, iPhone/iPad (`ADR-005`) |
 
 ## 3. 사용자 기능 패리티
 
 | ID | 기능/화면 | 기존 기준 구현 | Android 목표 소유권 | iOS 목표 소유권 | 우선순위 | 상태 | 필수 검증 |
 |---|---|---|---|---|---|---|---|
-| F-001 | 콜드 스타트/네트워크 오류 | `MainActivity` | Compose root + 공통 startup state | Compose root + reachability adapter | P0 | Not started | 오프라인, 재시도, 종료, 회전/복원 |
-| F-002 | 최초 온보딩 | `LoginActivity` WebView `/onboarding` | 공통 Compose/Web surface | 공통 Compose/WKWebView | P1 | Not started | 최초/재방문, 외부 약관 링크 |
-| F-003 | ID/PW 입력 및 동의 | `LoginActivity` XML | 공통 Compose login | 공통 Compose login | P0 | Not started | 입력/IME/동의/오류/접근성 |
-| F-004 | 비밀번호 서버 암호화 | `SelectScrtyPwd.do`, OkHttp | 공통 `KlasAuthApi` | 공통 `KlasAuthApi` | P0 | Not started | 성공, HTTP 오류, malformed JSON, secret redaction |
-| F-005 | Web 자동 로그인 | `MainActivity` login WebView + `appLogin.setInitial` | Android WebAuthDriver | iOS WebAuthDriver | P0 | Not started | DOM 완료 전후, CAPTCHA, 임시 PW, timeout |
-| F-006 | SESSION 추출/저장/복구 | `CookieManager`, `kwSESSION` | SessionCoordinator + CookieManager | SessionCoordinator + WKHTTPCookieStore | P0 | Not started | 신규/유효/만료/삭제/프로세스 재시작 |
-| F-007 | 홈 피드/하단 탭 | `HomeActivity`, `/feed` 등 | 공통 shell + Android WebView | 공통 shell + WKWebView | P0 | Not started | 탭, back, reload, token/data callbacks |
-| F-008 | 시간표/학기 선택 | `HomeActivity`, `/timetableTab` | 공통 bridge + Compose modal | 동일 + iOS picker | P1 | Not started | 학기 persistence, 시간표 callback |
+| F-001 | 콜드 스타트/네트워크 오류 | `MainActivity` | Android Compose root + 공통 startup state | SwiftUI root + reachability adapter | P0 | Not started | 오프라인, 재시도, 종료, 회전/복원 |
+| F-002 | 최초 온보딩 | `LoginActivity` WebView `/onboarding` | Android Compose/WebView | SwiftUI/WKWebView | P1 | Not started | 최초/재방문, 외부 약관 링크 |
+| F-003 | ID/PW 입력 및 동의 | `LoginActivity` XML | Android Compose login + 공통 상태 | SwiftUI login + 공통 상태 | P0 | Not started | 입력/IME/동의/오류/접근성 |
+| F-004 | 비밀번호 서버 암호화 | `SelectScrtyPwd.do`, OkHttp | 공통 `KlasAuthApi` | 공통 `KlasAuthApi` | P0 | Implemented | 공통 PrepareCredentialUseCase/Ktor repository와 Android View 연결, 암호화 credential Keystore 저장·read-back 검증 완료; 실서버/기존 설치 실기기 로그인 미검증 |
+| F-005 | Web 자동 로그인 | `MainActivity` login WebView + `appLogin.setInitial` | Android WebAuthDriver | iOS WebAuthDriver | P0 | Implemented | AndroidWebAuthDriver와 공통 URL/cookie/alert 정책 연결, JSON-safe credential 주입·15초 timeout·CAPTCHA/임시 PW 분류 구현; 실제 KLAS DOM/redirect/alert 실기기 검증 미완료 |
+| F-006 | SESSION 추출/저장/복구 | `CookieManager`, `kwSESSION` | SessionCoordinator + CookieManager | SessionCoordinator + WKHTTPCookieStore | P0 | Implemented | Android 시작·cookie 관찰·로그아웃·만료를 SessionCoordinator에 연결하고 Keystore primary/legacy View 미러 적용; 실기기 신규/유효/만료/삭제/프로세스 재시작 미검증 |
+| F-007 | 홈 피드/하단 탭 | `HomeActivity`, `/feed` 등 | Android Compose shell + WebView | SwiftUI shell + WKWebView | P0 | In progress | 온라인 강의·과제·팀 프로젝트 마감일 repository/날짜 정책/Web JSON을 공통화해 Android 연결; 탭 shell/back/reload 및 실서버 날짜 fixture 미검증 |
+| F-008 | 시간표/학기 선택 | `HomeActivity`, `/timetableTab` | 공통 bridge + Compose modal | 동일 + iOS picker | P1 | In progress | 학기/수강과목 및 시간표 repository, 저장 학기 fallback, 교시→시간/Web JSON 변환을 공통화해 Android 연결; 2026-07-18 과거 학기 누락 교수명 회귀 수정, 실기기 재검증 대기 |
 | F-009 | 캘린더/날짜·시간 선택 | `HomeActivity`, `/calendar` | Material date/time adapter | iOS date/time adapter | P1 | Not started | timezone, 취소, 시작/종료 값 |
-| F-010 | 프로필/학생증 QR | `HomeActivity`, `/profile` | Web + QR value bridge | Web + QR value bridge | P1 | Not started | QR 값, modal, 로그아웃 |
+| F-010 | 프로필/학생증 QR | `HomeActivity`, `/profile` | Web + QR value bridge | Web + QR value bridge | P1 | In progress | WebView가 URL/cookie만 발견하고 공통 repository가 허용 origin 검증·HTTP 조회·응답 파싱을 수행하도록 연결; modal/로그아웃 실기기 회귀 대기 |
 | F-011 | 성적/석차/장학/KLAS AI | Web pages + session callback | Web surface | WKWebView surface | P1 | Not started | token callback, 외부/학교 페이지 이동 |
-| F-012 | 강의 홈 | `LectureActivity`, `/lectureHome` | 공통 screen + Android WebView | 공통 screen + WKWebView | P0 | Not started | subj/year/session, refresh, back |
-| F-013 | 강의계획서 | `LctPlanActivity` | 공통 Web route | 공통 Web route | P1 | Not started | 검색/상세/외부 페이지 |
-| F-014 | 게시판 목록/상세 | `BoardActivity` | 공통 Web route + download port | 동일 | P0 | Not started | notice/pds, 첨부, mailto, 새 창 |
-| F-015 | 과제/퀴즈/시험 링크 | `TaskViewActivity` | 공통 KLAS Web route | 동일 | P0 | Not started | localStorage 주입, 링크, 첨부, 영상 |
-| F-016 | 일반 링크/Bottom sheet | `LinkViewActivity`, `WebViewModal` | 공통 navigation/modal + Android adapter | 공통 navigation/modal + iOS adapter | P1 | Not started | close/back, nested link, external origin |
-| F-017 | 온라인 강의 재생 | `VideoPlayerActivity`, `/onlineLecture` | 전용 Android player/PIP host | iOS player host | P0 | Not started | 진도, 재생/정지, seek, 속도, 종료 보고 |
-| F-018 | PIP | Android `PictureInPictureParams` | Android native | AVKit/WK media spike | P1 | Not started | 진입/복귀/remote action/진도 보존 |
-| F-019 | QR 출석 | `QRScanActivity`, Google scanner | Android scanner port | AVFoundation/VisionKit port | P0 | Not started | 성공/실패/취소/권한/세션 만료 |
-| F-020 | 도서관 QR 조회 | `LibraryManager`, modal | 공통 API/crypto compatibility + Android UI | 공통 API + iOS UI | P1 | Not started | secret/authKey cache, 만료, 잘못된 정보 |
-| F-021 | 홈 화면 도서관 위젯 | `LibraryQRWidget` | AppWidgetProvider 유지/개선 | WidgetKit extension | P1 | Not started | 잠금/만료/갱신/테마/앱 진입 |
-| F-022 | 앱 잠금 PIN | `LockActivity`, `AppLockManager` | 공통 policy + Android lifecycle | 공통 policy + iOS scene phase | P0 | Not started | 설정/변경/실패/백그라운드/위젯 예외 |
-| F-023 | 생체인식 | `BiometricPrompt` | Android biometric port | LocalAuthentication port | P0 | Not started | 미등록/잠금/취소/fallback |
-| F-024 | 설정/테마/버전 | `SettingsActivity`, `/settings` | 공통 Web/Compose + settings repo | 동일 | P1 | Not started | light/dark/system, restart persistence |
-| F-025 | 다운로드 | `AppDownloadManager` + DownloadManager | Android DownloadManager/SAF | URLSession/files/share | P1 | Not started | cookie/auth, filename, MIME, 실패, 취소 |
-| F-026 | 파일 선택/업로드 | 각 WebChromeClient | Activity Result adapter | document/photo picker | P1 | Not started | 단일/다중, 취소, 권한, MIME |
-| F-027 | 외부 링크/mailto/앱 | Intent | allowlist + Android Intent | allowlist + UIApplication | P1 | Not started | http(s), mailto, 미지원 scheme |
-| F-028 | 햅틱 | 문자열 → Android 상수 | semantic haptic adapter | UIKit feedback adapter | P2 | Not started | 지원/미지원 및 강도 매핑 |
+| F-012 | 강의 홈 | `LectureActivity`, `/lectureHome` | Android Compose screen + WebView | SwiftUI screen + WKWebView | P0 | In progress | typed route/WebSurface/Bridge v1/다운로드·파일 picker 및 KLAS style/게시판 path script factory 연결; subj/year/session, refresh, back 실기기 회귀 대기 |
+| F-013 | 강의계획서 | `LctPlanActivity` | 공통 Web route | 공통 Web route | P1 | In progress | typed route/WebSurface/Bridge v1 연결; 검색/상세/외부 페이지 실기기 회귀 대기 |
+| F-014 | 게시판 목록/상세 | `BoardActivity` | 공통 Web route + download port | 동일 | P0 | In progress | typed route/WebSurface/Bridge v1/FileTransfer/FilePicker 연결; 첨부/mailto/fullscreen 실기기 회귀 대기 |
+| F-015 | 과제/퀴즈/시험 링크 | `TaskViewActivity` | 공통 KLAS Web route | 동일 | P0 | In progress | typed Task route/WebSurface/FileTransfer/FilePicker, JSON-safe localStorage와 공통 KLAS style script 연결; 링크·영상 회귀 대기 |
+| F-016 | 일반 링크/Bottom sheet | `LinkViewActivity`, `WebViewModal` | 공통 navigation/modal + Android adapter | 공통 navigation/modal + iOS adapter | P1 | In progress | typed Web route/WebSurface/Bridge v1 및 계정 복구/notice/Bottom sheet script factory 연결, 외부 top-level legacy façade 제거; nested link/modal 회귀 대기 |
+| F-017 | 온라인 강의 재생 | `VideoPlayerActivity`, `/onlineLecture` | 전용 Android player/PIP host | iOS player host | P0 | In progress | 3개 WebSurface, metadata repository, bridge JSON/state/진도 parser, 시간 포맷과 player monitor/control script를 공통화; KLAS 영상 host 및 실기기 재검증 대기 |
+| F-018 | PIP | Android `PictureInPictureParams` | Android native | AVKit/WK media spike | P1 | In progress | 공통 상태/Android port/remote action 연결; PIP 종료 시 Web fullscreen·phone 방향 명시 복구 후 실기기 재검증 대기 |
+| F-019 | QR 출석 | `QRScanActivity`, Google scanner | Android scanner port | AVFoundation/VisionKit port | P0 | Parity | 전처리/check-in 공통 workflow 및 공식 `AndroidQrScanner` 연결. ML Kit #1018 R8 keep 적용, 무스캔 종료 무알림, Home/Lecture 연속 탭 single-flight와 loading 정리까지 2026-07-19 release 실기기 검증 통과 |
+| F-020 | 도서관 QR 조회 | `LibraryManager`, modal | 공통 API/crypto compatibility + Android UI | 공통 API + iOS UI | P1 | In progress | Ktor form gateway/workflow/XML/오류/캐시 정책 및 Android AES/Base64 adapter 완료; 실서버 CDATA 응답 호환 수정, 재검증과 `device_gb` iOS 확인 필요 |
+| F-021 | 홈 화면 도서관 위젯 | `LibraryQRWidget` | AppWidgetProvider 유지/개선 | WidgetKit extension | P1 | In progress | Android 위젯 진입과 QR modal 연결; FragmentManager 재생성 가능한 인자 구조로 수정, 잠금/만료/테마 실기기 재검증 대기 |
+| F-022 | 앱 잠금 PIN | `LockActivity`, `AppLockManager` | 공통 policy + Android lifecycle | 공통 policy + iOS scene phase | P0 | Implemented | 공통 lifecycle policy 및 Android 연결, PIN hash/salt Keystore read-through migration 완료; 기존 설치 실기기 lifecycle/위젯 예외 미검증 |
+| F-023 | 생체인식 | `BiometricPrompt` | Android biometric port | LocalAuthentication port | P0 | In progress | Android port가 성공/취소/미등록/미지원/실패를 typed result로 반환하고 설정 활성화에 연결; 잠금 화면·실기기·iOS 미검증 |
+| F-024 | 설정/테마/버전 | `SettingsActivity`, `/settings` | 공통 Web/Compose + settings repo | 동일 | P1 | In progress | WebSurface/Bridge v1/typed biometric 연결; light/dark/system 재시작 persistence 실기기 회귀 대기 |
+| F-025 | 다운로드 | `AppDownloadManager` + DownloadManager | Android DownloadManager/SAF | URLSession/files/share | P1 | Implemented | 공통 FileTransfer 정책과 Android adapter를 4개 화면에 연결, cookie/User-Agent/filename/MIME 보존; 실패·취소 실기기 회귀 대기 |
+| F-026 | 파일 선택/업로드 | 각 WebChromeClient | Activity Result adapter | document/photo picker | P1 | Implemented | 공통 FilePicker 결과와 Activity Result adapter를 4개 화면에 연결, 단일/다중/MIME/취소 구현; 실제 업로드 회귀 대기 |
+| F-027 | 외부 링크/mailto/앱 | Intent | allowlist + Android Intent | allowlist + UIApplication | P1 | In progress | 공통 scheme/길이/제어문자 정책과 Android adapter 연결 완료; iOS adapter 미구현 |
+| F-028 | 햅틱 | 문자열 → Android 상수 | semantic haptic adapter | UIKit feedback adapter | P2 | In progress | 14개 legacy 이름과 Android 상수 보존, 공통 semantic effect 완료; iOS adapter 미구현 |
 | F-029 | Android 인앱 업데이트 | Play Core | Android 전용 capability | Approved difference | P2 | Not started | available/download/install/cancel |
-| F-030 | 폰 세로/태블릿 회전 | Activity별 설정 | window policy | iOS orientation policy | P1 | Not started | 폰/태블릿, PIP, 회전 중 WebView 보존 |
-| F-031 | 업그레이드 데이터 이전 | 구 SharedPreferences/Encrypted prefs | 명시적 migration | 신규 설치; 향후 schema migration | P0 | Not started | 1.1.x/1.2.0 fixture, rollback |
-| F-032 | 오류 수집/개인정보 마스킹 | Sentry Android | 공통 error taxonomy + Android Sentry | iOS Sentry/선정 도구 | P1 | Not started | secret/token/화면 마스킹 |
+| F-030 | 폰 세로/태블릿 회전 | Activity별 설정 | window policy | iOS orientation policy | P1 | In progress | ADR-005로 OS/기기/회전 정책 확정; 회전 중 WebView 상태 보존 실기기 검증 미완료 |
+| F-031 | 업그레이드 데이터 이전 | 구 SharedPreferences/Encrypted prefs | 명시적 migration | 신규 설치; 향후 schema migration | P0 | In progress | credential·SESSION·PIN hash/salt 검증형 migration, legacy fallback 및 비밀 prefs backup 제외 구현; 1.1.x/1.2.0 실데이터·복원 fixture, library cache, rollback 미검증 |
+| F-032 | 오류 수집/개인정보 마스킹 | Sentry Android | 공통 error taxonomy + Android Sentry | iOS Sentry/선정 도구 | P1 | In progress | 네트워크/bridge 오류 redaction과 Sentry screenshot/view hierarchy 비활성화; 알려진 키 자동 redaction/iOS 설정 미완료 |
 
 ## 4. Native → Web callback 계약
 
@@ -85,6 +85,8 @@
 모든 callback은 신규 프로토콜에서 `KlasNativeBridge.onEvent(envelope)` 하나로 수렴시키되 legacy callback adapter를 유지한다.
 
 ## 5. Web → Native legacy 브리지 계약
+
+구현 증거: `LegacyBridgeCatalog`에 8개 surface/64개 메서드를 고정하고 `BridgeMethodId`로 1:1 typed mapping했다. Bridge v1 JSON codec/router가 version/id/method/arguments/result/event envelope, 동기 반환, `evaluteKLASScript`, 인자 수·타입, exact origin, main-frame, UTF-8 64 KiB 제한, malformed/unknown/handler 오류를 검증·처리한다. Android는 AndroidX WebKit message listener `KlasNativeBridgeNative`를 8개 surface에 설치해 source origin/main-frame을 router에 전달하고 기존 façade로 위임한다. Web 저장소가 v1로 전환되기 전까지 `window.Android`는 병행 유지한다.
 
 ### 5.1 Home surface (`HomeActivity.JavaScriptInterface`)
 
