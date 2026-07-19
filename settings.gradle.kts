@@ -34,5 +34,4 @@ dependencyResolutionManagement {
 }
 
 include(":androidApp")
-include(":legacyAndroidApp")
 include(":shared")

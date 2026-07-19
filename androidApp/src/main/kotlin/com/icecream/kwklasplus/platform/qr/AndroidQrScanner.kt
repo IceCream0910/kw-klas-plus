@@ -2,7 +2,6 @@ package com.icecream.kwklasplus.platform.qr
 
 import android.app.Activity
 import android.util.Log
-import com.google.mlkit.common.MlKitException
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanner
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
@@ -40,15 +39,8 @@ class AndroidQrScanner(
             scanner.startScan()
                 .addOnSuccessListener { barcode ->
                     if (!continuation.isActive) return@addOnSuccessListener
-                    val value = barcode.rawValue
                     continuation.resume(
-                        if (barcode.format != Barcode.FORMAT_QR_CODE) {
-                            QrScanResult.Failed("unsupported_barcode_format")
-                        } else if (value.isNullOrBlank()) {
-                            QrScanResult.Failed("empty_qr_value")
-                        } else {
-                            QrScanResult.Success(value)
-                        },
+                        AndroidQrScanResultMapper.fromBarcode(barcode.format, barcode.rawValue),
                     )
                 }
                 .addOnCanceledListener {
@@ -60,7 +52,10 @@ class AndroidQrScanner(
         } catch (cause: RuntimeException) {
             if (continuation.isActive) {
                 continuation.resume(
-                    QrScanResult.Failed("scanner_start_failed_${cause.javaClass.simpleName}"),
+                    AndroidQrScanResultMapper.fromFailure(
+                        cause,
+                        "scanner_start_failed_${cause.javaClass.simpleName}",
+                    ),
                 )
             }
         }
@@ -72,15 +67,7 @@ class AndroidQrScanner(
         fallbackReason: String,
     ) {
         if (!continuation.isActive) return
-        val result = when ((cause as? MlKitException)?.errorCode) {
-            MlKitException.CODE_SCANNER_CANCELLED -> QrScanResult.Cancelled
-            MlKitException.CODE_SCANNER_CAMERA_PERMISSION_NOT_GRANTED -> QrScanResult.PermissionRequired
-            MlKitException.CODE_SCANNER_UNAVAILABLE -> QrScanResult.Failed("scanner_module_unavailable")
-            MlKitException.CODE_SCANNER_GOOGLE_PLAY_SERVICES_VERSION_TOO_OLD ->
-                QrScanResult.Failed("play_services_too_old")
-            else -> QrScanResult.Failed(fallbackReason)
-        }
-        continuation.resume(result)
+        continuation.resume(AndroidQrScanResultMapper.fromFailure(cause, fallbackReason))
     }
 
     private fun initializationFailureReason(cause: RuntimeException): String {

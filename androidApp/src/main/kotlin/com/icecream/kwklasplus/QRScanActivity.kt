@@ -1,6 +1,7 @@
 package com.icecream.kwklasplus
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.os.Bundle
 import android.view.HapticFeedbackConstants
 import android.view.View
@@ -21,6 +22,8 @@ import kotlinx.coroutines.launch
 class QRScanActivity : AppCompatActivity() {
     private lateinit var payload: QrAttendancePayload
     private lateinit var session: SecretValue
+    private var scanInProgress = false
+    private var scannerSurfaceWasShown = false
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,19 +45,37 @@ class QRScanActivity : AppCompatActivity() {
     }
 
     private fun startQrScanner() {
+        scanInProgress = true
+        scannerSurfaceWasShown = false
         lifecycleScope.launch {
             when (val result = appDependencies.qrScanner(this@QRScanActivity).scan()) {
                 is QrScanResult.Success -> qrScanComplete(result.value)
-                QrScanResult.Cancelled -> {
-                    finish()
-                }
+                QrScanResult.Cancelled -> finishAsCancelled()
                 QrScanResult.PermissionRequired -> showScannerFailure("scanner_camera_permission_required")
-                is QrScanResult.Failed -> showScannerFailure(result.reason)
+                is QrScanResult.Failed -> {
+                    if (scannerSurfaceWasShown && result.reason.startsWith("scanner_start_failed")) {
+                        finishAsCancelled()
+                    } else {
+                        showScannerFailure(result.reason)
+                    }
+                }
             }
         }
     }
 
+    override fun onStop() {
+        if (scanInProgress) scannerSurfaceWasShown = true
+        super.onStop()
+    }
+
+    private fun finishAsCancelled() {
+        scanInProgress = false
+        setResult(Activity.RESULT_CANCELED)
+        finish()
+    }
+
     private fun showScannerFailure(reason: String) {
+        scanInProgress = false
         MaterialAlertDialogBuilder(this)
             .setTitle("QR 스캔 실패")
             .setMessage(scannerFailureMessage(reason))
