@@ -24,7 +24,6 @@ import androidmads.library.qrgenearator.QRGContents
 import androidmads.library.qrgenearator.QRGEncoder
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.icecream.kwklasplus.AppPrefs
 import com.icecream.kwklasplus.LibraryQRWidget
@@ -39,7 +38,7 @@ import com.icecream.kwklasplus.getLibraryPassword
 import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
 import kotlinx.coroutines.launch
 
-class LibraryQRModal : BottomSheetDialogFragment() {
+class LibraryQRModal : KlasBottomSheetDialogFragment() {
     private val isWidget: Boolean
         get() = arguments?.getBoolean(ARG_IS_WIDGET) == true
 

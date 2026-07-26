@@ -349,7 +349,7 @@
     - 폰/태블릿/IME/접근성
 
 - [ ] **M4-006 (P0, XL)** Home Web surface를 Compose route로 이전한다.
-  - 진행: Home 학기/과목/시간표/마감일/학생증 repository와 Web JSON 계약을 공통화해 Android legacy bridge façade에 연결했다. `HomeActivity`의 XML loading/WebView 루트는 Compose host로 전환하되 WebView는 기존 XML처럼 네이티브 `FrameLayout` 안에 유지한다. Home은 `adjustPan`과 Compose `imePadding`이 중복되어 feed 높이가 과도하게 줄어드는 회귀를 막기 위해 공용 호스트의 IME padding을 선택적으로 비활성화하고 시스템 pan에 맡긴다. 이전 구현에서 IME가 수행하던 실제 WebView 높이 재측정이 사라져 `dvh` 기반 React Calendar가 최초 렌더되지 않는 회귀를 확인했으며, 페이지 완료 시 1px 높이 변경·복원 후 `window`/`visualViewport` resize를 동기화한다. Home 및 Lecture QR 준비 과정의 비취소형 로딩 다이얼로그도 공용 Compose 컴포넌트로 교체했다. Web 탭·BottomSheet·날짜/시간 picker·업데이트·뒤로가기 계약은 유지한다.
+  - 진행: Home 학기/과목/시간표/마감일/학생증 repository와 Web JSON 계약을 공통화해 Android legacy bridge façade에 연결했다. `HomeActivity`의 XML loading/WebView 루트는 Compose host로 전환하되 WebView는 기존 XML처럼 네이티브 `FrameLayout` 안에 유지한다. Home은 `adjustPan`과 Compose `imePadding`이 중복되어 feed 높이가 과도하게 줄어드는 회귀를 막기 위해 공용 호스트의 IME padding을 선택적으로 비활성화하고 시스템 pan에 맡긴다. 이전 구현에서 IME가 수행하던 실제 WebView 높이 재측정이 사라져 `dvh` 기반 React Calendar가 최초 렌더되지 않는 회귀를 확인했으며, 페이지 완료 시 1px 높이 변경·복원 후 `window`/`visualViewport` resize를 동기화한다. Calendar Web BottomSheet는 3버튼 내비게이션 모드에서 IME가 표시될 때만 navigation bar inset만큼 WebView 가용 높이를 추가 조정해 하단 취소/확인 버튼이 키보드에 가리지 않도록 한다. Home 및 Lecture QR 준비 과정의 비취소형 로딩 다이얼로그도 공용 Compose 컴포넌트로 교체했다. Web 탭·BottomSheet·날짜/시간 picker·업데이트·뒤로가기 계약은 유지한다.
   - 추가 진행: 학기 선택과 홈 메뉴 BottomSheet를 Compose 공통 선택 UI로 전환했다. 기존 `YearHakgiBottomSheetDialog`/`MenuBottomSheetDialog` 클래스와 callback 계약은 유지한다.
   - 검증: 공통 WebView host 계측 테스트 Kotlin 컴파일, `:androidApp:testDebugUnitTest`, `:androidApp:assembleDebug`, R8 `:androidApp:assembleRelease` 통과. feed/timetable/calendar/profile, 캘린더 최초 진입, 성적 sheet 콘텐츠, 과거 학기, IME BottomSheet, modal, 업데이트 Snackbar와 back 종료의 실기기 회귀 검증 대기.
   - Depends on: M4-002~M4-005
@@ -360,7 +360,7 @@
     - 구 HomeActivity fallback 가능
 
 - [ ] **M4-007 (P0, XL)** Lecture/Board/Task/Link/Plan Web surface를 이전한다.
-  - 진행: 공통 `ComposeWebViewHost`, `ComposeRefreshableWebViewHost`, 다중 View용 `ComposePlatformViewHost`를 추가하고 `LctPlanActivity`, `SettingsActivity`, `LinkViewActivity`, `BoardActivity`, `TaskViewActivity`, `LectureActivity`의 XML 루트를 Compose `AndroidView`와 Material UI로 전환했다. Board/Task의 WebView pull gesture와 Lecture의 UI/KLAS 이중 WebView 전환은 회귀 방지를 위해 프로그래밍 방식 `SwipeRefreshLayout`/`FrameLayout` interop으로 유지한다. 기존 Bridge v1/legacy façade, session/subj/localStorage callback, 파일 선택·다운로드·전체화면·back 동작은 유지한다. 사용하지 않는 WebView Modal은 구현·레이아웃·`WEB_VIEW_MODAL` surface와 `openCustomBottomSheet` Home bridge 계약까지 제거했다.
+  - 진행: 공통 `ComposeWebViewHost`, `ComposeRefreshableWebViewHost`, 다중 View용 `ComposePlatformViewHost`를 추가하고 `LctPlanActivity`, `SettingsActivity`, `LinkViewActivity`, `BoardActivity`, `TaskViewActivity`, `LectureActivity`의 XML 루트를 Compose `AndroidView`와 Material UI로 전환했다. 공용 호스트의 Scaffold는 시스템 바·컷아웃만 처리하고 해당 inset을 소비하며, IME padding은 화면 정책에 따라 한 번만 적용해 단일 WebView Activity의 중복 높이 축소를 제거했다. Home은 기존 `adjustPan`과 `applyImePadding=false` 정책을 유지한다. Board/Task의 WebView pull gesture와 Lecture의 UI/KLAS 이중 WebView 전환은 회귀 방지를 위해 프로그래밍 방식 `SwipeRefreshLayout`/`FrameLayout` interop으로 유지한다. 기존 Bridge v1/legacy façade, session/subj/localStorage callback, 파일 선택·다운로드·전체화면·back 동작은 유지한다. 사용하지 않는 WebView Modal은 구현·레이아웃·`WEB_VIEW_MODAL` surface와 `openCustomBottomSheet` Home bridge 계약까지 제거했다.
   - 검증: 일반/refreshable/다중 View `ComposeWebViewHostTest` instrumentation Kotlin 컴파일, `:androidApp:testDebugUnitTest`, `:androidApp:assembleDebug`, R8 `:androidApp:assembleRelease` 통과. 여섯 화면의 실기기 페이지 로드·브리지·back·modal·pull refresh·파일·전체화면 회귀 검증 대기.
   - Depends on: M4-004, M4-006
   - 분할: 각 route별 별도 PR 권장
@@ -407,7 +407,7 @@
     - 회전/백그라운드/복귀 시 상태 보존
 
 - [ ] **M5-004 (P1, L)** 도서관 QR UI와 AppWidget을 신규 repository/store에 연결한다.
-    - 진행: `LibraryManager`를 공통 `LibraryRepository`의 Android gateway/cache/crypto adapter로 전환해 Home/도서관 modal/Widget 진입 Activity가 동일 workflow와 SecureStore read-through 경로를 사용한다. cache 만료·오류 clear 정책과 AES/XML fixture 완료. 도서관 QR 본체와 credential 설정 BottomSheet를 Compose로 전환했으며 QR 원문은 UI 상태에 보관하지 않고 생성 Bitmap만 전달한다. 이름·설정 제목·경고 문구는 Material 테마 색상을 명시하고 새로고침은 접근성 설명이 있는 아이콘 버튼으로 변경했으며 저장·위젯 추가 버튼은 반대 테마의 primary/onPrimary 색상 쌍을 사용한다. 30초 갱신, cache 재시도, 화면 밝기 복구, 위젯 추가/진입 종료와 Fragment no-arg 재생성 계약을 유지한다. 위젯 만료/테마/잠금 및 수정 빌드 실서버 회귀가 남았다.
+  - 진행: `LibraryManager`를 공통 `LibraryRepository`의 Android gateway/cache/crypto adapter로 전환해 Home/도서관 modal/Widget 진입 Activity가 동일 workflow와 SecureStore read-through 경로를 사용한다. cache 만료·오류 clear 정책과 AES/XML fixture 완료. 도서관 QR 본체와 credential 설정 BottomSheet를 Compose로 전환했으며 QR 원문은 UI 상태에 보관하지 않고 생성 Bitmap만 전달한다. 이름·설정 제목·경고 문구는 Material 테마 색상을 명시하고 새로고침은 접근성 설명이 있는 아이콘 버튼으로 변경했으며 저장·위젯 추가 버튼은 반대 테마의 primary/onPrimary 색상 쌍을 사용한다. 모든 네이티브 BottomSheet는 IME가 표시되면 `adjustResize`로 키보드 위 영역을 확보하고 시트 높이를 `MATCH_PARENT`로 전환하며, 설정 입력 영역만 스크롤하고 저장 버튼은 최하단에 고정한다. 30초 갱신, cache 재시도, 화면 밝기 복구, 위젯 추가/진입 종료와 Fragment no-arg 재생성 계약을 유지한다. IME 전체 높이·하단 버튼, 작은 화면, 위젯 만료/테마/잠금 및 수정 빌드 실서버 회귀가 남았다.
     - 검증: 공통 bridge host test, Android 단위 테스트, Compose 계측 테스트 Kotlin 컴파일, debug APK 및 R8 release APK 빌드 통과. Home/Widget 진입, 설정 저장, 실서버 QR 표시·자동/수동 갱신, 밝기 복구 실기기 검증 대기.
   - Depends on: M3-005, M3-006
   - Acceptance: F-020, F-021 Android parity; 만료/테마/잠금 포함
@@ -419,7 +419,7 @@
   - Acceptance: F-025~F-027; session cookie, MIME, filename, malicious URL 검증
 
 - [ ] **M5-006 (P1, M)** 테마/방향/태블릿/햅틱/인앱 업데이트를 정리한다.
-  - 진행: ADR-005에 phone/tablet 방향·멀티윈도우 정책을 고정하고 14개 legacy haptic 이름을 semantic port와 Android 상수 adapter로 이전했다. Compose 공통 너비 정책을 compact(<600dp), medium(600~839dp), expanded(>=840dp)로 구현하고 잠금 화면에 1열/2열 적응형 배치를 적용했다. light/dark 상태바 아이콘 대비를 Material 테마와 동기화하고 XML 테마에도 light status bar 정책을 명시했다. 기존 테마/인앱 업데이트 경로는 회귀 방지를 위해 유지하며 나머지 Compose shell 연결과 phone/tablet/멀티윈도우/업데이트 실기기 검증이 남았다.
+  - 진행: ADR-005에 phone/tablet 방향·멀티윈도우 정책을 고정하고 14개 legacy haptic 이름을 semantic port와 Android 상수 adapter로 이전했다. Compose 공통 너비 정책을 compact(<600dp), medium(600~839dp), expanded(>=840dp)로 구현하고 잠금 화면에 1열/2열 적응형 배치를 적용했다. light/dark 상태바 아이콘 대비를 Material 테마와 동기화하고 XML 테마에도 light status bar 정책을 명시했다. 3버튼 내비게이션 바는 Material background 색상과 아이콘 명암을 테마에 동기화하고 시스템 대비 스크림을 제거해 앱 배경과 이어지도록 했다. 기존 테마/인앱 업데이트 경로는 회귀 방지를 위해 유지하며 나머지 Compose shell 연결과 phone/tablet/멀티윈도우/업데이트 실기기 검증이 남았다.
   - Depends on: M4-006
   - Acceptance: F-024, F-028~F-030 Android parity
 

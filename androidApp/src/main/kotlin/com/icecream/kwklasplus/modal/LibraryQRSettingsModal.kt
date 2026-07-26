@@ -11,7 +11,6 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.icecream.kwklasplus.AppPrefs
 import com.icecream.kwklasplus.appPreferences
 import com.icecream.kwklasplus.encryptedPreferences
@@ -20,7 +19,7 @@ import com.icecream.kwklasplus.feature.library.LibraryQrSettingsUiState
 import com.icecream.kwklasplus.getLibraryPassword
 import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
 
-class LibraryQRSettingsBottomSheetDialog : BottomSheetDialogFragment() {
+class LibraryQRSettingsBottomSheetDialog : KlasBottomSheetDialogFragment() {
     fun interface OnSaveCompleteListener {
         fun onSaveComplete()
     }

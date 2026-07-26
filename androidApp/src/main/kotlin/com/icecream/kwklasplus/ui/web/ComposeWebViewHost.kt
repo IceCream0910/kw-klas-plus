@@ -1,3 +1,4 @@
+//TODO: 3버튼 내비게이션 바 설정 상태에서 calendar 페이지 bottom sheet + IME 시 하단 버튼 그룹 키보드에 일부 가려지는 이슈 수정
 package com.icecream.kwklasplus.ui.web
 
 import android.view.View
@@ -7,10 +8,13 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -94,7 +98,7 @@ private fun ComposeWebContentHost(
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        contentWindowInsets = WindowInsets.safeDrawing,
+        contentWindowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout),
         topBar = {
             if (title != null) {
                 TopAppBar(
@@ -112,6 +116,7 @@ private fun ComposeWebContentHost(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(contentPadding)
+                .consumeWindowInsets(contentPadding)
                 .then(if (applyImePadding) Modifier.imePadding() else Modifier)
                 .testTag("compose_web_host"),
         ) {

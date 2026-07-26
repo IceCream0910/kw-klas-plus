@@ -9,14 +9,13 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.icecream.kwklasplus.HomeActivity
 import com.icecream.kwklasplus.SettingsActivity
 import com.icecream.kwklasplus.ui.modal.SelectionBottomSheetContent
 import com.icecream.kwklasplus.ui.modal.SelectionOption
 import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
 
-class MenuBottomSheetDialog : BottomSheetDialogFragment() {
+class MenuBottomSheetDialog : KlasBottomSheetDialogFragment() {
     override fun onCreateView(
         inflater: android.view.LayoutInflater,
         container: ViewGroup?,

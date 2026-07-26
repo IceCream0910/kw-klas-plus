@@ -145,6 +145,7 @@ class HomeActivity : AppCompatActivity() {
     private var isViewportSyncInProgress = false
     private var isViewportSyncPending = false
     private var isViewportSyncDisposed = false
+    private var webBottomSheetImeInset = 0
 
     private lateinit var appUpdateManager: AppUpdateManager
     private val MY_REQUEST_CODE = 1001
@@ -221,6 +222,7 @@ class HomeActivity : AppCompatActivity() {
         main?.let { root ->
             ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
                 isKeyboardShowing = insets.isVisible(WindowInsetsCompat.Type.ime())
+                updateWebBottomSheetImeInset(insets)
                 insets
             }
         }
@@ -357,6 +359,34 @@ class HomeActivity : AppCompatActivity() {
         )
 
         runOnUiThread { webView.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK) }
+    }
+
+    private fun updateWebBottomSheetImeInset(insets: WindowInsetsCompat) {
+        val navigationBarBottom =
+            insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+        val tappableElementBottom =
+            insets.getInsets(WindowInsetsCompat.Type.tappableElement()).bottom
+        val targetInset = if (
+            isKeyboardShowing &&
+            isOpenWebViewBottomSheet &&
+            currentTab == "calendar" &&
+            tappableElementBottom > 0
+        ) {
+            navigationBarBottom
+        } else {
+            0
+        }
+        if (webBottomSheetImeInset == targetInset) return
+
+        webBottomSheetImeInset = targetInset
+        webViewContainer.setPadding(0, 0, 0, targetInset)
+        webView.post {
+            webView.executeWebScript(KlasWebAutomationScripts.notifyViewportChanged())
+        }
+    }
+
+    internal fun requestWebBottomSheetInsetsUpdate() {
+        main?.let(ViewCompat::requestApplyInsets)
     }
 
     fun getCurrentTab(): String {
@@ -1251,6 +1281,7 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
     fun openWebViewBottomSheet() {
         homeActivity.runOnUiThread {
             homeActivity.isOpenWebViewBottomSheet = true
+            homeActivity.requestWebBottomSheetInsetsUpdate()
         }
     }
 
@@ -1262,6 +1293,7 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
                 homeActivity.isIdCardModalActive = false
             }
             homeActivity.isOpenWebViewBottomSheet = false
+            homeActivity.requestWebBottomSheetInsetsUpdate()
             try {
                 homeActivity.isKeyboardShowing = false
                 homeActivity.webView.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT

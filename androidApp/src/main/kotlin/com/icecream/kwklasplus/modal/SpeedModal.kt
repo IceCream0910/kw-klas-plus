@@ -7,12 +7,11 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.icecream.kwklasplus.ui.modal.SelectionBottomSheetContent
 import com.icecream.kwklasplus.ui.modal.SelectionOption
 import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
 
-class SpeedBottomSheetDialog : BottomSheetDialogFragment() {
+class SpeedBottomSheetDialog : KlasBottomSheetDialogFragment() {
     interface SpeedSelectionListener {
         fun onSpeedSelected(speed: Double)
     }

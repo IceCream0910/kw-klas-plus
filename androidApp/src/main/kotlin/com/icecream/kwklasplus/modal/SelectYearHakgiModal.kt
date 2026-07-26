@@ -7,7 +7,6 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.icecream.kwklasplus.ui.modal.SelectionBottomSheetContent
 import com.icecream.kwklasplus.ui.modal.SelectionOption
 import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
@@ -15,7 +14,7 @@ import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
 class YearHakgiBottomSheetDialog(
     private val yearHakgiList: Array<String>,
     private val isUpdate: Boolean = false,
-) : BottomSheetDialogFragment() {
+) : KlasBottomSheetDialogFragment() {
     interface YearHakgiSelectionListener {
         fun onYearHakgiSelected(value: String)
     }
