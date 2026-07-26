@@ -28,7 +28,11 @@ import android.webkit.WebResourceRequest
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
@@ -51,14 +55,16 @@ import com.icecream.kwklasplus.platform.navigation.openLecturePlanRoute
 import com.icecream.kwklasplus.platform.navigation.openWebRoute
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
+import com.icecream.kwklasplus.ui.web.ComposeWebViewHost
 
 class LinkViewActivity : AppCompatActivity() {
     lateinit var sessionId: String
     private val filePicker = AndroidFilePicker(this)
     lateinit var webView: WebView
-    lateinit var loadingIndicator: LinearLayout
     lateinit var onBackPressedCallback: OnBackPressedCallback
     var isOpenWebViewBottomSheet: Boolean = false
+    private var isLoading by mutableStateOf(true)
     private var bridgeMessageAdapter: AndroidBridgeMessageAdapter? = null
     private var webSurface: AndroidWebSurface? = null
     private var legacyBridgeExposure: AndroidLegacyBridgeExposure? = null
@@ -66,10 +72,6 @@ class LinkViewActivity : AppCompatActivity() {
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_link_view)
-
-        applyEdgeToEdgeInsets()
-
         onBackPressedCallback = object: OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if(isOpenWebViewBottomSheet) {
@@ -93,9 +95,16 @@ class LinkViewActivity : AppCompatActivity() {
         }
         sessionId = intent.getStringExtra(IntentExtras.SESSION_ID).toString()
 
-        webView = findViewById<WebView>(R.id.webView)
+        webView = WebView(this)
         webSurface = AndroidWebSurface(webView)
-        loadingIndicator = findViewById(R.id.progressBar)
+        setContent {
+            KlasPlusTheme {
+                ComposeWebViewHost(
+                    webView = webView,
+                    isLoading = isLoading,
+                )
+            }
+        }
 
         val legacyFacade = JavaScriptInterfaceForLinkView(this)
         webView.configureAppWebView(
@@ -126,7 +135,6 @@ class LinkViewActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
                 hideLoading()
-                webView.visibility = View.VISIBLE
 
                 if(url.contains("UserFindMemberNoPage.do")) {
                     webView.executeWebScript(KlasWebAutomationScripts.configureMemberNumberRecoveryPage())
@@ -235,12 +243,11 @@ class LinkViewActivity : AppCompatActivity() {
     }
 
     private fun showLoading() {
-        loadingIndicator.visibility = View.VISIBLE
-        webView.visibility = View.GONE
+        isLoading = true
     }
 
     private fun hideLoading() {
-        loadingIndicator.visibility = View.GONE
+        isLoading = false
     }
 
     override fun onDestroy() {

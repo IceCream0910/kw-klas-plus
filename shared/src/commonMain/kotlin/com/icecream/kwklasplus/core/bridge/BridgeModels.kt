@@ -1,7 +1,7 @@
 package com.icecream.kwklasplus.core.bridge
 
 enum class BridgeSurface {
-    BOARD, HOME, LECTURE_PLAN, LECTURE, LINK_VIEW, SETTINGS, VIDEO, WEB_VIEW_MODAL,
+    BOARD, HOME, LECTURE_PLAN, LECTURE, LINK_VIEW, SETTINGS, VIDEO,
 }
 
 enum class BridgeArgumentType {

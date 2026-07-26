@@ -13,7 +13,6 @@ import com.icecream.kwklasplus.core.bridge.BridgeMethodId
 import com.icecream.kwklasplus.core.bridge.BridgeValue
 import com.icecream.kwklasplus.core.bridge.SynchronousBridgeCommandHandler
 import com.icecream.kwklasplus.core.bridge.ValidatedBridgeCommand
-import com.icecream.kwklasplus.modal.JavaScriptInterfaceForWebViewModal
 
 class BoardLegacyBridgeCommandHandler(
     private val facade: JavaScriptInterfaceForBoard,
@@ -158,23 +157,6 @@ class VideoLegacyBridgeCommandHandler(
             BridgeMethodId.VIDEO_PERFORM_HAPTIC_FEEDBACK -> facade.performHapticFeedback(
                 command.text(0),
             )
-            else -> return@execute false
-        }
-        true
-    }
-}
-
-class WebViewModalLegacyBridgeCommandHandler(
-    private val facade: JavaScriptInterfaceForWebViewModal,
-) : BridgeCommandHandler {
-    override suspend fun handle(command: ValidatedBridgeCommand) = command.execute {
-        when (command.methodId) {
-            BridgeMethodId.WEB_VIEW_MODAL_COMPLETE_PAGE_LOAD -> facade.completePageLoad()
-            BridgeMethodId.WEB_VIEW_MODAL_CLOSE_MODAL -> facade.closeModal()
-            BridgeMethodId.WEB_VIEW_MODAL_SHOW_TOAST -> facade.showToast(command.text(0))
-            BridgeMethodId.WEB_VIEW_MODAL_OPEN_EXTERNAL_PAGE -> facade.openExternalPage(command.text(0))
-            BridgeMethodId.WEB_VIEW_MODAL_OPEN_LIBRARY_QR -> facade.openLibraryQR()
-            BridgeMethodId.WEB_VIEW_MODAL_OPEN_PAGE -> facade.openPage(command.text(0))
             else -> return@execute false
         }
         true

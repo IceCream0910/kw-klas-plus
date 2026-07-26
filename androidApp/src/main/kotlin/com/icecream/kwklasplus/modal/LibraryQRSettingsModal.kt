@@ -1,132 +1,107 @@
 package com.icecream.kwklasplus.modal
 
-import android.content.Context
 import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.FrameLayout
 import android.widget.Toast
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import com.google.android.material.snackbar.Snackbar
-import com.google.android.material.textfield.TextInputEditText
 import com.icecream.kwklasplus.AppPrefs
-import com.icecream.kwklasplus.R
 import com.icecream.kwklasplus.appPreferences
 import com.icecream.kwklasplus.encryptedPreferences
+import com.icecream.kwklasplus.feature.library.LibraryQrSettingsContent
+import com.icecream.kwklasplus.feature.library.LibraryQrSettingsUiState
 import com.icecream.kwklasplus.getLibraryPassword
-import com.icecream.kwklasplus.components.AnimatedButton
+import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
 
-class LibraryQRSettingsBottomSheetDialog() : BottomSheetDialogFragment() {
-
-    private lateinit var stdNumberEditText: TextInputEditText
-    private lateinit var passwordEditText: TextInputEditText
-    private lateinit var phoneEditText: TextInputEditText
-    private lateinit var saveButton: AnimatedButton
-
+class LibraryQRSettingsBottomSheetDialog : BottomSheetDialogFragment() {
     fun interface OnSaveCompleteListener {
         fun onSaveComplete()
     }
 
     private var onSaveCompleteListener: OnSaveCompleteListener? = null
+    private var studentNumber by mutableStateOf("")
+    private var password by mutableStateOf("")
+    private var phone by mutableStateOf("")
 
     fun setOnSaveCompleteListener(listener: OnSaveCompleteListener) {
-        this.onSaveCompleteListener = listener
+        onSaveCompleteListener = listener
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val preferences = requireActivity().appPreferences
+        studentNumber = preferences.getString(AppPrefs.LIBRARY_STD_NUMBER, "")
+            ?.takeIf(String::isNotEmpty)
+            ?: preferences.getString(AppPrefs.KW_ID, "").orEmpty()
+        phone = preferences.getString(AppPrefs.LIBRARY_PHONE, "").orEmpty()
+        password = requireActivity().getLibraryPassword().orEmpty()
     }
 
     override fun onCreateView(
-        inflater: LayoutInflater,
+        inflater: android.view.LayoutInflater,
         container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
-        return inflater.inflate(R.layout.bottom_sheet_libraryqr_settings, container, false)
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-
-        initializeViews(view)
-        setupInitialValues()
-        setupSaveButton()
-        fixTabletExpansionIssue(view)
-    }
-
-    private fun initializeViews(view: View) {
-        stdNumberEditText = view.findViewById(R.id.stdNumber)
-        passwordEditText = view.findViewById(R.id.password)
-        phoneEditText = view.findViewById(R.id.phone)
-        saveButton = view.findViewById(R.id.saveBtn)
-    }
-
-    private fun setupInitialValues() {
-        val sharedPreferences = activity?.appPreferences
-
-        var stdNumber = sharedPreferences?.getString(AppPrefs.LIBRARY_STD_NUMBER, "")
-        if (stdNumber.isNullOrEmpty()) {
-            stdNumber = sharedPreferences?.getString(AppPrefs.KW_ID, "")
-        }
-
-        val phone = sharedPreferences?.getString(AppPrefs.LIBRARY_PHONE, "")
-        val password = activity?.getLibraryPassword() ?: ""
-
-        stdNumberEditText.setText(stdNumber)
-        phoneEditText.setText(phone)
-        passwordEditText.setText(password)
-    }
-
-    private fun setupSaveButton() {
-        saveButton.setOnClickListener {
-            val newStdNumber = stdNumberEditText.text.toString()
-            val newPhone = phoneEditText.text.toString()
-            val newPassword = passwordEditText.text.toString()
-
-            if (newStdNumber.isEmpty() || newPhone.isEmpty() || newPassword.isEmpty()) {
-                Snackbar.make(requireView(), "모든 항목을 입력해주세요.", Snackbar.LENGTH_SHORT).show()
-                return@setOnClickListener
+        savedInstanceState: Bundle?,
+    ): View = ComposeView(requireContext()).apply {
+        setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+        setContent {
+            KlasPlusTheme {
+                LibraryQrSettingsContent(
+                    state = LibraryQrSettingsUiState(studentNumber, password, phone),
+                    onStudentNumberChange = { value ->
+                        if (value.all(Char::isDigit)) studentNumber = value
+                    },
+                    onPasswordChange = { password = it },
+                    onPhoneChange = { phone = it },
+                    onSaveClick = ::save,
+                )
             }
-
-            saveUserData(newStdNumber, newPhone, newPassword)
-            Toast.makeText(context, "저장되었습니다.", Toast.LENGTH_SHORT).show()
-            onSaveCompleteListener?.onSaveComplete()
-            dismiss()
         }
     }
 
-    private fun saveUserData(stdNumber: String, phone: String, password: String) {
-        val sharedPreferences = activity?.appPreferences
-        val encryptedPrefs = activity?.encryptedPreferences
-        
-        sharedPreferences?.edit()?.apply {
-            putString(AppPrefs.LIBRARY_STD_NUMBER, stdNumber)
-            putString(AppPrefs.LIBRARY_PHONE, phone)
-            remove(AppPrefs.LIBRARY_PASSWORD) // Ensure it's removed from regular prefs
-            apply()
-        }
-        
-        encryptedPrefs?.edit()?.apply {
-            putString(AppPrefs.LIBRARY_PASSWORD, password)
-            apply()
+    override fun onStart() {
+        super.onStart()
+        val bottomSheet = (dialog as? BottomSheetDialog)
+            ?.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+            ?: return
+        BottomSheetBehavior.from(bottomSheet).apply {
+            skipCollapsed = true
+            state = BottomSheetBehavior.STATE_EXPANDED
         }
     }
 
-    private fun fixTabletExpansionIssue(view: View) {
-        view.viewTreeObserver.addOnGlobalLayoutListener {
-            val dialog = dialog as BottomSheetDialog?
-            val bottomSheet = dialog?.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet) as FrameLayout?
-            val behavior = BottomSheetBehavior.from(bottomSheet!!)
-            behavior.peekHeight = view.measuredHeight
-        }
+    private fun save() {
+        if (studentNumber.isBlank() || phone.isBlank() || password.isBlank()) return
+        requireActivity().appPreferences.edit()
+            .putString(AppPrefs.LIBRARY_STD_NUMBER, studentNumber)
+            .putString(AppPrefs.LIBRARY_PHONE, phone)
+            .remove(AppPrefs.LIBRARY_PASSWORD)
+            .apply()
+        requireActivity().encryptedPreferences.edit()
+            .putString(AppPrefs.LIBRARY_PASSWORD, password)
+            .apply()
+        Toast.makeText(context, "저장되었습니다.", Toast.LENGTH_SHORT).show()
+        onSaveCompleteListener?.onSaveComplete()
+        dismiss()
+    }
+
+    override fun onDestroy() {
+        password = ""
+        super.onDestroy()
     }
 
     companion object {
         const val TAG = "LibraryQRSettingsBottomSheetDialog"
 
-        fun newInstance(onSaveComplete: OnSaveCompleteListener): LibraryQRSettingsBottomSheetDialog {
-            val dialog = LibraryQRSettingsBottomSheetDialog()
-            dialog.setOnSaveCompleteListener(onSaveComplete)
-            return dialog
-        }
+        fun newInstance(onSaveComplete: OnSaveCompleteListener) =
+            LibraryQRSettingsBottomSheetDialog().apply {
+                setOnSaveCompleteListener(onSaveComplete)
+            }
     }
 }

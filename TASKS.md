@@ -156,6 +156,7 @@
     - public Swift API surface 최소화
 
 - [ ] **M2-002 (P0, M)** Kotlin/Compose/AGP/Gradle/JDK/Xcode 호환 조합을 고정한다.
+  - 진행: Android Compose는 Kotlin 2.4.0 Compose Compiler plugin과 안정 Compose BOM 2026.06.00, Material 3 1.4.0 조합으로 첫 잠금 화면 debug 빌드를 검증했다. macOS iOS framework/Xcode 조합 검증 전이므로 완료 처리하지 않는다.
   - Depends on: M0-004, M0-005
   - Acceptance:
     - legacy SDK/app version 퇴행 없음
@@ -338,6 +339,9 @@
     - handler/delegate 해제 및 누수 검사
 
 - [ ] **M4-005 (P0, L)** Compose 앱 셸과 startup/auth 화면을 구현한다.
+  - 진행: Android 전용 `ui/theme`, `ui/layout` 기반과 Compose UI/instrumentation test 의존성을 추가했다. 너비 600/840dp 경계와 짧은 가로 화면을 고려하는 반응형 잠금 화면을 연결했다. `MainActivity`의 startup/loading 루트는 Compose로 교체하고 자동 로그인용 숨김 WebView는 Activity에 부착된 `AndroidView`로 유지했다. `LoginActivity`의 온보딩 WebView와 ID/PW/동의 폼도 Compose로 전환하고, expanded 너비에서는 안내/입력 2열 배치를 적용했다. 온보딩 WebView는 edge-to-edge 전체 크기와 명시적 match-parent를 적용하고 동의 문구 전체를 토글 대상으로 확장했다. 채워진 일반 버튼은 반대 테마의 primary/onPrimary 색상 쌍을 사용한다. 비밀번호는 저장 상태나 `Bundle`에 넣지 않고 Activity 메모리에만 유지하며 종료 시 지운다. 단일 WebView Activity도 Compose `AndroidView` 호스트로 전환하되 WebView 콘텐츠 자체에는 별도 반응형 재배치를 적용하지 않는다.
+  - 검증: login 상태 단위 테스트와 startup/login Compose 계측 테스트 Kotlin 컴파일, `:androidApp:testDebugUnitTest`, `:androidApp:assembleDebug`, R8 `:androidApp:assembleRelease` 통과. 온보딩/IME/회전, 신규·저장 credential·유효/만료 session과 timeout 문구 전환의 실기기 검증 대기.
+  - 검증: `AppWindowSizeTest`, `LockScreenTest` instrumentation Kotlin 컴파일, `:androidApp:testDebugUnitTest`, `:androidApp:assembleDebug`, R8 `:androidApp:assembleRelease` 통과. 폰/태블릿/가로/접근성 실기기 검증 대기.
   - Depends on: M3-008, M4-004
   - Acceptance:
     - F-001~F-006 Android parity
@@ -345,6 +349,9 @@
     - 폰/태블릿/IME/접근성
 
 - [ ] **M4-006 (P0, XL)** Home Web surface를 Compose route로 이전한다.
+  - 진행: Home 학기/과목/시간표/마감일/학생증 repository와 Web JSON 계약을 공통화해 Android legacy bridge façade에 연결했다. `HomeActivity`의 XML loading/WebView 루트는 Compose host로 전환하되 WebView는 기존 XML처럼 네이티브 `FrameLayout` 안에 유지한다. Home은 `adjustPan`과 Compose `imePadding`이 중복되어 feed 높이가 과도하게 줄어드는 회귀를 막기 위해 공용 호스트의 IME padding을 선택적으로 비활성화하고 시스템 pan에 맡긴다. 이전 구현에서 IME가 수행하던 실제 WebView 높이 재측정이 사라져 `dvh` 기반 React Calendar가 최초 렌더되지 않는 회귀를 확인했으며, 페이지 완료 시 1px 높이 변경·복원 후 `window`/`visualViewport` resize를 동기화한다. Home 및 Lecture QR 준비 과정의 비취소형 로딩 다이얼로그도 공용 Compose 컴포넌트로 교체했다. Web 탭·BottomSheet·날짜/시간 picker·업데이트·뒤로가기 계약은 유지한다.
+  - 추가 진행: 학기 선택과 홈 메뉴 BottomSheet를 Compose 공통 선택 UI로 전환했다. 기존 `YearHakgiBottomSheetDialog`/`MenuBottomSheetDialog` 클래스와 callback 계약은 유지한다.
+  - 검증: 공통 WebView host 계측 테스트 Kotlin 컴파일, `:androidApp:testDebugUnitTest`, `:androidApp:assembleDebug`, R8 `:androidApp:assembleRelease` 통과. feed/timetable/calendar/profile, 캘린더 최초 진입, 성적 sheet 콘텐츠, 과거 학기, IME BottomSheet, modal, 업데이트 Snackbar와 back 종료의 실기기 회귀 검증 대기.
   - Depends on: M4-002~M4-005
   - 분할: feed/timetable/calendar/profile/settings/modal
   - Acceptance:
@@ -353,6 +360,8 @@
     - 구 HomeActivity fallback 가능
 
 - [ ] **M4-007 (P0, XL)** Lecture/Board/Task/Link/Plan Web surface를 이전한다.
+  - 진행: 공통 `ComposeWebViewHost`, `ComposeRefreshableWebViewHost`, 다중 View용 `ComposePlatformViewHost`를 추가하고 `LctPlanActivity`, `SettingsActivity`, `LinkViewActivity`, `BoardActivity`, `TaskViewActivity`, `LectureActivity`의 XML 루트를 Compose `AndroidView`와 Material UI로 전환했다. Board/Task의 WebView pull gesture와 Lecture의 UI/KLAS 이중 WebView 전환은 회귀 방지를 위해 프로그래밍 방식 `SwipeRefreshLayout`/`FrameLayout` interop으로 유지한다. 기존 Bridge v1/legacy façade, session/subj/localStorage callback, 파일 선택·다운로드·전체화면·back 동작은 유지한다. 사용하지 않는 WebView Modal은 구현·레이아웃·`WEB_VIEW_MODAL` surface와 `openCustomBottomSheet` Home bridge 계약까지 제거했다.
+  - 검증: 일반/refreshable/다중 View `ComposeWebViewHostTest` instrumentation Kotlin 컴파일, `:androidApp:testDebugUnitTest`, `:androidApp:assembleDebug`, R8 `:androidApp:assembleRelease` 통과. 여섯 화면의 실기기 페이지 로드·브리지·back·modal·pull refresh·파일·전체화면 회귀 검증 대기.
   - Depends on: M4-004, M4-006
   - 분할: 각 route별 별도 PR 권장
   - Acceptance:
@@ -369,6 +378,7 @@
     - Web CI 계약 테스트
 
 - [ ] **M4-009 (P1, M)** XML/View 자산을 사용처별로 정리한다.
+  - 진행: 사용처가 제거된 `bottom_sheet_webview.xml`을 WebView Modal 코드와 함께 삭제했다. Compose 전환된 나머지 XML은 실기기 패리티 완료 전 rollback 자산으로 유지한다.
   - Depends on: 해당 기능의 Android Parity
   - Acceptance:
     - 기능별 삭제, 전체 일괄 삭제 금지
@@ -377,18 +387,19 @@
 
 ## M5 — Android 네이티브 기능 패리티
 
-- [x] **M5-001 (P0, L)** QR 출석을 `QRScanner`/`AttendanceRepository`에 연결한다.
-    - 진행: `HomeActivity`/`LectureActivity`의 3단계 전처리와 스캔 성공 이후 체크인 판정을 공통 `AttendanceRepository`로 교체. Google ML Kit #1018과 동일한 AGP 9 R8 full-mode 내부 생성자 제거 문제로 확정하고 `mlkit_code_scanner` keep 규칙을 추가했다. 직접 Google Activity/내부 Parcelable 우회는 제거했으며 `QRScanActivity`가 공통 `QrScanner` port의 `AndroidQrScanner`를 사용한다. adapter는 Activity context에서 공식 `GmsBarcodeScanning.getClient()`를 1회 호출하고 typed 결과를 반환한다. 무스캔 종료는 무알림 취소로 처리하고 Home/Lecture의 연속 탭은 scanner Activity 반환까지 single-flight로 제한했다. 2026-07-19 사용자 실기기 전체 체크리스트 통과.
+- [ ] **M5-001 (P0, L)** QR 출석을 `QRScanner`/`AttendanceRepository`에 연결한다.
+    - 진행: `HomeActivity`/`LectureActivity`의 3단계 전처리와 스캔 성공 이후 체크인 판정을 공통 `AttendanceRepository`로 교체. Google ML Kit #1018과 동일한 AGP 9 R8 full-mode 내부 생성자 제거 문제로 확정하고 `mlkit_code_scanner` keep 규칙을 추가했다. 직접 Google Activity/내부 Parcelable 우회는 제거했으며 `QRScanActivity`가 공통 `QrScanner` port의 `AndroidQrScanner`를 사용한다. adapter는 Activity context에서 공식 `GmsBarcodeScanning.getClient()`를 1회 호출하고 typed 결과를 반환한다. Home/Lecture의 연속 탭은 scanner Activity 반환까지 single-flight로 제한했다. 2026-07-19 무스캔 종료가 일반 `scanner_start_failed`로 반환되는 실기기 회귀를 확인해 공식 취소 코드·빈 결과·중첩 취소와 스캐너 화면 표시 후 일반 종료 실패를 무알림 취소로 정규화했다. `QRScanActivity`의 인증 진행 루트를 Compose로 교체하되 scanner/check-in/result 계약은 유지했다. 단위 테스트, Compose 계측 테스트 Kotlin 컴파일, debug 및 release R8 빌드는 통과했으며 수정 빌드 실기기 재검증이 남았다.
     - 검증: `QrScanLaunchGuardTest` 포함 공통 host test 137개, Android unit test, instrumentation Kotlin 컴파일, debug APK 및 R8 release APK 빌드 통과.
   - Depends on: M3-004, M2-006
   - Acceptance: F-019와 성공/실패/취소/권한/세션 만료 통과
 
 - [ ] **M5-002 (P0, L)** 앱 잠금/생체인식을 신규 core와 Compose UI에 연결한다.
+  - 진행: `LockActivity`의 XML 진입을 Compose `LockScreen`으로 교체하고 UNLOCK/SET/CHANGE/VERIFY, 6자리 자동 제출, 물리 키보드, 뒤로가기, 생체인식 prompt와 기존 Activity result 계약을 보존했다. 모바일 키패드는 하단에 고정하고 상단 요약 영역이 남은 높이를 채워 중앙 정렬되며, 삭제는 접근성 설명이 있는 아이콘으로 표시하고 자동 제출과 중복되는 화면 확인 키는 빈 공간으로 교체했다. PIN 원문은 Compose 상태에 전달하지 않고 Activity 메모리 버퍼에만 유지한다. 기존 XML은 실기기 패리티 완료 전 rollback 자산으로 보존한다.
   - Depends on: M3-007, M4-005
   - Acceptance: F-022, F-023; foreground/background race와 widget 예외 포함
 
 - [ ] **M5-003 (P0, XL)** 비디오 플레이어와 Android PIP를 새 경계로 이전한다.
-    - 진행: 공통 `PictureInPictureState`/port와 Android PIP adapter를 연결하고 기존 RemoteAction을 보존. player command와 온라인 강의 payload를 typed `PlayerWebScripts`로 이동해 동적 문자열 주입을 제거했으며 3개 WebView를 공통 WebSurface 수명주기에 연결. 2026-07-18 KLAS 영상 subdomain이 exact app origin에서 제외되어 state 주입이 중단된 회귀를 별도 HTTPS host-family 정책으로 수정하고, callback 문자열 변환·유효 범위 처리와 PIP 종료 fullscreen/방향 복구 상태를 추가. 수정 빌드 실기기 재검증 대기.
+    - 진행: 공통 `PictureInPictureState`/port와 Android PIP adapter를 연결하고 기존 RemoteAction을 보존. player command와 온라인 강의 payload를 typed `PlayerWebScripts`로 이동해 동적 문자열 주입을 제거했으며 3개 WebView를 공통 WebSurface 수명주기에 연결. `VideoPlayerActivity`의 XML root와 제어 UI는 Compose로 전환하고, WebView 3개는 하나의 platform container에 유지한다. bridge callback은 재생/음소거/진행률/속도/강의 정보를 Compose 상태로 갱신하며 seek는 슬라이더 드래그 종료 시 한 번만 전달한다. 2026-07-18 KLAS 영상 subdomain이 exact app origin에서 제외되어 state 주입이 중단된 회귀를 별도 HTTPS host-family 정책으로 수정하고, callback 문자열 변환·유효 범위 처리와 PIP 종료 fullscreen/방향 복구 상태를 추가. Android 12 이상은 player 표시 중 auto-enter PIP params를 선설정해 최근 앱/제스처 앱 전환의 명시적 진입 거절을 방지하고, 이전 버전은 `onUserLeaveHint` 명시 진입을 유지한다. 수정 빌드 실기기 재검증 대기.
   - Depends on: M4-001, M4-007
   - Acceptance:
     - F-017, F-018 Android parity
@@ -396,18 +407,19 @@
     - 회전/백그라운드/복귀 시 상태 보존
 
 - [ ] **M5-004 (P1, L)** 도서관 QR UI와 AppWidget을 신규 repository/store에 연결한다.
-    - 진행: `LibraryManager`를 공통 `LibraryRepository`의 Android gateway/cache/crypto adapter로 전환해 Home/도서관 modal/Widget 진입 Activity가 동일 workflow와 SecureStore read-through 경로를 사용한다. cache 만료·오류 clear 정책과 AES/XML fixture 완료. 2026-07-18 QR CDATA parsing과 위젯 진입 시 Fragment 생성자 복원 crash를 수정하고 no-arg 재생성 계측 테스트를 추가. 위젯 만료/테마/잠금 및 수정 빌드 실서버 회귀가 남았다.
+    - 진행: `LibraryManager`를 공통 `LibraryRepository`의 Android gateway/cache/crypto adapter로 전환해 Home/도서관 modal/Widget 진입 Activity가 동일 workflow와 SecureStore read-through 경로를 사용한다. cache 만료·오류 clear 정책과 AES/XML fixture 완료. 도서관 QR 본체와 credential 설정 BottomSheet를 Compose로 전환했으며 QR 원문은 UI 상태에 보관하지 않고 생성 Bitmap만 전달한다. 이름·설정 제목·경고 문구는 Material 테마 색상을 명시하고 새로고침은 접근성 설명이 있는 아이콘 버튼으로 변경했으며 저장·위젯 추가 버튼은 반대 테마의 primary/onPrimary 색상 쌍을 사용한다. 30초 갱신, cache 재시도, 화면 밝기 복구, 위젯 추가/진입 종료와 Fragment no-arg 재생성 계약을 유지한다. 위젯 만료/테마/잠금 및 수정 빌드 실서버 회귀가 남았다.
+    - 검증: 공통 bridge host test, Android 단위 테스트, Compose 계측 테스트 Kotlin 컴파일, debug APK 및 R8 release APK 빌드 통과. Home/Widget 진입, 설정 저장, 실서버 QR 표시·자동/수동 갱신, 밝기 복구 실기기 검증 대기.
   - Depends on: M3-005, M3-006
   - Acceptance: F-020, F-021 Android parity; 만료/테마/잠금 포함
 
 - [ ] **M5-005 (P1, L)** download/file chooser/external navigation을 port에 연결한다.
-  - 진행: `FileTransfer`/`FilePicker` 요청·결과 모델과 URL/MIME/파일명/header 정책을 공통화. Android DownloadManager adapter가 SESSION cookie/User-Agent/content-disposition을 보존하며 Board/Lecture/Link/Task 다운로드에 연결되고, Activity Result 기반 단일·다중 파일 picker가 네 화면의 legacy requestCode 경로를 대체했다. 외부 이동 7개 bridge 경로도 allowlist navigator를 사용한다. 실기기 다운로드/업로드/취소 회귀만 남았다.
+  - 진행: `FileTransfer`/`FilePicker` 요청·결과 모델과 URL/MIME/파일명/header 정책을 공통화. Android DownloadManager adapter가 SESSION cookie/User-Agent/content-disposition을 보존하며 Board/Lecture/Link/Task 다운로드에 연결되고, 진행률·파일명·취소 동작을 Compose 다이얼로그로 교체했다. Activity Result 기반 단일·다중 파일 picker가 네 화면의 legacy requestCode 경로를 대체했으며 외부 이동 7개 bridge 경로도 allowlist navigator를 사용한다. 실기기 다운로드/업로드/취소 회귀만 남았다.
   - 검증: `FileTransferPolicyTest`, `FilePickerRequestTest`, `ExternalNavigationPolicyTest`, `:androidApp:compileDebugKotlin` 통과.
   - Depends on: M4-004, M4-007
   - Acceptance: F-025~F-027; session cookie, MIME, filename, malicious URL 검증
 
 - [ ] **M5-006 (P1, M)** 테마/방향/태블릿/햅틱/인앱 업데이트를 정리한다.
-  - 진행: ADR-005에 phone/tablet 방향·멀티윈도우 정책을 고정하고 14개 legacy haptic 이름을 semantic port와 Android 상수 adapter로 이전했다. 기존 테마/인앱 업데이트 경로는 회귀 방지를 위해 유지하며 Compose shell 연결과 phone/tablet/업데이트 실기기 검증이 남았다.
+  - 진행: ADR-005에 phone/tablet 방향·멀티윈도우 정책을 고정하고 14개 legacy haptic 이름을 semantic port와 Android 상수 adapter로 이전했다. Compose 공통 너비 정책을 compact(<600dp), medium(600~839dp), expanded(>=840dp)로 구현하고 잠금 화면에 1열/2열 적응형 배치를 적용했다. light/dark 상태바 아이콘 대비를 Material 테마와 동기화하고 XML 테마에도 light status bar 정책을 명시했다. 기존 테마/인앱 업데이트 경로는 회귀 방지를 위해 유지하며 나머지 Compose shell 연결과 phone/tablet/멀티윈도우/업데이트 실기기 검증이 남았다.
   - Depends on: M4-006
   - Acceptance: F-024, F-028~F-030 Android parity
 

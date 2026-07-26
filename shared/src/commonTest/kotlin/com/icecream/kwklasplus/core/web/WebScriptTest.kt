@@ -75,4 +75,17 @@ class WebScriptTest {
         assertTrue(script.reveal().startsWith("window.receiveDeadlineData(\"[{") )
         assertTrue(script.reveal().endsWith("}]\");"))
     }
+
+    @Test
+    fun viewportNotificationRunsAfterTwoAnimationFrames() {
+        val source = KlasWebAutomationScripts.notifyViewportChanged().reveal()
+
+        assertTrue(source.contains("window.dispatchEvent(new Event('resize'))"))
+        assertTrue(source.contains("window.visualViewport.dispatchEvent(new Event('resize'))"))
+        assertTrue(
+            source.contains(
+                "window.requestAnimationFrame(function(){window.requestAnimationFrame(notify);",
+            ),
+        )
+    }
 }

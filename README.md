@@ -4,6 +4,7 @@ This is a Kotlin Multiplatform project targeting Android and iOS.
 
 ### Migration documents
 
+- [오픈소스 기여자 가이드](./CONTRIBUTING.md)
 - [작업 및 호환성 규칙](./AGENTS.md)
 - [단계별 구현 백로그](./TASKS.md)
 - [목표 아키텍처와 마이그레이션 전략](./docs/MIGRATION_ARCHITECTURE.md)

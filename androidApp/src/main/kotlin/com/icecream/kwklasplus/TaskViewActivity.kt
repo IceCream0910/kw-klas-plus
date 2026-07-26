@@ -29,9 +29,14 @@ import android.webkit.DownloadListener
 import android.webkit.JsResult
 import android.webkit.WebResourceRequest
 import android.widget.FrameLayout
+import android.view.ViewGroup
 import android.widget.LinearLayout
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -48,22 +53,20 @@ import com.icecream.kwklasplus.platform.navigation.openVideoRoute
 import com.icecream.kwklasplus.core.platform.openValidatedExternalDestination
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
+import com.icecream.kwklasplus.ui.web.ComposeRefreshableWebViewHost
 
 class TaskViewActivity : AppCompatActivity() {
     private val filePicker = AndroidFilePicker(this)
     lateinit var webView: WebView
-    lateinit var loadingIndicator: LinearLayout
     private lateinit var swipeLayout: SwipeRefreshLayout
+    private var isLoading by mutableStateOf(true)
     lateinit var onBackPressedCallback: OnBackPressedCallback
     private var webSurface: AndroidWebSurface? = null
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_task_view)
-
-        applyEdgeToEdgeInsets()
-
         onBackPressedCallback = object: OnBackPressedCallback(false) {
             override fun handleOnBackPressed() {
                 when {
@@ -91,15 +94,26 @@ class TaskViewActivity : AppCompatActivity() {
         val subj = intent.getStringExtra(IntentExtras.SUBJECT)
         var sessionId = intent.getStringExtra(IntentExtras.SESSION_ID)
 
-        swipeLayout = findViewById<SwipeRefreshLayout>(R.id.swipeLayout)
-
-        swipeLayout.setOnRefreshListener {
-            webView.reload()
+        webView = WebView(this)
+        swipeLayout = SwipeRefreshLayout(this).apply {
+            addView(
+                webView,
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                ),
+            )
+            setOnRefreshListener { webView.reload() }
         }
-
-        webView = findViewById<WebView>(R.id.webView)
         webSurface = AndroidWebSurface(webView)
-        loadingIndicator = findViewById(R.id.progressBar)
+        setContent {
+            KlasPlusTheme {
+                ComposeRefreshableWebViewHost(
+                    refreshLayout = swipeLayout,
+                    isLoading = isLoading,
+                )
+            }
+        }
 
         webView.configureAppWebView(
             allowFileAccess = true,
@@ -136,7 +150,6 @@ class TaskViewActivity : AppCompatActivity() {
                 webView.executeWebScript(KlasWebAutomationScripts.styleContentPage())
                 swipeLayout.isRefreshing = false
                 hideLoading()
-                webView.visibility = View.VISIBLE
 
                 if (!isScriptExecuted) {
                     webView.executeWebScript(LegacyWebScripts.setLocalStorage("selectYearhakgi", yearHakgi.toString()))
@@ -249,14 +262,12 @@ class TaskViewActivity : AppCompatActivity() {
 
     private fun showLoading() {
         if (isFinishing || isDestroyed) return
-        loadingIndicator.visibility = View.VISIBLE
-        swipeLayout.visibility = View.GONE
+        isLoading = true
     }
 
     private fun hideLoading() {
         if (isFinishing || isDestroyed) return
-        loadingIndicator.visibility = View.GONE
-        swipeLayout.visibility = View.VISIBLE
+        isLoading = false
     }
 
     override fun onBackPressed() {

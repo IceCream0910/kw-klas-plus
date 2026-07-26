@@ -24,7 +24,6 @@ object LegacyBridgeCatalog {
             method("closeWebViewBottomSheet"),
             method("openOptionsMenu"),
             method("openYearHakgiBottomSheet"),
-            LegacyBridgeMethod("openCustomBottomSheet", listOf(string, boolean), minimumArgumentCount = 1),
             method("reload"),
             method("performHapticFeedback", string),
             method("requestIdCardQRValue"),
@@ -73,14 +72,6 @@ object LegacyBridgeCatalog {
             method("receiveVideoData", string, string),
             method("receiveVideoURL", string),
             method("performHapticFeedback", string),
-        ),
-        BridgeSurface.WEB_VIEW_MODAL to listOf(
-            method("completePageLoad"),
-            method("closeModal"),
-            method("showToast", string),
-            method("openExternalPage", string),
-            method("openLibraryQR"),
-            method("openPage", string),
         ),
     )
 

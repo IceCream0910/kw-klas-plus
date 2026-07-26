@@ -9,7 +9,7 @@
 | 계약 | 주요 값 | Android 사용처 |
 |---|---|---|
 | `appLogin.setInitial` | 학번, 서버 암호화 비밀번호 | `MainActivity` |
-| `window.receiveToken` | SESSION | `HomeActivity`, `LinkViewActivity`, `WebViewModal` |
+| `window.receiveToken` | SESSION | `HomeActivity`, `LinkViewActivity` |
 | `window.receivedData` | SESSION, 과목, 학기, 경로 | Board/Lecture/LctPlan/Video |
 | `window.receiveDeadlineData` | 마감 JSON 문자열 | `HomeActivity` |
 | `window.receiveTimetableData` | 시간표 JSON 문자열 | `HomeActivity` |

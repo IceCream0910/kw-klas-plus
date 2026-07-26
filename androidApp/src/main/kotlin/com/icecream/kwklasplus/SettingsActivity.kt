@@ -15,6 +15,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -41,6 +42,8 @@ import com.icecream.kwklasplus.platform.bridge.legacy.SettingsLegacyBridgeComman
 import com.icecream.kwklasplus.platform.bridge.legacy.SettingsLegacySynchronousBridgeCommandHandler
 import com.icecream.kwklasplus.core.platform.openValidatedExternalDestination
 import kotlinx.coroutines.launch
+import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
+import com.icecream.kwklasplus.ui.web.ComposeWebViewHost
 
 
 class SettingsActivity : AppCompatActivity() {
@@ -77,9 +80,6 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_settings)
-        applyEdgeToEdgeInsets()
-
         sharedPreferences = appPreferences
         currentAppTheme = sharedPreferences.getString(AppPrefs.APP_THEME, "system").toString()
         savedYearHakgi = sharedPreferences.getString(AppPrefs.YEAR_HAKGI, "").toString()
@@ -92,8 +92,17 @@ class SettingsActivity : AppCompatActivity() {
             baseContext.packageManager.getPackageInfo(baseContext.packageName, 0)
         appVersion = pInfo.versionName.toString()
 
-        webView = findViewById(R.id.webView)
+        webView = WebView(this)
         webSurface = AndroidWebSurface(webView)
+        setContent {
+            KlasPlusTheme {
+                ComposeWebViewHost(
+                    webView = webView,
+                    isLoading = false,
+                    title = "설정",
+                )
+            }
+        }
         val legacyFacade = JavaScriptInterfaceForSettings(this)
         webView.configureAppWebView(
             javaScriptInterface = legacyFacade,

@@ -111,6 +111,9 @@ flowchart TB
 androidApp/
   src/main/
     kotlin/.../app/                 # Application, MainActivity
+    kotlin/.../ui/theme/            # Android Compose Material theme
+    kotlin/.../ui/layout/           # window size and responsive layout policy
+    kotlin/.../feature/             # Compose screen by product feature
     kotlin/.../platform/biometric/  # FragmentActivity/BiometricPrompt
     kotlin/.../platform/file/       # Activity Result/WebChromeClient
     kotlin/.../platform/pip/        # Activity/PIP UI
@@ -319,6 +322,12 @@ Android는 위험이 낮고 경계가 뚜렷한 순서로 바꾼다.
 9. 사용되지 않는 Activity/View/XML을 기능별로 삭제
 
 WebView 콘텐츠를 Compose 네이티브 화면으로 재작성하는 것은 이번 범위가 아니다. Compose는 WebView 컨테이너와 네이티브 표면을 담당한다.
+
+### 6.3 Compose 반응형 레이아웃 기준
+
+Android 네이티브 화면은 가로 dp를 기준으로 compact(<600dp), medium(600~839dp), expanded(>=840dp)로 분류한다. compact와 medium 세로 화면은 읽기 순서를 유지하는 단일 열을 기본으로 하고, expanded 또는 높이가 짧은 medium 가로 화면은 정보와 조작 영역을 두 열로 배치한다. 콘텐츠 최대 너비, safe drawing inset, 세로 스크롤, 최소 터치 영역을 공통 규칙으로 적용하며 Activity에서 기기 모델이나 고정 픽셀을 직접 판별하지 않는다.
+
+단일 WebView만 표시하는 Activity도 Compose `AndroidView` 기반 호스트로 전환한다. 다만 웹 콘텐츠는 기존 Web 반응형 정책을 따르므로 네이티브 compact/medium/expanded 재배치 대상에서는 제외한다. 해당 Activity는 기존 `WebSurface` 수명주기와 브리지 계약을 유지하고 제목·로딩·오류·시스템 inset 같은 네이티브 표면만 Compose가 소유한다. View/XML 자산은 각 화면의 폰·태블릿·회전·접근성 실기기 패리티가 끝난 뒤 기능 단위로 삭제한다.
 
 ## 7. iOS 확장 전략
 

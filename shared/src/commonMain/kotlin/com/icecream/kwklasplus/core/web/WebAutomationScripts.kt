@@ -9,6 +9,13 @@ object KlasWebAutomationScripts {
 
     fun closeBottomSheet(): WebScript = WebScript("window.closeWebViewBottomSheet();")
 
+    fun notifyViewportChanged(): WebScript = WebScript(
+        "(function(){function notify(){window.dispatchEvent(new Event('resize'));" +
+            "if(window.visualViewport)window.visualViewport.dispatchEvent(new Event('resize'));}" +
+            "if(window.requestAnimationFrame){window.requestAnimationFrame(function(){" +
+            "window.requestAnimationFrame(notify);});}else{setTimeout(notify,0);}})();",
+    )
+
     fun styleContentPage(hideSubjectHeader: Boolean = true): WebScript {
         val subjectHeader = if (hideSubjectHeader) " #appHeaderSubj { display: none; }" else ""
         return WebScript(

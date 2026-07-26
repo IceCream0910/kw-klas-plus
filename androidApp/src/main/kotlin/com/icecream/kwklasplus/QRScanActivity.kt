@@ -1,11 +1,10 @@
 package com.icecream.kwklasplus
 
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.os.Bundle
 import android.view.HapticFeedbackConstants
-import android.view.View
 import android.webkit.WebSettings
+import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -16,6 +15,8 @@ import com.icecream.kwklasplus.core.attendance.QrCheckInResult
 import com.icecream.kwklasplus.core.network.KlasUserAgent
 import com.icecream.kwklasplus.core.platform.QrScanResult
 import com.icecream.kwklasplus.core.security.SecretValue
+import com.icecream.kwklasplus.feature.attendance.QrCheckInLoadingScreen
+import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -25,11 +26,13 @@ class QRScanActivity : AppCompatActivity() {
     private var scanInProgress = false
     private var scannerSurfaceWasShown = false
 
-    @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_qrscan)
-        applyEdgeToEdgeInsets()
+        setContent {
+            KlasPlusTheme {
+                QrCheckInLoadingScreen()
+            }
+        }
 
         val bodyJson = intent.getStringExtra(IntentExtras.BODY_JSON)
         val sessionId = intent.getStringExtra(IntentExtras.SESSION_ID)
@@ -133,7 +136,7 @@ class QRScanActivity : AppCompatActivity() {
     }
 
     private fun performResultHaptic(feedbackConstant: Int) {
-        findViewById<View>(R.id.main).performHapticFeedback(feedbackConstant)
+        window.decorView.performHapticFeedback(feedbackConstant)
     }
 
     private fun showCheckInError(message: String) {

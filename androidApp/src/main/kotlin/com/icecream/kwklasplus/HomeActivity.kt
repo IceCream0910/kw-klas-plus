@@ -6,9 +6,7 @@ import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
-import android.graphics.Color
 import android.graphics.Rect
-import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Bundle
@@ -29,19 +27,22 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.PopupMenu
-import com.google.android.material.loadingindicator.LoadingIndicator
 import android.widget.TextView
 import android.widget.Toast
 import android.window.OnBackInvokedDispatcher
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.DrawableRes
 import androidx.annotation.Nullable
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -96,8 +97,10 @@ import com.icecream.kwklasplus.core.web.LegacyWebScripts
 import com.icecream.kwklasplus.modal.LibraryQRModal
 import com.icecream.kwklasplus.modal.LibraryQRSettingsBottomSheetDialog
 import com.icecream.kwklasplus.modal.MenuBottomSheetDialog
-import com.icecream.kwklasplus.modal.WebViewBottomSheetDialog
 import com.icecream.kwklasplus.modal.YearHakgiBottomSheetDialog
+import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
+import com.icecream.kwklasplus.ui.dialog.ComposeLoadingDialog
+import com.icecream.kwklasplus.ui.web.ComposePlatformViewHost
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.launch
@@ -109,6 +112,8 @@ import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.system.exitProcess
 
+private const val VIEWPORT_LAYOUT_RETRY_LIMIT = 12
+
 class HomeActivity : AppCompatActivity() {
     private val qrScanLaunchGuard = QrScanLaunchGuard()
     private val qrScanLauncher = registerForActivityResult(
@@ -118,24 +123,28 @@ class HomeActivity : AppCompatActivity() {
     }
     @SuppressLint("MissingInflatedId")
     lateinit var webView: WebView
+    private lateinit var webViewContainer: FrameLayout
     internal var currentTab: String = "" // "feed", "timetable", "calendar", "menu"
     private var deadlineForWebview: String = ""
     private var timetableForWebview: String = ""
     lateinit var sessionIdForOtherClass: String
-    lateinit var loadingDialog: AlertDialog
+    lateinit var loadingDialog: ComposeLoadingDialog
     lateinit var yearHakgiList: Array<String>
     var yearHakgi: String = ""
     var isKeyboardShowing = false
     var isOpenWebViewBottomSheet: Boolean = false
     lateinit var onBackPressedCallback: OnBackPressedCallback
-    var main: androidx.appcompat.widget.LinearLayoutCompat? = null
-    private var webViewOriginalHeight: Int = ViewGroup.LayoutParams.MATCH_PARENT
+    var main: View? = null
+    private var isInitialPageLoading by mutableStateOf(true)
     private var backPressedTime: Long = 0L
     private var originalBrightness: Float = -1f
     var isIdCardModalActive: Boolean = false
     private var isBrightnessCaptured: Boolean = false
     private var bridgeMessageAdapter: AndroidBridgeMessageAdapter? = null
     private var webSurface: AndroidWebSurface? = null
+    private var isViewportSyncInProgress = false
+    private var isViewportSyncPending = false
+    private var isViewportSyncDisposed = false
 
     private lateinit var appUpdateManager: AppUpdateManager
     private val MY_REQUEST_CODE = 1001
@@ -146,7 +155,6 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -157,15 +165,6 @@ class HomeActivity : AppCompatActivity() {
             }
             startActivity(lockIntent)
         }
-
-        setContentView(R.layout.activity_home)
-        applyEdgeToEdgeInsets { insets ->
-            val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
-            val imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom + 80
-            adjustWebViewHeightForIme(imeVisible, imeHeight)
-        }
-
-        main = findViewById(R.id.main)
 
         onBackPressedCallback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -197,9 +196,34 @@ class HomeActivity : AppCompatActivity() {
             return
         }
 
-        webViewOriginalHeight = ViewGroup.LayoutParams.MATCH_PARENT
-
-        webView = findViewById(R.id.webView)
+        webView = WebView(this)
+        webViewContainer = FrameLayout(this).apply {
+            addView(
+                webView,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                ),
+            )
+        }
+        enableEdgeToEdge()
+        setContent {
+            KlasPlusTheme {
+                ComposePlatformViewHost(
+                    contentView = webViewContainer,
+                    isLoading = isInitialPageLoading,
+                    contentTag = "compose_web_view",
+                    applyImePadding = false,
+                )
+            }
+        }
+        main = findViewById(android.R.id.content)
+        main?.let { root ->
+            ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+                isKeyboardShowing = insets.isVisible(WindowInsetsCompat.Type.ime())
+                insets
+            }
+        }
         initSubjectList(sessionId)
         initLoadingDialog()
 
@@ -227,7 +251,7 @@ class HomeActivity : AppCompatActivity() {
 
     private fun popupSnackbarForCompleteUpdate() {
         val snackbar = Snackbar.make(
-            findViewById(R.id.main),
+            main ?: webView,
             "업데이트 다운로드가 완료되었습니다.",
             Snackbar.LENGTH_INDEFINITE
         )
@@ -235,26 +259,6 @@ class HomeActivity : AppCompatActivity() {
             appUpdateManager.completeUpdate()
         }
         snackbar.show()
-    }
-
-    private fun adjustWebViewHeightForIme(visible: Boolean, imeHeight: Int) {
-        // 태블릿은 레이아웃 변경 없이 리턴
-        val metrics = DisplayMetrics()
-        windowManager.defaultDisplay.getMetrics(metrics)
-        val widthDp = metrics.widthPixels / metrics.density
-        if (widthDp >= 600) return
-
-        val lp = webView.layoutParams ?: return
-        if (visible) {
-            isKeyboardShowing = true
-            lp.height = (webView.rootView.height - imeHeight)
-            if (lp.height < 0) lp.height = webViewOriginalHeight
-        } else {
-            isKeyboardShowing = false
-            lp.height = webViewOriginalHeight
-        }
-        webView.layoutParams = lp
-        webView.requestLayout()
     }
 
     override fun onActivityResult(
@@ -295,27 +299,22 @@ class HomeActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        isViewportSyncDisposed = true
         bridgeMessageAdapter?.dispose()
         bridgeMessageAdapter = null
         webSurface?.dispose()
         webSurface = null
         super.onDestroy()
-        appUpdateManager.unregisterListener(installStateUpdatedListener)
+        if (::appUpdateManager.isInitialized) {
+            appUpdateManager.unregisterListener(installStateUpdatedListener)
+        }
     }
 
     private fun initLoadingDialog() {
-        val builder = MaterialAlertDialogBuilder(this)
-        builder.setView(R.layout.layout_loading_dialog)
-        builder.setCancelable(false)
-        loadingDialog = builder.create()
-        loadingDialog.setOnShowListener {
-            loadingDialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            loadingDialog.window?.addFlags(
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                        WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
-            )
-        }
+        loadingDialog = ComposeLoadingDialog(
+            context = this,
+            allowTouchesOutside = true,
+        )
     }
 
     private fun showLoading() {
@@ -347,18 +346,17 @@ class HomeActivity : AppCompatActivity() {
             else -> "${AppUrls.KLAS_PLUS_BASE}/feed?yearHakgi=${yearHakgi}"
         }
 
+        when (tab) {
+            "timetable" -> setupTimetableWebViewClient()
+            "calendar" -> setupCalendarWebViewClient()
+            else -> setupDefaultWebViewClient()
+        }
         webView.loadUrl(url)
         webView.executeWebScript(
             LegacyWebScripts.setLocalStorage("currentYearHakgi", yearHakgi),
         )
 
         runOnUiThread { webView.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK) }
-
-        when (tab) {
-            "timetable" -> setupTimetableWebViewClient()
-            "calendar" -> setupCalendarWebViewClient()
-            else -> setupDefaultWebViewClient()
-        }
     }
 
     fun getCurrentTab(): String {
@@ -457,7 +455,6 @@ class HomeActivity : AppCompatActivity() {
 
     private fun setupDefaultWebViewClient() {
         webView.webViewClient = object : WebViewClient() {
-            val webViewProgress = findViewById<LoadingIndicator>(R.id.progressBar_webview)
             override fun onPageStarted(
                 view: WebView?,
                 url: String?,
@@ -473,9 +470,7 @@ class HomeActivity : AppCompatActivity() {
                 if (currentTab == "feed") {
                     sendDeadlineAndTimetableToWebView()
                 }
-                webView.visibility = View.VISIBLE
-                webViewProgress.visibility = View.GONE
-                hideLoading()
+                finishWebPageLoad()
             }
 
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
@@ -520,8 +515,7 @@ class HomeActivity : AppCompatActivity() {
                     Toast.makeText(this@HomeActivity, "시간표를 불러오는데 실패했습니다.", Toast.LENGTH_SHORT)
                         .show()
                 }
-                webView.visibility = View.VISIBLE
-                hideLoading()
+                finishWebPageLoad()
             }
         }
     }
@@ -540,8 +534,7 @@ class HomeActivity : AppCompatActivity() {
 
             override fun onPageFinished(view: WebView, url: String) {
                 webSurface?.onPageFinished(url)
-                webView.visibility = View.VISIBLE
-                hideLoading()
+                finishWebPageLoad()
             }
         }
 
@@ -586,6 +579,66 @@ class HomeActivity : AppCompatActivity() {
                 }
                 return true
             }
+        }
+    }
+
+    private fun finishWebPageLoad() {
+        requestWebViewportSync()
+    }
+
+    private fun requestWebViewportSync() {
+        if (isViewportSyncDisposed) return
+        if (isViewportSyncInProgress) {
+            isViewportSyncPending = true
+            return
+        }
+        isViewportSyncInProgress = true
+        synchronizeWebViewport()
+    }
+
+    private fun synchronizeWebViewport(layoutAttempt: Int = 0) {
+        webViewContainer.post {
+            if (isViewportSyncDisposed) return@post
+            val containerHeight = webViewContainer.height
+            if (containerHeight <= 1) {
+                if (layoutAttempt < VIEWPORT_LAYOUT_RETRY_LIMIT) {
+                    webViewContainer.postOnAnimation {
+                        synchronizeWebViewport(layoutAttempt + 1)
+                    }
+                } else {
+                    completeWebViewportSync()
+                }
+                return@post
+            }
+
+            webViewContainer.postOnAnimation {
+                if (isViewportSyncDisposed) return@postOnAnimation
+                webView.layoutParams = (webView.layoutParams as FrameLayout.LayoutParams).apply {
+                    height = containerHeight - 1
+                }
+                webView.requestLayout()
+                webViewContainer.postOnAnimation {
+                    if (isViewportSyncDisposed) return@postOnAnimation
+                    webView.layoutParams = (webView.layoutParams as FrameLayout.LayoutParams).apply {
+                        height = FrameLayout.LayoutParams.MATCH_PARENT
+                    }
+                    webView.requestLayout()
+                    webViewContainer.postOnAnimation(::completeWebViewportSync)
+                }
+            }
+        }
+    }
+
+    private fun completeWebViewportSync() {
+        if (isViewportSyncDisposed) return
+        webView.invalidate()
+        webView.executeWebScript(KlasWebAutomationScripts.notifyViewportChanged())
+        isInitialPageLoading = false
+        hideLoading()
+        isViewportSyncInProgress = false
+        if (isViewportSyncPending) {
+            isViewportSyncPending = false
+            requestWebViewportSync()
         }
     }
 
@@ -705,7 +758,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
     fun reload() {
-        val root = findViewById<View>(R.id.main)
+        val root = main ?: webView
         runOnUiThread { root.performHapticFeedback(HapticFeedbackConstants.TOGGLE_ON) }
         showLoading()
         val sharedPreferences = appPreferences
@@ -1234,18 +1287,6 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
     fun openYearHakgiBottomSheet() {
         homeActivity.runOnUiThread {
             homeActivity.openYearHakgiBottomSheetDialog()
-        }
-    }
-
-    @JavascriptInterface
-    fun openCustomBottomSheet(url: String, isCancelable: Boolean = true) {
-        homeActivity.runOnUiThread {
-            homeActivity.main?.let {
-                WebViewBottomSheetDialog(
-                    url,
-                    isCancelable
-                ).show(homeActivity.supportFragmentManager, MenuBottomSheetDialog.TAG)
-            }
         }
     }
 

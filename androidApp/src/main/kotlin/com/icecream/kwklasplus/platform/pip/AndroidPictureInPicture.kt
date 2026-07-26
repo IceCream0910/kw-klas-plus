@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.PictureInPictureParams
 import android.app.RemoteAction
 import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Rational
 import com.icecream.kwklasplus.core.platform.PictureInPicture
 import com.icecream.kwklasplus.core.platform.PictureInPictureState
@@ -36,8 +37,10 @@ class AndroidPictureInPicture(
     fun update(
         state: PictureInPictureState,
         actions: List<RemoteAction>,
+        autoEnterEnabled: Boolean = false,
     ): PlatformActionResult {
-        val params = createParams(state, actions) ?: return PlatformActionResult.Failed("invalid_pip_state")
+        val params = createParams(state, actions, autoEnterEnabled)
+            ?: return PlatformActionResult.Failed("invalid_pip_state")
         return try {
             activity.setPictureInPictureParams(params)
             PlatformActionResult.Success
@@ -49,11 +52,17 @@ class AndroidPictureInPicture(
     private fun createParams(
         state: PictureInPictureState,
         actions: List<RemoteAction>,
+        autoEnterEnabled: Boolean = false,
     ): PictureInPictureParams? {
         if (state.aspectRatioWidth <= 0 || state.aspectRatioHeight <= 0) return null
         return PictureInPictureParams.Builder()
             .setAspectRatio(Rational(state.aspectRatioWidth, state.aspectRatioHeight))
             .setActions(actions)
+            .apply {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    setAutoEnterEnabled(autoEnterEnabled)
+                }
+            }
             .build()
     }
 }

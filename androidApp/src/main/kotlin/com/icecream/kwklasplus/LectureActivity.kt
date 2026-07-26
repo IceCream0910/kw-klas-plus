@@ -33,10 +33,13 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -70,6 +73,9 @@ import com.icecream.kwklasplus.platform.navigation.openBoardViewRoute
 import com.icecream.kwklasplus.platform.navigation.openLecturePlanRoute
 import com.icecream.kwklasplus.platform.navigation.openVideoRoute
 import com.icecream.kwklasplus.platform.navigation.openWebRoute
+import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
+import com.icecream.kwklasplus.ui.dialog.ComposeLoadingDialog
+import com.icecream.kwklasplus.ui.web.ComposePlatformViewHost
 import kotlinx.coroutines.launch
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -93,20 +99,16 @@ class LectureActivity : AppCompatActivity() {
     lateinit var subjName: String
     lateinit var sessionId: String
     lateinit var yearHakgi: String
-    lateinit var loadingDialog: AlertDialog
+    lateinit var loadingDialog: ComposeLoadingDialog
     var isShowingKLAS : Boolean = false
+    private var isPageLoading by mutableStateOf(true)
 
     private val filePicker = AndroidFilePicker(this)
     private val bridgeMessageAdapters = mutableListOf<AndroidBridgeMessageAdapter>()
     private val webSurfaces = mutableListOf<AndroidWebSurface>()
 
-    @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_lecture)
-        applyEdgeToEdgeInsets()
-
-
         lockPortraitOnPhone()
 
         subjID = intent.getStringExtra("subjID").toString()
@@ -116,7 +118,7 @@ class LectureActivity : AppCompatActivity() {
 
 
         val legacyFacade = WebAppInterfaceLectureHome(this)
-        uiWebView = findViewById<WebView>(R.id.uiWebView)
+        uiWebView = WebView(this)
         val uiSurface = AndroidWebSurface(uiWebView).also(webSurfaces::add)
         uiWebView.configureAppWebView(
             javaScriptInterface = legacyFacade,
@@ -135,10 +137,42 @@ class LectureActivity : AppCompatActivity() {
         uiWebView.loadUrl(AppUrls.LECTURE_HOME)
         appDependencies.fileTransfer(this).attachTo(uiWebView)
 
-        webView = findViewById<WebView>(R.id.webView)
+        webView = WebView(this)
         val klasSurface = AndroidWebSurface(webView).also(webSurfaces::add)
-        scrollView = findViewById<SwipeRefreshLayout>(R.id.scrollView)
-        val progressBar = findViewById<LinearLayout>(R.id.progressBar)
+        scrollView = SwipeRefreshLayout(this).apply {
+            addView(
+                uiWebView,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                ),
+            )
+        }
+        val webContainer = FrameLayout(this).apply {
+            addView(
+                scrollView,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                ),
+            )
+            addView(
+                webView,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                ),
+            )
+        }
+        setContent {
+            KlasPlusTheme {
+                ComposePlatformViewHost(
+                    contentView = webContainer,
+                    isLoading = isPageLoading,
+                    contentTag = "lecture_web_container",
+                )
+            }
+        }
         webView.configureAppWebView(
             javaScriptInterface = legacyFacade,
             allowFileAccess = true,
@@ -157,8 +191,8 @@ class LectureActivity : AppCompatActivity() {
         appDependencies.fileTransfer(this).attachTo(webView)
 
         scrollView.isEnabled = false
-        scrollView.visibility = ScrollView.GONE
-        progressBar.visibility = View.VISIBLE
+        scrollView.visibility = View.GONE
+        webView.visibility = View.GONE
 
         scrollView.setOnRefreshListener {
             webView.executeWebScript(KlasWebAutomationScripts.reloadPage())
@@ -196,7 +230,7 @@ class LectureActivity : AppCompatActivity() {
                     webView.executeWebScript(KlasWebAutomationScripts.openLecture(yearHakgi, subjID))
                     scrollView.visibility = View.VISIBLE
                     webView.visibility = View.GONE
-                    progressBar.visibility = View.GONE
+                    isPageLoading = false
                 }
                 if(url.contains("LctrumHomeStdPage.do")) {
                     webView.executeWebScript(KlasWebAutomationScripts.collectLectureBoardPaths())
@@ -280,10 +314,7 @@ class LectureActivity : AppCompatActivity() {
 
     fun openQRScan() {
         if (!qrScanLaunchGuard.tryAcquire()) return
-        val builder = MaterialAlertDialogBuilder(this)
-        builder.setView(R.layout.layout_loading_dialog)
-        builder.setCancelable(false)
-        loadingDialog = builder.create()
+        loadingDialog = ComposeLoadingDialog(this)
         loadingDialog.show()
 
 

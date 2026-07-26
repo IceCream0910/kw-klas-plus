@@ -3,25 +3,19 @@ package com.icecream.kwklasplus
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.ActivityInfo
-import android.graphics.Color
-import android.net.Uri
-import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
-import android.webkit.WebViewClient
+import androidx.activity.compose.setContent
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.icecream.kwklasplus.core.web.JavaScriptArgument
 import com.icecream.kwklasplus.core.web.LegacyWebCallback
 import com.icecream.kwklasplus.core.web.LegacyWebScripts
-import android.widget.LinearLayout
-import androidx.activity.enableEdgeToEdge
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
-import com.google.android.gms.common.util.DeviceProperties.isTablet
 import com.icecream.kwklasplus.core.bridge.BridgeSurface
 import com.icecream.kwklasplus.platform.web.AndroidBridgeMessageAdapter
 import com.icecream.kwklasplus.platform.web.AndroidWebSurface
@@ -29,21 +23,20 @@ import com.icecream.kwklasplus.platform.web.AndroidWebSurfaceClient
 import com.icecream.kwklasplus.platform.bridge.legacy.LecturePlanLegacyBridgeCommandHandler
 import com.icecream.kwklasplus.core.platform.openValidatedExternalDestination
 import com.icecream.kwklasplus.platform.navigation.openWebRoute
+import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
+import com.icecream.kwklasplus.ui.web.ComposeWebViewHost
 
 class LctPlanActivity : AppCompatActivity() {
     lateinit var sessionIdForOtherClass: String
     lateinit var webView: WebView
-    lateinit var loadingIndicator: LinearLayout
     lateinit var subjID: String
+    private var isLoading by mutableStateOf(true)
     private var bridgeMessageAdapter: AndroidBridgeMessageAdapter? = null
     private var webSurface: AndroidWebSurface? = null
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_lct_plan)
-        applyEdgeToEdgeInsets()
-
         lockPortraitOnPhone()
 
         sessionIdForOtherClass =
@@ -51,9 +44,16 @@ class LctPlanActivity : AppCompatActivity() {
                 ?: intent.getStringExtra(IntentExtras.SESSION_ID).toString()
         subjID = intent.getStringExtra(IntentExtras.SUBJECT_ID).toString()
 
-        webView = findViewById<WebView>(R.id.webView)
+        webView = WebView(this)
         webSurface = AndroidWebSurface(webView)
-        loadingIndicator = findViewById(R.id.progressBar)
+        setContent {
+            KlasPlusTheme {
+                ComposeWebViewHost(
+                    webView = webView,
+                    isLoading = isLoading,
+                )
+            }
+        }
 
         val legacyFacade = JavaScriptInterfaceLecturePlan(this)
         webView.configureAppWebView(
@@ -80,7 +80,6 @@ class LctPlanActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
                 hideLoading()
-                webView.visibility = View.VISIBLE
             }
         }
 
@@ -93,17 +92,11 @@ class LctPlanActivity : AppCompatActivity() {
     }
 
     private fun showLoading() {
-        loadingIndicator.visibility = View.VISIBLE
-        webView.visibility = View.GONE
+        isLoading = true
     }
 
     private fun hideLoading() {
-        loadingIndicator.visibility = View.GONE
-    }
-
-    override fun onBackPressed() {
-        super.onBackPressed()
-        finish()
+        isLoading = false
     }
     override fun onDestroy() {
         webSurface?.dispose()

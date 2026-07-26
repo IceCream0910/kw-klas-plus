@@ -9,18 +9,15 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.Environment
 import android.util.Log
-import android.view.LayoutInflater
 import android.webkit.CookieManager
 import android.webkit.MimeTypeMap
 import android.webkit.URLUtil
 import android.webkit.WebView
-import android.widget.ProgressBar
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.icecream.kwklasplus.R
+import com.icecream.kwklasplus.ui.dialog.ComposeDownloadProgressDialog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -129,29 +126,15 @@ class AppDownloadManager(private val activity: Activity) : FileTransfer {
         filename: String,
         mimeType: String
     ) {
-        val dialogView = LayoutInflater.from(activity)
-            .inflate(
-                R.layout.layout_download_progress,
-                null
-            )
-
-        val progressBar =
-            dialogView.findViewById<ProgressBar>(R.id.progressBar)
-        val progressText =
-            dialogView.findViewById<TextView>(R.id.progressText)
-        val fileNameText =
-            dialogView.findViewById<TextView>(R.id.fileName)
-
-        fileNameText.text = filename
-
-        val dialog = MaterialAlertDialogBuilder(activity)
-            .setTitle("다운로드 중")
-            .setView(dialogView)
-            .setNegativeButton("취소") { _, _ ->
+        var downloading = true
+        val dialog = ComposeDownloadProgressDialog(
+            context = activity,
+            fileName = filename,
+            onCancel = {
+                downloading = false
                 downloadManager.remove(downloadId)
-            }
-            .setCancelable(false)
-            .create()
+            },
+        )
 
         dialog.show()
 
@@ -162,8 +145,6 @@ class AppDownloadManager(private val activity: Activity) : FileTransfer {
                 )
 
         scope.launch {
-            var downloading = true
-
             while (downloading) {
                 val query =
                     DownloadManager.Query()
@@ -223,10 +204,7 @@ class AppDownloadManager(private val activity: Activity) : FileTransfer {
                                         (downloaded * 100L / total)
                                             .toInt()
 
-                                    progressBar.progress =
-                                        progress
-                                    progressText.text =
-                                        "$progress%"
+                                    dialog.updateProgress(progress)
                                 }
                             }
                         }

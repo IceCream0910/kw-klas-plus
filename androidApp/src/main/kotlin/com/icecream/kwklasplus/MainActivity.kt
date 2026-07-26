@@ -1,9 +1,7 @@
 package com.icecream.kwklasplus
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ActivityInfo
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
@@ -12,34 +10,45 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.webkit.WebView
-import android.widget.TextView
+import androidx.activity.compose.setContent
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.icecream.kwklasplus.core.auth.AuthFailure
 import com.icecream.kwklasplus.core.auth.LoginResult
 import com.icecream.kwklasplus.core.auth.StoredCredential
 import com.icecream.kwklasplus.core.session.SessionResult
+import com.icecream.kwklasplus.feature.startup.AuthenticationLoadingScreen
 import com.icecream.kwklasplus.platform.web.AndroidWebAuthDriver
+import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var loadingText: TextView
+    private lateinit var webView: WebView
+    private var loadingMessage by mutableStateOf("로그인 중")
     private val handler = Handler(Looper.getMainLooper())
     private var loadingHintRunnable: Runnable? = null
     private var isLoginActivityStarted = false
     private var isHomeStarted = false
     private var errorDialog: AlertDialog? = null
 
-    @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        applyEdgeToEdgeInsets()
-        loadingText = findViewById(R.id.loadingText)
+        webView = WebView(this)
+        setContent {
+            KlasPlusTheme {
+                AuthenticationLoadingScreen(
+                    webView = webView,
+                    message = loadingMessage,
+                )
+            }
+        }
 
         val sharedPreferences = appPreferences
         val appTheme = sharedPreferences.getString(AppPrefs.APP_THEME, "system")
@@ -73,7 +82,6 @@ class MainActivity : AppCompatActivity() {
 
     private suspend fun initializeAuthentication(sharedPreferences: android.content.SharedPreferences) {
         val credential = runCatching { appDependencies.credentialStore.load() }.getOrNull()
-        val webView = findViewById<WebView>(R.id.webView)
         webView.configureAppWebView(
             disableScrollBars = false,
             transparentBackground = false,
@@ -125,10 +133,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun startLoginTimer() {
         cancelLoginTimers()
-        loadingText.text = "로그인 중"
+        loadingMessage = "로그인 중"
         val hintRunnable = Runnable {
             if (!isLoginActivityStarted && !isHomeStarted && !isFinishing && !isDestroyed) {
-                loadingText.text = "조금만 더 기다려주세요"
+                loadingMessage = "조금만 더 기다려주세요"
             }
         }
         loadingHintRunnable = hintRunnable
@@ -230,9 +238,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
         cancelLoginTimers()
         errorDialog?.dismiss()
         errorDialog = null
+        webView.stopLoading()
+        webView.destroy()
+        super.onDestroy()
     }
 }

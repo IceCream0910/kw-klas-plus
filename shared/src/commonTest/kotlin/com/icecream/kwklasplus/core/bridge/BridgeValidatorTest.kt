@@ -36,8 +36,8 @@ class BridgeValidatorTest {
 
     @Test
     fun catalogCapturesEveryLegacyMethodSignature() {
-        assertEquals(64, LegacyBridgeCatalog.methods.values.sumOf { it.size })
-        assertEquals(64, BridgeMethodId.entries.size)
+        assertEquals(57, LegacyBridgeCatalog.methods.values.sumOf { it.size })
+        assertEquals(57, BridgeMethodId.entries.size)
         assertTrue(LegacyBridgeCatalog.methods.all { (surface, methods) ->
             methods.all { BridgeMethodId.from(surface, it.name) != null }
         })
@@ -55,13 +55,16 @@ class BridgeValidatorTest {
     }
 
     @Test
-    fun acceptsOptionalLegacyBottomSheetBooleanArgument() {
+    fun rejectsRemovedWebViewModalBridge() {
         val result = validator.validate(
             request("openCustomBottomSheet", BridgeValue.Text("/modal")),
             context(BridgeSurface.HOME),
         )
 
-        assertIs<BridgeValidationResult.Accepted>(result)
+        assertEquals(
+            BridgeValidationResult.Rejected(BridgeRejection.UNKNOWN_METHOD),
+            result,
+        )
     }
 
     @Test

@@ -22,7 +22,6 @@ enum class BridgeMethodId(
     HOME_CLOSE_WEB_VIEW_BOTTOM_SHEET(BridgeSurface.HOME, "closeWebViewBottomSheet"),
     HOME_OPEN_OPTIONS_MENU(BridgeSurface.HOME, "openOptionsMenu"),
     HOME_OPEN_YEAR_HAKGI_BOTTOM_SHEET(BridgeSurface.HOME, "openYearHakgiBottomSheet"),
-    HOME_OPEN_CUSTOM_BOTTOM_SHEET(BridgeSurface.HOME, "openCustomBottomSheet"),
     HOME_RELOAD(BridgeSurface.HOME, "reload"),
     HOME_PERFORM_HAPTIC_FEEDBACK(BridgeSurface.HOME, "performHapticFeedback"),
     HOME_REQUEST_ID_CARD_QR_VALUE(BridgeSurface.HOME, "requestIdCardQRValue"),
@@ -69,12 +68,6 @@ enum class BridgeMethodId(
     VIDEO_RECEIVE_VIDEO_URL(BridgeSurface.VIDEO, "receiveVideoURL"),
     VIDEO_PERFORM_HAPTIC_FEEDBACK(BridgeSurface.VIDEO, "performHapticFeedback"),
 
-    WEB_VIEW_MODAL_COMPLETE_PAGE_LOAD(BridgeSurface.WEB_VIEW_MODAL, "completePageLoad"),
-    WEB_VIEW_MODAL_CLOSE_MODAL(BridgeSurface.WEB_VIEW_MODAL, "closeModal"),
-    WEB_VIEW_MODAL_SHOW_TOAST(BridgeSurface.WEB_VIEW_MODAL, "showToast"),
-    WEB_VIEW_MODAL_OPEN_EXTERNAL_PAGE(BridgeSurface.WEB_VIEW_MODAL, "openExternalPage"),
-    WEB_VIEW_MODAL_OPEN_LIBRARY_QR(BridgeSurface.WEB_VIEW_MODAL, "openLibraryQR"),
-    WEB_VIEW_MODAL_OPEN_PAGE(BridgeSurface.WEB_VIEW_MODAL, "openPage"),
     ;
 
     companion object {

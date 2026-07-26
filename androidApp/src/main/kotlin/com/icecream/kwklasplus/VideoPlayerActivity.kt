@@ -14,6 +14,7 @@ import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.drawable.Icon
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -35,7 +36,11 @@ import com.google.android.material.loadingindicator.LoadingIndicator
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -63,13 +68,13 @@ import com.icecream.kwklasplus.platform.web.AndroidWebSurfaceClient
 import com.icecream.kwklasplus.platform.bridge.legacy.VideoLegacyBridgeCommandHandler
 import com.icecream.kwklasplus.core.platform.openValidatedExternalDestination
 import com.icecream.kwklasplus.core.platform.PlatformActionResult
+import com.icecream.kwklasplus.feature.player.VideoPlayerScreen
+import com.icecream.kwklasplus.feature.player.VideoPlayerUiState
+import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
 import kotlinx.coroutines.launch
 
 class VideoPlayerActivity : AppCompatActivity() {
     var isPlaying: Boolean = false
-    lateinit var lectureNameTextView: TextView
-    lateinit var lectureTimeTextView: TextView
-    lateinit var timeProgressBar: Slider
     lateinit var KLASWebView: WebView
     lateinit var VideoWebView: WebView
     lateinit var listWebView: WebView
@@ -80,15 +85,12 @@ class VideoPlayerActivity : AppCompatActivity() {
     lateinit var yearHakgi: String
     lateinit var sessionId: String
     var isViewer = false
+    internal var isPlayerVisible by mutableStateOf(false)
     var originVideoURL: String = ""
     var isLoadedKLASWebView = false
-    lateinit var playPauseButton: com.google.android.material.button.MaterialButton
-    lateinit var muteButton: com.google.android.material.button.MaterialButton
-    lateinit var speedButton: Button
+    internal var playerUiState by mutableStateOf(VideoPlayerUiState())
     var duration: Float = 1f
     var lastPlaytime: Float = 0f
-    lateinit var seekbarCurrentTime: TextView
-    lateinit var seekbarTotalTime: TextView
     var isFullscreen: Boolean = false
     private var restoreAfterPictureInPicture = false
     private val playerBridgeCodec = PlayerBridgeCodec()
@@ -116,105 +118,73 @@ class VideoPlayerActivity : AppCompatActivity() {
         }
         registerReceiver(MediaControlReceiver, intentFilter, Context.RECEIVER_EXPORTED)
 
-        setContentView(R.layout.activity_video_player)
-
-        applyEdgeToEdgeInsets()
-
         lockPortraitOnPhone()
-
-        lectureNameTextView = findViewById(R.id.lectureNameTextView)
-        lectureTimeTextView = findViewById(R.id.lectureTimeTextView)
-        timeProgressBar = findViewById(R.id.timeProgressBar)
-
-        timeProgressBar.addOnChangeListener { slider, value, fromUser ->
-            if (fromUser) {
-                val seconds = value * duration
-                if (seconds.isFinite() && seconds >= 0f) {
-                    VideoWebView.executeWebScript(PlayerWebScripts.seekTo(seconds.toDouble()))
-                }
-            }
-        }
-
-        timeProgressBar.setLabelFormatter { value ->
-            val seconds = value * duration
-            playerBridgeCodec.formatTime(seconds)
-        }
-
-        val pipButton = findViewById<Button>(R.id.pipButton)
-        val closeButton = findViewById<Button>(R.id.closeButton)
-        val fullScreenButton = findViewById<Button>(R.id.fullScreenButton)
-        playPauseButton = findViewById(R.id.playPauseButton)
-        val backwardButton = findViewById<Button>(R.id.backwardButton)
-        val forwardButton = findViewById<Button>(R.id.forwardButton)
-        muteButton = findViewById(R.id.muteButton)
-        speedButton = findViewById(R.id.speedButton)
-        seekbarCurrentTime = findViewById(R.id.seekbarCurrentTime)
-        seekbarTotalTime = findViewById(R.id.seekbarTotalTime)
-
-        playPauseButton.setOnClickListener {
-            pressKey(KeyEvent.KEYCODE_SPACE)
-        }
-
-        backwardButton.setOnClickListener {
-            pressKey(KeyEvent.KEYCODE_DPAD_LEFT)
-        }
-
-        forwardButton.setOnClickListener {
-            pressKey(KeyEvent.KEYCODE_DPAD_RIGHT)
-        }
-
-        fullScreenButton.setOnClickListener {
-            pressKey(KeyEvent.KEYCODE_F)
-            showController()
-        }
-
-        muteButton.setOnClickListener {
-            pressKey(KeyEvent.KEYCODE_M)
-        }
-
-        pipButton.setOnClickListener {
-            startPIP()
-        }
-
-        lectureTimeTextView.setOnClickListener {
-            if (lastPlaytime.isFinite() && lastPlaytime >= 0f) {
-                VideoWebView.executeWebScript(PlayerWebScripts.seekTo(lastPlaytime.toDouble()))
-            }
-        }
-
-        speedButton.setOnClickListener {
-            val speedDialog = SpeedBottomSheetDialog().apply {
-                setSpeedSelectionListener(object : SpeedBottomSheetDialog.SpeedSelectionListener {
-                    override fun onSpeedSelected(speed: Double) {
-                        speedButton.text = "  ${speed}x"
-                        VideoWebView.executeWebScript(PlayerWebScripts.changePlaybackRate(speed))
-                    }
-                })
-            }
-
-            speedDialog.show(supportFragmentManager, SpeedBottomSheetDialog.TAG)
-        }
-
-        closeButton.setOnClickListener {
-            val builder = MaterialAlertDialogBuilder(this)
-            builder.setTitle("강의 종료")
-                .setMessage("정말 강의 수강을 종료할까요?")
-                .setPositiveButton("확인") { dialog, id ->
-                    finish()
-                }
-                .setNegativeButton("취소") { dialog, id ->
-                    dialog.dismiss()
-                }
-                .show()
-        }
 
         subj = intent.getStringExtra(IntentExtras.SUBJECT).toString()
         yearHakgi = intent.getStringExtra(IntentExtras.YEAR_HAKGI).toString()
         sessionId = intent.getStringExtra(IntentExtras.SESSION_ID).toString()
 
-        listWebView = findViewById<BackgroundWebView>(R.id.listWebView)
-        KLASWebView = findViewById<BackgroundWebView>(R.id.KLASWebView)
-        VideoWebView = findViewById<BackgroundWebView>(R.id.VideoWebView)
+        listWebView = BackgroundWebView(this)
+        KLASWebView = BackgroundWebView(this)
+        VideoWebView = BackgroundWebView(this)
+        listLayout = SwipeRefreshLayout(this).apply {
+            addView(
+                listWebView,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                ),
+            )
+        }
+        KLASListLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            addView(
+                KLASWebView,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                ),
+            )
+        }
+        videoPlayerLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            addView(
+                VideoWebView,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                ),
+            )
+        }
+        val webContainer = FrameLayout(this).apply {
+            addView(listLayout, FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+            addView(KLASListLayout, FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+            addView(videoPlayerLayout, FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+        }
+        setContent {
+            KlasPlusTheme {
+                VideoPlayerScreen(
+                    webContainer = webContainer,
+                    state = playerUiState,
+                    isPlayerVisible = isPlayerVisible,
+                    onSeek = { progress -> seekToProgress(progress) },
+                    onPlayPauseClick = { pressKey(KeyEvent.KEYCODE_SPACE) },
+                    onBackwardClick = { pressKey(KeyEvent.KEYCODE_DPAD_LEFT) },
+                    onForwardClick = { pressKey(KeyEvent.KEYCODE_DPAD_RIGHT) },
+                    onMuteClick = { pressKey(KeyEvent.KEYCODE_M) },
+                    onFullscreenClick = {
+                        pressKey(KeyEvent.KEYCODE_F)
+                        showController()
+                    },
+                    onPictureInPictureClick = ::startPIP,
+                    onSpeedClick = ::openSpeedSelector,
+                    onCloseClick = ::confirmClose,
+                    onLectureTimeClick = ::seekToLastPlaytime,
+                )
+            }
+        }
         val listSurface = AndroidWebSurface(listWebView).also(webSurfaces::add)
         val klasSurface = AndroidWebSurface(KLASWebView).also(webSurfaces::add)
         val videoSurface = AndroidWebSurface(VideoWebView).also(webSurfaces::add)
@@ -249,12 +219,6 @@ class VideoPlayerActivity : AppCompatActivity() {
             mediaPlaybackRequiresUserGesture = false
         )
         bridgeMessageAdapters += createBridgeMessageAdapter(VideoWebView, legacyFacade)
-
-
-        listLayout = findViewById(R.id.listLayout)
-        KLASListLayout = findViewById(R.id.KLASListLayout)
-        videoPlayerLayout = findViewById(R.id.videoPlayerLayout)
-
         listLayout.setOnRefreshListener {
             listWebView.reload()
             listLayout.isRefreshing = false
@@ -282,14 +246,12 @@ class VideoPlayerActivity : AppCompatActivity() {
 
                 if (!url.contains("/OnlineCntntsStdPage")) { // 강의 시청 페이지
                     isViewer = true
-                    val params = VideoWebView.layoutParams
-                    params.height = (resources.displayMetrics.heightPixels * 0.25).toInt() + 50
-                    VideoWebView.layoutParams = params
                     KLASWebView.executeWebScript(KlasWebAutomationScripts.styleViewerPage())
                     KLASWebView.executeWebScript(KlasWebAutomationScripts.monitorLectureProgress())
                     KLASWebView.executeWebScript(KlasWebAutomationScripts.reportViewerVideoUrl())
                 } else {
-                    isViewer = false;
+                    isViewer = false
+                    isPlayerVisible = false
                 }
             }
         }
@@ -394,6 +356,39 @@ class VideoPlayerActivity : AppCompatActivity() {
         }
     }
 
+    private fun seekToProgress(progress: Float) {
+        val seconds = progress * duration
+        if (seconds.isFinite() && seconds >= 0f) {
+            VideoWebView.executeWebScript(PlayerWebScripts.seekTo(seconds.toDouble()))
+        }
+    }
+
+    private fun seekToLastPlaytime() {
+        if (lastPlaytime.isFinite() && lastPlaytime >= 0f) {
+            VideoWebView.executeWebScript(PlayerWebScripts.seekTo(lastPlaytime.toDouble()))
+        }
+    }
+
+    private fun openSpeedSelector() {
+        SpeedBottomSheetDialog().apply {
+            setSpeedSelectionListener(object : SpeedBottomSheetDialog.SpeedSelectionListener {
+                override fun onSpeedSelected(speed: Double) {
+                    playerUiState = playerUiState.copy(speedText = "${speed}x")
+                    VideoWebView.executeWebScript(PlayerWebScripts.changePlaybackRate(speed))
+                }
+            })
+        }.show(supportFragmentManager, SpeedBottomSheetDialog.TAG)
+    }
+
+    private fun confirmClose() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("강의 종료")
+            .setMessage("정말 강의 수강을 종료할까요?")
+            .setPositiveButton("확인") { _, _ -> finish() }
+            .setNegativeButton("취소", null)
+            .show()
+    }
+
     private fun pressKey(keyCode: Int) {
         val eventTime = SystemClock.uptimeMillis()
         VideoWebView.dispatchKeyEvent(
@@ -417,12 +412,11 @@ class VideoPlayerActivity : AppCompatActivity() {
     }
 
     private fun startPIP() {
-        if (packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
-            if (!isFullscreen) {
-                pressKey(KeyEvent.KEYCODE_F)
-            }
-            hideController()
-
+        if (
+            packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE) &&
+            !isInPictureInPictureMode
+        ) {
+            preparePlayerForPictureInPicture()
 
             val actions = listOf(
                 RemoteAction(
@@ -472,12 +466,19 @@ class VideoPlayerActivity : AppCompatActivity() {
                 )
             )
 
-            restoreAfterPictureInPicture = true
             val result = appDependencies.pictureInPicture(this).enterNow(pictureInPictureState(), actions)
             if (result !is PlatformActionResult.Success) {
                 restorePlayerAfterPictureInPicture()
             }
         }
+    }
+
+    private fun preparePlayerForPictureInPicture() {
+        if (!isFullscreen) {
+            pressKey(KeyEvent.KEYCODE_F)
+        }
+        hideController()
+        restoreAfterPictureInPicture = true
     }
 
     fun updatePipActions() {
@@ -527,7 +528,11 @@ class VideoPlayerActivity : AppCompatActivity() {
             )
         )
 
-        appDependencies.pictureInPicture(this).update(pictureInPictureState(), actions)
+        appDependencies.pictureInPicture(this).update(
+            state = pictureInPictureState(),
+            actions = actions,
+            autoEnterEnabled = isPlayerVisible,
+        )
     }
 
     private fun pictureInPictureState() = PictureInPictureState(
@@ -646,7 +651,11 @@ class VideoPlayerActivity : AppCompatActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (isViewer) {
+        if (!isPlayerVisible || isInPictureInPictureMode) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            preparePlayerForPictureInPicture()
+            updatePipActions()
+        } else {
             startPIP()
         }
     }
@@ -682,6 +691,8 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
     @JavascriptInterface
     fun openInKLAS() {
         mainHandler.post {
+            videoPlayerActivity.isPlayerVisible = false
+            videoPlayerActivity.updatePipActions()
             videoPlayerActivity.listLayout.visibility = View.GONE
             videoPlayerActivity.KLASListLayout.visibility = View.VISIBLE
         }
@@ -711,6 +722,8 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
             videoPlayerActivity.KLASWebView.executeWebScript(
                 PlayerWebScripts.openOnlineContent(decoded.request),
             )
+            videoPlayerActivity.isPlayerVisible = false
+            videoPlayerActivity.updatePipActions()
             videoPlayerActivity.listLayout.visibility = View.GONE
             videoPlayerActivity.KLASListLayout.visibility = View.VISIBLE
         }
@@ -740,19 +753,14 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
             if (!state.isFullscreen) {
                 videoPlayerActivity.hideController()
             }
-            videoPlayerActivity.playPauseButton.setIconResource(
-                if (state.isPlaying) R.drawable.baseline_pause_24 else R.drawable.baseline_play_arrow_24
-            )
-            videoPlayerActivity.muteButton.setIconResource(
-                if (state.isMuted) R.drawable.baseline_volume_off_24 else R.drawable.baseline_volume_up_24
-            )
-
-            videoPlayerActivity.timeProgressBar.value = state.progressFraction
-            videoPlayerActivity.seekbarCurrentTime.text =
-                playerBridgeCodec.formatTime(state.currentSeconds)
-            videoPlayerActivity.seekbarTotalTime.text =
-                playerBridgeCodec.formatTime(state.durationSeconds)
             videoPlayerActivity.duration = state.durationSeconds
+            videoPlayerActivity.playerUiState = videoPlayerActivity.playerUiState.copy(
+                progress = state.progressFraction,
+                currentTime = playerBridgeCodec.formatTime(state.currentSeconds),
+                totalTime = playerBridgeCodec.formatTime(state.durationSeconds),
+                isPlaying = state.isPlaying,
+                isMuted = state.isMuted,
+            )
         }
     }
 
@@ -760,9 +768,9 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
     fun receiveInitSpeed(currSpeed: String) {
         mainHandler.post {
             if (currSpeed.isNullOrEmpty()) {
-                videoPlayerActivity.speedButton.text = "  1.0x"
+                videoPlayerActivity.playerUiState = videoPlayerActivity.playerUiState.copy(speedText = "1.0x")
             } else {
-                videoPlayerActivity.speedButton.text = "  ${currSpeed}x"
+                videoPlayerActivity.playerUiState = videoPlayerActivity.playerUiState.copy(speedText = "${currSpeed}x")
 
             }
         }
@@ -774,7 +782,9 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
         videoPlayerActivity.lastPlaytime = parsed.playedSeconds.toFloat()
 
         mainHandler.post {
-            videoPlayerActivity.lectureTimeTextView.text = parsed.displayText
+            videoPlayerActivity.playerUiState = videoPlayerActivity.playerUiState.copy(
+                lectureTime = parsed.displayText,
+            )
         }
     }
 
@@ -791,6 +801,8 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
             }
             videoPlayerActivity.originVideoURL = videoURL
             videoPlayerActivity.VideoWebView.loadUrl(videoURL)
+            videoPlayerActivity.isPlayerVisible = true
+            videoPlayerActivity.updatePipActions()
             videoPlayerActivity.videoPlayerLayout.visibility = View.VISIBLE
             videoPlayerActivity.listLayout.visibility = View.GONE
             videoPlayerActivity.KLASListLayout.visibility = View.GONE
@@ -801,7 +813,9 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
                         .fetchTitle(videoURL)
                 ) {
                     is MediaMetadataResult.Success -> {
-                        videoPlayerActivity.lectureNameTextView.text = result.title
+                        videoPlayerActivity.playerUiState = videoPlayerActivity.playerUiState.copy(
+                            lectureName = result.title,
+                        )
                     }
                     else -> Unit
                 }

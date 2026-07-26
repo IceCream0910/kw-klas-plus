@@ -28,7 +28,9 @@ import android.webkit.JavascriptInterface
 import android.webkit.JsResult
 import android.webkit.WebResourceRequest
 import android.widget.FrameLayout
+import android.view.ViewGroup
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -50,6 +52,8 @@ import com.icecream.kwklasplus.platform.web.AndroidWebSurfaceClient
 import com.icecream.kwklasplus.platform.navigation.openWebRoute
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
+import com.icecream.kwklasplus.ui.web.ComposeRefreshableWebViewHost
 
 class BoardActivity : AppCompatActivity() {
     lateinit var sessionId: String
@@ -61,6 +65,7 @@ class BoardActivity : AppCompatActivity() {
     lateinit var masterNo: String
     private val filePicker = AndroidFilePicker(this)
     lateinit var webView: WebView
+    private lateinit var swipeLayout: SwipeRefreshLayout
     lateinit var onBackPressedCallback: OnBackPressedCallback
     private var bridgeMessageAdapter: AndroidBridgeMessageAdapter? = null
     private var webSurface: AndroidWebSurface? = null
@@ -68,9 +73,6 @@ class BoardActivity : AppCompatActivity() {
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_board)
-        applyEdgeToEdgeInsets()
-
         onBackPressedCallback = object: OnBackPressedCallback(false) {
             override fun handleOnBackPressed() {
                 when {
@@ -89,14 +91,26 @@ class BoardActivity : AppCompatActivity() {
         title = intent.getStringExtra("title").toString()
         path = intent.getStringExtra("path").toString()
 
-        val swipeLayout = findViewById<SwipeRefreshLayout>(R.id.swipeLayout)
-
-        swipeLayout.setOnRefreshListener {
-            webView.reload()
+        webView = WebView(this)
+        swipeLayout = SwipeRefreshLayout(this).apply {
+            addView(
+                webView,
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                ),
+            )
+            setOnRefreshListener { webView.reload() }
         }
-
-        webView = findViewById<WebView>(R.id.webView)
         webSurface = AndroidWebSurface(webView)
+        setContent {
+            KlasPlusTheme {
+                ComposeRefreshableWebViewHost(
+                    refreshLayout = swipeLayout,
+                    isLoading = false,
+                )
+            }
+        }
         val legacyFacade = JavaScriptInterfaceForBoard(this)
         webView.configureAppWebView(
             javaScriptInterface = legacyFacade,
