@@ -1,6 +1,6 @@
 This is a Kotlin Multiplatform project targeting Android and iOS.
 
-> 이 저장소는 기존 Android View 앱을 KMP 공통 코어 + Android Compose + iOS SwiftUI 구조로 점진 이전하기 위한 작업 공간입니다. Android 기능 패리티가 iOS 확장보다 우선합니다.
+> 이 브랜치는 기존 Android View 앱을 KMP 공통 코어 + Android Compose + iOS SwiftUI 구조로 점진 이전하기 위한 작업 공간입니다.
 
 ### Migration documents
 
@@ -9,7 +9,6 @@ This is a Kotlin Multiplatform project targeting Android and iOS.
 - [단계별 구현 백로그](./TASKS.md)
 - [목표 아키텍처와 마이그레이션 전략](./docs/MIGRATION_ARCHITECTURE.md)
 - [기능·화면·브리지 패리티 매트릭스](./docs/FEATURE_PARITY_MATRIX.md)
-- [고정 기준선과 툴체인](./docs/BASELINE.md)
 
 * [/androidApp](./androidApp/src/main) contains Android entry points, Compose UI, WebView adapters, and Android system integrations.
 
