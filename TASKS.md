@@ -1,7 +1,7 @@
 # KLAS+ KMP 마이그레이션 작업 현황
 
 - 기준일: 2026-08-05
-- 현재 단계: **Android 마이그레이션 완료, iOS 기본 제품 경로(M6) 착수 단계**
+- 현재 단계: **Android 마이그레이션 완료, iOS 기본 제품 경로(M6) 진행 중**
 - Android 상태: KMP 공통 코어, Compose UI, WebView 브리지, 네이티브 기능의 P0/P1 패리티 완료
 - iOS 상태: 프로젝트 골격과 최소 지원 정책만 확정. 실제 제품 경로와 플랫폼 기능은 미구현
 
@@ -15,7 +15,7 @@
 | M3 공통 코어 | **완료(9/9)** | 인증·세션·API·보안 저장소·앱 잠금 공통화 및 Android 연결 완료 |
 | M4 Android Web/Compose | 진행 중(7/8) | Android 화면 전환 완료. legacy 자산 정리만 남음 |
 | M5 Android 기능 패리티 | **완료(7/7)** | QR·잠금·PIP·위젯·파일·테마 및 전체 Android 회귀 통과 |
-| M6 iOS 기본 경로 | 미착수(0/11) | **현재 주력 마일스톤**. Web 저장소 대응 포함 |
+| M6 iOS 기본 경로 | 진행 중(2/11) | M6-001·M6-002 완료. 다음: M6-003 Shared API 연결. Web 저장소 대응 포함 |
 | M7 iOS 플랫폼 기능 | 미착수(0/7) | M6 기본 경로 이후 진행 |
 
 
@@ -74,11 +74,24 @@
 
 ### M6 — iOS 기본 제품 경로 · 현재 주력
 
-- [ ] **M6-001 (P0, M)** iOS 툴체인과 최소 지원 환경 고정
+- [x] **M6-001 (P0, M)** iOS 툴체인과 최소 지원 환경 고정
+  - 브랜치: `m6-001-002/ios-toolchain-framework`
+  - 정책: iOS/iPadOS 16.0, ADR-007, `Config.xcconfig` / CONTRIBUTING 툴체인 표
   - 완료 기준: macOS에서 Xcode·Kotlin·Gradle 조합, iOS/iPadOS 최소 버전, device/simulator 빌드 경로 확인
-- [ ] **M6-002 (P0, M)** iOS device/simulator framework 연결
+  - 검증:
+    - `./gradlew :shared:compileKotlinIosSimulatorArm64`
+    - `./gradlew :shared:iosSimulatorArm64Test`
+    - `./gradlew :shared:compileKotlinIosArm64`
+    - Xcode `iosApp` Simulator 빌드·실행
+    - 실기기 실행: 미검증 (Simulator 경로로 완료)
+- [x] **M6-002 (P0, M)** iOS device/simulator framework 연결
   - Depends on: M6-001
+  - 브랜치: `m6-001-002/ios-toolchain-framework`
   - 완료 기준: `iosArm64`·`iosSimulatorArm64` 빌드와 Xcode 링크
+  - 검증:
+    - `./gradlew :shared:compileKotlinIosSimulatorArm64` / `:shared:compileKotlinIosArm64`
+    - Xcode `Compile Kotlin Framework` → `embedAndSignAppleFrameworkForXcode` 포함 Simulator 빌드·실행
+    - `import Shared` / API 호출은 M6-003 범위
 - [ ] **M6-003 (P0, M)** SwiftUI entry와 공통 상태/ViewModel 연결
   - Depends on: M6-002
   - 완료 기준: `Shared.framework` API 호출과 lifecycle smoke
