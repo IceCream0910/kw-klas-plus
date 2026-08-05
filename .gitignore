@@ -13,6 +13,7 @@ key.properties
 captures
 .externalNativeBuild
 .cxx
+iosApp/Configuration/Config.local.xcconfig
 *.xcodeproj/*
 !*.xcodeproj/project.pbxproj
 !*.xcodeproj/xcshareddata/

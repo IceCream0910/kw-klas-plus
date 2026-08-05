@@ -1,0 +1,5 @@
+// 이 파일을 같은 디렉터리의 Config.local.xcconfig로 복사한 뒤 로컬 값만 채운다.
+// Config.local.xcconfig는 .gitignore 대상이며 커밋하지 않는다.
+//
+// Apple Developer Team ID (Xcode → Signing & Capabilities의 Team)
+TEAM_ID = YOUR_TEAM_ID
