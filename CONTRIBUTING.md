@@ -190,14 +190,29 @@ iOS UI는 Compose Multiplatform UI가 아니라 SwiftUI로 구현합니다. 공�
 
 ## 개발 환경
 
-현재 버전은 [gradle/libs.versions.toml](./gradle/libs.versions.toml)을 기준으로 합니다.
+툴체인 조합은 아래 표를 한 단위로 맞춥니다. Gradle 쪽 숫자의 출처는 [gradle/libs.versions.toml](./gradle/libs.versions.toml)과 [gradle/wrapper/gradle-wrapper.properties](./gradle/wrapper/gradle-wrapper.properties)이고, iOS 최소 OS는 [iosApp/Configuration/Config.xcconfig](./iosApp/Configuration/Config.xcconfig)입니다. 정책 근거는 [ADR-007](./docs/adr/ADR-007-min-platform-versions.md)를 봅니다.
 
-- JDK 21
-- Android Studio와 Android SDK
-- Android minSdk 29, compileSdk/targetSdk 37
-- iOS 작업 시 macOS와 Xcode
+| 항목 | 값 |
+|---|---|
+| JDK | 21 |
+| Gradle Wrapper | 9.5.0 |
+| Kotlin | 2.4.0 |
+| AGP | 9.3.1 |
+| Ktor | 3.5.0 |
+| Android minSdk | 29 |
+| Android compileSdk / targetSdk | 37 |
+| iOS / iPadOS deployment target | 16.0 |
+| Xcode | 16.2 이상 (프로젝트 `CreatedOnToolsVersion`) |
+| iOS 작업 OS | macOS 필수 |
 
-`local.properties`, 서명 키, 인증정보와 Xcode 사용자별 데이터는 커밋하지 않습니다.
+`local.properties`, 서명 키, 인증정보, Xcode 사용자별 데이터, `iosApp/Configuration/Config.local.xcconfig`는 커밋하지 않습니다.
+
+### iOS 로컬 서명
+
+1. [Config.local.xcconfig.example](./iosApp/Configuration/Config.local.xcconfig.example)를 `iosApp/Configuration/Config.local.xcconfig`로 복사합니다.
+2. `TEAM_ID`에 Apple Developer Team ID만 넣습니다. 이 파일은 gitignore됩니다.
+3. 커밋되는 `Config.xcconfig`의 `TEAM_ID`는 비워 둡니다. `Info.plist`에는 Team ID·인증서를 넣지 않습니다.
+4. Simulator 빌드는 Team ID 없이도 가능합니다. 실기기 빌드만 로컬 서명이 필요합니다.
 
 Android 빌드:
 

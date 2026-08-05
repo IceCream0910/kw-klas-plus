@@ -368,7 +368,7 @@ iOS WidgetKit과 PIP는 앱 본체와 별도의 extension/entitlement/실기기 
 
 ### 8.3 iOS 베타 게이트
 
-- 지원 OS 최소 버전 확정
+- 지원 OS 최소 버전 확정 — iOS/iPadOS 16.0, iPhone·iPad (`ADR-007`, `Config.xcconfig`)
 - 로그인과 세션 복구 반복 테스트
 - 모든 브리지 호출의 미지원 기능 처리
 - ATS, 도메인, 개인정보 manifest/권한 문구 검토
@@ -429,7 +429,7 @@ Android 앱은 코드/콘텐츠 endpoint가 모두 HTTPS임을 확인한 상태�
 4. `ADR-004`: 네트워크 계층(Ktor engine, cookie ownership, User-Agent)
 5. `ADR-005`: iOS PIP 방식(WKWebView media vs AVPlayer)
 6. `ADR-006`: Widget 공유 데이터와 잠금 상태 정책
-7. `ADR-007`: min Android/iOS 버전과 태블릿/회전 정책
+7. `ADR-007`: min Android/iOS 버전과 태블릿/회전 정책 — `docs/adr/ADR-007-min-platform-versions.md` 승인(최소 OS·기기). 태블릿/회전 UI 세부는 Android §6.3, iOS M6-011
 
 ## 12. 완료 기준
 

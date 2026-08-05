@@ -1,3 +1,6 @@
+# Gradle이 소비하는 버전. iOS 최소 OS·Xcode 조합은
+# iosApp/Configuration/Config.xcconfig와 CONTRIBUTING.md 툴체인 표를 기준으로 한다.
+# 동반 정책: iOS/iPadOS deployment target 16.0, Xcode 16.2+
 [versions]
 agp = "9.3.1"
 android-compileSdk = "37"
