@@ -59,8 +59,11 @@ object KlasWebAutomationScripts {
             "if(!notice||!pds)return;" +
             "var noticeParts=notice.split(\"linkUrl('/std/lis/sport/\");" +
             "var pdsParts=pds.split(\"linkUrl('/std/lis/sport/\");" +
-            "if(noticeParts[1]&&pdsParts[1])Android.getBoardPath(" +
-            "noticeParts[1].split('/')[0],pdsParts[1].split('/')[0]);})();",
+            "if(noticeParts[1]&&pdsParts[1])" + klasNativeBridgeCall(
+                "getBoardPath",
+                "noticeParts[1].split('/')[0]",
+                "pdsParts[1].split('/')[0]",
+            ) + ";})();",
     )
 
     fun styleViewerPage(): WebScript = WebScript(
@@ -71,15 +74,21 @@ object KlasWebAutomationScripts {
 
     fun monitorLectureProgress(): WebScript = WebScript(
         "(function(){function report(){var root=document.querySelector('.antopbak');" +
-            "if(root&&root.children[0]&&root.children[1])Android.receiveVideoData(" +
-            "root.children[0].innerHTML,root.children[1].innerHTML);}" +
+            "if(root&&root.children[0]&&root.children[1])" + klasNativeBridgeCall(
+                "receiveVideoData",
+                "root.children[0].innerHTML",
+                "root.children[1].innerHTML",
+            ) + ";}" +
             "report();clearInterval(window.__klasPlusLectureProgressInterval);" +
             "window.__klasPlusLectureProgressInterval=setInterval(report,10000);})();",
     )
 
     fun reportViewerVideoUrl(): WebScript = WebScript(
         "(function(){var source=String(chkOpen);var parts=source.split('<EMBED src =\\\"');" +
-            "if(parts[1])Android.receiveVideoURL(parts[1].split('\\\"')[0]);})();",
+            "if(parts[1])" + klasNativeBridgeCall(
+                "receiveVideoURL",
+                "parts[1].split('\\\"')[0]",
+            ) + ";})();",
     )
 
     fun configureMemberNumberRecoveryPage(): WebScript = WebScript(
@@ -167,11 +176,17 @@ object PlayerWebScripts {
 
     fun monitorState(): WebScript = WebScript(
         "(function(){var speed=\$('.vc-pctrl-playback-rate-toggle-btn').text().replace('x ','');" +
-            "Android.receiveInitSpeed(speed);clearInterval(window.__klasPlusPlayerStateInterval);" +
+            klasNativeBridgeCall("receiveInitSpeed", "speed") +
+            ";clearInterval(window.__klasPlusPlayerStateInterval);" +
             "window.__klasPlusPlayerStateInterval=setInterval(function(){\$('#content-metadata').remove();" +
-            "var player=bcPlayController.getPlayController();Android.receivePlayerStates(" +
-            "String(player._currTime),String(player._duration),String(player._isMuted)," +
-            "String(player._isPlaying),String(player._isFullScreen));},200);})();",
+            "var player=bcPlayController.getPlayController();" + klasNativeBridgeCall(
+                "receivePlayerStates",
+                "String(player._currTime)",
+                "String(player._duration)",
+                "String(player._isMuted)",
+                "String(player._isPlaying)",
+                "String(player._isFullScreen)",
+            ) + ";},200);})();",
     )
 
     fun move(direction: PlayerSeekDirection): WebScript {
@@ -232,4 +247,33 @@ object PlayerWebScripts {
         val function = if (request.progress == 100) "appModule.goViewCntnts" else "lrnCerti.checkCerti"
         return WebScript("$function(${values.joinToString(",")});")
     }
+}
+
+object KlasNativeBridgeScripts {
+    fun installAdapter(): WebScript = WebScript(
+        "(function(global){if(global.KlasNativeBridge)return;" +
+            "var transport=global.KlasNativeBridgeNative;" +
+            "if(!transport||typeof transport.postMessage!=='function')return;" +
+            "var pending=Object.create(null),sequence=0;" +
+            "transport.onmessage=function(event){var response;" +
+            "try{response=typeof event.data==='string'?JSON.parse(event.data):event.data;}catch(_){return;}" +
+            "var request=response&&pending[response.id];if(!request)return;" +
+            "delete pending[response.id];clearTimeout(request.timer);" +
+            "if(response.ok){request.resolve(response.result);return;}" +
+            "var code=response.error&&response.error.code||'BRIDGE_ERROR';" +
+            "var error=new Error(code);error.code=code;request.reject(error);};" +
+            "function call(method,args){return new Promise(function(resolve,reject){" +
+            "var id='injected-'+Date.now().toString(36)+'-'+(++sequence).toString(36);" +
+            "var timer=setTimeout(function(){delete pending[id];reject(new Error('BRIDGE_TIMEOUT'));},15000);" +
+            "pending[id]={resolve:resolve,reject:reject,timer:timer};" +
+            "transport.postMessage(JSON.stringify({version:1,id:id,method:method,arguments:args}));});}" +
+            "global.KlasNativeBridge=new Proxy({call:call},{get:function(target,property){" +
+            "if(property in target)return target[property];if(typeof property!=='string')return undefined;" +
+            "return function(){return call(property,Array.prototype.slice.call(arguments));};}});})(window);",
+    )
+}
+
+private fun klasNativeBridgeCall(method: String, vararg arguments: String): String {
+    require(method.matches(Regex("[A-Za-z_$][A-Za-z0-9_$]*")))
+    return "window.KlasNativeBridge.$method(${arguments.joinToString(",")})"
 }

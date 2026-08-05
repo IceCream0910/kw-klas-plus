@@ -51,6 +51,7 @@ class KlasContentOriginPolicy {
 
 class BridgeValidator(
     private val originPolicy: TrustedOriginPolicy = TrustedOriginPolicy(),
+    private val klasContentOriginPolicy: KlasContentOriginPolicy = KlasContentOriginPolicy(),
     private val maximumPayloadSizeBytes: Int = 64 * 1_024,
 ) {
     fun validate(request: BridgeRequest, context: BridgeContext): BridgeValidationResult {
@@ -58,7 +59,11 @@ class BridgeValidator(
         if (request.id.isBlank() || request.id.length > MAXIMUM_REQUEST_ID_LENGTH) {
             return rejected(BridgeRejection.INVALID_REQUEST_ID)
         }
-        if (!originPolicy.isTrusted(context.origin)) return rejected(BridgeRejection.UNTRUSTED_ORIGIN)
+        val isTrustedOrigin = originPolicy.isTrusted(context.origin) ||
+            context.surface == BridgeSurface.VIDEO &&
+            context.origin != KLAS_CONTENT_ROOT_ORIGIN &&
+            klasContentOriginPolicy.isTrustedUrl(context.origin)
+        if (!isTrustedOrigin) return rejected(BridgeRejection.UNTRUSTED_ORIGIN)
         if (!context.isMainFrame) return rejected(BridgeRejection.NOT_MAIN_FRAME)
         if (context.payloadSizeBytes !in 0..maximumPayloadSizeBytes) {
             return rejected(BridgeRejection.PAYLOAD_TOO_LARGE)
@@ -86,5 +91,6 @@ class BridgeValidator(
     companion object {
         const val CURRENT_VERSION = 1
         const val MAXIMUM_REQUEST_ID_LENGTH = 128
+        private const val KLAS_CONTENT_ROOT_ORIGIN = "https://kw.ac.kr"
     }
 }

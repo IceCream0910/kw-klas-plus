@@ -22,7 +22,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.DownloadListener
-import android.webkit.JavascriptInterface
 import android.webkit.JsResult
 import android.webkit.WebResourceRequest
 import android.widget.FrameLayout
@@ -50,7 +49,6 @@ import com.icecream.kwklasplus.platform.bridge.legacy.LinkLegacyBridgeCommandHan
 import com.icecream.kwklasplus.platform.file.AndroidFilePicker
 import com.icecream.kwklasplus.platform.web.AndroidWebSurface
 import com.icecream.kwklasplus.platform.web.AndroidWebSurfaceClient
-import com.icecream.kwklasplus.platform.web.AndroidLegacyBridgeExposure
 import com.icecream.kwklasplus.platform.navigation.openLecturePlanRoute
 import com.icecream.kwklasplus.platform.navigation.openWebRoute
 import java.net.URLDecoder
@@ -67,7 +65,6 @@ class LinkViewActivity : AppCompatActivity() {
     private var isLoading by mutableStateOf(true)
     private var bridgeMessageAdapter: AndroidBridgeMessageAdapter? = null
     private var webSurface: AndroidWebSurface? = null
-    private var legacyBridgeExposure: AndroidLegacyBridgeExposure? = null
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -106,7 +103,7 @@ class LinkViewActivity : AppCompatActivity() {
             }
         }
 
-        val legacyFacade = JavaScriptInterfaceForLinkView(this)
+        val bridgeDelegate = LinkBridgeDelegate(this)
         webView.configureAppWebView(
             allowFileAccess = true,
             allowContentAccess = true,
@@ -117,18 +114,14 @@ class LinkViewActivity : AppCompatActivity() {
             webView,
             BridgeSurface.LINK_VIEW,
             lifecycleScope,
-            LinkLegacyBridgeCommandHandler(legacyFacade),
+            LinkLegacyBridgeCommandHandler(bridgeDelegate),
         ).also { it.install() }
-        legacyBridgeExposure = AndroidLegacyBridgeExposure(webView, legacyFacade).also {
-            it.update(url)
-        }
         appDependencies.fileTransfer(this).attachTo(webView)
         webView.loadUrl(url)
 
         webView.webViewClient = object : AndroidWebSurfaceClient(requireNotNull(webSurface)) {
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                legacyBridgeExposure?.update(url)
                 showLoading()
             }
 
@@ -251,8 +244,6 @@ class LinkViewActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        legacyBridgeExposure?.dispose()
-        legacyBridgeExposure = null
         webSurface?.dispose()
         webSurface = null
         bridgeMessageAdapter?.dispose()
@@ -262,36 +253,31 @@ class LinkViewActivity : AppCompatActivity() {
 }
 
 
-class JavaScriptInterfaceForLinkView(private val activity: LinkViewActivity) {
-    @JavascriptInterface
+class LinkBridgeDelegate(private val activity: LinkViewActivity) {
     fun openPage(url: String) {
         activity.runOnUiThread {
             activity.openWebRoute(url, activity.sessionId)
         }
     }
 
-    @JavascriptInterface
     fun openLecturePlanPage(id: String) {
         activity.runOnUiThread {
             activity.openLecturePlanRoute(id, activity.sessionId)
         }
     }
 
-    @JavascriptInterface
     fun openWebViewBottomSheet() {
         activity.runOnUiThread {
             activity.isOpenWebViewBottomSheet = true
         }
     }
 
-    @JavascriptInterface
     fun closeWebViewBottomSheet() {
         activity.runOnUiThread {
             activity.isOpenWebViewBottomSheet = false
         }
     }
 
-    @JavascriptInterface
     fun completePageLoad() {
         activity.runOnUiThread {
             activity.webView.executeWebScript(

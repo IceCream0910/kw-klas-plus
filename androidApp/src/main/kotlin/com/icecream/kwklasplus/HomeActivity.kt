@@ -20,7 +20,6 @@ import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
-import android.webkit.JavascriptInterface
 import android.webkit.JsResult
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
@@ -440,8 +439,8 @@ class HomeActivity : AppCompatActivity() {
 
     private fun initWebView() {
         webView.post(Runnable {
-            val legacyFacade = JavaScriptInterface(this)
-            webView.configureAppWebView(javaScriptInterface = legacyFacade)
+            val bridgeDelegate = HomeBridgeDelegate(this)
+            webView.configureAppWebView()
             webSurface?.dispose()
             webSurface = AndroidWebSurface(webView)
             bridgeMessageAdapter?.dispose()
@@ -449,7 +448,7 @@ class HomeActivity : AppCompatActivity() {
                 webView,
                 BridgeSurface.HOME,
                 lifecycleScope,
-                HomeLegacyBridgeCommandHandler(legacyFacade),
+                HomeLegacyBridgeCommandHandler(bridgeDelegate),
             ).also(AndroidBridgeMessageAdapter::install)
             webView.overScrollMode = WebView.OVER_SCROLL_NEVER
 
@@ -1171,36 +1170,31 @@ class HomeActivity : AppCompatActivity() {
     }
 }
 
-class JavaScriptInterface(private val homeActivity: HomeActivity) {
-    @JavascriptInterface
+class HomeBridgeDelegate(private val homeActivity: HomeActivity) {
     fun changeTab(tab: String) {
         homeActivity.runOnUiThread {
             homeActivity.switchToTab(tab)
         }
     }
 
-    @JavascriptInterface
     fun evaluate(url: String, yearHakgi: String, subj: String) {
         homeActivity.runOnUiThread {
             homeActivity.openTaskRoute(url, subj, yearHakgi, homeActivity.sessionIdForOtherClass)
         }
     }
 
-    @JavascriptInterface
     fun openPage(url: String) {
         homeActivity.runOnUiThread {
             homeActivity.openWebRoute(url, homeActivity.sessionIdForOtherClass)
         }
     }
 
-    @JavascriptInterface
     fun openExternalPage(url: String) {
         homeActivity.runOnUiThread {
             homeActivity.openValidatedExternalDestination(url)
         }
     }
 
-    @JavascriptInterface
     fun completePageLoad() {
         homeActivity.runOnUiThread {
             homeActivity.webView.executeWebScript(
@@ -1213,14 +1207,12 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
         }
     }
 
-    @JavascriptInterface
     fun openLibraryQR() {
         homeActivity.runOnUiThread {
             homeActivity.openLibraryQRModal()
         }
     }
 
-    @JavascriptInterface
     fun openLibraryQRSettingsModal() {
         homeActivity.runOnUiThread {
             val settingsModal = com.icecream.kwklasplus.modal.LibraryQRSettingsBottomSheetDialog()
@@ -1231,7 +1223,6 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
         }
     }
 
-    @JavascriptInterface
     fun openLectureActivity(subj: String, subjName: String) {
         homeActivity.runOnUiThread {
             homeActivity.loadingDialog.show()
@@ -1239,14 +1230,12 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
         }
     }
 
-    @JavascriptInterface
     fun qrCheckIn(subjID: String, subjName: String) {
         homeActivity.runOnUiThread {
             homeActivity.openQRActivity(homeActivity.sessionIdForOtherClass, subjID, subjName)
         }
     }
 
-    @JavascriptInterface
     fun openDateTimePicker(currentDateTime: String?, isStart: Boolean) {
         val calendar = Calendar.getInstance()
 
@@ -1260,7 +1249,6 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
         homeActivity.showDatePicker(calendar, isStart)
     }
 
-    @JavascriptInterface
     fun openWebViewBottomSheet() {
         homeActivity.runOnUiThread {
             homeActivity.isOpenWebViewBottomSheet = true
@@ -1268,7 +1256,6 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
         }
     }
 
-    @JavascriptInterface
     fun closeWebViewBottomSheet() {
         homeActivity.runOnUiThread {
             if (homeActivity.isIdCardModalActive) {
@@ -1285,7 +1272,6 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
         }
     }
 
-    @JavascriptInterface
     fun openOptionsMenu() {
         homeActivity.runOnUiThread {
             homeActivity.main?.let {
@@ -1297,28 +1283,24 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
         }
     }
 
-    @JavascriptInterface
     fun openYearHakgiBottomSheet() {
         homeActivity.runOnUiThread {
             homeActivity.openYearHakgiBottomSheetDialog()
         }
     }
 
-    @JavascriptInterface
     fun reload() {
         homeActivity.runOnUiThread {
             homeActivity.reload()
         }
     }
 
-    @JavascriptInterface
     fun performHapticFeedback(type: String) {
         homeActivity.runOnUiThread {
             homeActivity.appDependencies.haptics(homeActivity.webView).performLegacy(type)
         }
     }
 
-    @JavascriptInterface
     fun requestIdCardQRValue() {
         homeActivity.runOnUiThread {
             homeActivity.requestIdCardQRValue()

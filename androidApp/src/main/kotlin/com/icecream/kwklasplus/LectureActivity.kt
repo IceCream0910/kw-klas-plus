@@ -17,7 +17,6 @@ import android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
 import android.view.View.SYSTEM_UI_FLAG_VISIBLE
 import android.webkit.CookieManager
 import android.webkit.DownloadListener
-import android.webkit.JavascriptInterface
 import android.webkit.JsResult
 import android.webkit.URLUtil
 import android.webkit.ValueCallback
@@ -117,11 +116,10 @@ class LectureActivity : AppCompatActivity() {
         yearHakgi = intent.getStringExtra(IntentExtras.YEAR_HAKGI)!!
 
 
-        val legacyFacade = WebAppInterfaceLectureHome(this)
+        val bridgeDelegate = LectureBridgeDelegate(this)
         uiWebView = WebView(this)
         val uiSurface = AndroidWebSurface(uiWebView).also(webSurfaces::add)
         uiWebView.configureAppWebView(
-            javaScriptInterface = legacyFacade,
             allowFileAccess = true,
             allowContentAccess = true,
             javaScriptCanOpenWindowsAutomatically = true
@@ -130,7 +128,7 @@ class LectureActivity : AppCompatActivity() {
             uiWebView,
             BridgeSurface.LECTURE,
             lifecycleScope,
-            LectureLegacyBridgeCommandHandler(legacyFacade),
+            LectureLegacyBridgeCommandHandler(bridgeDelegate),
         ).also { it.install() }
         uiWebView.overScrollMode = WebView.OVER_SCROLL_NEVER
         uiWebView.webViewClient = AndroidWebSurfaceClient(uiSurface)
@@ -174,7 +172,6 @@ class LectureActivity : AppCompatActivity() {
             }
         }
         webView.configureAppWebView(
-            javaScriptInterface = legacyFacade,
             allowFileAccess = true,
             allowContentAccess = true,
             javaScriptCanOpenWindowsAutomatically = true,
@@ -185,7 +182,7 @@ class LectureActivity : AppCompatActivity() {
             webView,
             BridgeSurface.LECTURE,
             lifecycleScope,
-            LectureLegacyBridgeCommandHandler(legacyFacade),
+            LectureLegacyBridgeCommandHandler(bridgeDelegate),
         ).also { it.install() }
         webView.loadUrl(AppUrls.KLAS_FRAME)
         appDependencies.fileTransfer(this).attachTo(webView)
@@ -430,10 +427,9 @@ class LectureActivity : AppCompatActivity() {
 
 }
 
-class WebAppInterfaceLectureHome(private val lectureActivity: LectureActivity) {
+class LectureBridgeDelegate(private val lectureActivity: LectureActivity) {
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    @JavascriptInterface
     fun completePageLoad() {
         lectureActivity.runOnUiThread {
             lectureActivity.uiWebView.executeWebScript(
@@ -447,14 +443,12 @@ class WebAppInterfaceLectureHome(private val lectureActivity: LectureActivity) {
         }
     }
 
-    @JavascriptInterface
     fun openPage(url: String) {
         lectureActivity.runOnUiThread {
             lectureActivity.openWebRoute(url, lectureActivity.sessionId)
         }
     }
 
-    @JavascriptInterface
     fun getBoardPath(noticePath: String, pdsPath: String) {
         lectureActivity.runOnUiThread {
             lectureActivity.boardNoticePath = noticePath
@@ -462,7 +456,6 @@ class WebAppInterfaceLectureHome(private val lectureActivity: LectureActivity) {
         }
     }
 
-    @JavascriptInterface
     fun openBoardList(type: String, title: String) {
         lectureActivity.runOnUiThread {
             if(lectureActivity.boardNoticePath.isNullOrEmpty() || lectureActivity.boardPdsPath.isNullOrEmpty()) {
@@ -484,7 +477,6 @@ class WebAppInterfaceLectureHome(private val lectureActivity: LectureActivity) {
         }
     }
 
-    @JavascriptInterface
     fun openBoardView(type: String, boardNo: String, masterNo: String) {
         lectureActivity.runOnUiThread {
             if(lectureActivity.boardNoticePath.isNullOrEmpty() || lectureActivity.boardPdsPath.isNullOrEmpty()) {
@@ -507,12 +499,10 @@ class WebAppInterfaceLectureHome(private val lectureActivity: LectureActivity) {
         }
     }
 
-    @JavascriptInterface
     fun openExternalLink(url: String) {
         lectureActivity.openValidatedExternalDestination(url)
     }
 
-    @JavascriptInterface
     fun evaluteKLASScript(script: String) {
         lectureActivity.runOnUiThread {
             lectureActivity.webView.evaluateJavascript(script, null)
@@ -522,7 +512,6 @@ class WebAppInterfaceLectureHome(private val lectureActivity: LectureActivity) {
         }
     }
 
-    @JavascriptInterface
     fun openOnlineLecture() {
         lectureActivity.runOnUiThread {
             lectureActivity.openVideoRoute(
@@ -533,12 +522,10 @@ class WebAppInterfaceLectureHome(private val lectureActivity: LectureActivity) {
         }
     }
 
-    @JavascriptInterface
     fun openLecturePlan() {
         lectureActivity.openLecturePlanRoute(lectureActivity.subjID, lectureActivity.sessionId)
     }
 
-    @JavascriptInterface
     fun openQRScan() {
         lectureActivity.runOnUiThread { lectureActivity.openQRScan() }
     }

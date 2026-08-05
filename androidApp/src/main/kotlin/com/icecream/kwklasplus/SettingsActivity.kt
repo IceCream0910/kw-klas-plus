@@ -9,7 +9,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.view.HapticFeedbackConstants
-import android.webkit.JavascriptInterface
 import android.webkit.JsResult
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -103,9 +102,8 @@ class SettingsActivity : AppCompatActivity() {
                 )
             }
         }
-        val legacyFacade = JavaScriptInterfaceForSettings(this)
+        val bridgeDelegate = SettingsBridgeDelegate(this)
         webView.configureAppWebView(
-            javaScriptInterface = legacyFacade,
             allowFileAccess = true,
             allowContentAccess = true,
             javaScriptCanOpenWindowsAutomatically = true,
@@ -115,8 +113,8 @@ class SettingsActivity : AppCompatActivity() {
             webView,
             BridgeSurface.SETTINGS,
             lifecycleScope,
-            SettingsLegacyBridgeCommandHandler(legacyFacade),
-            SettingsLegacySynchronousBridgeCommandHandler(legacyFacade),
+            SettingsLegacyBridgeCommandHandler(bridgeDelegate),
+            SettingsLegacySynchronousBridgeCommandHandler(bridgeDelegate),
         ).also { it.install() }
         try {
             val version = pInfo.longVersionCode
@@ -221,8 +219,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 }
 
-class JavaScriptInterfaceForSettings(private val activity: SettingsActivity) {
-    @JavascriptInterface
+class SettingsBridgeDelegate(private val activity: SettingsActivity) {
     fun completePageLoad() {
         activity.runOnUiThread {
             activity.webView.executeWebScript(
@@ -246,7 +243,6 @@ class JavaScriptInterfaceForSettings(private val activity: SettingsActivity) {
         }
     }
 
-    @JavascriptInterface
     fun changeAppTheme(type: String) {
         activity.runOnUiThread {
             activity.currentAppTheme = type
@@ -263,14 +259,12 @@ class JavaScriptInterfaceForSettings(private val activity: SettingsActivity) {
         }
     }
 
-    @JavascriptInterface
     fun openYearHakgiSelectModal() {
         activity.runOnUiThread {
             activity.openYearHakgiBottomSheetDialog()
         }
     }
 
-    @JavascriptInterface
     fun openLibraryQRSettingsModal() {
         activity.runOnUiThread {
             val settingsModal = LibraryQRSettingsBottomSheetDialog()
@@ -278,21 +272,18 @@ class JavaScriptInterfaceForSettings(private val activity: SettingsActivity) {
         }
     }
 
-    @JavascriptInterface
     fun openExternalLink(link: String) {
         activity.runOnUiThread {
             activity.openValidatedExternalDestination(link)
         }
     }
 
-    @JavascriptInterface
     fun performHapticFeedback(type: String) {
         activity.runOnUiThread {
             activity.appDependencies.haptics(activity.webView).performLegacy(type)
         }
     }
 
-    @JavascriptInterface
     fun setAppLockEnabled(enabled: Boolean) {
         activity.runOnUiThread {
             if (enabled) {
@@ -308,7 +299,6 @@ class JavaScriptInterfaceForSettings(private val activity: SettingsActivity) {
         }
     }
 
-    @JavascriptInterface
     fun setAppLockPassword() {
         activity.runOnUiThread {
             val mode = if (AppLockManager.hasPassword(activity)) "CHANGE" else "SET"
@@ -319,7 +309,6 @@ class JavaScriptInterfaceForSettings(private val activity: SettingsActivity) {
         }
     }
 
-    @JavascriptInterface
     fun setBiometricEnabled(enabled: Boolean) {
         activity.runOnUiThread {
             if (enabled) {
@@ -353,7 +342,6 @@ class JavaScriptInterfaceForSettings(private val activity: SettingsActivity) {
         }
     }
 
-    @JavascriptInterface
     fun getAppLockSettings(): String {
         return activity.currentAppLockSettings().toLegacyJson()
     }

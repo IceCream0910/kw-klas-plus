@@ -2,6 +2,7 @@ package com.icecream.kwklasplus.platform.web
 
 import android.webkit.WebView
 import androidx.webkit.WebMessageCompat
+import androidx.webkit.ScriptHandler
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.icecream.kwklasplus.core.bridge.BridgeCommandHandler
@@ -11,6 +12,7 @@ import com.icecream.kwklasplus.core.bridge.BridgeRouter
 import com.icecream.kwklasplus.core.bridge.BridgeSurface
 import com.icecream.kwklasplus.core.bridge.JsonBridgeRouter
 import com.icecream.kwklasplus.core.bridge.SynchronousBridgeCommandHandler
+import com.icecream.kwklasplus.core.web.KlasNativeBridgeScripts
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -31,17 +33,25 @@ class AndroidBridgeMessageAdapter(
         BridgeRouter(handler, synchronousHandler),
         codec,
     )
+    private val allowedOrigins = if (surface == BridgeSurface.VIDEO) {
+        VIDEO_ALLOWED_ORIGINS
+    } else {
+        ALLOWED_ORIGINS
+    }
     private var installed = false
+    private var adapterScriptHandler: ScriptHandler? = null
 
     fun install(): BridgeAdapterAvailability {
         if (installed) return BridgeAdapterAvailability.INSTALLED
-        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) ||
+            !WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
+        ) {
             return BridgeAdapterAvailability.UNSUPPORTED
         }
         WebViewCompat.addWebMessageListener(
             webView,
             NATIVE_OBJECT_NAME,
-            ALLOWED_ORIGINS,
+            allowedOrigins,
         ) { _, message, sourceOrigin, isMainFrame, replyProxy ->
             if (message.type != WebMessageCompat.TYPE_STRING) {
                 replyProxy.postMessage(codec.malformedResponse())
@@ -61,12 +71,19 @@ class AndroidBridgeMessageAdapter(
                 )
             }
         }
+        adapterScriptHandler = WebViewCompat.addDocumentStartJavaScript(
+            webView,
+            KlasNativeBridgeScripts.installAdapter().reveal(),
+            allowedOrigins,
+        )
         installed = true
         return BridgeAdapterAvailability.INSTALLED
     }
 
     fun dispose() {
         if (!installed) return
+        adapterScriptHandler?.remove()
+        adapterScriptHandler = null
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
             WebViewCompat.removeWebMessageListener(webView, NATIVE_OBJECT_NAME)
         }
@@ -79,5 +96,6 @@ class AndroidBridgeMessageAdapter(
             "https://klas.kw.ac.kr",
             "https://klasplus.yuntae.in",
         )
+        val VIDEO_ALLOWED_ORIGINS = ALLOWED_ORIGINS + "https://*.kw.ac.kr"
     }
 }

@@ -24,7 +24,6 @@ import android.util.Log
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.DownloadListener
-import android.webkit.JavascriptInterface
 import android.webkit.JsResult
 import android.webkit.WebResourceRequest
 import android.widget.FrameLayout
@@ -111,9 +110,8 @@ class BoardActivity : AppCompatActivity() {
                 )
             }
         }
-        val legacyFacade = JavaScriptInterfaceForBoard(this)
+        val bridgeDelegate = BoardBridgeDelegate(this)
         webView.configureAppWebView(
-            javaScriptInterface = legacyFacade,
             allowFileAccess = true,
             allowContentAccess = true,
             javaScriptCanOpenWindowsAutomatically = true
@@ -122,7 +120,7 @@ class BoardActivity : AppCompatActivity() {
             webView,
             BridgeSurface.BOARD,
             lifecycleScope,
-            BoardLegacyBridgeCommandHandler(legacyFacade),
+            BoardLegacyBridgeCommandHandler(bridgeDelegate),
         ).also { it.install() }
         appDependencies.fileTransfer(this).attachTo(webView)
 
@@ -265,20 +263,17 @@ class BoardActivity : AppCompatActivity() {
 }
 
 
-class JavaScriptInterfaceForBoard(private val activity: BoardActivity) {
-    @JavascriptInterface
+class BoardBridgeDelegate(private val activity: BoardActivity) {
     fun openPage(url: String) {
         activity.runOnUiThread {
             activity.openWebRoute(url, activity.sessionId)
         }
     }
 
-    @JavascriptInterface
     fun openExternalLink(url: String) {
         activity.openValidatedExternalDestination(url)
     }
 
-    @JavascriptInterface
     fun completePageLoad() {
         activity.runOnUiThread {
             activity.webView.executeWebScript(

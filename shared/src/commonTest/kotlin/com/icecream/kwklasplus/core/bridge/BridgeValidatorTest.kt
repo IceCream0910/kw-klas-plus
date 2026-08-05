@@ -106,6 +106,37 @@ class BridgeValidatorTest {
         assertTrue(!policy.isTrusted("https://klas.kw.ac.kr.evil.example"))
     }
 
+    @Test
+    fun videoBridgeAcceptsOnlyHttpsKwSubdomains() {
+        val request = BridgeRequest(
+            version = BridgeValidator.CURRENT_VERSION,
+            id = "video-state-1",
+            method = "receiveInitSpeed",
+            arguments = listOf(BridgeValue.Text("1.0")),
+        )
+
+        assertTrue(
+            validator.validate(
+                request,
+                BridgeContext(BridgeSurface.VIDEO, "https://vod.kw.ac.kr", true, 100),
+            ) is BridgeValidationResult.Accepted,
+        )
+        listOf(
+            "https://kw.ac.kr",
+            "http://vod.kw.ac.kr",
+            "https://vod.kw.ac.kr.evil.example",
+            "https://vod.kw.ac.kr:443",
+        ).forEach { origin ->
+            assertEquals(
+                BridgeValidationResult.Rejected(BridgeRejection.UNTRUSTED_ORIGIN),
+                validator.validate(
+                    request,
+                    BridgeContext(BridgeSurface.VIDEO, origin, true, 100),
+                ),
+            )
+        }
+    }
+
     private fun request(method: String, vararg arguments: BridgeValue) = BridgeRequest(
         version = BridgeValidator.CURRENT_VERSION,
         id = "request-1",

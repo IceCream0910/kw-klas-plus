@@ -5,7 +5,6 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import androidx.activity.compose.setContent
@@ -55,9 +54,8 @@ class LctPlanActivity : AppCompatActivity() {
             }
         }
 
-        val legacyFacade = JavaScriptInterfaceLecturePlan(this)
+        val bridgeDelegate = LecturePlanBridgeDelegate(this)
         webView.configureAppWebView(
-            javaScriptInterface = legacyFacade,
             supportMultipleWindows = true,
             javaScriptCanOpenWindowsAutomatically = true,
             transparentBackground = false,
@@ -67,7 +65,7 @@ class LctPlanActivity : AppCompatActivity() {
             webView,
             BridgeSurface.LECTURE_PLAN,
             lifecycleScope,
-            LecturePlanLegacyBridgeCommandHandler(legacyFacade),
+            LecturePlanLegacyBridgeCommandHandler(bridgeDelegate),
         ).also { it.install() }
         webView.loadUrl(AppUrls.LECTURE_PLAN)
 
@@ -108,8 +106,7 @@ class LctPlanActivity : AppCompatActivity() {
 }
 
 
-class JavaScriptInterfaceLecturePlan(private val lctPlanActivity: LctPlanActivity) {
-    @JavascriptInterface
+class LecturePlanBridgeDelegate(private val lctPlanActivity: LctPlanActivity) {
     fun completePageLoad() {
         lctPlanActivity.runOnUiThread {
             lctPlanActivity.webView.executeWebScript(
@@ -122,14 +119,12 @@ class JavaScriptInterfaceLecturePlan(private val lctPlanActivity: LctPlanActivit
         }
     }
 
-    @JavascriptInterface
     fun openPage(url: String) {
         lctPlanActivity.runOnUiThread {
             lctPlanActivity.openWebRoute(url, lctPlanActivity.sessionIdForOtherClass)
         }
     }
 
-    @JavascriptInterface
     fun openExternalPage(url: String) {
         lctPlanActivity.runOnUiThread {
             lctPlanActivity.openValidatedExternalDestination(url)

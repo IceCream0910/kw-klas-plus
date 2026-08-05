@@ -24,7 +24,6 @@ import android.util.Log
 import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
 import android.view.View
-import android.webkit.JavascriptInterface
 import android.webkit.JsResult
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -188,37 +187,34 @@ class VideoPlayerActivity : AppCompatActivity() {
         val listSurface = AndroidWebSurface(listWebView).also(webSurfaces::add)
         val klasSurface = AndroidWebSurface(KLASWebView).also(webSurfaces::add)
         val videoSurface = AndroidWebSurface(VideoWebView).also(webSurfaces::add)
-        val legacyFacade = WebAppInterface(this)
+        val bridgeDelegate = VideoBridgeDelegate(this)
 
         listWebView.configureAppWebView(
-            javaScriptInterface = legacyFacade,
             allowFileAccess = true,
             allowContentAccess = true,
             javaScriptCanOpenWindowsAutomatically = true,
             disableScrollBars = false
         )
-        bridgeMessageAdapters += createBridgeMessageAdapter(listWebView, legacyFacade)
+        bridgeMessageAdapters += createBridgeMessageAdapter(listWebView, bridgeDelegate)
         listWebView.loadUrl(AppUrls.ONLINE_LECTURE)
 
         KLASWebView.configureAppWebView(
-            javaScriptInterface = legacyFacade,
             allowFileAccess = true,
             allowContentAccess = true,
             javaScriptCanOpenWindowsAutomatically = true,
             disableScrollBars = false
         )
-        bridgeMessageAdapters += createBridgeMessageAdapter(KLASWebView, legacyFacade)
+        bridgeMessageAdapters += createBridgeMessageAdapter(KLASWebView, bridgeDelegate)
         KLASWebView.loadUrl(AppUrls.KLAS_ONLINE_CONTENTS)
 
         VideoWebView.configureAppWebView(
-            javaScriptInterface = legacyFacade,
             allowFileAccess = true,
             allowContentAccess = true,
             javaScriptCanOpenWindowsAutomatically = true,
             disableScrollBars = false,
             mediaPlaybackRequiresUserGesture = false
         )
-        bridgeMessageAdapters += createBridgeMessageAdapter(VideoWebView, legacyFacade)
+        bridgeMessageAdapters += createBridgeMessageAdapter(VideoWebView, bridgeDelegate)
         listLayout.setOnRefreshListener {
             listWebView.reload()
             listLayout.isRefreshing = false
@@ -623,12 +619,12 @@ class VideoPlayerActivity : AppCompatActivity() {
 
     private fun createBridgeMessageAdapter(
         webView: WebView,
-        legacyFacade: WebAppInterface,
+        bridgeDelegate: VideoBridgeDelegate,
     ) = AndroidBridgeMessageAdapter(
         webView,
         BridgeSurface.VIDEO,
         lifecycleScope,
-        VideoLegacyBridgeCommandHandler(legacyFacade),
+        VideoLegacyBridgeCommandHandler(bridgeDelegate),
     ).also { it.install() }
 
     override fun onBackPressed() {
@@ -665,11 +661,10 @@ class VideoPlayerActivity : AppCompatActivity() {
     }
 }
 
-class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
+class VideoBridgeDelegate(private val videoPlayerActivity: VideoPlayerActivity) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val playerBridgeCodec = PlayerBridgeCodec()
 
-    @JavascriptInterface
     fun completePageLoad() {
         videoPlayerActivity.runOnUiThread {
             videoPlayerActivity.listWebView.executeWebScript(
@@ -683,12 +678,10 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
         }
     }
 
-    @JavascriptInterface
     fun openExternalLink(url: String) {
         videoPlayerActivity.openValidatedExternalDestination(url)
     }
 
-    @JavascriptInterface
     fun openInKLAS() {
         mainHandler.post {
             videoPlayerActivity.isPlayerVisible = false
@@ -698,7 +691,6 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
         }
     }
 
-    @JavascriptInterface
     fun requestOnlineLecture(jsonData: String) {
         mainHandler.post {
             val decoded = playerBridgeCodec.decodeOnlineContent(jsonData)
@@ -729,7 +721,6 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
         }
     }
 
-    @JavascriptInterface
     fun receivePlayerStates(
         currTime: String,
         duration: String,
@@ -764,7 +755,6 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
         }
     }
 
-    @JavascriptInterface
     fun receiveInitSpeed(currSpeed: String) {
         mainHandler.post {
             if (currSpeed.isNullOrEmpty()) {
@@ -776,7 +766,6 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
         }
     }
 
-    @JavascriptInterface
     fun receiveVideoData(progress: String, time: String) {
         val parsed = playerBridgeCodec.lectureProgress(progress, time) ?: return
         videoPlayerActivity.lastPlaytime = parsed.playedSeconds.toFloat()
@@ -788,7 +777,6 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
         }
     }
 
-    @JavascriptInterface
     fun receiveVideoURL(videoURL: String) {
         mainHandler.post {
             if (!videoURL.isTrustedKlasContentUrl()) {
@@ -823,7 +811,6 @@ class WebAppInterface(private val videoPlayerActivity: VideoPlayerActivity) {
         }
     }
 
-    @JavascriptInterface
     fun performHapticFeedback(type: String) {
         videoPlayerActivity.runOnUiThread {
             videoPlayerActivity.appDependencies.haptics(videoPlayerActivity.listWebView).performLegacy(type)

@@ -1,6 +1,5 @@
 package com.icecream.kwklasplus
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -96,10 +95,7 @@ fun AppCompatActivity.lockPortraitOnPhone() {
     }
 }
 
-@SuppressLint("JavascriptInterface")
 fun WebView.configureAppWebView(
-    javaScriptInterface: Any? = null,
-    interfaceName: String = "Android",
     allowFileAccess: Boolean? = null,
     allowContentAccess: Boolean? = null,
     supportMultipleWindows: Boolean? = null,
@@ -124,7 +120,6 @@ fun WebView.configureAppWebView(
         isVerticalScrollBarEnabled = false
         isHorizontalScrollBarEnabled = false
     }
-    javaScriptInterface?.let { addJavascriptInterface(it, interfaceName) }
 }
 
 fun hapticFeedbackConstant(type: String): Int = when (type) {

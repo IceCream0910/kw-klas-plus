@@ -58,11 +58,36 @@ class WebAutomationScriptsTest {
 
     @Test
     fun platformIndependentPageAndPlayerScriptsPreserveContracts() {
-        assertTrue(KlasWebAutomationScripts.collectLectureBoardPaths().reveal().contains("Android.getBoardPath"))
-        assertTrue(KlasWebAutomationScripts.monitorLectureProgress().reveal().contains("Android.receiveVideoData"))
-        assertTrue(PlayerWebScripts.monitorState().reveal().contains("Android.receivePlayerStates"))
+        val scripts = listOf(
+            KlasWebAutomationScripts.collectLectureBoardPaths().reveal(),
+            KlasWebAutomationScripts.monitorLectureProgress().reveal(),
+            KlasWebAutomationScripts.reportViewerVideoUrl().reveal(),
+            PlayerWebScripts.monitorState().reveal(),
+        )
+
+        scripts.forEach {
+            assertTrue(it.contains("window.KlasNativeBridge."))
+            assertTrue(!it.contains("KlasNativeBridgeNative"))
+            assertTrue(!it.contains("Android."))
+        }
+        assertTrue(scripts[0].contains("KlasNativeBridge.getBoardPath("))
+        assertTrue(scripts[1].contains("KlasNativeBridge.receiveVideoData("))
+        assertTrue(scripts[2].contains("KlasNativeBridge.receiveVideoURL("))
+        assertTrue(scripts[3].contains("KlasNativeBridge.receiveInitSpeed("))
+        assertTrue(scripts[3].contains("KlasNativeBridge.receivePlayerStates("))
         assertTrue(PlayerWebScripts.move(PlayerSeekDirection.FORWARD).reveal().contains("_seekLimit"))
         assertTrue(PlayerWebScripts.setControllerVisible(false).reveal().contains("display: none"))
+    }
+
+    @Test
+    fun nativeBridgeAdapterOwnsBridgeV1TransportDetails() {
+        val source = KlasNativeBridgeScripts.installAdapter().reveal()
+
+        assertTrue(source.contains("global.KlasNativeBridgeNative"))
+        assertTrue(source.contains("global.KlasNativeBridge=new Proxy"))
+        assertTrue(source.contains("transport.postMessage(JSON.stringify({version:1"))
+        assertTrue(source.contains("arguments:args"))
+        assertTrue(source.contains("BRIDGE_TIMEOUT"))
     }
 
     @Test
