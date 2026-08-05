@@ -24,7 +24,7 @@ This is a Kotlin Multiplatform project targeting Android and iOS.
 Use the run configurations provided by the run widget in your IDE's toolbar. You can also use these commands and options:
 
 - Android app: `./gradlew :androidApp:assembleDebug`
-- iOS app: open the [/iosApp](./iosApp) directory in Xcode and run it from there.
+- iOS app: open [/iosApp/iosApp.xcodeproj](./iosApp/iosApp.xcodeproj) in Xcode (macOS). Minimum iOS/iPadOS is 16.0; set a local `TEAM_ID` via `iosApp/Configuration/Config.local.xcconfig` for device signing. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the toolchain table.
 
 ### Running tests
 
