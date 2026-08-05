@@ -1,6 +1,6 @@
 # KLAS+ KMP 마이그레이션 작업 현황
 
-- 기준일: 2026-08-05
+- 기준일: 2026-08-06
 - 현재 단계: **Android 마이그레이션 완료, iOS 기본 제품 경로(M6) 진행 중**
 - Android 상태: KMP 공통 코어, Compose UI, WebView 브리지, 네이티브 기능의 P0/P1 패리티 완료
 - iOS 상태: 프로젝트 골격과 최소 지원 정책만 확정. 실제 제품 경로와 플랫폼 기능은 미구현
@@ -15,7 +15,7 @@
 | M3 공통 코어 | **완료(9/9)** | 인증·세션·API·보안 저장소·앱 잠금 공통화 및 Android 연결 완료 |
 | M4 Android Web/Compose | 진행 중(7/8) | Android 화면 전환 완료. legacy 자산 정리만 남음 |
 | M5 Android 기능 패리티 | **완료(7/7)** | QR·잠금·PIP·위젯·파일·테마 및 전체 Android 회귀 통과 |
-| M6 iOS 기본 경로 | 진행 중(2/11) | M6-001·M6-002 완료. 다음: M6-003 Shared API 연결. Web 저장소 대응 포함 |
+| M6 iOS 기본 경로 | 진행 중(4/11) | Web adapter 준비 완료. 다음: M6-003 WKWebView 최소 실행 경로 → M6-006·007 Native bridge 연결 |
 | M7 iOS 플랫폼 기능 | 미착수(0/7) | M6 기본 경로 이후 진행 |
 
 
@@ -72,69 +72,91 @@
 - [x] **M5-006 (P1, M)** 테마·방향·태블릿·햅틱·인앱 업데이트 패리티
 - [x] **M5-007 (P0, L)** Android P0/P1 업그레이드·회귀·release 검증
 
-### M6 — iOS 기본 제품 경로 · 현재 주력
+### M6 — iOS 기본 기능 구현
+
+진행 순서: `M6-003` WKWebView smoke → `M6-006` navigation/cookie → `M6-007` Native bridge → `M6-008` 인증/세션 → `M6-009` 화면별 제품 경로. 완료된 `M6-004`·`M6-005`는 Web 측 선행 계약이다.
 
 - [x] **M6-001 (P0, M)** iOS 툴체인과 최소 지원 환경 고정
   - 브랜치: `m6-001-002/ios-toolchain-framework`
   - 정책: iOS/iPadOS 16.0, ADR-007, `Config.xcconfig` / CONTRIBUTING 툴체인 표
   - 완료 기준: macOS에서 Xcode·Kotlin·Gradle 조합, iOS/iPadOS 최소 버전, device/simulator 빌드 경로 확인
   - 검증:
-    - `./gradlew :shared:compileKotlinIosSimulatorArm64`
-    - `./gradlew :shared:iosSimulatorArm64Test`
-    - `./gradlew :shared:compileKotlinIosArm64`
     - Xcode `iosApp` Simulator 빌드·실행
     - 실기기 실행: 미검증 (Simulator 경로로 완료)
 - [x] **M6-002 (P0, M)** iOS device/simulator framework 연결
   - Depends on: M6-001
   - 브랜치: `m6-001-002/ios-toolchain-framework`
   - 완료 기준: `iosArm64`·`iosSimulatorArm64` 빌드와 Xcode 링크
-  - 검증:
-    - `./gradlew :shared:compileKotlinIosSimulatorArm64` / `:shared:compileKotlinIosArm64`
-    - Xcode `Compile Kotlin Framework` → `embedAndSignAppleFrameworkForXcode` 포함 Simulator 빌드·실행
-    - `import Shared` / API 호출은 M6-003 범위
-- [ ] **M6-003 (P0, M)** SwiftUI entry와 공통 상태/ViewModel 연결
+- [ ] **M6-003 (P0, M)** SwiftUI에서 유지되는 WKWebView 최소 실행 경로
   - Depends on: M6-002
-  - 완료 기준: `Shared.framework` API 호출과 lifecycle smoke
-- [ ] **M6-004 (P0, M)** Next.js bridge contract test 작성
-  - 상태: **미착수**. 대상은 별도 `kw-klas-plus-webview` 저장소다.
-  - 완료 기준: `window.Android`, `KlasNativeBridge`, 브라우저 fallback, 앱/Web 버전 조합
-- [ ] **M6-005 (P0, M)** Next.js 플랫폼 중립 bridge adapter 추가
-  - 상태: **미착수**
-  - 필요성: 기존 페이지의 `Android.*` 직접 호출은 iOS `WKWebView`에서 동작하지 않는다.
-  - 구현 방향: 페이지는 공통 adapter를 호출하고, adapter가 iOS `KlasNativeBridge`와 기존 Android `window.Android` fallback을 선택한다.
-  - Depends on: M6-004, 앱/Web 동시 변경 승인
-  - 완료 기준: 직접 `Android.*` 호출 제거, Promise API, version negotiation, Web CI
-- [ ] **M6-006 (P0, L)** WKWebView holder와 navigation/cookie adapter
+  - 작업: `UIViewRepresentable`은 WKWebView를 표시만 하고, 별도 holder가 인스턴스 생성·보존·해제를 소유
+  - 완료 기준: 고정된 앱 Web URL을 로드하고 SwiftUI 재렌더링·화면 재진입에도 WKWebView와 history가 불필요하게 재생성되지 않음
+  - 검증: Simulator에서 첫 로드, 재렌더링, 화면 재진입, 명시적 dispose 시 인스턴스와 delegate 수명주기 확인
+- [x] **M6-004 (P0, M)** Next.js bridge contract test 작성
+  - 대상: 별도 `kw-klas-plus-webview` 저장소
+  - 검증: Bridge v1 request/response, timeout, unknown-method legacy retry, 미지원 브라우저 동작
+- [x] **M6-005 (P0, M)** Next.js 플랫폼 중립 bridge adapter 추가
+  - 페이지 호출을 `KlasNativeBridge.*`로 통일하고 `KlasNativeBridgeNative.postMessage` Bridge v1을 우선 사용
+  - 구 Android 앱은 adapter 내부 `window.Android` fallback으로 지원
+  - 신 Android 앱은 legacy `Android` JS façade를 제거하고 Bridge v1만 노출
+  - Native 계약 테스트에서 활성 Web 메서드와 7개 surface/57개 command를 대조
+- [ ] **M6-006 (P0, L)** WKWebView navigation·cookie·수명주기 adapter
   - Depends on: M6-003
-  - 완료 기준: persistent cookie, back/reload/modal/external URL, handler lifecycle
-- [ ] **M6-007 (P0, L)** iOS `window.Android` shim과 Bridge v1 handler
+  - 작업: `WKNavigationDelegate`/`WKUIDelegate`, persistent `WKWebsiteDataStore`, `WKHTTPCookieStore`를 iOS WebSurface에 연결
+  - 작업: URL·loading·canGoBack/canGoForward를 navigation 상태로 제공하되, 화면 표시 여부는 각 SwiftUI container가 결정
+  - 완료 기준: trusted top-level 이동, back/reload, 새 창·modal·외부 URL 분기와 cookie set/get/clear 순서가 Android 계약과 일치
+  - 검증: 앱 Web ↔ KLAS 이동, 프로세스 재시작 cookie 유지, 외부·위장 URL 거부, dispose 후 delegate callback 없음
+- [ ] **M6-007 (P0, L)** `KlasNativeBridgeNative` transport와 Bridge router 연결
   - Depends on: M6-005, M6-006
-  - 주의: 네이티브 shim만으로 완료하지 않으며 M6-005의 Next.js adapter 전환을 필수 조건으로 한다.
-  - 완료 기준: document-start 주입, trusted origin/main-frame, legacy 동기 설정 조회
-- [ ] **M6-008 (P0, XL)** iOS 인증·세션·Keychain 경로
+  - 작업: `WKScriptMessageHandlerWithReply`로 request envelope를 공통 `BridgeRouter`에 전달하고 Promise response 반환
+  - 작업: Next.js가 없는 KLAS 문서에는 document-start `KlasNativeBridge` adapter를 주입
+  - 완료 기준: 앱 origin과 Video용 HTTPS `*.kw.ac.kr` 정책, main-frame, payload·메서드·인자 검증 및 handler 등록/해제 구현
+  - 검증: 정상 호출, async result, unknown method, malformed/oversize, iframe·비허용 origin, timeout 계약 테스트
+- [ ] **M6-008 (P0, XL)** SwiftUI 온보딩·로그인과 WKWebView SESSION 복구 경로
   - Depends on: M6-006, M6-007
-  - 완료 기준: F-002~F-006, 재시작 복구, CAPTCHA·임시 비밀번호·네트워크·timeout
-- [ ] **M6-009 (P0, XL)** iOS Home/Lecture/Board/Task 기본 경로
+  - 작업: Android의 네이티브 온보딩·로그인 화면에 대응하는 약관 동의, ID/PW 입력, validation, loading/error 상태를 SwiftUI로 구현
+  - 작업: 로그인 제출을 공통 인증 API와 KLAS 로그인 WKWebView에 연결하고 `SESSION`을 `WKHTTPCookieStore`·`SessionCoordinator`·Keychain에 동기화
+  - 완료 기준: 최초 온보딩, 수동·저장 credential 로그인, 유효 세션 즉시 진입, 만료·로그아웃·재시작 복구가 하나의 startup flow로 동작
+  - 검증: F-002~F-006, CAPTCHA·임시 비밀번호·네트워크·timeout, 평문 비밀번호와 SESSION의 로그·UserDefaults 비저장 확인
+- [ ] **M6-009 (P0, XL)** Home/Lecture/Board/Task WKWebView와 화면별 Bridge host
   - Depends on: M6-008
-  - 완료 기준: F-007~F-016 P0 경로와 앱/Web 버전 조합
-- [ ] **M6-010 (P1, L)** iOS 다운로드·파일 선택·외부 링크
+  - 작업: 화면별 URL/surface를 SwiftUI navigation에 연결하고 Bridge command를 작은 iOS host 인터페이스로 구현
+  - 작업: Home·Lecture·Board·LecturePlan·Link·Settings command 중 해당 화면에 필요한 navigation/modal/reload/callback 연결
+  - 완료 기준: F-007~F-016 P0 경로에서 `KlasNativeBridge.*` 호출과 Native → Web callback이 Android와 동일한 결과를 생성
+  - 검증: 앱 Web + 신 iOS 조합의 탭·back·게시판·강의·과제 링크·학기 선택·modal 회귀
+- [ ] **M6-010 (P1, L)** WKWebView 다운로드·파일 선택·외부 이동
   - Depends on: M6-009
-- [ ] **M6-011 (P1, M)** iOS 테마·키보드·safe area·회전·접근성
+  - 작업: WKDownload/URLSession, document/photo picker, share sheet, `UIApplication.open`을 공통 요청·URL 정책에 연결
+  - 완료 기준: cookie가 필요한 다운로드, MIME·파일명, 단일/다중 선택, 취소, mailto/tel/https와 악성 scheme 거부
+- [ ] **M6-011 (P1, M)** WKWebView 컨테이너의 iOS UI 환경 대응
   - Depends on: M6-009
+  - 작업: SwiftUI theme, safe area, 키보드·viewport, iPhone/iPad 회전과 Dynamic Type/VoiceOver focus 처리
+  - 완료 기준: Web content와 Native overlay가 compact/regular, 세로/가로, 키보드 표시 상태에서 가려지거나 중복 재생성되지 않음
 
-### M7 — iOS 플랫폼 기능
+### M7 — iOS 네이티브 기능 구현
 
 - [ ] **M7-001 (P0, L)** 앱 잠금·LocalAuthentication·Keychain
-  - Depends on: M6-008
+  - 작업: 네이티브 UI 구현 후 WebView의 settings 페이지 내 '앱 잠금' 관련 옵션 및 버튼 상태 연동
 - [ ] **M7-002 (P0, L)** QR 출석 스캐너
   - Depends on: M6-009
-- [ ] **M7-003 (P0, M)** iOS PIP 기술 spike와 방식 결정
+- [ ] **M7-003 (P0, M)** iOS 온라인 강의 player·PIP 방식 결정
   - Depends on: M6-009
-- [ ] **M7-004 (P1, XL)** iOS 비디오/PIP 구현
+  - 작업: KLAS 강의 URL/진도 추출, WKWebView media와 AVPlayer 중 재생 방식, `AVPictureInPictureController` 연결 가능성을 비교
+  - 작업: Android `VideoPlayerActivity`의 재생·seek·속도·진도·fullscreen·PIP command/state 계약을 iOS 구조에 매핑
+  - 완료 기준: 선택 방식, 미지원/DRM·cookie 제약, fallback, PIP 복귀 상태 복원 방식을 ADR 또는 spike 문서로 확정
+- [ ] **M7-004 (P0, XL)** SwiftUI 온라인 강의 player와 PIP 구현
   - Depends on: M7-003
-- [ ] **M7-005 (P1, M)** WidgetKit/App Group 기술 spike와 공유 정책
+  - 작업: Android 네이티브 VideoPlayer에 대응하는 SwiftUI 재생 화면과 play/pause·seek·속도·진도·fullscreen controls 구현
+  - 작업: `KlasNativeBridge`의 `receiveVideoURL`·`receiveVideoData`·`receivePlayerStates` 및 player command를 선택한 iOS media host에 연결
+  - 완료 기준: F-017·F-018의 재생, 이어보기, 진도 보고, background/foreground, PIP 시작·종료·remote action·화면 복귀 동작
+  - 검증: Simulator 기본 controls + 재생 가능한 실기기에서 media/PIP/잠금 화면·중단 복구 검증
+- [ ] **M7-005 (P1, M)** 도서관 QR App Group·WidgetKit 공유 정책 확정
   - Depends on: M6-008
-- [ ] **M7-006 (P1, XL)** iOS 도서관 QR·WidgetKit 구현
+  - 작업: 공통 도서관 QR repository 결과 중 앱·Widget에 공유할 캐시 schema, App Group, Keychain 접근 범위와 만료·잠금 정책 결정
+  - 완료 기준: 개인정보 저장 위치, timeline 갱신 주기, 로그아웃/만료/오프라인 fallback, widget deep link를 문서와 fixture로 고정
+- [ ] **M7-006 (P1, XL)** SwiftUI 도서관 출입증 QR 화면과 WidgetKit 구현
   - Depends on: M7-005
-- [ ] **M7-007 (P1, M)** 플랫폼별 승인 차이와 사용자 안내 정리
-  - Depends on: 출시 범위의 M7 작업
+  - 작업: Android 네이티브 도서관 QR 화면에 대응하는 조회·설정·로딩·오류·갱신 UI와 QR 렌더링을 SwiftUI로 구현
+  - 작업: App Group cache를 읽는 WidgetKit timeline과 잠금·만료·테마별 placeholder/deep link 구현
+  - 완료 기준: F-020·F-021의 신규 조회, 캐시 표시, 수동 갱신, 로그아웃 삭제, 잠금 상태, light/dark widget 패리티
+  - 검증: 앱 화면은 Simulator, Widget 갱신·잠금·재부팅·App Group/Keychain 동작은 실기기에서 확인

@@ -8,7 +8,7 @@
 
 - 공통화: API 네트워크 통신, DTO/엔티티, 인증 상태 머신, 세션 정책, 유스케이스, 플랫폼 중립 상태/ViewModel, 저장소 계약, 브리지 명령/이벤트 모델
 - 플랫폼 유지: Android Compose, iOS SwiftUI, 실제 WebView/WKWebView, 쿠키 저장소, 보안 저장소, 생체인식, 앱 잠금 수명주기, QR 스캔, 다운로드/파일 선택, 위젯, PIP
-- 호환 전략: 현재 웹의 `window.Android.*` 계약을 먼저 그대로 지원하고, 버전이 있는 `KlasNativeBridge` 프로토콜로 병행 이전
+- 호환 전략: Web은 플랫폼 중립 `KlasNativeBridge.*`를 호출하고 Bridge v1 transport를 우선 사용한다. 구 Android 앱 호환은 Web adapter의 `window.Android` fallback이 담당한다.
 - 릴리스 전략: Android를 각 단계마다 배포 가능한 상태로 유지하고, iOS는 공통 코어가 안정화된 뒤 기능 슬라이스 단위로 추가
 
 ## 2. 분석 범위와 근거
@@ -31,7 +31,7 @@ Manifest와 소스에서 확인한 주요 구성은 다음과 같다.
 - 1개 AppWidgetProvider: 도서관 이용증
 - 대부분의 제품 UI: `klasplus.yuntae.in`의 WebView 페이지
 - 학교 KLAS UI/데이터 접근: `klas.kw.ac.kr` WebView 및 네이티브 HTTP
-- Native ↔ Web: `addJavascriptInterface(..., "Android")`와 `evaluateJavascript`
+- Native ↔ Web: AndroidX WebKit의 `KlasNativeBridgeNative.postMessage` Bridge v1과 JSON-safe callback dispatcher
 - 네이티브 기능: 생체인식 앱 잠금, Android PIP, QR 스캔, 다운로드/파일 선택, 홈 화면 위젯, 인앱 업데이트, 외부 앱/브라우저 실행, 햅틱
 
 특히 `HomeActivity` 약 1,673행, `VideoPlayerActivity` 약 920행, `LectureActivity` 약 661행으로 UI, 브리지, 네트워크, 내비게이션, 플랫폼 기능이 한 클래스에 혼재한다. 이 코드를 공통 모듈로 그대로 이동하면 플랫폼 결합만 옮겨갈 뿐이므로 먼저 계약과 상태를 분리해야 한다.
@@ -40,16 +40,9 @@ Manifest와 소스에서 확인한 주요 구성은 다음과 같다.
 
 원본: <https://github.com/IceCream0910/kw-klas-plus-webview>
 
-Next.js 웹 앱이 홈 피드, 시간표, 강의, 캘린더, 성적, 프로필, 설정, 장학, KLAS AI 등의 실질 UI를 제공한다. 다수 파일이 `window.Android`를 직접 호출하며 `_app.js`는 `Android.completePageLoad()` 실패 시 Android 앱 외부 환경으로 판단한다.
+Next.js 웹 앱이 홈 피드, 시간표, 강의, 캘린더, 성적, 프로필, 설정, 장학, KLAS AI 등의 실질 UI를 제공한다. Web 페이지는 `KlasNativeBridge.*`만 호출하며 adapter가 Bridge v1 request/response와 15초 timeout을 관리한다. Native transport가 없거나 `UNKNOWN_METHOD`를 반환하면 구 Android 앱의 `window.Android`를 사용한다.
 
-따라서 iOS 지원은 WKWebView를 띄우는 것만으로 완료되지 않는다. 최소 하나가 필요하다.
-
-1. iOS에서 `window.Android` 호환 shim을 주입한다.
-2. 웹 앱을 플랫폼 중립 `window.KlasNativeBridge`로 바꾸고 Android 구계약 fallback을 유지한다.
-
-권장은 두 방법을 함께 쓰는 것이다. 첫 iOS 프로토타입은 호환 shim으로 빠르게 검증하고, 운영 전에는 웹 저장소에 플랫폼 중립 어댑터를 도입한다.
-
-현재 이 Next.js 코드 변경은 **미착수**다. iOS 네이티브 측에 WKWebView handler만 추가해서는 완료되지 않는다. Web 페이지의 `Android.*` 직접 호출을 플랫폼 중립 adapter 호출로 바꾸고, adapter 내부에서 iOS `KlasNativeBridge`와 기존 Android `window.Android` fallback을 선택해야 한다. 관련 구현과 계약 테스트는 `M6-004`, `M6-005`에서 추적한다.
+M6-004와 M6-005에서 Web adapter와 계약 smoke를 완료했다. 신 Android 앱은 `KlasNativeBridgeNative.postMessage`만 노출하며 `window.Android` façade를 제공하지 않는다. Android 배포 지원 조합은 신 Web + 구 Android, 신 Web + 신 Android이며 구 Web + 신 Android는 지원하지 않는다. 신 Web + iOS는 M6-007 완료 후 같은 Bridge v1 계약으로 지원한다.
 
 ## 3. 목표 아키텍처
 
@@ -231,7 +224,7 @@ WebView 인스턴스를 화면 재구성 때마다 만들지 않는다. 화면 �
 
 ### 4.5 버전형 JavaScript 브리지
 
-첫 단계에는 기존 `window.Android` API를 그대로 제공한다. 동시에 다음 envelope를 갖는 새 프로토콜을 도입한다.
+Web이 다음 envelope를 갖는 Bridge v1 프로토콜을 우선 사용한다.
 
 ```json
 {
@@ -259,9 +252,9 @@ WebView 인스턴스를 화면 재구성 때마다 만들지 않는다. 화면 �
 - origin, main-frame 여부, URL scheme, 인자 타입/길이를 검증한다.
 - Native → JS는 `evaluateJavascript("...${value}...")` 문자열 결합 대신 직렬화한 envelope 하나만 전달한다.
 - 웹에는 `KlasNativeBridge.call(method, args): Promise`를 제공한다.
-- Android 구버전 호환 어댑터는 Promise 호출을 기존 `Android.*`와 callback 함수로 변환한다.
-- iOS는 document start에 shim을 주입해 `WKScriptMessageHandler`로 전달한다.
-- 동기 반환을 기대하는 `getAppLockSettings()`는 초기 상태를 document start에 주입하거나 async API로 변경한다. 웹과 Android가 함께 배포되기 전에는 기존 동기 메서드를 유지한다.
+- Web의 구버전 Android fallback은 Promise 호출을 기존 `Android.*`와 callback 함수로 변환한다.
+- iOS는 동일한 `KlasNativeBridgeNative` transport를 `WKScriptMessageHandler`로 제공한다.
+- `getAppLockSettings()`는 Web adapter에서 Promise로 호출하고 Native 응답 result를 사용한다.
 - 브리지 스키마와 웹 사용처는 CI에서 대조한다.
 
 ## 5. 플랫폼 기능 소유권
@@ -300,7 +293,7 @@ Android는 위험이 낮고 경계가 뚜렷한 순서로 바꾼다.
 1. 상수/DTO/오류 타입/세션 정책 추출
 2. KLAS 출석 및 도서관 API repository 추출
 3. 시작/로그인 상태 머신 추출, 기존 View UI에 연결
-4. 공통 브리지 router 도입, 기존 `@JavascriptInterface`가 router에 위임
+4. 공통 브리지 router 도입, 화면별 command delegate 연결
 5. Compose 앱 셸과 내비게이션 도입
 6. 로그인/로딩/오류/설정 네이티브 오버레이를 Compose로 교체
 7. Home/Lecture/Board/Task/Link WebView host를 공통 패턴으로 통합
@@ -320,7 +313,7 @@ Android 네이티브 화면은 가로 dp를 기준으로 compact(<600dp), medium
 iOS는 Android 전환 완료를 기다려 한 번에 만들지 않고, 공통 계약이 안정된 슬라이스부터 병행한다.
 
 1. `Shared.framework`와 빈 SwiftUI 앱의 공통 API 연결
-2. WKWebView + origin 제한 + `window.Android` 호환 shim
+2. WKWebView + origin 제한 + `KlasNativeBridgeNative` Bridge v1 handler
 3. 수동 로그인 → 웹 로그인 → SESSION 추출 → 앱 재시작 세션 복구
 4. 홈/시간표/프로필 등 읽기 중심 WebView 경로
 5. 외부 링크, modal, 파일 다운로드/선택
@@ -354,7 +347,7 @@ iOS WidgetKit과 PIP는 앱 본체와 별도의 extension/entitlement/실기기 
   - 생체인식, QR 카메라, PIP, 위젯, 파일 다운로드, 프로세스 종료/복원
 - Web 저장소 테스트
   - 브리지 미존재 브라우저 fallback
-  - Android legacy adapter와 새 Promise adapter
+  - Bridge v1 Promise adapter와 구 Android fallback
 
 ### 8.2 Android 패리티 게이트
 
@@ -382,7 +375,7 @@ iOS WidgetKit과 PIP는 앱 본체와 별도의 extension/entitlement/실기기 
 | 관찰 | 위험 | 조치 |
 |---|---|---|
 | credential을 JS 문자열에 직접 삽입 | 따옴표/escape 문제, script injection | JSON 직렬화 envelope 사용 |
-| `addJavascriptInterface`가 WebView에 광범위 노출 | 외부 페이지가 native 기능 호출 가능 | trusted origin/main frame에서만 bridge 연결 |
+| JavaScript bridge가 WebView에 광범위 노출 | 외부 페이지가 native 기능 호출 가능 | `KlasNativeBridgeNative`를 exact trusted origin과 main frame에만 연결 |
 | 온라인 강의 player가 `klas.kw.ac.kr` 외 KLAS subdomain 사용 | exact 앱 origin만 적용하면 state 주입 중단, 문자열 포함 검사는 host 위장 허용 | 앱 bridge origin과 player content host 정책을 분리하고 HTTPS `kw.ac.kr` DNS boundary 검증 |
 | `usesCleartextTraffic=true` | 불필요한 평문 트래픽 허용 | endpoint 조사 후 false 및 예외 최소화 |
 | 여러 Activity가 CookieManager 직접 조작 | 세션 불일치/삭제 누락 | SessionCoordinator 단일 소유 |
@@ -413,7 +406,7 @@ iOS WidgetKit과 PIP는 앱 본체와 별도의 extension/entitlement/실기기 
 
 `WebSurface`는 URL 로드와 WebView 객체를 노출하지 않고 loading/ready/error, back/forward, reload/stop, JSON-safe script 평가, dispose 상태를 제공한다. Android holder는 기존 Activity의 WebViewClient callback을 입력받는 방식으로 공존하며, Compose 전환 전까지 기존 client를 교체하지 않는다. 생체인식과 PIP는 각각 typed platform result와 `PictureInPictureState`를 통해 Android adapter에 연결하고 플랫폼 UI callback/RemoteAction은 Android app이 소유한다.
 
-Android holder/client 구현은 `androidApp`이 소유하고 기존 View Activity는 page callback과 dispose만 전달한다. iOS WKWebView holder/client는 iOS 확장 시 `iosApp`이 소유한다. SESSION cookie는 WebSurface가 복제하지 않고 `SessionCoordinator`와 `WebCookieStore`가 단일 소유한다. Link/Web modal처럼 외부 top-level URL을 표시할 수 있는 surface는 exact HTTPS trusted origin에서만 legacy `window.Android`를 등록하고 이동 시 제거한다. 다만 `addJavascriptInterface`는 trusted top-level의 하위 프레임 origin을 식별할 수 없으므로, 완전한 하위 프레임 격리는 Web 저장소가 main-frame 검증형 Bridge v1로 전환되는 M6-005에서 완료한다.
+Android holder/client 구현은 `androidApp`이 소유하고 기존 View Activity는 page callback과 dispose만 전달한다. iOS WKWebView holder/client는 iOS 확장 시 `iosApp`이 소유한다. SESSION cookie는 WebSurface가 복제하지 않고 `SessionCoordinator`와 `WebCookieStore`가 단일 소유한다. Android는 `window.Android`를 등록하지 않고 AndroidX WebKit message listener `KlasNativeBridgeNative`와 document-start `KlasNativeBridge` adapter를 허용 origin에만 주입한다. 일반 surface는 두 앱 origin을 exact match하고, Video surface는 HTTPS `*.kw.ac.kr` player origin을 추가로 허용한다. listener가 전달한 source origin과 main-frame 여부는 공통 Bridge v1 validator가 다시 검증한다.
 
 Android 앱은 코드/콘텐츠 endpoint가 모두 HTTPS임을 확인한 상태에서 cleartext traffic을 기본 차단한다. 외부 진입 계약이 없는 Activity는 exported하지 않으며, 오류 수집에는 screenshot과 view hierarchy를 첨부하지 않는다.
 | 현재 로컬 폴더에 Git 이력 없음 | 높음/높음 | 구현 전 저장소 초기화/remote/기준 커밋 고정 |

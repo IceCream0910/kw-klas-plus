@@ -70,13 +70,15 @@
 
 모든 callback은 신규 프로토콜에서 `KlasNativeBridge.onEvent(envelope)` 하나로 수렴시키되 legacy callback adapter를 유지한다.
 
-## 3. Web → Native legacy 브리지 계약
+## 3. Web → Native Bridge v1 계약
 
-구현 증거: `LegacyBridgeCatalog`에 8개 surface/64개 메서드를 고정하고 `BridgeMethodId`로 1:1 typed mapping했다. Bridge v1 JSON codec/router가 version/id/method/arguments/result/event envelope, 동기 반환, `evaluteKLASScript`, 인자 수·타입, exact origin, main-frame, UTF-8 64 KiB 제한, malformed/unknown/handler 오류를 검증·처리한다. Android는 AndroidX WebKit message listener `KlasNativeBridgeNative`를 8개 surface에 설치해 source origin/main-frame을 router에 전달하고 기존 façade로 위임한다.
+구현 증거: 최초 legacy 기준선은 8개 surface/64개 메서드로 고정했다. Compose modal 전환으로 제거된 surface를 제외한 현재 활성 계약은 `LegacyBridgeCatalog`의 7개 surface/57개 command이며 `BridgeMethodId`로 1:1 typed mapping한다. Bridge v1 JSON codec/router는 version/id/method/arguments/result/event envelope, `evaluteKLASScript`, 인자 수·타입, exact origin, main-frame, UTF-8 64 KiB 제한, malformed/unknown/handler 오류를 검증·처리한다.
 
-> **Web 대응 상태: 미착수.** 현재 Next.js 페이지는 `Android.*`를 직접 호출한다. iOS 호환을 위해 페이지 호출부를 플랫폼 중립 adapter로 모으고, iOS에서는 `KlasNativeBridge`, 기존 Android에서는 `window.Android` fallback을 사용하도록 Web 저장소를 변경해야 한다. 이 작업은 `M6-004`와 `M6-005`에서 추적한다.
+Web 페이지와 Native 자동화 스크립트는 `KlasNativeBridge.*`를 호출하고 adapter가 `KlasNativeBridgeNative.postMessage` Bridge v1을 사용한다. Next.js가 없는 KLAS 페이지에는 Android가 같은 adapter를 document-start에 주입한다. `window.Android`는 구 Android 앱 fallback으로만 Web 저장소 adapter 내부에 남는다. 신 Android 앱은 `Android` JS 객체를 등록하지 않으며, AndroidX WebKit listener가 허용 origin과 main-frame 정보를 공통 router에 전달한다. 활성 Web 호출 이름은 Native 계약 테스트에서 카탈로그와 대조한다.
 
-### 3.1 Home surface (`HomeActivity.JavaScriptInterface`)
+Web의 `/modal/idCard`, `/modal/agreePolicy`에 남은 `closeModal()`은 Compose 전환으로 제거된 WebView modal 전용 계약이며 현재 Native 화면에서 로드하지 않는다.
+
+### 3.1 Home surface (`HomeBridgeDelegate`)
 
 | 메서드 | 의미 | 신규 command 후보 |
 |---|---|---|
@@ -98,38 +100,35 @@
 | `performHapticFeedback(type)` | 햅틱 | `platform.haptic` |
 | `requestIdCardQRValue()` | 학생증 QR 값 요청 | `profile.requestQr` |
 
-### 3.2 Lecture surface (`WebAppInterfaceLectureHome`)
+### 3.2 Lecture surface (`LectureBridgeDelegate`)
 
 `completePageLoad`, `openPage`, `getBoardPath`, `openBoardList`, `openBoardView`, `openExternalLink`, `evaluteKLASScript`, `openOnlineLecture`, `openLecturePlan`, `openQRScan`
 
 `evaluteKLASScript`의 철자는 공개 legacy 계약으로 보존한다.
 
-### 3.3 Board surface (`JavaScriptInterfaceForBoard`)
+### 3.3 Board surface (`BoardBridgeDelegate`)
 
 `openPage`, `openExternalLink`, `completePageLoad`
 
-### 3.4 Lecture plan surface (`JavaScriptInterfaceLecturePlan`)
+### 3.4 Lecture plan surface (`LecturePlanBridgeDelegate`)
 
 `completePageLoad`, `openPage`, `openExternalPage`
 
-### 3.5 Link surface (`JavaScriptInterfaceForLinkView`)
+### 3.5 Link surface (`LinkBridgeDelegate`)
 
 `openPage`, `openLecturePlanPage`, `openWebViewBottomSheet`, `closeWebViewBottomSheet`, `completePageLoad`
 
-### 3.6 Video surface (`VideoPlayerActivity.WebAppInterface`)
+### 3.6 Video surface (`VideoBridgeDelegate`)
 
 `completePageLoad`, `openExternalLink`, `openInKLAS`, `requestOnlineLecture`, `receivePlayerStates`, `receiveInitSpeed`, `receiveVideoData`, `receiveVideoURL`, `performHapticFeedback`
 
 플레이어 state와 진도 보고 payload는 별도 fixture를 캡처해야 한다. PIP action과 웹 플레이어 event 이름도 특성 테스트 대상이다.
 
-### 3.7 Settings surface (`JavaScriptInterfaceForSettings`)
+### 3.7 Settings surface (`SettingsBridgeDelegate`)
 
 `completePageLoad`, `changeAppTheme`, `openYearHakgiSelectModal`, `openLibraryQRSettingsModal`, `openExternalLink`, `performHapticFeedback`, `setAppLockEnabled`, `setAppLockPassword`, `setBiometricEnabled`, `getAppLockSettings`
 
-`getAppLockSettings()`는 웹에서 동기 반환 후 즉시 `JSON.parse`한다. iOS Promise bridge로 바꿀 때 가장 먼저 깨지는 계약이므로 다음 중 하나를 선택해야 한다.
-
-- document start에 설정 JSON을 캐시하여 legacy 동기 호출 제공
-- 웹을 async `getAppLockSettings()`로 바꾸고 구 Android fallback 유지
+`getAppLockSettings()`는 Web adapter의 Promise를 기다리고 Bridge v1 result를 파싱한다. 구 Android 앱에서는 adapter가 legacy 동기 반환을 Promise 결과로 변환한다.
 
 ## 4. 저장 키 호환 매트릭스
 
