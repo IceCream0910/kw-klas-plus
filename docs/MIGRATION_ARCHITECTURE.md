@@ -1,11 +1,6 @@
 # KLAS+ KMP 전환 아키텍처 및 실행 계획
 
-- 문서 상태: 제안안
-- 분석일: 2026-07-15
-- 대상: 기존 Android View 앱 → KMP 공통 코어 + Android Compose + iOS SwiftUI 앱
-- 최우선 성공 조건: 기존 Android 기능과 사용자 데이터의 무회귀 이전
-
-## 1. 결론
+## 1. 개요
 
 이 프로젝트는 전체 재작성보다 **strangler 방식의 점진 이전**이 적합하다. 먼저 기존 Android 앱을 현재 저장소에서 그대로 빌드 가능한 기준선으로 복원하고, 인증·세션·브리지 계약을 테스트로 고정한다. 그 다음 `shared` 공통 코어를 추출하고, Android 화면을 한 경로씩 Compose로 교체한다. Android에서 검증된 공통 코어는 iOS SwiftUI에서 재사용하되 UI 코드는 공유하지 않는다.
 
@@ -20,22 +15,11 @@
 
 ### 2.1 현재 로컬 보일러플레이트
 
-현재 작업 폴더는 Git 메타데이터가 없는 KMP 초기 프로젝트이며 다음 모듈이 있다.
-
 | 모듈 | 현재 상태 | 필요한 변화 |
 |---|---|---|
 | `androidApp` | 기존 View 앱과 Android 플랫폼 어댑터 | View→Compose 점진 전환, Android WebView·시스템 기능 소유 |
 | `shared` | Android+iOS KMP 타깃 | 공통 네트워크·모델·엔티티·유스케이스·상태·플랫폼 API 구현 |
 | `iosApp` | SwiftUI 진입점 | `Shared.framework` 연결, SwiftUI·WKWebView·iOS 시스템 기능 소유 |
-| `legacyAndroidApp` | 원본 비교용 Android 앱 | 기능 패리티 기준선으로 보존 후 별도 ADR로 제거 결정 |
-
-관찰된 설정 차이도 선행 해결이 필요하다.
-
-- 로컬: AGP 9.0.1, compile/target SDK 36, min SDK 24, JVM 11, 앱 버전 1.0
-- 기존 앱: AGP 9.2.1, compile/target SDK 37, min SDK 29, Java/JVM 21, 앱 버전 1.2.0(32)
-- 기존 앱의 app id와 namespace는 `com.icecream.kwklasplus`
-
-버전을 기계적으로 어느 한쪽에 맞추지 않는다. 기준 앱을 가져온 뒤 CI·Android Studio·Xcode 호환 조합을 고정하고, 앱 버전/서명/SDK 수준이 배포 앱에서 퇴행하지 않도록 한다.
 
 ### 2.2 기존 Android 앱
 
@@ -64,6 +48,8 @@ Next.js 웹 앱이 홈 피드, 시간표, 강의, 캘린더, 성적, 프로필, 
 2. 웹 앱을 플랫폼 중립 `window.KlasNativeBridge`로 바꾸고 Android 구계약 fallback을 유지한다.
 
 권장은 두 방법을 함께 쓰는 것이다. 첫 iOS 프로토타입은 호환 shim으로 빠르게 검증하고, 운영 전에는 웹 저장소에 플랫폼 중립 어댑터를 도입한다.
+
+현재 이 Next.js 코드 변경은 **미착수**다. iOS 네이티브 측에 WKWebView handler만 추가해서는 완료되지 않는다. Web 페이지의 `Android.*` 직접 호출을 플랫폼 중립 adapter 호출로 바꾸고, adapter 내부에서 iOS `KlasNativeBridge`와 기존 Android `window.Android` fallback을 선택해야 한다. 관련 구현과 계약 테스트는 `M6-004`, `M6-005`에서 추적한다.
 
 ## 3. 목표 아키텍처
 
@@ -427,7 +413,7 @@ iOS WidgetKit과 PIP는 앱 본체와 별도의 extension/entitlement/실기기 
 
 `WebSurface`는 URL 로드와 WebView 객체를 노출하지 않고 loading/ready/error, back/forward, reload/stop, JSON-safe script 평가, dispose 상태를 제공한다. Android holder는 기존 Activity의 WebViewClient callback을 입력받는 방식으로 공존하며, Compose 전환 전까지 기존 client를 교체하지 않는다. 생체인식과 PIP는 각각 typed platform result와 `PictureInPictureState`를 통해 Android adapter에 연결하고 플랫폼 UI callback/RemoteAction은 Android app이 소유한다.
 
-Android holder/client 구현은 `androidApp`이 소유하고 기존 View Activity는 page callback과 dispose만 전달한다. iOS WKWebView holder/client는 iOS 확장 시 `iosApp`이 소유한다. SESSION cookie는 WebSurface가 복제하지 않고 `SessionCoordinator`와 `WebCookieStore`가 단일 소유한다. Link/Web modal처럼 외부 top-level URL을 표시할 수 있는 surface는 exact HTTPS trusted origin에서만 legacy `window.Android`를 등록하고 이동 시 제거한다. 다만 `addJavascriptInterface`는 trusted top-level의 하위 프레임 origin을 식별할 수 없으므로, 완전한 하위 프레임 격리는 Web 저장소가 main-frame 검증형 Bridge v1로 전환되는 M4-008에서 완료한다.
+Android holder/client 구현은 `androidApp`이 소유하고 기존 View Activity는 page callback과 dispose만 전달한다. iOS WKWebView holder/client는 iOS 확장 시 `iosApp`이 소유한다. SESSION cookie는 WebSurface가 복제하지 않고 `SessionCoordinator`와 `WebCookieStore`가 단일 소유한다. Link/Web modal처럼 외부 top-level URL을 표시할 수 있는 surface는 exact HTTPS trusted origin에서만 legacy `window.Android`를 등록하고 이동 시 제거한다. 다만 `addJavascriptInterface`는 trusted top-level의 하위 프레임 origin을 식별할 수 없으므로, 완전한 하위 프레임 격리는 Web 저장소가 main-frame 검증형 Bridge v1로 전환되는 M6-005에서 완료한다.
 
 Android 앱은 코드/콘텐츠 endpoint가 모두 HTTPS임을 확인한 상태에서 cleartext traffic을 기본 차단한다. 외부 진입 계약이 없는 Activity는 exported하지 않으며, 오류 수집에는 screenshot과 view hierarchy를 첨부하지 않는다.
 | 현재 로컬 폴더에 Git 이력 없음 | 높음/높음 | 구현 전 저장소 초기화/remote/기준 커밋 고정 |

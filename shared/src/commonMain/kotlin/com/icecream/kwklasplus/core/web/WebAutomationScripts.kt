@@ -16,6 +16,20 @@ object KlasWebAutomationScripts {
             "window.requestAnimationFrame(notify);});}else{setTimeout(notify,0);}})();",
     )
 
+    fun updateCalendarBottomSheetFooterInset(bottomInsetCssPx: Int): WebScript {
+        require(bottomInsetCssPx >= 0)
+        return WebScript(
+            "(function(offset){var root=document.documentElement;" +
+                "root.style.setProperty('--klas-calendar-footer-inset',offset+'px');" +
+                "var id='klas-calendar-footer-inset-style';var style=document.getElementById(id);" +
+                "if(!style){style=document.createElement('style');style.id=id;" +
+                "style.textContent='.bottom-sheet-footer{bottom:var(--klas-calendar-footer-inset,0px)!important;}';" +
+                "document.head.appendChild(style);}window.dispatchEvent(new Event('resize'));" +
+                "if(window.visualViewport)window.visualViewport.dispatchEvent(new Event('resize'));" +
+                "})($bottomInsetCssPx);",
+        )
+    }
+
     fun styleContentPage(hideSubjectHeader: Boolean = true): WebScript {
         val subjectHeader = if (hideSubjectHeader) " #appHeaderSubj { display: none; }" else ""
         return WebScript(

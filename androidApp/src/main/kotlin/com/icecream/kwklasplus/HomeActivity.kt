@@ -44,8 +44,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import com.icecream.kwklasplus.core.platform.SecureKey
@@ -53,6 +51,7 @@ import com.icecream.kwklasplus.core.bridge.BridgeSurface
 import com.icecream.kwklasplus.platform.web.AndroidBridgeMessageAdapter
 import com.icecream.kwklasplus.platform.bridge.legacy.HomeLegacyBridgeCommandHandler
 import com.icecream.kwklasplus.platform.web.AndroidWebSurface
+import com.icecream.kwklasplus.platform.web.CalendarBottomSheetImeCoordinator
 import com.icecream.kwklasplus.platform.navigation.openLectureRoute
 import com.icecream.kwklasplus.platform.navigation.openWebRoute
 import com.icecream.kwklasplus.platform.navigation.openTaskRoute
@@ -131,7 +130,6 @@ class HomeActivity : AppCompatActivity() {
     lateinit var loadingDialog: ComposeLoadingDialog
     lateinit var yearHakgiList: Array<String>
     var yearHakgi: String = ""
-    var isKeyboardShowing = false
     var isOpenWebViewBottomSheet: Boolean = false
     lateinit var onBackPressedCallback: OnBackPressedCallback
     var main: View? = null
@@ -145,7 +143,7 @@ class HomeActivity : AppCompatActivity() {
     private var isViewportSyncInProgress = false
     private var isViewportSyncPending = false
     private var isViewportSyncDisposed = false
-    private var webBottomSheetImeInset = 0
+    private var calendarBottomSheetImeCoordinator: CalendarBottomSheetImeCoordinator? = null
 
     private lateinit var appUpdateManager: AppUpdateManager
     private val MY_REQUEST_CODE = 1001
@@ -219,12 +217,16 @@ class HomeActivity : AppCompatActivity() {
             }
         }
         main = findViewById(android.R.id.content)
-        main?.let { root ->
-            ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
-                isKeyboardShowing = insets.isVisible(WindowInsetsCompat.Type.ime())
-                updateWebBottomSheetImeInset(insets)
-                insets
-            }
+        calendarBottomSheetImeCoordinator = main?.let { root ->
+            CalendarBottomSheetImeCoordinator(
+                rootView = root,
+                density = resources.displayMetrics.density,
+                onFooterInsetChanged = { insetCssPx ->
+                    webView.executeWebScript(
+                        KlasWebAutomationScripts.updateCalendarBottomSheetFooterInset(insetCssPx),
+                    )
+                },
+            )
         }
         initSubjectList(sessionId)
         initLoadingDialog()
@@ -302,6 +304,8 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         isViewportSyncDisposed = true
+        calendarBottomSheetImeCoordinator?.dispose()
+        calendarBottomSheetImeCoordinator = null
         bridgeMessageAdapter?.dispose()
         bridgeMessageAdapter = null
         webSurface?.dispose()
@@ -339,6 +343,9 @@ class HomeActivity : AppCompatActivity() {
 
     fun switchToTab(tab: String) {
         if (currentTab == tab && currentTab.isNotEmpty()) return
+        if (tab != "calendar") {
+            calendarBottomSheetImeCoordinator?.setActive(false)
+        }
         currentTab = tab
         val url = when (tab) {
             "feed" -> "${AppUrls.KLAS_PLUS_BASE}/feed?yearHakgi=${yearHakgi}"
@@ -361,32 +368,8 @@ class HomeActivity : AppCompatActivity() {
         runOnUiThread { webView.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK) }
     }
 
-    private fun updateWebBottomSheetImeInset(insets: WindowInsetsCompat) {
-        val navigationBarBottom =
-            insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-        val tappableElementBottom =
-            insets.getInsets(WindowInsetsCompat.Type.tappableElement()).bottom
-        val targetInset = if (
-            isKeyboardShowing &&
-            isOpenWebViewBottomSheet &&
-            currentTab == "calendar" &&
-            tappableElementBottom > 0
-        ) {
-            navigationBarBottom
-        } else {
-            0
-        }
-        if (webBottomSheetImeInset == targetInset) return
-
-        webBottomSheetImeInset = targetInset
-        webViewContainer.setPadding(0, 0, 0, targetInset)
-        webView.post {
-            webView.executeWebScript(KlasWebAutomationScripts.notifyViewportChanged())
-        }
-    }
-
-    internal fun requestWebBottomSheetInsetsUpdate() {
-        main?.let(ViewCompat::requestApplyInsets)
+    internal fun setCalendarBottomSheetImeHandling(active: Boolean) {
+        calendarBottomSheetImeCoordinator?.setActive(active && currentTab == "calendar")
     }
 
     fun getCurrentTab(): String {
@@ -1281,7 +1264,7 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
     fun openWebViewBottomSheet() {
         homeActivity.runOnUiThread {
             homeActivity.isOpenWebViewBottomSheet = true
-            homeActivity.requestWebBottomSheetInsetsUpdate()
+            homeActivity.setCalendarBottomSheetImeHandling(true)
         }
     }
 
@@ -1293,9 +1276,8 @@ class JavaScriptInterface(private val homeActivity: HomeActivity) {
                 homeActivity.isIdCardModalActive = false
             }
             homeActivity.isOpenWebViewBottomSheet = false
-            homeActivity.requestWebBottomSheetInsetsUpdate()
+            homeActivity.setCalendarBottomSheetImeHandling(false)
             try {
-                homeActivity.isKeyboardShowing = false
                 homeActivity.webView.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
             } catch (e: Exception) {
                 e.printStackTrace()

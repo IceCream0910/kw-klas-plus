@@ -64,4 +64,17 @@ class WebAutomationScriptsTest {
         assertTrue(PlayerWebScripts.move(PlayerSeekDirection.FORWARD).reveal().contains("_seekLimit"))
         assertTrue(PlayerWebScripts.setControllerVisible(false).reveal().contains("display: none"))
     }
+
+    @Test
+    fun calendarFooterInsetTargetsOnlyTheFooterAndReusesOneStyleElement() {
+        val source = KlasWebAutomationScripts.updateCalendarBottomSheetFooterInset(48).reveal()
+
+        assertTrue(source.contains(".bottom-sheet-footer"))
+        assertTrue(source.contains("--klas-calendar-footer-inset"))
+        assertTrue(source.contains("getElementById(id)"))
+        assertTrue(source.endsWith("})(48);"))
+        assertFailsWith<IllegalArgumentException> {
+            KlasWebAutomationScripts.updateCalendarBottomSheetFooterInset(-1)
+        }
+    }
 }
