@@ -1,9 +1,9 @@
 # KLAS+ KMP 마이그레이션 작업 현황
 
-- 기준일: 2026-08-06
+- 기준일: 2026-08-07
 - 현재 단계: **Android 마이그레이션 완료, iOS 기본 제품 경로(M6) 진행 중**
 - Android 상태: KMP 공통 코어, Compose UI, WebView 브리지, 네이티브 기능의 P0/P1 패리티 완료
-- iOS 상태: 프로젝트 골격과 최소 지원 정책만 확정. 실제 제품 경로와 플랫폼 기능은 미구현
+- iOS 상태: 툴체인·framework·WKWebView holder smoke 완료. cookie·bridge·인증·제품 경로는 미구현
 
 
 ## 개요
@@ -15,7 +15,7 @@
 | M3 공통 코어 | **완료(9/9)** | 인증·세션·API·보안 저장소·앱 잠금 공통화 및 Android 연결 완료 |
 | M4 Android Web/Compose | 진행 중(7/8) | Android 화면 전환 완료. legacy 자산 정리만 남음 |
 | M5 Android 기능 패리티 | **완료(7/7)** | QR·잠금·PIP·위젯·파일·테마 및 전체 Android 회귀 통과 |
-| M6 iOS 기본 경로 | 진행 중(4/11) | Web adapter 준비 완료. 다음: M6-003 WKWebView 최소 실행 경로 → M6-006·007 Native bridge 연결 |
+| M6 iOS 기본 경로 | 진행 중(5/11) | M6-003 WKWebView holder smoke 완료. 다음: M6-006 navigation/cookie → M6-007 Native bridge |
 | M7 iOS 플랫폼 기능 | 미착수(0/7) | M6 기본 경로 이후 진행 |
 
 
@@ -87,11 +87,12 @@
   - Depends on: M6-001
   - 브랜치: `m6-001-002/ios-toolchain-framework`
   - 완료 기준: `iosArm64`·`iosSimulatorArm64` 빌드와 Xcode 링크
-- [ ] **M6-003 (P0, M)** SwiftUI에서 유지되는 WKWebView 최소 실행 경로
+- [x] **M6-003 (P0, M)** SwiftUI에서 유지되는 WKWebView 최소 실행 경로
   - Depends on: M6-002
-  - 작업: `UIViewRepresentable`은 WKWebView를 표시만 하고, 별도 holder가 인스턴스 생성·보존·해제를 소유
-  - 완료 기준: 고정된 앱 Web URL을 로드하고 SwiftUI 재렌더링·화면 재진입에도 WKWebView와 history가 불필요하게 재생성되지 않음
-  - 검증: Simulator에서 첫 로드, 재렌더링, 화면 재진입, 명시적 dispose 시 인스턴스와 delegate 수명주기 확인
+  - 브랜치: `m6-003/ios-wkwebview-holder`
+  - `WebViewHolder`가 생성·보존·dispose를 소유하고 `WebViewContainer`는 표시만 담당
+  - App `@StateObject`로 holder 수명 분리. smoke URL은 Shared `KlasUrls.KLAS_PLUS_BASE` + `/feed`
+  - 검증: Simulator에서 고정 URL 로드, 재렌더·재진입 시 인스턴스 유지, 명시적 dispose
 - [x] **M6-004 (P0, M)** Next.js bridge contract test 작성
   - 대상: 별도 `kw-klas-plus-webview` 저장소
   - 검증: Bridge v1 request/response, timeout, unknown-method legacy retry, 미지원 브라우저 동작
