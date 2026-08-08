@@ -20,8 +20,8 @@
 | F-003 | ID/PW 입력 및 동의 | Compose login + 공통 상태 | SwiftUI login + 공통 상태 | P0 | Parity | 평문 비밀번호 비저장 |
 | F-004 | 비밀번호 서버 암호화 | 공통 `KlasAuthApi` | 공통 `KlasAuthApi` | P0 | Parity | Keystore 저장 경로 포함 |
 | F-005 | Web 자동 로그인 | Android WebAuthDriver | iOS WebAuthDriver | P0 | Parity | CAPTCHA·임시 비밀번호·timeout 포함 |
-| F-006 | SESSION 추출/저장/복구 | SessionCoordinator + CookieManager | SessionCoordinator + WKHTTPCookieStore | P0 | Parity | 신규·복구·만료·로그아웃 포함 |
-| F-007 | 홈 피드/하단 탭 | Compose shell + WebView | SwiftUI shell + WKWebView | P0 | Parity | 탭·back·reload·modal 포함 |
+| F-006 | SESSION 추출/저장/복구 | SessionCoordinator + CookieManager | SessionCoordinator + WKHTTPCookieStore | P0 | Parity | Android 패리티 완료. iOS는 M6-006 `IosWebCookieStore` set/clear 계약 확보, SessionCoordinator 제품 연결은 M6-008 |
+| F-007 | 홈 피드/하단 탭 | Compose shell + WebView | SwiftUI shell + WKWebView | P0 | Parity | Android 패리티 완료. iOS는 M6-006 navigation snapshot·trusted/external 분기·DEBUG back/reload. 탭 shell은 M6-009 |
 | F-008 | 시간표/학기 선택 | 공통 bridge + Compose modal | 공통 bridge + iOS picker | P1 | Parity | 과거 학기 fixture 포함 |
 | F-009 | 캘린더/날짜·시간 선택 | Compose/Web date-time adapter | iOS date-time adapter | P1 | Parity | IME·3버튼/제스처 내비게이션 포함 |
 | F-010 | 프로필/학생증 QR | Web + QR bridge | Web + QR bridge | P1 | Parity | 허용 origin·로그아웃 포함 |

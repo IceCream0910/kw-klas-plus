@@ -3,7 +3,7 @@
 - 기준일: 2026-08-07
 - 현재 단계: **Android 마이그레이션 완료, iOS 기본 제품 경로(M6) 진행 중**
 - Android 상태: KMP 공통 코어, Compose UI, WebView 브리지, 네이티브 기능의 P0/P1 패리티 완료
-- iOS 상태: 툴체인·framework·WKWebView holder smoke 완료. cookie·bridge·인증·제품 경로는 미구현
+- iOS 상태: 툴체인·framework·WKWebView navigation/cookie 완료. 다음: Native bridge → 인증/세션
 
 
 ## 개요
@@ -15,7 +15,7 @@
 | M3 공통 코어 | **완료(9/9)** | 인증·세션·API·보안 저장소·앱 잠금 공통화 및 Android 연결 완료 |
 | M4 Android Web/Compose | 진행 중(7/8) | Android 화면 전환 완료. legacy 자산 정리만 남음 |
 | M5 Android 기능 패리티 | **완료(7/7)** | QR·잠금·PIP·위젯·파일·테마 및 전체 Android 회귀 통과 |
-| M6 iOS 기본 경로 | 진행 중(5/11) | M6-003 WKWebView holder smoke 완료. 다음: M6-006 navigation/cookie → M6-007 Native bridge |
+| M6 iOS 기본 경로 | 진행 중(6/11) | M6-006 navigation/cookie 완료. 다음: M6-007 Native bridge |
 | M7 iOS 플랫폼 기능 | 미착수(0/7) | M6 기본 경로 이후 진행 |
 
 
@@ -101,12 +101,12 @@
   - 구 Android 앱은 adapter 내부 `window.Android` fallback으로 지원
   - 신 Android 앱은 legacy `Android` JS façade를 제거하고 Bridge v1만 노출
   - Native 계약 테스트에서 활성 Web 메서드와 7개 surface/57개 command를 대조
-- [ ] **M6-006 (P0, L)** WKWebView navigation·cookie·수명주기 adapter
+- [x] **M6-006 (P0, L)** WKWebView navigation·cookie·수명주기 adapter
   - Depends on: M6-003
-  - 작업: `WKNavigationDelegate`/`WKUIDelegate`, persistent `WKWebsiteDataStore`, `WKHTTPCookieStore`를 iOS WebSurface에 연결
-  - 작업: URL·loading·canGoBack/canGoForward를 navigation 상태로 제공하되, 화면 표시 여부는 각 SwiftUI container가 결정
-  - 완료 기준: trusted top-level 이동, back/reload, 새 창·modal·외부 URL 분기와 cookie set/get/clear 순서가 Android 계약과 일치
-  - 검증: 앱 Web ↔ KLAS 이동, 프로세스 재시작 cookie 유지, 외부·위장 URL 거부, dispose 후 delegate callback 없음
+  - 브랜치: `m6-006/ios-webview-nav-cookie`
+  - `WebViewHolder`가 persistent `WKWebsiteDataStore.default()`, navigation snapshot, back/reload/dispose 소유
+  - `TrustedOriginPolicy`/`ExternalNavigationPolicy`로 main-frame decidePolicy·새 창 분기. SESSION은 `IosWebCookieStore`(iosMain)
+  - 검증: `:shared:iosSimulatorArm64Test`(cookie set/get/clear·속성), `xcodebuild` iosApp, DEBUG Back/Reload/external·dispose
 - [ ] **M6-007 (P0, L)** `KlasNativeBridgeNative` transport와 Bridge router 연결
   - Depends on: M6-005, M6-006
   - 작업: `WKScriptMessageHandlerWithReply`로 request envelope를 공통 `BridgeRouter`에 전달하고 Promise response 반환
