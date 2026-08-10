@@ -13,6 +13,7 @@ final class WebViewHolder: NSObject, ObservableObject {
 
     private var didLoadInitialURL = false
     private var _webView: WKWebView?
+    private var bridgeAdapter: IosBridgeMessageAdapter?
     private lazy var navigationRelay = NavigationRelay(owner: self)
     private lazy var uiRelay = UIRelay(owner: self)
     private let trustedOrigins = TrustedOriginPolicy(trustedOrigins: TrustedOriginPolicy.companion.DEFAULT_TRUSTED_ORIGINS)
@@ -27,11 +28,43 @@ final class WebViewHolder: NSObject, ObservableObject {
         precondition(!isDisposed, "disposed WebViewHolder는 WKWebView를 다시 생성하지 않는다")
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = Self.websiteDataStore
+        bridgeAdapter?.install(into: configuration)
         let created = WKWebView(frame: .zero, configuration: configuration)
         created.navigationDelegate = navigationRelay
         created.uiDelegate = uiRelay
         _webView = created
         return created
+    }
+
+    /// WKWebView 생성 전에만 호출. 제품 surface host는 M6-009에서 교체 예정
+    func installBridge(
+        surface: BridgeSurface,
+        handler: BridgeCommandHandler,
+        synchronousHandler: SynchronousBridgeCommandHandler? = nil,
+        bridgeTimeoutMillis: Int32 = KlasNativeBridgeScripts.shared.DEFAULT_BRIDGE_TIMEOUT_MILLIS
+    ) {
+        precondition(_webView == nil, "bridge는 WKWebView 생성 전에 설치해야 한다")
+        bridgeAdapter?.dispose()
+        bridgeAdapter = IosBridgeMessageAdapter(
+            surface: surface,
+            handler: handler,
+            synchronousHandler: synchronousHandler,
+            bridgeTimeoutMillis: bridgeTimeoutMillis
+        )
+    }
+
+    static func withSmokeBridge(
+        surface: BridgeSurface = .home,
+        handler: BridgeCommandHandler? = nil,
+        bridgeTimeoutMillis: Int32 = KlasNativeBridgeScripts.shared.DEFAULT_BRIDGE_TIMEOUT_MILLIS
+    ) -> WebViewHolder {
+        let holder = WebViewHolder()
+        holder.installBridge(
+            surface: surface,
+            handler: handler ?? AcceptingBridgeCommandHandler(),
+            bridgeTimeoutMillis: bridgeTimeoutMillis
+        )
+        return holder
     }
 
     // Android Home과 동일한 베이스 URL. yearHakgi는 M6-008 이후 연결
@@ -81,6 +114,8 @@ final class WebViewHolder: NSObject, ObservableObject {
     func dispose() {
         guard !isDisposed else { return }
         isDisposed = true
+        bridgeAdapter?.dispose()
+        bridgeAdapter = nil
         guard let view = _webView else {
             navigationState = WebNavigationState(loadPhase: .disposed)
             return
