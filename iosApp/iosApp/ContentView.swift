@@ -1,3 +1,4 @@
+import Shared
 import SwiftUI
 
 struct ContentView: View {
@@ -73,6 +74,9 @@ struct ContentView: View {
             .buttonStyle(.bordered)
             .controlSize(.small)
             HStack {
+                Button("Load settings") {
+                    holder.load(KlasUrls.shared.SETTINGS)
+                }
                 Button("Open example.com") {
                     holder.load("https://example.com")
                 }
