@@ -88,6 +88,27 @@ class WebAutomationScriptsTest {
         assertTrue(source.contains("transport.postMessage(JSON.stringify({version:1"))
         assertTrue(source.contains("arguments:args"))
         assertTrue(source.contains("BRIDGE_TIMEOUT"))
+        assertTrue(source.contains(",${KlasNativeBridgeScripts.DEFAULT_BRIDGE_TIMEOUT_MILLIS});"))
+    }
+
+    @Test
+    fun webKitTransportShimBridgesPromiseReplyToOnmessage() {
+        val source = KlasNativeBridgeScripts.installWebKitTransport().reveal()
+
+        assertTrue(source.contains("webkit.messageHandlers"))
+        assertTrue(source.contains("handlers.KlasNativeBridgeNative"))
+        assertTrue(source.contains(KlasNativeBridgeScripts.NATIVE_OBJECT_NAME))
+        assertTrue(source.contains("__klasWebKitTransport"))
+        assertTrue(source.contains("onmessage"))
+        assertTrue(source.contains("Promise.resolve(native.postMessage(data))"))
+        assertTrue(source.contains("self.onmessage({data:response})"))
+    }
+
+    @Test
+    fun installAdapterRejectsNonPositiveTimeout() {
+        assertFailsWith<IllegalArgumentException> {
+            KlasNativeBridgeScripts.installAdapter(timeoutMillis = 0)
+        }
     }
 
     @Test

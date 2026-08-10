@@ -250,27 +250,46 @@ object PlayerWebScripts {
 }
 
 object KlasNativeBridgeScripts {
-    fun installAdapter(): WebScript = WebScript(
-        "(function(global){if(global.KlasNativeBridge)return;" +
-            "var transport=global.KlasNativeBridgeNative;" +
-            "if(!transport||typeof transport.postMessage!=='function')return;" +
-            "var pending=Object.create(null),sequence=0;" +
-            "transport.onmessage=function(event){var response;" +
-            "try{response=typeof event.data==='string'?JSON.parse(event.data):event.data;}catch(_){return;}" +
-            "var request=response&&pending[response.id];if(!request)return;" +
-            "delete pending[response.id];clearTimeout(request.timer);" +
-            "if(response.ok){request.resolve(response.result);return;}" +
-            "var code=response.error&&response.error.code||'BRIDGE_ERROR';" +
-            "var error=new Error(code);error.code=code;request.reject(error);};" +
-            "function call(method,args){return new Promise(function(resolve,reject){" +
-            "var id='injected-'+Date.now().toString(36)+'-'+(++sequence).toString(36);" +
-            "var timer=setTimeout(function(){delete pending[id];reject(new Error('BRIDGE_TIMEOUT'));},15000);" +
-            "pending[id]={resolve:resolve,reject:reject,timer:timer};" +
-            "transport.postMessage(JSON.stringify({version:1,id:id,method:method,arguments:args}));});}" +
-            "global.KlasNativeBridge=new Proxy({call:call},{get:function(target,property){" +
-            "if(property in target)return target[property];if(typeof property!=='string')return undefined;" +
-            "return function(){return call(property,Array.prototype.slice.call(arguments));};}});})(window);",
+    const val NATIVE_OBJECT_NAME = "KlasNativeBridgeNative"
+    const val DEFAULT_BRIDGE_TIMEOUT_MILLIS = 15_000
+
+    fun installWebKitTransport(): WebScript = WebScript(
+        "(function(global){if(global.KlasNativeBridgeNative&&global.KlasNativeBridgeNative.__klasWebKitTransport)return;" +
+            "function nativeHandler(){var handlers=global.webkit&&global.webkit.messageHandlers;" +
+            "return handlers&&handlers.KlasNativeBridgeNative;}" +
+            "global.KlasNativeBridgeNative={__klasWebKitTransport:true,onmessage:null,postMessage:function(data){" +
+            "var self=this,native=nativeHandler();" +
+            "if(!native||typeof native.postMessage!=='function'){" +
+            "return Promise.reject(new Error('BRIDGE_UNAVAILABLE'));}" +
+            "return Promise.resolve(native.postMessage(data)).then(function(response){" +
+            "if(typeof self.onmessage==='function')self.onmessage({data:response});" +
+            "return response;},function(error){return Promise.reject(error);});}};})(window);",
     )
+
+    fun installAdapter(timeoutMillis: Int = DEFAULT_BRIDGE_TIMEOUT_MILLIS): WebScript {
+        require(timeoutMillis > 0) { "bridge timeout must be positive" }
+        return WebScript(
+            "(function(global){if(global.KlasNativeBridge)return;" +
+                "var transport=global.KlasNativeBridgeNative;" +
+                "if(!transport||typeof transport.postMessage!=='function')return;" +
+                "var pending=Object.create(null),sequence=0;" +
+                "transport.onmessage=function(event){var response;" +
+                "try{response=typeof event.data==='string'?JSON.parse(event.data):event.data;}catch(_){return;}" +
+                "var request=response&&pending[response.id];if(!request)return;" +
+                "delete pending[response.id];clearTimeout(request.timer);" +
+                "if(response.ok){request.resolve(response.result);return;}" +
+                "var code=response.error&&response.error.code||'BRIDGE_ERROR';" +
+                "var error=new Error(code);error.code=code;request.reject(error);};" +
+                "function call(method,args){return new Promise(function(resolve,reject){" +
+                "var id='injected-'+Date.now().toString(36)+'-'+(++sequence).toString(36);" +
+                "var timer=setTimeout(function(){delete pending[id];reject(new Error('BRIDGE_TIMEOUT'));},$timeoutMillis);" +
+                "pending[id]={resolve:resolve,reject:reject,timer:timer};" +
+                "transport.postMessage(JSON.stringify({version:1,id:id,method:method,arguments:args}));});}" +
+                "global.KlasNativeBridge=new Proxy({call:call},{get:function(target,property){" +
+                "if(property in target)return target[property];if(typeof property!=='string')return undefined;" +
+                "return function(){return call(property,Array.prototype.slice.call(arguments));};}});})(window);",
+        )
+    }
 }
 
 private fun klasNativeBridgeCall(method: String, vararg arguments: String): String {
