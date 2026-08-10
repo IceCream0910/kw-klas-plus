@@ -6,8 +6,19 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		A11B0001A5ED6EA33B3393BB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B3F43505C841AEB9980E56A1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5C51A9D6A5ED6EA33B3393BB;
+			remoteInfo = iosApp;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		F6F71C8CC4FEF251D6AD8B93 /* kw-klas-plus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "kw-klas-plus.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A11B0002A5ED6EA33B3393BB /* iosAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -29,6 +40,11 @@
 			path = iosApp;
 			sourceTree = "<group>";
 		};
+		A11B0003A5ED6EA33B3393BB /* iosAppTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = iosAppTests;
+			sourceTree = "<group>";
+		};
 		DF52283B59D2B33DAABB1CB8 /* Configuration */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Configuration;
@@ -44,6 +60,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A11B0004A5ED6EA33B3393BB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -51,6 +74,7 @@
 			isa = PBXGroup;
 			children = (
 				F6F71C8CC4FEF251D6AD8B93 /* kw-klas-plus.app */,
+				A11B0002A5ED6EA33B3393BB /* iosAppTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -60,6 +84,7 @@
 			children = (
 				DF52283B59D2B33DAABB1CB8 /* Configuration */,
 				477D2151B5EFFBC8D338B575 /* iosApp */,
+				A11B0003A5ED6EA33B3393BB /* iosAppTests */,
 				BD53EF4F6008D2C1AA37C0C0 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -90,6 +115,29 @@
 			productReference = F6F71C8CC4FEF251D6AD8B93 /* kw-klas-plus.app */;
 			productType = "com.apple.product-type.application";
 		};
+		A11B0005A5ED6EA33B3393BB /* iosAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A11B0009A5ED6EA33B3393BB /* Build configuration list for PBXNativeTarget "iosAppTests" */;
+			buildPhases = (
+				A11B0006A5ED6EA33B3393BB /* Sources */,
+				A11B0004A5ED6EA33B3393BB /* Frameworks */,
+				A11B0007A5ED6EA33B3393BB /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A11B0008A5ED6EA33B3393BB /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A11B0003A5ED6EA33B3393BB /* iosAppTests */,
+			);
+			name = iosAppTests;
+			packageProductDependencies = (
+			);
+			productName = iosAppTests;
+			productReference = A11B0002A5ED6EA33B3393BB /* iosAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -102,6 +150,10 @@
 				TargetAttributes = {
 					5C51A9D6A5ED6EA33B3393BB = {
 						CreatedOnToolsVersion = 16.2;
+					};
+					A11B0005A5ED6EA33B3393BB = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = 5C51A9D6A5ED6EA33B3393BB;
 					};
 				};
 			};
@@ -120,12 +172,20 @@
 			projectRoot = "";
 			targets = (
 				5C51A9D6A5ED6EA33B3393BB /* iosApp */,
+				A11B0005A5ED6EA33B3393BB /* iosAppTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		425A3D07AE554C1A7147C63D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A11B0007A5ED6EA33B3393BB /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -164,7 +224,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A11B0006A5ED6EA33B3393BB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A11B0008A5ED6EA33B3393BB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5C51A9D6A5ED6EA33B3393BB /* iosApp */;
+			targetProxy = A11B0001A5ED6EA33B3393BB /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		89E73DAAEBA26371998D5141 /* Debug */ = {
@@ -344,6 +419,56 @@
 			};
 			name = Release;
 		};
+		A11B000AA5ED6EA33B3393BB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "${TEAM_ID}";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.icecream.kwklasplus.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/kw-klas-plus.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/kw-klas-plus";
+			};
+			name = Debug;
+		};
+		A11B000BA5ED6EA33B3393BB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "${TEAM_ID}";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.icecream.kwklasplus.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/kw-klas-plus.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/kw-klas-plus";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -361,6 +486,15 @@
 			buildConfigurations = (
 				B5FF090896BF667469217227 /* Debug */,
 				D7E0DC7D25D75AA652830901 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A11B0009A5ED6EA33B3393BB /* Build configuration list for PBXNativeTarget "iosAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A11B000AA5ED6EA33B3393BB /* Debug */,
+				A11B000BA5ED6EA33B3393BB /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
