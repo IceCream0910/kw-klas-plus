@@ -176,6 +176,22 @@ final class WebViewHolder: NSObject, ObservableObject {
         )
     }
 
+    func handleNavigationResponse(_ response: URLResponse, isMainFrame: Bool) -> Bool {
+        guard !isDisposed else { return false }
+        guard isMainFrame,
+              let httpResponse = response as? HTTPURLResponse,
+              (400...599).contains(httpResponse.statusCode) else {
+            return true
+        }
+        guard let view = _webView else { return false }
+        navigationState = WebNavigationState(
+            loadPhase: .failed(url: response.url?.absoluteString, category: .http),
+            canGoBack: view.canGoBack,
+            canGoForward: view.canGoForward
+        )
+        return false
+    }
+
     fileprivate func navigationDidFail(url: String?, error: Error) {
         guard !isDisposed, let view = _webView else { return }
         let nsError = error as NSError
@@ -251,6 +267,18 @@ private final class NavigationRelay: NSObject, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         owner?.navigationDidStart(url: webView.url?.absoluteString)
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationResponse: WKNavigationResponse,
+        decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
+    ) {
+        let allow = owner?.handleNavigationResponse(
+            navigationResponse.response,
+            isMainFrame: navigationResponse.isForMainFrame
+        ) ?? false
+        decisionHandler(allow ? .allow : .cancel)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {

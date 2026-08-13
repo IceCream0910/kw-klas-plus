@@ -3,10 +3,10 @@ package com.icecream.kwklasplus.core.bridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 object IosBridgeRouting {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val codec = BridgeJsonCodec()
 
     fun createRouter(
@@ -19,6 +19,12 @@ object IosBridgeRouting {
 
     fun malformedResponse(): String = codec.malformedResponse()
 
+    fun createRouteScope(): IosBridgeRouteScope = IosBridgeRouteScope()
+}
+
+class IosBridgeRouteScope {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
     fun route(
         router: JsonBridgeRouter,
         payload: String,
@@ -28,5 +34,9 @@ object IosBridgeRouting {
         scope.launch {
             callback(router.route(payload, context))
         }
+    }
+
+    fun dispose() {
+        scope.cancel()
     }
 }

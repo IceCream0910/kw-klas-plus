@@ -218,6 +218,51 @@ final class IosBridgeMessageAdapterTests: XCTestCase {
         XCTAssertEqual(result["message"] as? String, "BRIDGE_TIMEOUT")
     }
 
+    func testDisposeCancelsPendingBridgeRoute() {
+        let routeScope = IosBridgeRouting.shared.createRouteScope()
+        let router = IosBridgeRouting.shared.createRouter(
+            handler: AcceptingBridgeCommandHandler(delayMillis: 300),
+            synchronousHandler: nil
+        )
+        let lateReply = expectation(description: "dispose 이후 응답 없음")
+        lateReply.isInverted = true
+        routeScope.route(
+            router: router,
+            payload: "{\"version\":1,\"id\":\"cancel-1\",\"method\":\"reload\",\"arguments\":[]}",
+            context: BridgeContext(
+                surface: .home,
+                origin: "https://klasplus.yuntae.in",
+                isMainFrame: true,
+                payloadSizeBytes: 0
+            )
+        ) { _ in
+            lateReply.fulfill()
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            routeScope.dispose()
+        }
+
+        wait(for: [lateReply], timeout: 0.6)
+    }
+
+    func testHTTPErrorResponsePublishesHTTPFailure() throws {
+        let holder = WebViewHolder()
+        _ = holder.webView
+        let url = URL(string: "https://klasplus.yuntae.in/missing")!
+        let response = try XCTUnwrap(
+            HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)
+        )
+
+        XCTAssertFalse(holder.handleNavigationResponse(response, isMainFrame: true))
+        guard case .failed(let failedURL, let category) = holder.navigationState.loadPhase else {
+            return XCTFail("HTTP 오류가 실패 상태로 기록되지 않음")
+        }
+        XCTAssertEqual(failedURL, url.absoluteString)
+        XCTAssertEqual(category, .http)
+        holder.dispose()
+    }
+
     func testDisposeRemovesScriptMessageHandler() throws {
         let harness = try makeHarness(surface: .home, handler: AcceptingBridgeCommandHandler())
         harness.adapter.dispose()

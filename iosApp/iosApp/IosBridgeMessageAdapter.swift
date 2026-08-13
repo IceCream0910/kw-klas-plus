@@ -11,9 +11,11 @@ final class IosBridgeMessageAdapter: NSObject {
 
     private let surface: BridgeSurface
     private let router: JsonBridgeRouter
+    private let routeScope: IosBridgeRouteScope
     private let bridgeTimeoutMillis: Int32
     private let replyProxy = WeakScriptMessageHandlerWithReply()
     private var installed = false
+    private var disposed = false
     private weak var userContentController: WKUserContentController?
 
     init(
@@ -28,12 +30,14 @@ final class IosBridgeMessageAdapter: NSObject {
             handler: handler,
             synchronousHandler: synchronousHandler
         )
+        self.routeScope = IosBridgeRouting.shared.createRouteScope()
         super.init()
         replyProxy.target = self
     }
 
     @discardableResult
     func install(into configuration: WKWebViewConfiguration) -> BridgeAdapterAvailability {
+        precondition(!disposed, "해제된 bridge adapter는 다시 설치할 수 없다")
         if installed { return .installed }
         let controller = configuration.userContentController
         let transport = WKUserScript(
@@ -55,11 +59,15 @@ final class IosBridgeMessageAdapter: NSObject {
     }
 
     func dispose() {
-        guard installed else { return }
-        userContentController?.removeScriptMessageHandler(forName: Self.nativeObjectName, contentWorld: .page)
+        guard !disposed else { return }
+        disposed = true
+        if installed {
+            userContentController?.removeScriptMessageHandler(forName: Self.nativeObjectName, contentWorld: .page)
+        }
         userContentController = nil
         replyProxy.target = nil
         installed = false
+        routeScope.dispose()
     }
 }
 
@@ -84,7 +92,7 @@ extension IosBridgeMessageAdapter: WKScriptMessageHandlerWithReply {
             isMainFrame: message.frameInfo.isMainFrame,
             payloadSizeBytes: 0
         )
-        IosBridgeRouting.shared.route(
+        routeScope.route(
             router: router,
             payload: payload,
             context: context
