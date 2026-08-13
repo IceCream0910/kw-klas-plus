@@ -3,7 +3,7 @@
 - 기준일: 2026-08-07
 - 현재 단계: **Android 마이그레이션 완료, iOS 기본 제품 경로(M6) 진행 중**
 - Android 상태: KMP 공통 코어, Compose UI, WebView 브리지, 네이티브 기능의 P0/P1 패리티 완료
-- iOS 상태: 툴체인·framework·WKWebView navigation/cookie 완료. 다음: Native bridge → 인증/세션
+- iOS 상태: 툴체인·framework·WKWebView navigation/cookie·Native bridge 완료. 다음: 인증/세션
 
 
 ## 개요
@@ -15,7 +15,7 @@
 | M3 공통 코어 | **완료(9/9)** | 인증·세션·API·보안 저장소·앱 잠금 공통화 및 Android 연결 완료 |
 | M4 Android Web/Compose | 진행 중(7/8) | Android 화면 전환 완료. legacy 자산 정리만 남음 |
 | M5 Android 기능 패리티 | **완료(7/7)** | QR·잠금·PIP·위젯·파일·테마 및 전체 Android 회귀 통과 |
-| M6 iOS 기본 경로 | 진행 중(6/11) | M6-006 navigation/cookie 완료. 다음: M6-007 Native bridge |
+| M6 iOS 기본 경로 | 진행 중(7/11) | M6-007 Native bridge 완료. 다음: M6-008 인증/세션 |
 | M7 iOS 플랫폼 기능 | 미착수(0/7) | M6 기본 경로 이후 진행 |
 
 
@@ -74,7 +74,7 @@
 
 ### M6 — iOS 기본 기능 구현
 
-진행 순서: `M6-003` WKWebView smoke → `M6-006` navigation/cookie → `M6-007` Native bridge → `M6-008` 인증/세션 → `M6-009` 화면별 제품 경로. 완료된 `M6-004`·`M6-005`는 Web 측 선행 계약이다.
+진행 순서: `M6-003` WKWebView smoke → `M6-006` navigation/cookie → `M6-007` Native bridge → `M6-008` 인증/세션 → `M6-009` 화면별 제품 경로. 완료된 `M6-004`·`M6-005`는 Web 측 선행 계약이다. `M6-007`까지 완료.
 
 - [x] **M6-001 (P0, M)** iOS 툴체인과 최소 지원 환경 고정
   - 브랜치: `m6-001-002/ios-toolchain-framework`
@@ -107,12 +107,16 @@
   - `WebViewHolder`가 persistent `WKWebsiteDataStore.default()`, navigation snapshot, back/reload/dispose 소유
   - `TrustedOriginPolicy`/`ExternalNavigationPolicy`로 main-frame decidePolicy·새 창 분기. SESSION은 `IosWebCookieStore`(iosMain)
   - 검증: `:shared:iosSimulatorArm64Test`(cookie set/get/clear·속성), `xcodebuild` iosApp, DEBUG Back/Reload/external·dispose
-- [ ] **M6-007 (P0, L)** `KlasNativeBridgeNative` transport와 Bridge router 연결
+- [x] **M6-007 (P0, L)** `KlasNativeBridgeNative` transport와 Bridge router 연결
   - Depends on: M6-005, M6-006
-  - 작업: `WKScriptMessageHandlerWithReply`로 request envelope를 공통 `BridgeRouter`에 전달하고 Promise response 반환
-  - 작업: Next.js가 없는 KLAS 문서에는 document-start `KlasNativeBridge` adapter를 주입
+  - 브랜치: `m6-007/ios-native-bridge`
+  - `IosBridgeMessageAdapter`가 `WKScriptMessageHandlerWithReply` → 공통 `JsonBridgeRouter`로 Promise response 반환
+  - document-start에 WebKit transport shim + `KlasNativeBridge` adapter 주입. smoke host는 `AcceptingBridgeCommandHandler`
   - 완료 기준: 앱 origin과 Video용 HTTPS `*.kw.ac.kr` 정책, main-frame, payload·메서드·인자 검증 및 handler 등록/해제 구현
-  - 검증: 정상 호출, async result, unknown method, malformed/oversize, iframe·비허용 origin, timeout 계약 테스트
+  - 검증:
+    - `./gradlew :shared:iosSimulatorArm64Test --tests 'com.icecream.kwklasplus.core.web.WebAutomationScriptsTest' --tests 'com.icecream.kwklasplus.core.bridge.*'`
+    - `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' test`
+    - iosAppTests: 정상 호출, async result, unknown method, malformed/oversize, iframe·비허용 origin, Video origin, timeout, dispose
 - [ ] **M6-008 (P0, XL)** SwiftUI 온보딩·로그인과 WKWebView SESSION 복구 경로
   - Depends on: M6-006, M6-007
   - 작업: Android의 네이티브 온보딩·로그인 화면에 대응하는 약관 동의, ID/PW 입력, validation, loading/error 상태를 SwiftUI로 구현

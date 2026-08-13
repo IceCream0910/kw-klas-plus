@@ -218,7 +218,7 @@ KLAS 인증/학기/시간표/마감일/출석, 도서관, 학생증 QR와 강의
 플랫폼 구현:
 
 - Android: `android.webkit.WebView`, `CookieManager`, `WebViewClient`, `WebChromeClient`
-- iOS: `WKWebView`, `WKWebsiteDataStore.httpCookieStore`, `WKNavigationDelegate`, `WKUIDelegate`, `WKScriptMessageHandler`
+- iOS: `WKWebView`, `WKWebsiteDataStore.httpCookieStore`, `WKNavigationDelegate`, `WKUIDelegate`, `WKScriptMessageHandlerWithReply`
 
 WebView 인스턴스를 화면 재구성 때마다 만들지 않는다. 화면 수명주기와 분리된 holder/controller로 유지하고, 명시적인 dispose에서 브리지 handler와 delegate를 해제해 누수와 중복 콜백을 막는다.
 
@@ -253,7 +253,7 @@ Web이 다음 envelope를 갖는 Bridge v1 프로토콜을 우선 사용한다.
 - Native → JS는 `evaluateJavascript("...${value}...")` 문자열 결합 대신 직렬화한 envelope 하나만 전달한다.
 - 웹에는 `KlasNativeBridge.call(method, args): Promise`를 제공한다.
 - Web의 구버전 Android fallback은 Promise 호출을 기존 `Android.*`와 callback 함수로 변환한다.
-- iOS는 동일한 `KlasNativeBridgeNative` transport를 `WKScriptMessageHandler`로 제공한다.
+- iOS는 동일한 `KlasNativeBridgeNative` transport를 `WKScriptMessageHandlerWithReply`와 document-start WebKit shim으로 제공한다.
 - `getAppLockSettings()`는 Web adapter에서 Promise로 호출하고 Native 응답 result를 사용한다.
 - 브리지 스키마와 웹 사용처는 CI에서 대조한다.
 
@@ -406,7 +406,7 @@ iOS WidgetKit과 PIP는 앱 본체와 별도의 extension/entitlement/실기기 
 
 `WebSurface`는 URL 로드와 WebView 객체를 노출하지 않고 loading/ready/error, back/forward, reload/stop, JSON-safe script 평가, dispose 상태를 제공한다. Android holder는 기존 Activity의 WebViewClient callback을 입력받는 방식으로 공존하며, Compose 전환 전까지 기존 client를 교체하지 않는다. 생체인식과 PIP는 각각 typed platform result와 `PictureInPictureState`를 통해 Android adapter에 연결하고 플랫폼 UI callback/RemoteAction은 Android app이 소유한다.
 
-Android holder/client 구현은 `androidApp`이 소유하고 기존 View Activity는 page callback과 dispose만 전달한다. iOS WKWebView holder/client는 `iosApp`의 `WebViewHolder`가 소유한다. Holder는 persistent `WKWebsiteDataStore.default()`와 navigation snapshot(`idle|loading|ready|failed|disposed`, back/forward)을 제공하고, main-frame 이동은 공통 `TrustedOriginPolicy`/`ExternalNavigationPolicy`로 allow·external·cancel을 분기한다. SESSION cookie는 WebSurface가 복제하지 않고 `SessionCoordinator`와 `WebCookieStore`가 단일 소유한다. iOS 구현은 `shared/iosMain`의 `IosWebCookieStore`가 동일 default data store의 `WKHTTPCookieStore`에 Android와 같은 `SESSION`/`Domain=.kw.ac.kr`/`Path=/`/`Secure; HttpOnly` 계약을 기록한다. Android는 `window.Android`를 등록하지 않고 AndroidX WebKit message listener `KlasNativeBridgeNative`와 document-start `KlasNativeBridge` adapter를 허용 origin에만 주입한다. 일반 surface는 두 앱 origin을 exact match하고, Video surface는 HTTPS `*.kw.ac.kr` player origin을 추가로 허용한다. listener가 전달한 source origin과 main-frame 여부는 공통 Bridge v1 validator가 다시 검증한다.
+Android holder/client 구현은 `androidApp`이 소유하고 기존 View Activity는 page callback과 dispose만 전달한다. iOS WKWebView holder/client는 `iosApp`의 `WebViewHolder`가 소유한다. Holder는 persistent `WKWebsiteDataStore.default()`와 navigation snapshot(`idle|loading|ready|failed|disposed`, back/forward)을 제공하고, main-frame 이동은 공통 `TrustedOriginPolicy`/`ExternalNavigationPolicy`로 allow·external·cancel을 분기한다. SESSION cookie는 WebSurface가 복제하지 않고 `SessionCoordinator`와 `WebCookieStore`가 단일 소유한다. iOS 구현은 `shared/iosMain`의 `IosWebCookieStore`가 동일 default data store의 `WKHTTPCookieStore`에 Android와 같은 `SESSION`/`Domain=.kw.ac.kr`/`Path=/`/`Secure; HttpOnly` 계약을 기록한다. Android는 `window.Android`를 등록하지 않고 AndroidX WebKit message listener `KlasNativeBridgeNative`와 document-start `KlasNativeBridge` adapter를 허용 origin에만 주입한다. iOS는 `IosBridgeMessageAdapter`가 `WKScriptMessageHandlerWithReply`와 document-start WebKit transport shim·`KlasNativeBridge` adapter를 같은 계약으로 연결한다. 일반 surface는 두 앱 origin을 exact match하고, Video surface는 HTTPS `*.kw.ac.kr` player origin을 추가로 허용한다. listener/handler가 전달한 source origin과 main-frame 여부는 공통 Bridge v1 validator가 다시 검증한다.
 
 Android 앱은 코드/콘텐츠 endpoint가 모두 HTTPS임을 확인한 상태에서 cleartext traffic을 기본 차단한다. 외부 진입 계약이 없는 Activity는 exported하지 않으며, 오류 수집에는 screenshot과 view hierarchy를 첨부하지 않는다.
 | 현재 로컬 폴더에 Git 이력 없음 | 높음/높음 | 구현 전 저장소 초기화/remote/기준 커밋 고정 |

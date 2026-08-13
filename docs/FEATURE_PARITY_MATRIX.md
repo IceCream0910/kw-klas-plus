@@ -74,7 +74,7 @@
 
 구현 증거: 최초 legacy 기준선은 8개 surface/64개 메서드로 고정했다. Compose modal 전환으로 제거된 surface를 제외한 현재 활성 계약은 `LegacyBridgeCatalog`의 7개 surface/57개 command이며 `BridgeMethodId`로 1:1 typed mapping한다. Bridge v1 JSON codec/router는 version/id/method/arguments/result/event envelope, `evaluteKLASScript`, 인자 수·타입, exact origin, main-frame, UTF-8 64 KiB 제한, malformed/unknown/handler 오류를 검증·처리한다.
 
-Web 페이지와 Native 자동화 스크립트는 `KlasNativeBridge.*`를 호출하고 adapter가 `KlasNativeBridgeNative.postMessage` Bridge v1을 사용한다. Next.js가 없는 KLAS 페이지에는 Android가 같은 adapter를 document-start에 주입한다. `window.Android`는 구 Android 앱 fallback으로만 Web 저장소 adapter 내부에 남는다. 신 Android 앱은 `Android` JS 객체를 등록하지 않으며, AndroidX WebKit listener가 허용 origin과 main-frame 정보를 공통 router에 전달한다. 활성 Web 호출 이름은 Native 계약 테스트에서 카탈로그와 대조한다.
+Web 페이지와 Native 자동화 스크립트는 `KlasNativeBridge.*`를 호출하고 adapter가 `KlasNativeBridgeNative.postMessage` Bridge v1을 사용한다. Next.js가 없는 KLAS 페이지에는 Android·iOS가 같은 adapter를 document-start에 주입한다. iOS는 `WKScriptMessageHandlerWithReply`와 WebKit transport shim으로 Android와 동일한 `postMessage`/`onmessage` 계약을 맞춘 뒤 공통 `JsonBridgeRouter`로 검증·라우팅한다. `window.Android`는 구 Android 앱 fallback으로만 Web 저장소 adapter 내부에 남는다. 신 Android·iOS 앱은 `Android` JS 객체를 등록하지 않으며, 허용 origin과 main-frame 정보를 공통 router에 전달한다. 활성 Web 호출 이름은 Native 계약 테스트에서 카탈로그와 대조한다.
 
 Web의 `/modal/idCard`, `/modal/agreePolicy`에 남은 `closeModal()`은 Compose 전환으로 제거된 WebView modal 전용 계약이며 현재 Native 화면에서 로드하지 않는다.
 
