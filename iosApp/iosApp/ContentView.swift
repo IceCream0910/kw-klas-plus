@@ -1,3 +1,4 @@
+import Shared
 import SwiftUI
 
 struct ContentView: View {
@@ -13,9 +14,14 @@ struct ContentView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .accessibilityLabel("KLAS+")
                 } else {
-                    WebViewContainer(webView: holder.webView)
-                        .ignoresSafeArea(edges: .bottom)
-                        .accessibilityLabel("KLAS+")
+                    ZStack {
+                        WebViewContainer(webView: holder.webView)
+                            .ignoresSafeArea(edges: .bottom)
+                            .accessibilityLabel("KLAS+")
+                        if isLoading {
+                            ProgressView()
+                        }
+                    }
                 }
 
                 #if DEBUG
@@ -34,22 +40,47 @@ struct ContentView: View {
         }
     }
 
+    private var isLoading: Bool {
+        if case .loading = holder.navigationState.loadPhase {
+            return true
+        }
+        return false
+    }
+
     #if DEBUG
     private var smokeControls: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("creationID: \(holder.creationID.uuidString)")
                 .font(.caption2.monospaced())
-            Text("tick: \(tick)")
+            Text("phase: \(String(describing: holder.navigationState.loadPhase))")
                 .font(.caption2)
-            if let url = holder.lastFinishedURL {
-                Text("finished: \(url)")
+                .lineLimit(2)
+            Text("back=\(holder.navigationState.canGoBack) forward=\(holder.navigationState.canGoForward)")
+                .font(.caption2)
+            if let external = holder.lastExternalURL {
+                Text("external: \(external)")
                     .font(.caption2)
                     .lineLimit(1)
             }
+            Text("tick: \(tick)")
+                .font(.caption2)
             HStack {
                 Button("Rerender") { tick += 1 }
                 Button("Push") { path.append("placeholder") }
-                Button("Dispose WebView") { holder.dispose() }
+                Button("Back") { _ = holder.goBack() }
+                    .disabled(!holder.navigationState.canGoBack)
+                Button("Reload") { holder.reload() }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            HStack {
+                Button("Load settings") {
+                    holder.load(KlasUrls.shared.SETTINGS)
+                }
+                Button("Open example.com") {
+                    holder.load("https://example.com")
+                }
+                Button("Dispose") { holder.dispose() }
             }
             .buttonStyle(.bordered)
             .controlSize(.small)

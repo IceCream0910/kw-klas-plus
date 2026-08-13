@@ -1,17 +1,24 @@
 import Foundation
 import Shared
+import UIKit
 import WebKit
 
-// WKWebView 생성,보존,해제
+// WKWebView 생성·보존·해제와 navigation/cookie store 연결
 final class WebViewHolder: NSObject, ObservableObject {
     let creationID = UUID()
 
     @Published private(set) var isDisposed = false
-    @Published private(set) var lastFinishedURL: String?
+    @Published private(set) var navigationState = WebNavigationState()
+    @Published private(set) var lastExternalURL: String?
 
     private var didLoadInitialURL = false
     private var _webView: WKWebView?
     private lazy var navigationRelay = NavigationRelay(owner: self)
+    private lazy var uiRelay = UIRelay(owner: self)
+    private let trustedOrigins = TrustedOriginPolicy(trustedOrigins: TrustedOriginPolicy.companion.DEFAULT_TRUSTED_ORIGINS)
+    private let externalPolicy = ExternalNavigationPolicy(maximumLength: 2048)
+
+    static var websiteDataStore: WKWebsiteDataStore { .default() }
 
     var webView: WKWebView {
         if let existing = _webView {
@@ -19,8 +26,10 @@ final class WebViewHolder: NSObject, ObservableObject {
         }
         precondition(!isDisposed, "disposed WebViewHolder는 WKWebView를 다시 생성하지 않는다")
         let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = Self.websiteDataStore
         let created = WKWebView(frame: .zero, configuration: configuration)
         created.navigationDelegate = navigationRelay
+        created.uiDelegate = uiRelay
         _webView = created
         return created
     }
@@ -35,37 +44,178 @@ final class WebViewHolder: NSObject, ObservableObject {
     func loadSmokeURLIfNeeded() {
         guard !isDisposed, !didLoadInitialURL else { return }
         didLoadInitialURL = true
-        webView.load(URLRequest(url: Self.smokeURL))
+        load(Self.smokeURL.absoluteString)
+    }
+
+    func load(_ urlString: String) {
+        guard !isDisposed, let url = URL(string: urlString) else { return }
+        webView.load(URLRequest(url: url))
+    }
+
+    func reload() {
+        guard !isDisposed, _webView != nil else { return }
+        webView.reload()
+    }
+
+    func stopLoading() {
+        guard !isDisposed, let view = _webView else { return }
+        view.stopLoading()
+    }
+
+    @discardableResult
+    func goBack() -> Bool {
+        guard !isDisposed, let view = _webView, view.canGoBack else { return false }
+        view.goBack()
+        publishNavigationFlags(from: view)
+        return true
+    }
+
+    @discardableResult
+    func goForward() -> Bool {
+        guard !isDisposed, let view = _webView, view.canGoForward else { return false }
+        view.goForward()
+        publishNavigationFlags(from: view)
+        return true
     }
 
     func dispose() {
         guard !isDisposed else { return }
         isDisposed = true
-        guard let view = _webView else { return }
+        guard let view = _webView else {
+            navigationState = WebNavigationState(loadPhase: .disposed)
+            return
+        }
         view.stopLoading()
         view.navigationDelegate = nil
         view.uiDelegate = nil
         view.removeFromSuperview()
         _webView = nil
-        lastFinishedURL = nil
+        navigationState = WebNavigationState(loadPhase: .disposed)
+    }
+
+    fileprivate func handleDecidePolicy(urlString: String, isMainFrame: Bool) -> Bool {
+        guard !isDisposed else { return false }
+        guard isMainFrame else { return true }
+
+        if trustedOrigins.isTrustedUrl(url: urlString) {
+            return true
+        }
+
+        let resolution = externalPolicy.resolve(rawValue: urlString)
+        if let allowed = resolution as? ExternalNavigationResolutionAllowed {
+            openExternal(allowed.destination)
+        }
+        return false
+    }
+
+    fileprivate func handleCreateWindow(urlString: String?) {
+        guard !isDisposed else { return }
+        guard let urlString, !urlString.isEmpty else { return }
+        if trustedOrigins.isTrustedUrl(url: urlString) {
+            load(urlString)
+        } else {
+            let resolution = externalPolicy.resolve(rawValue: urlString)
+            if let allowed = resolution as? ExternalNavigationResolutionAllowed {
+                openExternal(allowed.destination)
+            }
+        }
+    }
+
+    fileprivate func navigationDidStart(url: String?) {
+        guard !isDisposed, let view = _webView else { return }
+        let phase: WebLoadPhase = url.map { .loading(url: $0) } ?? .loading(url: view.url?.absoluteString ?? "")
+        navigationState = WebNavigationState(
+            loadPhase: phase,
+            canGoBack: view.canGoBack,
+            canGoForward: view.canGoForward
+        )
     }
 
     fileprivate func navigationDidFinish(url: String?) {
-        guard !isDisposed else { return }
-        lastFinishedURL = url
+        guard !isDisposed, let view = _webView else { return }
+        let finished = url ?? view.url?.absoluteString ?? ""
+        navigationState = WebNavigationState(
+            loadPhase: .ready(url: finished),
+            canGoBack: view.canGoBack,
+            canGoForward: view.canGoForward
+        )
     }
 
-    fileprivate func navigationDidFail() {
-        guard !isDisposed else { return }
+    fileprivate func navigationDidFail(url: String?, error: Error) {
+        guard !isDisposed, let view = _webView else { return }
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
+            return
+        }
+        let category: WebNavFailureCategory
+        switch nsError.code {
+        case NSURLErrorSecureConnectionFailed,
+             NSURLErrorServerCertificateUntrusted,
+             NSURLErrorServerCertificateHasBadDate,
+             NSURLErrorServerCertificateHasUnknownRoot,
+             NSURLErrorClientCertificateRejected,
+             NSURLErrorClientCertificateRequired:
+            category = .tls
+        case NSURLErrorBadServerResponse:
+            category = .http
+        default:
+            category = .network
+        }
+        navigationState = WebNavigationState(
+            loadPhase: .failed(url: url ?? view.url?.absoluteString, category: category),
+            canGoBack: view.canGoBack,
+            canGoForward: view.canGoForward
+        )
+    }
+
+    private func publishNavigationFlags(from view: WKWebView) {
+        var next = navigationState
+        next.canGoBack = view.canGoBack
+        next.canGoForward = view.canGoForward
+        navigationState = next
+    }
+
+    private func openExternal(_ destination: ExternalDestination) {
+        let raw: String
+        if let web = destination as? ExternalDestinationWeb {
+            raw = web.url
+        } else if let email = destination as? ExternalDestinationEmail {
+            raw = "mailto:\(email.address)"
+        } else if let tel = destination as? ExternalDestinationTelephone {
+            raw = "tel:\(tel.number)"
+        } else if let platform = destination as? ExternalDestinationPlatformUri {
+            raw = platform.uri
+        } else {
+            return
+        }
+        lastExternalURL = raw
+        guard let url = URL(string: raw) else { return }
+        DispatchQueue.main.async {
+            UIApplication.shared.open(url)
+        }
     }
 }
 
-// 로딩 완료만 관찰. back/forward·cookie·외부 URL은 M6-006
 private final class NavigationRelay: NSObject, WKNavigationDelegate {
     weak var owner: WebViewHolder?
 
     init(owner: WebViewHolder) {
         self.owner = owner
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+    ) {
+        let urlString = navigationAction.request.url?.absoluteString ?? ""
+        let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? true
+        let allow = owner?.handleDecidePolicy(urlString: urlString, isMainFrame: isMainFrame) ?? false
+        decisionHandler(allow ? .allow : .cancel)
+    }
+
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        owner?.navigationDidStart(url: webView.url?.absoluteString)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -77,7 +227,7 @@ private final class NavigationRelay: NSObject, WKNavigationDelegate {
         didFail navigation: WKNavigation!,
         withError error: Error
     ) {
-        owner?.navigationDidFail()
+        owner?.navigationDidFail(url: webView.url?.absoluteString, error: error)
     }
 
     func webView(
@@ -85,6 +235,24 @@ private final class NavigationRelay: NSObject, WKNavigationDelegate {
         didFailProvisionalNavigation navigation: WKNavigation!,
         withError error: Error
     ) {
-        owner?.navigationDidFail()
+        owner?.navigationDidFail(url: webView.url?.absoluteString, error: error)
+    }
+}
+
+private final class UIRelay: NSObject, WKUIDelegate {
+    weak var owner: WebViewHolder?
+
+    init(owner: WebViewHolder) {
+        self.owner = owner;
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        createWebViewWith configuration: WKWebViewConfiguration,
+        for navigationAction: WKNavigationAction,
+        windowFeatures: WKWindowFeatures
+    ) -> WKWebView? {
+        owner?.handleCreateWindow(urlString: navigationAction.request.url?.absoluteString)
+        return nil
     }
 }
