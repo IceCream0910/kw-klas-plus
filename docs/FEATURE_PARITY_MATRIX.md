@@ -17,10 +17,10 @@
 |---|---|---|---|---|---|---|
 | F-001 | 콜드 스타트/네트워크 오류 | Compose root + 공통 startup state | SwiftUI root + reachability | P0 | Parity | M5 전체 회귀 반영 |
 | F-002 | 최초 온보딩 | Compose + WebView | SwiftUI + WKWebView | P1 | Parity | M5 전체 회귀 반영 |
-| F-003 | ID/PW 입력 및 동의 | Compose login + 공통 상태 | SwiftUI login + 공통 상태 | P0 | Parity | 평문 비밀번호 비저장 |
-| F-004 | 비밀번호 서버 암호화 | 공통 `KlasAuthApi` | 공통 `KlasAuthApi` | P0 | Parity | Keystore 저장 경로 포함 |
-| F-005 | Web 자동 로그인 | Android WebAuthDriver | iOS WebAuthDriver | P0 | Parity | CAPTCHA·임시 비밀번호·timeout 포함 |
-| F-006 | SESSION 추출/저장/복구 | SessionCoordinator + CookieManager | SessionCoordinator + WKHTTPCookieStore | P0 | Parity | Android 패리티 완료. iOS는 M6-006 `IosWebCookieStore` set/clear 계약 확보, SessionCoordinator 제품 연결은 M6-008 |
+| F-003 | ID/PW 입력 및 동의 | Compose login + 공통 상태 | SwiftUI login + 공통 상태 | P0 | Parity | 평문 비밀번호 비저장. iOS: `PlainPassword`/`SecretValue` `[REDACTED]`, UserDefaults에 평문·`kwPWD` 미저장 (`IosAuthSecurityTests`) |
+| F-004 | 비밀번호 서버 암호화 | 공통 `KlasAuthApi` | 공통 `KlasAuthApi` | P0 | Parity | Android Keystore. iOS Keychain `ENCRYPTED_KLAS_PASSWORD` (`IosAuthSecurityTests` round-trip) |
+| F-005 | Web 자동 로그인 | Android WebAuthDriver | iOS WebAuthDriver | P0 | Parity | iOS `IosWebAuthDriverTests`: CAPTCHA alert, 임시 비밀번호 재노출, hanging timeout, network failure |
+| F-006 | SESSION 추출/저장/복구 | SessionCoordinator + CookieManager | SessionCoordinator + WKHTTPCookieStore | P0 | Parity | iOS SessionCoordinator↔Keychain↔WKHTTPCookieStore. UserDefaults에는 시각(`kwSESSION_timestamp`)만 두고 토큰(`kwSESSION`)은 저장하지 않음 (`IosAuthSecurityTests`) |
 | F-007 | 홈 피드/하단 탭 | Compose shell + WebView | SwiftUI shell + WKWebView | P0 | Parity | Android 패리티 완료. iOS는 M6-006 navigation snapshot·trusted/external 분기·DEBUG back/reload. 탭 shell은 M6-009 |
 | F-008 | 시간표/학기 선택 | 공통 bridge + Compose modal | 공통 bridge + iOS picker | P1 | Parity | 과거 학기 fixture 포함 |
 | F-009 | 캘린더/날짜·시간 선택 | Compose/Web date-time adapter | iOS date-time adapter | P1 | Parity | IME·3버튼/제스처 내비게이션 포함 |

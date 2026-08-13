@@ -8,20 +8,29 @@ final class IosWebAuthDriver: NSObject, WebAuthDriver, WKNavigationDelegate, WKU
     static let timeoutMillis = Int(IosWebAuthScripts.shared.TIMEOUT_MILLIS)
 
     private let webView: WKWebView
-    private let policy = WebAuthObservationPolicy(
-        loginUrl: KlasUrls.shared.KLAS_LOGIN,
-        allowedHost: "kw.ac.kr",
-        sessionCookieName: "SESSION"
-    )
-    private var credentialInjected = false
+    private let loginURL: String
+    private let timeoutMillis: Int
+    private let policy: WebAuthObservationPolicy
+    private(set) var credentialInjected = false
     private var activeCredential: StoredCredential?
     private var completion: ((WebAuthResult?, Error?) -> Void)?
     private var timeoutWorkItem: DispatchWorkItem?
     private var finished = false
     var onInvalidCredentialAlert: ((String?) -> Void)?
 
-    init(webView: WKWebView) {
+    init(
+        webView: WKWebView,
+        timeoutMillis: Int = IosWebAuthDriver.timeoutMillis,
+        loginURL: String = KlasUrls.shared.KLAS_LOGIN
+    ) {
         self.webView = webView
+        self.loginURL = loginURL
+        self.timeoutMillis = timeoutMillis
+        self.policy = WebAuthObservationPolicy(
+            loginUrl: loginURL,
+            allowedHost: "kw.ac.kr",
+            sessionCookieName: "SESSION"
+        )
         super.init()
         webView.navigationDelegate = self
         webView.uiDelegate = self
@@ -37,7 +46,7 @@ final class IosWebAuthDriver: NSObject, WebAuthDriver, WKNavigationDelegate, WKU
         activeCredential = credential
         completion = completionHandler
         scheduleTimeout()
-        guard let url = URL(string: KlasUrls.shared.KLAS_LOGIN) else {
+        guard let url = URL(string: loginURL) else {
             complete(WebAuthResultFailure(failure: AuthFailureNetwork.shared))
             return
         }
@@ -147,7 +156,7 @@ final class IosWebAuthDriver: NSObject, WebAuthDriver, WKNavigationDelegate, WKU
         }
         timeoutWorkItem = work
         DispatchQueue.main.asyncAfter(
-            deadline: .now() + .milliseconds(Self.timeoutMillis),
+            deadline: .now() + .milliseconds(timeoutMillis),
             execute: work
         )
     }
