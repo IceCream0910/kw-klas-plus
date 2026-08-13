@@ -217,6 +217,18 @@ private struct LoginFormContent: View {
                 }
             }
         }
+        .task {
+            await focusStudentIdOnEntry()
+        }
+    }
+
+    @MainActor
+    private func focusStudentIdOnEntry() async {
+        guard !state.passwordFieldVisible else { return }
+        // FocusState는 필드가 윈도우에 붙은 뒤에 설정해야 키보드가 올라온다.
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        guard !Task.isCancelled, !state.passwordFieldVisible else { return }
+        focusedField = .studentId
     }
 }
 
@@ -241,7 +253,8 @@ private struct LoginHeader: View {
 private struct KlasOutlinedTextField<Trailing: View>: View {
     let label: String
     @Binding var text: String
-    var isFocused: Bool
+    var focusedField: FocusState<LoginField?>.Binding
+    var field: LoginField
     var keyboardType: UIKeyboardType
     var textContentType: UITextContentType?
     var isSecure: Bool
@@ -251,7 +264,8 @@ private struct KlasOutlinedTextField<Trailing: View>: View {
     init(
         label: String,
         text: Binding<String>,
-        isFocused: Bool,
+        focusedField: FocusState<LoginField?>.Binding,
+        field: LoginField,
         keyboardType: UIKeyboardType = .default,
         textContentType: UITextContentType? = nil,
         isSecure: Bool = false,
@@ -260,12 +274,17 @@ private struct KlasOutlinedTextField<Trailing: View>: View {
     ) {
         self.label = label
         self._text = text
-        self.isFocused = isFocused
+        self.focusedField = focusedField
+        self.field = field
         self.keyboardType = keyboardType
         self.textContentType = textContentType
         self.isSecure = isSecure
         self.accessibilityId = accessibilityId
         self.trailing = trailing
+    }
+
+    private var isFocused: Bool {
+        focusedField.wrappedValue == field
     }
 
     private var isFloating: Bool {
@@ -287,6 +306,7 @@ private struct KlasOutlinedTextField<Trailing: View>: View {
                 }
                 .keyboardType(keyboardType)
                 .textContentType(textContentType)
+                .focused(focusedField, equals: field)
                 .font(.body)
                 .foregroundStyle(KlasTheme.onSurface)
                 .tint(KlasTheme.primary)
@@ -348,18 +368,19 @@ private struct LoginFields: View {
                         }
                     }
                 ),
-                isFocused: focusedField.wrappedValue == .studentId,
+                focusedField: focusedField,
+                field: .studentId,
                 keyboardType: .numberPad,
                 textContentType: .username,
                 accessibilityId: "login_student_id"
             )
-            .focused(focusedField, equals: .studentId)
 
             if state.passwordFieldVisible {
                 KlasOutlinedTextField(
                     label: "비밀번호",
                     text: $state.password,
-                    isFocused: focusedField.wrappedValue == .password,
+                    focusedField: focusedField,
+                    field: .password,
                     textContentType: .password,
                     isSecure: !passwordRevealed,
                     accessibilityId: "login_password"
@@ -372,7 +393,6 @@ private struct LoginFields: View {
                     }
                     .accessibilityLabel(passwordRevealed ? "비밀번호 숨기기" : "비밀번호 표시")
                 }
-                .focused(focusedField, equals: .password)
                 .onAppear { focusedField.wrappedValue = .password }
             }
 
@@ -421,7 +441,6 @@ private struct LoginSubmitActions: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            // Android Row: spacing 없음. IconToggleButton(40) + clickable 라벨 + TextButton("자세히")
             HStack(spacing: 0) {
                 RoundCheckbox(checked: state.agreementAccepted) {
                     state.agreementAccepted.toggle()
