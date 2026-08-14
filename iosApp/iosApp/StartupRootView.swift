@@ -5,7 +5,7 @@ struct StartupRootView: View {
     @StateObject private var controller = AuthSessionController()
 
     var body: some View {
-        Group {
+        ZStack {
             switch controller.phase {
             case .checkingNetwork, .bootstrapping:
                 LaunchSplashView()
@@ -25,14 +25,15 @@ struct StartupRootView: View {
                 ) { item in
                     LinkWebViewScreen(url: item.url, onDismiss: { controller.dismissLinkWeb() })
                 }
-            case .authenticating:
+            case .authenticating, .blocked:
                 AuthenticationLoadingView(
                     message: controller.loadingMessage,
                     webView: controller.authWebView
                 )
             case .authenticated:
                 ContentView(holder: controller.productWebViewHolder)
-            case .blocked(let reason):
+            }
+            if case .blocked(let reason) = controller.phase {
                 blockedOverlay(reason)
             }
         }
@@ -54,7 +55,9 @@ struct StartupRootView: View {
     @ViewBuilder
     private func blockedOverlay(_ reason: AuthBlockReason) -> some View {
         ZStack {
-            KlasTheme.background.ignoresSafeArea()
+            // Material3 Dialog scrim
+            KlasTheme.scrim.opacity(0.32)
+                .ignoresSafeArea()
             switch reason {
             case .noNetwork:
                 AuthAlertCard(
@@ -85,9 +88,11 @@ struct StartupRootView: View {
                 )
             }
         }
+        .accessibilityIdentifier("auth_alert")
     }
 }
 
+/// Android `MaterialAlertDialogBuilder` 패리티: scrim 위 다이얼로그, 우측 TextButton
 private struct AuthAlertCard: View {
     var title: String
     var message: String
@@ -97,27 +102,60 @@ private struct AuthAlertCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(title).font(.headline)
-            Text(message).font(.body)
-            VStack(spacing: 8) {
-                Button(primary.0, action: primary.1)
-                    .buttonStyle(KlasInverseButtonStyle())
-                if let secondary {
-                    Button(secondary.0, action: secondary.1)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: KlasTheme.buttonHeight)
-                }
-                if let tertiary {
-                    Button(tertiary.0, action: tertiary.1)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: KlasTheme.buttonHeight)
-                }
-            }
+            Text(title)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(KlasTheme.onSurface)
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(KlasTheme.onSurfaceVariant)
+                .fixedSize(horizontal: false, vertical: true)
+            actionRow
         }
         .padding(24)
-        .frame(maxWidth: 480)
-        .background(KlasTheme.surface, in: RoundedRectangle(cornerRadius: 16))
-        .padding(24)
+        .frame(maxWidth: 560)
+        .background(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(KlasTheme.surfaceContainerHigh)
+                .shadow(color: KlasTheme.scrim.opacity(0.18), radius: 8, y: 4)
+        )
+        .padding(.horizontal, 40)
+        .accessibilityIdentifier("auth_alert_card")
+    }
+
+    private var actionRow: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                Spacer(minLength: 0)
+                actionButtons
+            }
+            VStack(alignment: .trailing, spacing: 0) {
+                actionButtons
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        if let tertiary {
+            dialogTextButton(tertiary)
+        }
+        if let secondary {
+            dialogTextButton(secondary)
+        }
+        dialogTextButton(primary)
+    }
+
+    private func dialogTextButton(_ item: (String, () -> Void)) -> some View {
+        Button(action: item.1) {
+            Text(item.0)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(KlasTheme.primary)
+                .padding(.horizontal, 12)
+                .frame(height: 40)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(KlasPressHighlightButtonStyle())
     }
 }
 

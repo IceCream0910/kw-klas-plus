@@ -13,7 +13,7 @@ struct LinkWebViewScreen: View {
     var body: some View {
         LinkWebView(url: url, onClose: onDismiss)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.white)
+            .background(Color.white.ignoresSafeArea())
             .accessibilityIdentifier("link_web_view")
     }
 }
@@ -74,6 +74,7 @@ private struct LinkWebView: UIViewRepresentable {
         webView.isOpaque = true
         webView.backgroundColor = .white
         webView.scrollView.backgroundColor = .white
+        webView.underPageBackgroundColor = .white
         // SwiftUI safe area가 이미 inset을 적용하므로 WebView 자체 추가 inset은 끈다.
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.scrollView.contentInset = .zero
@@ -119,6 +120,15 @@ private struct LinkWebView: UIViewRepresentable {
             meta.content=content;
             document.head.appendChild(meta);
           }
+
+          var styleId='klas-plus-mobile-layout';
+          var style=document.getElementById(styleId);
+          if(!style){
+            style=document.createElement('style');
+            style.id=styleId;
+            document.head.appendChild(style);
+          }
+          style.textContent='html,body,.ax-body.baseStyle,#ax-modal-base-root,.popupBackground{background:#ffffff !important;background-color:#ffffff !important;}';
 
           var root=document.documentElement;
           var body=document.body;

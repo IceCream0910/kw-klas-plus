@@ -13,7 +13,7 @@ struct AuthenticationLoadingView: View {
                 .allowsHitTesting(false)
                 .accessibilityIdentifier("authentication_web_view")
             VStack(spacing: 12) {
-                ProgressView()
+                KlasCircularProgressView()
                 Text(message)
                     .font(.body)
                     .foregroundStyle(KlasTheme.onBackground)

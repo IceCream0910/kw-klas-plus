@@ -274,6 +274,8 @@ final class AuthSessionController: ObservableObject {
         }
         if let failed = result as? LoginResultFailed {
             if failed.failure is AuthFailureInvalidCredentials {
+                // Android는 JS alert 메시지를 먼저 보여주고, 이후 Failed(null)은 무시한다.
+                if case .blocked(.invalidCredentials) = phase { return }
                 phase = .blocked(.invalidCredentials(nil))
             } else {
                 phase = .blocked(.loginFailed)
