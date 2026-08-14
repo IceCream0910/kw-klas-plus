@@ -31,25 +31,16 @@ struct StartupRootView: View {
                     webView: controller.authWebView
                 )
             case .authenticated:
-                ContentView(holder: controller.productWebViewHolder)
+                HomeRootView(
+                    authRuntime: controller.authRuntime,
+                    onLogout: { controller.handleHomeLogout() }
+                )
             }
             if case .blocked(let reason) = controller.phase {
                 blockedOverlay(reason)
             }
         }
         .onAppear { controller.start() }
-        #if DEBUG
-        .overlay(alignment: .topTrailing) {
-            if controller.phase == .authenticated {
-                VStack(alignment: .trailing, spacing: 4) {
-                    Button("Expire") { controller.debugExpireSession() }
-                    Button("Wipe") { controller.debugWipeCredentials() }
-                }
-                .font(.caption2)
-                .padding(8)
-            }
-        }
-        #endif
     }
 
     @ViewBuilder

@@ -10,16 +10,24 @@ final class WebViewHolder: NSObject, ObservableObject {
     @Published private(set) var isDisposed = false
     @Published private(set) var navigationState = WebNavigationState()
     @Published private(set) var lastExternalURL: String?
+    @Published var javaScriptAlertMessage: String?
 
-    private var didLoadInitialURL = false
     private var _webView: WKWebView?
     private var bridgeAdapter: IosBridgeMessageAdapter?
+    private var javaScriptAlertCompletion: (() -> Void)?
     private lazy var navigationRelay = NavigationRelay(owner: self)
     private lazy var uiRelay = UIRelay(owner: self)
     private let trustedOrigins = TrustedOriginPolicy(trustedOrigins: TrustedOriginPolicy.companion.DEFAULT_TRUSTED_ORIGINS)
     private let externalPolicy = ExternalNavigationPolicy(maximumLength: 2048)
 
     static var websiteDataStore: WKWebsiteDataStore { .default() }
+
+    /// 웹 `bottomNav.js`가 `iOSApp_v숫자`로 앱 WebView를 구분한다. Android `AndroidApp_v`와 별개 토큰이다.
+    static var iosAppUserAgentToken: String {
+        let build = Bundle.main.object(forInfoDictionaryKey: kCFBundleVersionKey as String) as? String ?? "1"
+        let digits = build.split(whereSeparator: { !$0.isNumber }).first.flatMap { Int($0) } ?? 1
+        return "iOSApp_v\(max(digits, 1))"
+    }
 
     var webView: WKWebView {
         if let existing = _webView {
@@ -28,15 +36,27 @@ final class WebViewHolder: NSObject, ObservableObject {
         precondition(!isDisposed, "disposed WebViewHolder는 WKWebView를 다시 생성하지 않는다")
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = Self.websiteDataStore
+        configuration.applicationNameForUserAgent = Self.iosAppUserAgentToken
         bridgeAdapter?.install(into: configuration)
         let created = WKWebView(frame: .zero, configuration: configuration)
         created.navigationDelegate = navigationRelay
         created.uiDelegate = uiRelay
+        Self.configureWebScrollView(created.scrollView)
         _webView = created
         return created
     }
 
-    /// WKWebView 생성 전에만 호출. 제품 surface host는 M6-009에서 교체 예정
+    /// SwiftUI가 safe area를 이미 적용한다. WKWebView가 inset을 또 넣으면
+    /// 캘린더처럼 `dvh`/`position:fixed` 페이지에서 스크롤 시 visual viewport가 줄어 bottomNav가 올라간다.
+    static func configureWebScrollView(_ scrollView: UIScrollView) {
+        scrollView.contentInsetAdjustmentBehavior = .never
+        scrollView.automaticallyAdjustsScrollIndicatorInsets = false
+        scrollView.contentInset = .zero
+        scrollView.scrollIndicatorInsets = .zero
+        scrollView.keyboardDismissMode = .interactive
+    }
+
+    /// WKWebView 생성 전에만 호출
     func installBridge(
         surface: BridgeSurface,
         handler: BridgeCommandHandler,
@@ -53,31 +73,51 @@ final class WebViewHolder: NSObject, ObservableObject {
         )
     }
 
-    static func withSmokeBridge(
-        surface: BridgeSurface = .home,
-        handler: BridgeCommandHandler? = nil,
-        bridgeTimeoutMillis: Int32 = KlasNativeBridgeScripts.shared.DEFAULT_BRIDGE_TIMEOUT_MILLIS
+    static func withLegacyBridge(
+        surface: BridgeSurface,
+        handler: BridgeCommandHandler,
+        synchronousHandler: SynchronousBridgeCommandHandler? = nil
     ) -> WebViewHolder {
         let holder = WebViewHolder()
         holder.installBridge(
             surface: surface,
-            handler: handler ?? AcceptingBridgeCommandHandler(),
-            bridgeTimeoutMillis: bridgeTimeoutMillis
+            handler: handler,
+            synchronousHandler: synchronousHandler
         )
         return holder
     }
 
-    // Android Home과 동일한 베이스 URL. yearHakgi는 M6-008 이후 연결
-    // Shared KlasUrls.KLAS_PLUS_BASE와 동기화
-    static var smokeURL: URL {
-        let base = KlasUrls.shared.KLAS_PLUS_BASE
-        return URL(string: base + "/feed")!
+    func evaluate(_ script: WebScript, completion: ((Any?) -> Void)? = nil) {
+        guard !isDisposed else {
+            completion?(nil)
+            return
+        }
+        webView.evaluateJavaScript(script.reveal(), completionHandler: { result, _ in
+            completion?(result)
+        })
     }
 
-    func loadSmokeURLIfNeeded() {
-        guard !isDisposed, !didLoadInitialURL else { return }
-        didLoadInitialURL = true
-        load(Self.smokeURL.absoluteString)
+    func evaluateRaw(_ source: String, completion: ((Any?) -> Void)? = nil) {
+        guard !isDisposed else {
+            completion?(nil)
+            return
+        }
+        webView.evaluateJavaScript(source, completionHandler: { result, _ in
+            completion?(result)
+        })
+    }
+
+    func confirmJavaScriptAlert() {
+        let completion = javaScriptAlertCompletion
+        javaScriptAlertCompletion = nil
+        javaScriptAlertMessage = nil
+        completion?()
+    }
+
+    func presentJavaScriptAlert(message: String, completion: @escaping () -> Void) {
+        javaScriptAlertCompletion?()
+        javaScriptAlertCompletion = completion
+        javaScriptAlertMessage = message
     }
 
     func load(_ urlString: String) {
@@ -125,6 +165,9 @@ final class WebViewHolder: NSObject, ObservableObject {
         view.uiDelegate = nil
         view.removeFromSuperview()
         _webView = nil
+        javaScriptAlertCompletion?()
+        javaScriptAlertCompletion = nil
+        javaScriptAlertMessage = nil
         navigationState = WebNavigationState(loadPhase: .disposed)
     }
 
@@ -317,5 +360,14 @@ private final class UIRelay: NSObject, WKUIDelegate {
     ) -> WKWebView? {
         owner?.handleCreateWindow(urlString: navigationAction.request.url?.absoluteString)
         return nil
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        runJavaScriptAlertPanelWithMessage message: String,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping () -> Void
+    ) {
+        owner?.presentJavaScriptAlert(message: message, completion: completionHandler)
     }
 }

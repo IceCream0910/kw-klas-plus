@@ -42,7 +42,6 @@ final class AuthSessionController: ObservableObject {
     private var startTask: Task<Void, Never>?
     private var loadingHintTask: Task<Void, Never>?
     private var toastTask: Task<Void, Never>?
-    private var productHolder: WebViewHolder?
     private var activeCredential: StoredCredential?
 
     init(
@@ -56,16 +55,15 @@ final class AuthSessionController: ObservableObject {
         self.authWebView = WKWebView(frame: .zero, configuration: configuration)
     }
 
-    var productWebViewHolder: WebViewHolder {
-        if let productHolder {
-            return productHolder
-        }
-        let holder = WebViewHolder.withSmokeBridge(
-            surface: .home,
-            handler: AcceptingBridgeCommandHandler()
+    func handleHomeLogout() {
+        activeCredential = nil
+        loginState = LoginUiState(
+            onboardingVisible: false,
+            studentId: "",
+            password: "",
+            agreementAccepted: false
         )
-        productHolder = holder
-        return holder
+        phase = .needsCredentials
     }
 
     func start() {
@@ -170,34 +168,6 @@ final class AuthSessionController: ObservableObject {
             phase = .needsCredentials
         }
     }
-
-    #if DEBUG
-    func debugExpireSession() {
-        authRuntime.expireSession { [weak self] in
-            Task { @MainActor in
-                self?.productHolder = nil
-                self?.start()
-            }
-        }
-    }
-
-    /// 세션 + 저장된 자격증명까지 지우고 로그인 화면으로 이동
-    func debugWipeCredentials() {
-        authRuntime.wipeForFailedLogin { [weak self] in
-            Task { @MainActor in
-                self?.productHolder = nil
-                self?.activeCredential = nil
-                self?.loginState = LoginUiState(
-                    onboardingVisible: false,
-                    studentId: "",
-                    password: "",
-                    agreementAccepted: false
-                )
-                self?.phase = .needsCredentials
-            }
-        }
-    }
-    #endif
 
     enum BlockedAction {
         case dismissNoNetwork
