@@ -118,3 +118,8 @@ class AcademicRepository(
     private fun JsonObject.string(key: String): String? =
         (get(key) as? JsonPrimitive)?.contentOrNull
 }
+
+object AcademicTermDisplay {
+    fun buttonText(value: String): String =
+        value.replace(",3", ",여름").replace(",4", ",겨울").replace(",", "년도 ") + "학기"
+}

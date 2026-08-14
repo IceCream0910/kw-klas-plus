@@ -1,5 +1,9 @@
 package com.icecream.kwklasplus.core
 
+import com.icecream.kwklasplus.core.academic.AcademicRepository
+import com.icecream.kwklasplus.core.academic.DeadlineRepository
+import com.icecream.kwklasplus.core.academic.IosDeadlineDateParsers
+import com.icecream.kwklasplus.core.academic.TimetableRepository
 import com.icecream.kwklasplus.core.auth.CredentialStore
 import com.icecream.kwklasplus.core.auth.IosCredentialStore
 import com.icecream.kwklasplus.core.auth.KlasAuthRepository
@@ -7,7 +11,10 @@ import com.icecream.kwklasplus.core.auth.LoginUseCase
 import com.icecream.kwklasplus.core.auth.PrepareCredentialUseCase
 import com.icecream.kwklasplus.core.auth.WebAuthDriver
 import com.icecream.kwklasplus.core.legacy.LegacyPreferenceKeys
+import com.icecream.kwklasplus.core.network.KlasSessionHttpClient
 import com.icecream.kwklasplus.core.network.createIosKlasHttpClient
+import com.icecream.kwklasplus.core.platform.IosUserDefaultsPreferencesStore
+import com.icecream.kwklasplus.core.platform.PreferencesStore
 import com.icecream.kwklasplus.core.platform.SecureStore
 import com.icecream.kwklasplus.core.security.IosKeychainSecureStore
 import com.icecream.kwklasplus.core.session.Clock
@@ -28,8 +35,38 @@ class IosSharedDependencies(
     cookieStoreOverride: IosWebCookieStore? = null,
 ) {
     private val httpClient by lazy { createIosKlasHttpClient() }
+    private val longRunningClient by lazy { createIosKlasHttpClient(timeoutMillis = 30_000) }
 
     val authRepository: KlasAuthRepository by lazy { KlasAuthRepository(httpClient) }
+
+    val academicRepository: AcademicRepository by lazy {
+        AcademicRepository(KlasSessionHttpClient(httpClient))
+    }
+
+    val timetableRepository: TimetableRepository by lazy {
+        TimetableRepository(KlasSessionHttpClient(longRunningClient))
+    }
+
+    val deadlineRepository: DeadlineRepository by lazy {
+        DeadlineRepository(
+            transport = KlasSessionHttpClient(longRunningClient),
+            clock = clock,
+            onlineLectureEndParser = IosDeadlineDateParsers.onlineLecture,
+            assignmentEndParser = IosDeadlineDateParsers.assignment,
+        )
+    }
+
+    val preferencesStore: PreferencesStore by lazy {
+        IosUserDefaultsPreferencesStore(defaults)
+    }
+
+    fun stringPreference(key: String): String? =
+        defaults.stringForKey(key)?.takeIf(String::isNotBlank)
+
+    fun writeStringPreference(key: String, value: String) {
+        defaults.setObject(value, key)
+        defaults.synchronize()
+    }
 
     val secureStore: SecureStore by lazy {
         secureStoreOverride ?: IosKeychainSecureStore()
