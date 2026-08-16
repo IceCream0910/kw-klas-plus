@@ -2,10 +2,6 @@ package com.icecream.kwklasplus.core.session
 
 import com.icecream.kwklasplus.core.security.SecretValue
 import kotlinx.cinterop.ExperimentalForeignApi
-import platform.Foundation.NSHTTPCookie
-import kotlin.coroutines.Continuation
-import kotlin.coroutines.EmptyCoroutineContext
-import kotlin.coroutines.startCoroutine
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -14,7 +10,7 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalForeignApi::class)
 class IosSessionStoresTest {
     @Test
-    fun setGetClearSessionCookieRoundTrip() = runSuspend {
+    fun setGetClearSessionCookieRoundTrip() = runSuspendTest {
         val store = IosWebCookieStore.createForTests(InMemoryHttpCookieStoreOps())
         val token = SecretValue.of("ios-session-token")
 
@@ -26,7 +22,7 @@ class IosSessionStoresTest {
     }
 
     @Test
-    fun setSessionCookieUsesExpectedDomainAndPath() = runSuspend {
+    fun setSessionCookieUsesExpectedDomainAndPath() = runSuspendTest {
         val store = IosWebCookieStore.createForTests(InMemoryHttpCookieStoreOps())
         store.setSessionCookie(SecretValue.of("domain-check-token"))
 
@@ -62,39 +58,4 @@ class IosSessionStoresTest {
         assertEquals("SESSION", expired.name)
         assertTrue(expired.value.isEmpty())
     }
-}
-
-@OptIn(ExperimentalForeignApi::class)
-private class InMemoryHttpCookieStoreOps : HttpCookieStoreOps {
-    private val cookies = mutableListOf<NSHTTPCookie>()
-
-    override fun setCookie(cookie: NSHTTPCookie, onComplete: () -> Unit) {
-        cookies.removeAll { it.name == cookie.name && it.domain == cookie.domain && it.path == cookie.path }
-        cookies.add(cookie)
-        onComplete()
-    }
-
-    override fun deleteCookie(cookie: NSHTTPCookie, onComplete: () -> Unit) {
-        cookies.removeAll { it.name == cookie.name && it.domain == cookie.domain && it.path == cookie.path }
-        onComplete()
-    }
-
-    override fun getAllCookies(onComplete: (List<NSHTTPCookie>) -> Unit) {
-        onComplete(cookies.toList())
-    }
-}
-
-// InMemoryHttpCookieStoreOps는 동기 completion이라 startCoroutine만으로 충분하다.
-private fun <T> runSuspend(block: suspend () -> T): T {
-    var outcome: Result<T>? = null
-    block.startCoroutine(
-        object : Continuation<T> {
-            override val context = EmptyCoroutineContext
-
-            override fun resumeWith(result: Result<T>) {
-                outcome = result
-            }
-        },
-    )
-    return requireNotNull(outcome) { "suspend block did not complete synchronously" }.getOrThrow()
 }

@@ -19,7 +19,11 @@ struct ContentView: View {
                             .ignoresSafeArea(edges: .bottom)
                             .accessibilityLabel("KLAS+")
                         if isLoading {
-                            ProgressView()
+                            ZStack {
+                                KlasTheme.background.ignoresSafeArea()
+                                KlasCircularProgressView()
+                            }
+                            .accessibilityIdentifier("compose_web_loading")
                         }
                     }
                 }
