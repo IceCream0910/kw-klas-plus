@@ -21,16 +21,16 @@
 | F-004 | 비밀번호 서버 암호화 | 공통 `KlasAuthApi` | 공통 `KlasAuthApi` | P0 | Parity | Android Keystore. iOS Keychain `ENCRYPTED_KLAS_PASSWORD` (`IosAuthSecurityTests` round-trip) |
 | F-005 | Web 자동 로그인 | Android WebAuthDriver | iOS WebAuthDriver | P0 | Parity | iOS `IosWebAuthDriverTests`: CAPTCHA alert, 임시 비밀번호 재노출, hanging timeout, network failure |
 | F-006 | SESSION 추출/저장/복구 | SessionCoordinator + CookieManager | SessionCoordinator + WKHTTPCookieStore | P0 | Parity | iOS SessionCoordinator↔Keychain↔WKHTTPCookieStore. UserDefaults에는 시각(`kwSESSION_timestamp`)만 두고 토큰(`kwSESSION`)은 저장하지 않음 (`IosAuthSecurityTests`) |
-| F-007 | 홈 피드/하단 탭 | Compose shell + WebView | SwiftUI shell + WKWebView | P0 | Parity | Android 패리티 완료. iOS는 M6-006 navigation snapshot·trusted/external 분기·DEBUG back/reload. 탭 shell은 M6-009 |
-| F-008 | 시간표/학기 선택 | 공통 bridge + Compose modal | 공통 bridge + iOS picker | P1 | Parity | 과거 학기 fixture 포함 |
-| F-009 | 캘린더/날짜·시간 선택 | Compose/Web date-time adapter | iOS date-time adapter | P1 | Parity | IME·3버튼/제스처 내비게이션 포함 |
-| F-010 | 프로필/학생증 QR | Web + QR bridge | Web + QR bridge | P1 | Parity | 허용 origin·로그아웃 포함 |
-| F-011 | 성적/석차/장학/KLAS AI | WebSurface | WKWebView surface | P1 | Parity | sheet·viewport 회귀 포함 |
-| F-012 | 강의 홈 | Compose + WebView | SwiftUI + WKWebView | P0 | Parity | 화면 전환·QR·refresh·back 포함 |
-| F-013 | 강의계획서 | typed Web route | typed Web route | P1 | Parity | 검색·상세·외부 페이지 포함 |
-| F-014 | 게시판 목록/상세 | Web route + file ports | 동일 | P0 | Parity | refresh·첨부·fullscreen 포함 |
-| F-015 | 과제/퀴즈/시험 링크 | KLAS Web route | 동일 | P0 | Parity | refresh·링크·영상 포함 |
-| F-016 | 일반 링크 | typed navigation + Android adapter | iOS navigation adapter | P1 | Parity | 파일·IME·전체화면 포함 |
+| F-007 | 홈 피드/하단 탭 | Compose shell + WebView | SwiftUI shell + WKWebView | P0 | Parity | Android 패리티 완료. iOS M6-009: Home holder 1개에서 `changeTab` URL 교체, `receiveToken`/시간표/마감 주입. 제품 WKWebView UA에 `iOSApp_v{build}` 접미사 (`IosHomeHostTests`). 웹 `bottomNav.js`의 iOS 분기는 Web 저장소에서 배포 |
+| F-008 | 시간표/학기 선택 | 공통 bridge + Compose modal | 공통 bridge + iOS picker | P1 | Parity | iOS: `openYearHakgiBottomSheet` → `SelectionBottomSheet` + `receiveYearHakgi`. 점 3개 메뉴도 동일 Native sheet (`MenuBottomSheetDialog` 패리티). QR/영상은 M7 |
+| F-009 | 캘린더/날짜·시간 선택 | Compose/Web date-time adapter | iOS date-time adapter | P1 | Parity | iOS M6-009: `openDateTimePicker` → DatePicker sheet → `setDateTime` |
+| F-010 | 프로필/학생증 QR | Web + QR bridge | Web + QR bridge | P1 | Parity | iOS 프로필 탭은 Home `menu` URL. 학생증 QR command는 M7 stub |
+| F-011 | 성적/석차/장학/KLAS AI | WebSurface | WKWebView surface | P1 | Parity | iOS M6-009: Home `openPage` → Link 화면. sheet flag + back 시 `closeWebViewBottomSheet` |
+| F-012 | 강의 홈 | Compose + WebView | SwiftUI + WKWebView | P0 | Parity | iOS M6-009: dual WKWebView, `receivedData` 3인자, `evaluteKLASScript`. QR/영상은 M7 stub |
+| F-013 | 강의계획서 | typed Web route | typed Web route | P1 | Parity | iOS M6-009: LecturePlan surface + `receivedData` 2인자 |
+| F-014 | 게시판 목록/상세 | Web route + file ports | 동일 | P0 | Parity | iOS M6-009: Board surface + `receivedData` 4인자. 첨부/다운로드는 M6-010 |
+| F-015 | 과제/퀴즈/시험 링크 | KLAS Web route | 동일 | P0 | Parity | iOS M6-009: Task 화면(브리지 없음) localStorage bootstrap. 영상 URL은 M7 stub |
+| F-016 | 일반 링크 | typed navigation + Android adapter | iOS navigation adapter | P1 | Parity | iOS M6-009: `AppRouteFactory` + Link host. 파일 선택은 M6-010 |
 | F-017 | 온라인 강의 재생 | Android player/PIP host | iOS player host | P0 | Parity | 재생·seek·speed·진도 포함 |
 | F-018 | PIP | Android native | AVKit/WK media | P1 | Parity | remote action·상태 복구 포함 |
 | F-019 | QR 출석 | Android scanner port | AVFoundation/VisionKit port | P0 | Parity | 성공·실패·취소·중복 실행 포함 |
