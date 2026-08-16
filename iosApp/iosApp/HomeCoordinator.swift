@@ -252,6 +252,7 @@ final class HomeCoordinator: ObservableObject {
     }
 
     func openSettings() {
+        showOptionsMenu = false
         path.append(HomeDestination.settings)
     }
 
@@ -311,6 +312,13 @@ final class HomeCoordinator: ObservableObject {
         homeHolder = nil
     }
 
+    func presentLogoutConfirm() {
+        showOptionsMenu = false
+        Task { @MainActor in
+            showLogoutConfirm = true
+        }
+    }
+
     func confirmLogout() {
         homeRuntime.logout { [weak self] in
             Task { @MainActor in
@@ -330,6 +338,7 @@ final class HomeCoordinator: ObservableObject {
 
     func showToast(_ message: String) {
         toastMessage = message
+        UIAccessibility.post(notification: .announcement, argument: message)
         toastTask?.cancel()
         toastTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 2_500_000_000)

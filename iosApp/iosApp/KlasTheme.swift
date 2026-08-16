@@ -1,24 +1,25 @@
 import SwiftUI
+import UIKit
 
 enum KlasTheme {
     static let buttonHeight: CGFloat = 50
     static let controlCornerRadius: CGFloat = 16
 
-    // Android values/colors.xml (light) 패리티
-    static let primary = Color(hex: 0x8F4953)
-    static let onPrimary = Color.white
-    static let background = Color(hex: 0xFFF8F7)
-    static let onBackground = Color(hex: 0x22191A)
-    static let surface = Color(hex: 0xFFF8F7)
-    static let onSurface = Color(hex: 0x22191A)
-    static let surfaceVariant = Color(hex: 0xF4DDDE)
-    static let onSurfaceVariant = Color(hex: 0x524344)
-    static let outline = Color(hex: 0x847374)
-    static let inversePrimary = Color(hex: 0xFFB2BA)
-    static let inverseButtonContent = Color(hex: 0x561D27)
-    static let secondaryContainer = Color(hex: 0xFFD9DC)
-    static let surfaceContainerLow = Color(hex: 0xFFF0F0)
-    static let surfaceContainerHigh = Color(hex: 0xF6E4E5)
+    // Android values/colors.xml · values-night/colors.xml 패리티
+    static let primary = Color(light: 0x8F4953, dark: 0xFFB2BA)
+    static let onPrimary = Color(light: 0xFFFFFF, dark: 0x561D27)
+    static let background = Color(light: 0xFFF8F7, dark: 0x211E1E)
+    static let onBackground = Color(light: 0x22191A, dark: 0xF0DEDF)
+    static let surface = Color(light: 0xFFF8F7, dark: 0x211E1E)
+    static let onSurface = Color(light: 0x22191A, dark: 0xF0DEDF)
+    static let surfaceVariant = Color(light: 0xF4DDDE, dark: 0x524344)
+    static let onSurfaceVariant = Color(light: 0x524344, dark: 0xD7C1C3)
+    static let outline = Color(light: 0x847374, dark: 0x9F8C8D)
+    static let inversePrimary = Color(light: 0xFFB2BA, dark: 0x8F4953)
+    static let inverseButtonContent = Color(light: 0x561D27, dark: 0xFFFFFF)
+    static let secondaryContainer = Color(light: 0xFFD9DC, dark: 0x5C3F42)
+    static let surfaceContainerLow = Color(light: 0xFFF0F0, dark: 0x22191A)
+    static let surfaceContainerHigh = Color(light: 0xF6E4E5, dark: 0x312828)
     static let scrim = Color.black
 
     // Material3 Button disabled: onSurface @ 12% / 38%
@@ -49,6 +50,25 @@ extension Color {
             green: Double((hex >> 8) & 0xFF) / 255,
             blue: Double(hex & 0xFF) / 255,
             opacity: opacity
+        )
+    }
+
+    init(light: UInt32, dark: UInt32) {
+        self.init(
+            uiColor: UIColor { traits in
+                UIColor(hex: traits.userInterfaceStyle == .dark ? dark : light)
+            }
+        )
+    }
+}
+
+private extension UIColor {
+    convenience init(hex: UInt32) {
+        self.init(
+            red: CGFloat((hex >> 16) & 0xFF) / 255,
+            green: CGFloat((hex >> 8) & 0xFF) / 255,
+            blue: CGFloat(hex & 0xFF) / 255,
+            alpha: 1
         )
     }
 }
@@ -83,12 +103,16 @@ struct KlasTextLinkButtonStyle: ButtonStyle {
     }
 }
 
-/// Material clickable / 라벨용 — 텍스트 색은 유지하고 pressed highlight만 표시
-struct KlasPressHighlightButtonStyle: ButtonStyle {
+struct KlasSelectionRowButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(KlasTheme.onSurfaceVariant)
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: KlasTheme.buttonHeight)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: KlasTheme.controlCornerRadius, style: .continuous)
                     .fill(configuration.isPressed ? KlasTheme.primary.opacity(0.12) : Color.clear)
             )
             .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
