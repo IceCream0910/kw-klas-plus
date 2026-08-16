@@ -135,18 +135,21 @@ final class IosWebAuthDriver: NSObject, WebAuthDriver, WKNavigationDelegate, WKU
 
     private func readCookieHeader(completion: @escaping (String?) -> Void) {
         webView.configuration.websiteDataStore.httpCookieStore.getAllCookies { cookies in
-            let sessionCookies = cookies.filter { cookie in
-                cookie.name == "SESSION" && Self.matchesSessionDomain(cookie.domain)
-            }
-            let source = sessionCookies.isEmpty ? cookies : sessionCookies
-            let header = source.map { "\($0.name)=\($0.value)" }.joined(separator: "; ")
-            completion(header.isEmpty ? nil : header)
+            completion(Self.sessionCookieHeader(from: cookies))
         }
     }
 
-    private static func matchesSessionDomain(_ domain: String) -> Bool {
+    static func sessionCookieHeader(from cookies: [HTTPCookie]) -> String? {
+        let sessionCookies = cookies.filter { cookie in
+            cookie.name == "SESSION" && matchesSessionDomain(cookie.domain)
+        }
+        let header = sessionCookies.map { "\($0.name)=\($0.value)" }.joined(separator: "; ")
+        return header.isEmpty ? nil : header
+    }
+
+    static func matchesSessionDomain(_ domain: String) -> Bool {
         let normalized = domain.hasPrefix(".") ? String(domain.dropFirst()) : domain
-        return normalized == "kw.ac.kr"
+        return normalized == "kw.ac.kr" || normalized.hasSuffix(".kw.ac.kr")
     }
 
     private func scheduleTimeout() {

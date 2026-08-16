@@ -75,6 +75,40 @@ final class IosWebAuthDriverTests: XCTestCase {
         cleanup(driver, webView)
     }
 
+    func testSessionDomainAcceptsKwRootAndKlasHosts() {
+        XCTAssertTrue(IosWebAuthDriver.matchesSessionDomain("kw.ac.kr"))
+        XCTAssertTrue(IosWebAuthDriver.matchesSessionDomain(".kw.ac.kr"))
+        XCTAssertTrue(IosWebAuthDriver.matchesSessionDomain("klas.kw.ac.kr"))
+        XCTAssertTrue(IosWebAuthDriver.matchesSessionDomain(".klas.kw.ac.kr"))
+    }
+
+    func testSessionDomainRejectsLookalikesAndExternalHosts() {
+        XCTAssertFalse(IosWebAuthDriver.matchesSessionDomain("example.com"))
+        XCTAssertFalse(IosWebAuthDriver.matchesSessionDomain("kw.ac.kr.evil.example"))
+        XCTAssertFalse(IosWebAuthDriver.matchesSessionDomain("akw.ac.kr"))
+        XCTAssertFalse(IosWebAuthDriver.matchesSessionDomain("kw.ac.kr.com"))
+    }
+
+    func testSessionCookieHeaderKeepsOnlyMatchingSessionCookies() {
+        let foreign = httpCookie(name: "SESSION", value: "foreign-token", domain: "example.com")
+        let theme = httpCookie(name: "theme", value: "dark", domain: "klas.kw.ac.kr")
+        let klas = httpCookie(name: "SESSION", value: "klas-token", domain: "klas.kw.ac.kr")
+        let app = httpCookie(name: "SESSION", value: "app-token", domain: ".kw.ac.kr")
+
+        XCTAssertEqual(
+            IosWebAuthDriver.sessionCookieHeader(from: [foreign, theme, klas, app]),
+            "SESSION=klas-token; SESSION=app-token"
+        )
+    }
+
+    func testSessionCookieHeaderDoesNotFallBackToForeignSession() {
+        let foreign = httpCookie(name: "SESSION", value: "foreign-token", domain: "example.com")
+        let theme = httpCookie(name: "theme", value: "dark", domain: "klas.kw.ac.kr")
+
+        XCTAssertNil(IosWebAuthDriver.sessionCookieHeader(from: [foreign, theme]))
+        XCTAssertNil(IosWebAuthDriver.sessionCookieHeader(from: []))
+    }
+
     func testSchemeLoadFailureCompletesWithNetwork() {
         let handler = AuthTestSchemeHandler()
         handler.mode = .fail(
@@ -91,6 +125,17 @@ final class IosWebAuthDriverTests: XCTestCase {
             "failure=\(String(describing: (result as? WebAuthResultFailure)?.failure))"
         )
         cleanup(driver, webView)
+    }
+
+    private func httpCookie(name: String, value: String, domain: String) -> HTTPCookie {
+        let cookie = HTTPCookie(properties: [
+            .name: name,
+            .value: value,
+            .domain: domain,
+            .path: "/",
+        ])
+        XCTAssertNotNil(cookie, "domain=\(domain) name=\(name)")
+        return cookie!
     }
 
     private func credential() -> StoredCredential {

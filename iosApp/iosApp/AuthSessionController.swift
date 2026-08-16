@@ -37,14 +37,20 @@ final class AuthSessionController: ObservableObject {
 
     let authRuntime: IosAuthRuntime
     private(set) var authWebView: WKWebView
+    private let networkPath: NetworkPathChecking
     private var webAuthDriver: IosWebAuthDriver?
+    private var startTask: Task<Void, Never>?
     private var loadingHintTask: Task<Void, Never>?
     private var toastTask: Task<Void, Never>?
     private var productHolder: WebViewHolder?
     private var activeCredential: StoredCredential?
 
-    init(authRuntime: IosAuthRuntime = IosAuthRuntime.companion.createDefault()) {
+    init(
+        authRuntime: IosAuthRuntime = IosAuthRuntime.companion.createDefault(),
+        networkPath: NetworkPathChecking = SystemNetworkPathChecker()
+    ) {
         self.authRuntime = authRuntime
+        self.networkPath = networkPath
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = WebViewHolder.websiteDataStore
         self.authWebView = WKWebView(frame: .zero, configuration: configuration)
@@ -63,15 +69,17 @@ final class AuthSessionController: ObservableObject {
     }
 
     func start() {
-        guard isNetworkConnected() else {
-            phase = .blocked(.noNetwork)
-            return
-        }
-        phase = .bootstrapping
-        authRuntime.loadCredential { [weak self] credential in
-            Task { @MainActor in
-                self?.handleLoadedCredential(credential)
+        startTask?.cancel()
+        phase = .checkingNetwork
+        startTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let connected = await self.networkPath.isSatisfied()
+            guard !Task.isCancelled else { return }
+            guard connected else {
+                self.phase = .blocked(.noNetwork)
+                return
             }
+            self.beginBootstrap()
         }
     }
 
@@ -277,6 +285,8 @@ final class AuthSessionController: ObservableObject {
                 // Android는 JS alert 메시지를 먼저 보여주고, 이후 Failed(null)은 무시한다.
                 if case .blocked(.invalidCredentials) = phase { return }
                 phase = .blocked(.invalidCredentials(nil))
+            } else if failed.failure is AuthFailureNetwork {
+                phase = .blocked(.noNetwork)
             } else {
                 phase = .blocked(.loginFailed)
             }
@@ -297,6 +307,15 @@ final class AuthSessionController: ObservableObject {
         loadingHintTask = nil
     }
 
+    private func beginBootstrap() {
+        phase = .bootstrapping
+        authRuntime.loadCredential { [weak self] credential in
+            Task { @MainActor in
+                self?.handleLoadedCredential(credential)
+            }
+        }
+    }
+
     private func showToast(_ message: String) {
         toastMessage = message
         toastTask?.cancel()
@@ -308,40 +327,83 @@ final class AuthSessionController: ObservableObject {
         }
     }
 
-    private func isNetworkConnected() -> Bool {
-        let monitor = NWPathMonitor()
-        let queue = DispatchQueue(label: "auth.network.check")
-        let box = NetworkStatusBox()
-        monitor.pathUpdateHandler = { path in
-            box.set(path.status == .satisfied)
-            monitor.cancel()
-        }
-        monitor.start(queue: queue)
-        let deadline = Date().addingTimeInterval(0.4)
-        while Date() < deadline {
-            if let value = box.get() {
-                return value
-            }
-            Thread.sleep(forTimeInterval: 0.02)
-        }
-        monitor.cancel()
-        return true
-    }
 }
 
-private final class NetworkStatusBox: @unchecked Sendable {
-    private let lock = NSLock()
-    private var value: Bool?
+protocol NetworkPathChecking: AnyObject {
+    func isSatisfied() async -> Bool
+}
 
-    func set(_ newValue: Bool) {
+final class SystemNetworkPathChecker: NetworkPathChecking, @unchecked Sendable {
+    private let monitor = NWPathMonitor()
+    private let queue = DispatchQueue(label: "auth.network.check")
+    private let lock = NSLock()
+    private var latestSatisfied: Bool?
+    private var waiters: [(Bool) -> Void] = []
+
+    init() {
+        monitor.pathUpdateHandler = { [weak self] path in
+            self?.publish(path.status == .satisfied)
+        }
+        monitor.start(queue: queue)
+    }
+
+    deinit {
+        monitor.cancel()
+    }
+
+    func isSatisfied() async -> Bool {
+        if let known = snapshot() {
+            return known
+        }
+        return await withCheckedContinuation { continuation in
+            let once = OnceResume(continuation)
+            enqueue { once.resume($0) }
+            queue.asyncAfter(deadline: .now() + .milliseconds(400)) { [weak self] in
+                once.resume(self?.snapshot() ?? true)
+            }
+        }
+    }
+
+    private func snapshot() -> Bool? {
         lock.lock()
-        value = newValue
+        defer { lock.unlock() }
+        return latestSatisfied
+    }
+
+    private func enqueue(_ waiter: @escaping (Bool) -> Void) {
+        lock.lock()
+        if let latestSatisfied {
+            lock.unlock()
+            waiter(latestSatisfied)
+            return
+        }
+        waiters.append(waiter)
         lock.unlock()
     }
 
-    func get() -> Bool? {
+    private func publish(_ satisfied: Bool) {
         lock.lock()
-        defer { lock.unlock() }
-        return value
+        latestSatisfied = satisfied
+        let pending = waiters
+        waiters.removeAll()
+        lock.unlock()
+        pending.forEach { $0(satisfied) }
+    }
+}
+
+private final class OnceResume: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Bool, Never>?
+
+    init(_ continuation: CheckedContinuation<Bool, Never>) {
+        self.continuation = continuation
+    }
+
+    func resume(_ value: Bool) {
+        lock.lock()
+        let pending = continuation
+        continuation = nil
+        lock.unlock()
+        pending?.resume(returning: value)
     }
 }
