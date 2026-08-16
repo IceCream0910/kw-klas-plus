@@ -112,11 +112,14 @@ struct KlasLoadingView: View {
         ZStack {
             KlasTheme.background.ignoresSafeArea()
             VStack(spacing: 12) {
-                KlasCircularProgressView()
+                ProgressView()
+                    .controlSize(.large)
+                    .tint(KlasTheme.primary)
                 Text(message)
                     .font(.body)
                     .foregroundStyle(KlasTheme.onBackground)
             }
+            .accessibilityElement(children: .combine)
         }
         .accessibilityIdentifier("klas_loading")
     }

@@ -441,23 +441,15 @@ private struct LoginSubmitActions: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            HStack(spacing: 0) {
-                RoundCheckbox(checked: state.agreementAccepted) {
-                    state.agreementAccepted.toggle()
-                }
-                .accessibilityIdentifier("login_agreement")
-
-                Button {
-                    state.agreementAccepted.toggle()
-                } label: {
+            HStack(alignment: .center, spacing: 8) {
+                Toggle(isOn: $state.agreementAccepted) {
                     Text("개인정보 수집 및 이용/제공 동의")
                         .font(.footnote)
                         .foregroundStyle(KlasTheme.onBackground)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 8)
                 }
-                .buttonStyle(KlasPressHighlightButtonStyle())
-                .accessibilityIdentifier("login_agreement_label")
+                .toggleStyle(KlasCheckboxToggleStyle())
+                .tint(KlasTheme.primary)
+                .accessibilityIdentifier("login_agreement")
 
                 Button {
                     onOpenURL(KlasTheme.agreementURL)
@@ -478,29 +470,5 @@ private struct LoginSubmitActions: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 16)
-    }
-}
-
-private struct RoundCheckbox: View {
-    var checked: Bool
-    var onToggle: () -> Void
-
-    var body: some View {
-        Button(action: onToggle) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(checked ? KlasTheme.primary : KlasTheme.surfaceVariant)
-                    .frame(width: 24, height: 24)
-                if checked {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(KlasTheme.onPrimary)
-                }
-            }
-            .frame(width: 40, height: 40)
-            .contentShape(Circle())
-        }
-        // Material IconToggleButton: 원형 pressed state layer
-        .buttonStyle(KlasIconToggleButtonStyle())
     }
 }
