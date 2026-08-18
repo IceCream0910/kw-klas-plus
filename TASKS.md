@@ -7,7 +7,6 @@
 
 ## 개요
 
-
 | Milestone              | 상태          | 결과 / 다음 게이트                               |
 | ---------------------- | ----------- | ----------------------------------------- |
 | M1 계약 고정               | **완료(6/6)** | Android 인증·브리지·저장소·플랫폼 계약 고정 완료           |
@@ -18,9 +17,6 @@
 | M6 iOS 기본 경로           | 진행 중(9/11)  | M6-009 화면별 제품 경로 완료. 다음: M6-010 다운로드·파일 |
 | M7 iOS 플랫폼 기능          | 미착수(0/7)    | M6 기본 경로 이후 진행                            |
 
-
-
-
 ### M1 — 기존 계약 고정
 
 - [x] **M1-001 (P0, L)** 인증 A-001~A-012 fixture와 상태 전이 테스트
@@ -30,8 +26,6 @@
 - [x] **M1-006 (P0, M)** 기존 저장 데이터 migration fixture와 업그레이드 검증
 - [x] **M1-007 (P1, M)** QR·PIP·Widget·생체·파일 기능 특성화
 
-
-
 ### M2 — KMP/Android 실행 기반 · 완료
 
 - [x] **M2-001 (P0, M)** 단일 `shared` 모듈 전략 확정
@@ -40,8 +34,6 @@
 - [x] **M2-007 (P1, M)** typed navigation과 capability 모델 정의
 - [x] **M2-008 (P0, S)** Android 최소 OS·기기·반응형 정책 확정
 - [x] **M2-009 (P0, L)** Android 구현을 KMP source set 경계로 재배치
-
-
 
 ### M3 — 공통 코어 추출 · 완료
 
@@ -54,8 +46,6 @@
 - [x] **M3-007 (P0, M)** 앱 잠금 도메인·lifecycle 정책
 - [x] **M3-008 (P0, L)** 기존 Android UI의 신규 core 연결
 - [x] **M3-009 (P0, L)** Android 앱 계층 공통화 감사
-
-
 
 ### M4 — Android Web/Compose 전환
 
@@ -70,8 +60,6 @@
   - Depends on: M5-007
   - 완료 기준: rollback 자산 목록 확인 후 삭제, debug와 R8 release build 통과
 
-
-
 ### M5 — Android 네이티브 기능 패리티 · 완료
 
 - [x] **M5-001 (P0, L)** QR 출석과 공통 AttendanceRepository
@@ -81,8 +69,6 @@
 - [x] **M5-005 (P1, L)** 다운로드·파일 선택·외부 이동
 - [x] **M5-006 (P1, M)** 테마·방향·태블릿·햅틱·인앱 업데이트 패리티
 - [x] **M5-007 (P0, L)** Android P0/P1 업그레이드·회귀·release 검증
-
-
 
 ### M6 — iOS 기본 기능 구현
 
@@ -133,12 +119,12 @@
   - 작업: 로그인 제출을 공통 인증 API와 KLAS 로그인 WKWebView에 연결하고 `SESSION`을 `WKHTTPCookieStore`·`SessionCoordinator`·Keychain에 동기화
   - 완료 기준: 최초 온보딩, 수동·저장 credential 로그인, 유효 세션 즉시 진입, 만료·로그아웃·재시작 복구가 하나의 startup flow로 동작
   - 검증: F-002~F-006, CAPTCHA·임시 비밀번호·네트워크·timeout, 평문 비밀번호와 SESSION의 로그·UserDefaults 비저장 확인
-  - 증거: `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' test -only-testing:iosAppTests/IosWebAuthDriverTests -only-testing:iosAppTests/IosAuthSecurityTests`
+  - 증거: `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' test -only-testing:iosAppTests/IosWebAuthDriverTests -only-testing:iosAppTests/IosAuthSecurityTests -only-testing:iosAppTests/AuthSessionControllerTests`
     - `IosWebAuthDriverTests`: CAPTCHA alert, 임시 비밀번호 재노출, hanging timeout, scheme load network failure
     - `IosAuthSecurityTests`: SecretValue/PlainPassword `[REDACTED]`, UserDefaults에 평문/`kwPWD`/`kwSESSION`/암호문/토큰 미저장, Keychain round-trip, `kwSESSION_timestamp`만 기록
+    - `AuthSessionControllerTests`: 세션 만료 종료 시 SessionCoordinator 만료 후 로그인 화면 복귀
 - [x] **M6-009 (P0, XL)** Home/Lecture/Board/Task WKWebView와 화면별 Bridge host
   - Depends on: M6-008
-  - 브랜치: 현재 작업 트리
   - 작업: 화면별 URL/surface를 SwiftUI navigation에 연결하고 Bridge command를 작은 iOS host 인터페이스로 구현
   - 작업: Home·Lecture·Board·LecturePlan·Link·Settings command 중 해당 화면에 필요한 navigation/modal/reload/callback 연결
   - 완료 기준: F-007~F-016 P0 경로에서 `KlasNativeBridge.*` 호출과 Native → Web callback이 Android와 동일한 결과를 생성
@@ -148,8 +134,8 @@
     - `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' test`
     - `IosLegacyBridgeCommandHandlerTest`: changeTab/completePageLoad/openLecture, QR stub Success, board path, settings lock JSON, board completePageLoad
     - `IosHomeHostTests`: Home 탭 URL, receivedData 2/3/4인자, `receiveToken` 주입, `closeWebViewBottomSheet` 스크립트, 제품 UA `iOSApp_v1`, 세션 없이 학기·옵션·날짜 picker와 Settings push, 강의/게시판/과제는 세션 없으면 push하지 않음
+    - `IosHomeHostTests`: bootstrap 실패 후 재시도 성공 시 Home holder 부착과 `.ready` 전환
     - 수동: 실계정 로그인 후 탭·강의·게시판·과제·학기 picker·modal 확인 (QR/영상/도서관/잠금은 M7 stub 안내). 웹 `bottomNav.js` iOS UA 분기는 Web 저장소 배포 후 하단 탭이 표시됨
-  - 롤백: `StartupRootView` authenticated의 `HomeRootView`를 제거하고 해당 커밋을 revert
 - [ ] **M6-010 (P1, L)** WKWebView 다운로드·파일 선택·외부 이동
   - Depends on: M6-009
   - 작업: WKDownload/URLSession, document/photo picker, share sheet, `UIApplication.open`을 공통 요청·URL 정책에 연결
@@ -158,8 +144,6 @@
   - Depends on: M6-009
   - 작업: SwiftUI theme, safe area, 키보드·viewport, iPhone/iPad 회전과 Dynamic Type/VoiceOver focus 처리
   - 완료 기준: Web content와 Native overlay가 compact/regular, 세로/가로, 키보드 표시 상태에서 가려지거나 중복 재생성되지 않음
-
-
 
 ### M7 — iOS 네이티브 기능 구현
 
@@ -188,4 +172,3 @@
   - 작업: App Group cache를 읽는 WidgetKit timeline과 잠금·만료·테마별 placeholder/deep link 구현
   - 완료 기준: F-020·F-021의 신규 조회, 캐시 표시, 수동 갱신, 로그아웃 삭제, 잠금 상태, light/dark widget 패리티
   - 검증: 앱 화면은 Simulator, Widget 갱신·잠금·재부팅·App Group/Keychain 동작은 실기기에서 확인
-

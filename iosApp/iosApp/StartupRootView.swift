@@ -33,7 +33,8 @@ struct StartupRootView: View {
             case .authenticated:
                 HomeRootView(
                     authRuntime: controller.authRuntime,
-                    onLogout: { controller.handleHomeLogout() }
+                    onLogout: { controller.handleHomeLogout() },
+                    onSessionExpired: { controller.handleHomeSessionExpired() }
                 )
             }
         }

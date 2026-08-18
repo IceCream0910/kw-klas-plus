@@ -3,6 +3,7 @@ import SwiftUI
 
 struct HomeOverlayModifier: ViewModifier {
     @ObservedObject var coordinator: HomeCoordinator
+    @State private var datePickerDetent: PresentationDetent = .large
 
     func body(content: Content) -> some View {
         content
@@ -46,7 +47,11 @@ struct HomeOverlayModifier: ViewModifier {
                         }
                     }
                 }
-                .presentationDetents([.medium, .large])
+                .presentationDetents(
+                    [.medium, .large],
+                    selection: $datePickerDetent
+                )
+                .onAppear { datePickerDetent = .large }
                 .preferredColorScheme(coordinator.colorScheme)
             }
             .overlay(alignment: .bottom) {

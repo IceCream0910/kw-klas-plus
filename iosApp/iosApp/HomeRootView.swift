@@ -3,11 +3,17 @@ import SwiftUI
 
 struct HomeRootView: View {
     @StateObject private var coordinator: HomeCoordinator
+    private let onSessionExpired: () -> Void
 
-    init(authRuntime: IosAuthRuntime, onLogout: @escaping () -> Void) {
+    init(
+        authRuntime: IosAuthRuntime,
+        onLogout: @escaping () -> Void,
+        onSessionExpired: @escaping () -> Void
+    ) {
         _coordinator = StateObject(
             wrappedValue: HomeCoordinator(authRuntime: authRuntime, onLogout: onLogout)
         )
+        self.onSessionExpired = onSessionExpired
     }
 
     var body: some View {
@@ -42,7 +48,7 @@ struct HomeRootView: View {
                 coordinator: coordinator
             )
         case .sessionExpired:
-            HomeSessionExpiredView(onExit: coordinator.onLogout)
+            HomeSessionExpiredView(onExit: onSessionExpired)
         case .failed(let message):
             HomeFailureView(message: message, onRetry: {
                 coordinator.reloadHome()

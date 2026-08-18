@@ -62,6 +62,7 @@ struct SelectionBottomSheet: View {
             }
         }
         .padding(20)
+        .padding(.top, (title != nil || description != nil) ? 20 : 0)
         .frame(maxWidth: 640)
         .frame(maxWidth: .infinity)
         .accessibilityIdentifier("selection_bottom_sheet")

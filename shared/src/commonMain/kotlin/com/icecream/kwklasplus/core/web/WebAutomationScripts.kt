@@ -5,6 +5,21 @@ object KlasWebAutomationScripts {
         "appModule.goLctrum(${JavaScriptEncoder.encodeText(yearSemester)},${JavaScriptEncoder.encodeText(subjectId)});",
     )
 
+    fun openLectureWhenReady(
+        yearSemester: String,
+        subjectId: String,
+        maxRetries: Int = 20,
+        intervalMs: Int = 250,
+    ): WebScript {
+        require(maxRetries > 0)
+        require(intervalMs > 0)
+        val call = openLecture(yearSemester, subjectId).reveal()
+        return WebScript(
+            "(function(){function go(n){if(window.appModule&&typeof appModule.goLctrum==='function'){" +
+                "$call;return;}if(n>0)setTimeout(function(){go(n-1);},$intervalMs);}go($maxRetries);})();",
+        )
+    }
+
     fun reloadPage(): WebScript = WebScript("pageReload();")
 
     fun closeBottomSheet(): WebScript = WebScript("window.closeWebViewBottomSheet();")

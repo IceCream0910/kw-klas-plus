@@ -59,10 +59,16 @@ final class HomeCoordinator: ObservableObject {
         webPolicy: ExternalNavigationPolicy(maximumLength: 2048)
     )
     private let externalPolicy = ExternalNavigationPolicy(maximumLength: 2048)
+    private static let dateTimeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm"
+        return f
+    }()
+
     private let haptics = IosHaptics()
     private var homeHost: HomeBridgeHostAdapter?
     private var toastTask: Task<Void, Never>?
-    private var backPressedAt: Date = .distantPast
     private var didStart = false
 
     var colorScheme: ColorScheme? {
@@ -279,26 +285,8 @@ final class HomeCoordinator: ObservableObject {
         }
     }
 
-    func handleHomeBack() {
-        if isWebBottomSheetOpen {
-            homeHolder?.evaluate(KlasWebAutomationScripts.shared.closeBottomSheet())
-            isWebBottomSheetOpen = false
-            return
-        }
-        let now = Date()
-        if now.timeIntervalSince(backPressedAt) < 2 {
-            UIApplication.shared.perform(NSSelectorFromString("suspend"))
-        } else {
-            backPressedAt = now
-            showToast("한 번 더 뒤로 가면 앱이 꺼져요.")
-        }
-    }
-
     func confirmDatePicker() {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm"
-        let value = formatter.string(from: datePickerDate)
+        let value = Self.dateTimeFormatter.string(from: datePickerDate)
         homeHolder?.evaluate(IosWebCallbacks.shared.setDateTime(value: value, isStart: datePickerIsStart))
         showDatePicker = false
     }
@@ -308,8 +296,9 @@ final class HomeCoordinator: ObservableObject {
     }
 
     func dispose() {
-        homeHolder?.dispose()
+        let holder = homeHolder
         homeHolder = nil
+        holder?.dispose()
     }
 
     func presentLogoutConfirm() {
@@ -360,10 +349,7 @@ final class HomeCoordinator: ObservableObject {
     func openDateTimePicker(currentDateTime: String?, isStart: Bool) {
         datePickerIsStart = isStart
         if let currentDateTime, !currentDateTime.isEmpty {
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.dateFormat = "yyyy-MM-dd'T'HH:mm"
-            if let parsed = formatter.date(from: currentDateTime) {
+            if let parsed = Self.dateTimeFormatter.date(from: currentDateTime) {
                 datePickerDate = parsed
             }
         } else {
@@ -372,7 +358,7 @@ final class HomeCoordinator: ObservableObject {
         showDatePicker = true
     }
 
-    private func handleBootstrap(_ result: HomeBootstrapResult) {
+    func handleBootstrap(_ result: HomeBootstrapResult) {
         if let ready = result as? HomeBootstrapResultReady {
             applyReady(ready)
             attachHomeHolder()
@@ -397,10 +383,18 @@ final class HomeCoordinator: ObservableObject {
         }
     }
 
-    private func handleRefresh(_ result: HomeBootstrapResult) {
+    func handleRefresh(_ result: HomeBootstrapResult) {
         if let ready = result as? HomeBootstrapResultReady {
             applyReady(ready)
-            homeHolder?.reload()
+            // 초기 bootstrap 실패 후 재시도에서는 아직 Home holder가 없으므로 새로 연결.
+            if homeHolder == nil {
+                attachHomeHolder()
+                currentTab = ""
+                switchToTab("feed")
+            } else {
+                homeHolder?.reload()
+            }
+            bootstrapPhase = .ready
             return
         }
         if result is HomeBootstrapResultSessionExpired {

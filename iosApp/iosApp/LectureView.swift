@@ -17,6 +17,8 @@ final class LectureScreenModel: ObservableObject {
     private var host: LectureHostAdapter
     private var boardNoticePath = ""
     private var boardPdsPath = ""
+    private var didOpenLecture = false
+    private var boardPathCollectTask: Task<Void, Never>?
 
     init(
         subjectId: String,
@@ -46,6 +48,7 @@ final class LectureScreenModel: ObservableObject {
     }
 
     deinit {
+        boardPathCollectTask?.cancel()
         uiHolder.dispose()
         klasHolder.dispose()
     }
@@ -99,6 +102,9 @@ final class LectureScreenModel: ObservableObject {
         showingKlas = true
     }
 
+    /// Android `LectureActivity`의 `WebViewClient.onPageFinished` 패리티.
+    /// Android는 페이지 로드 완료 콜백에서 URL별로 분기하지만, iOS는 `WebNavigationState`의
+    /// `.ready(url)` 이벤트로 같은 분기를 수행한다.
     func handleKlasNavigation(_ state: WebNavigationState) {
         guard case let .ready(url) = state.loadPhase else { return }
         klasHolder.evaluate(KlasWebAutomationScripts.shared.styleContentPage(hideSubjectHeader: true))
@@ -108,18 +114,48 @@ final class LectureScreenModel: ObservableObject {
             coordinator?.presentUnavailable()
         }
         if url.contains("Frame.do") {
-            klasHolder.evaluate(
-                KlasWebAutomationScripts.shared.openLecture(
-                    yearSemester: yearSemester,
-                    subjectId: subjectId
-                )
-            )
-            showingKlas = false
-            isLoading = false
+            openLectureIfNeeded()
+            if showingKlas { showingKlas = false }
+            if isLoading { isLoading = false }
         }
         if url.contains("LctrumHomeStdPage.do") {
-            klasHolder.evaluate(KlasWebAutomationScripts.shared.collectLectureBoardPaths())
-            showingKlas = false
+            collectBoardPathsUntilReady()
+            if showingKlas { showingKlas = false }
+        }
+    }
+
+    /// Android는 `Frame.do` 로드 시 `KlasWebAutomationScripts.openLecture(...)`를 즉시 한 번만 호출한다.
+    /// (Android WebView의 `onPageFinished`는 페이지 스크립트 초기화가 끝난 뒤 불린다.)
+    /// 반면 WKWebView의 `didFinish`는 `appModule`이 바인딩되기 전에 발생할 수 있으므로,
+    /// `openLectureWhenReady`가 `appModule.goLctrum`이 준비될 때까지 폴링한 뒤 호출한다.
+    /// `didOpenLecture`로 화면당 1회만 실행되도록 보장한다.
+    private func openLectureIfNeeded() {
+        guard !didOpenLecture else { return }
+        didOpenLecture = true
+        klasHolder.evaluate(
+            KlasWebAutomationScripts.shared.openLectureWhenReady(
+                yearSemester: yearSemester,
+                subjectId: subjectId,
+                maxRetries: 20,
+                intervalMs: 250,
+            )
+        )
+    }
+
+    /// Android는 `LctrumHomeStdPage.do` 로드 시 `collectLectureBoardPaths()`를 한 번만 실행한다.
+    /// iOS에서는 강의 홈 DOM(공지/자료실 링크)이 로드 완료 직후 아직 렌더링되지 않았을 수 있어,
+    /// 브릿지 콜백(`getBoardPath` → `storeBoardPaths`)으로 경로가 채워질 때까지 네이티브에서 폴링한다.
+    /// 최대 10회(약 4초) 시도하며, 경로가 모두 확보되거나 화면 이탈로 Task가 취소되면 중단한다.
+    private func collectBoardPathsUntilReady() {
+        boardPathCollectTask?.cancel()
+        boardPathCollectTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            for _ in 0..<10 {
+                if Task.isCancelled { return }
+                if !self.boardNoticePath.isEmpty && !self.boardPdsPath.isEmpty { return }
+                self.klasHolder.evaluate(KlasWebAutomationScripts.shared.collectLectureBoardPaths())
+                try? await Task.sleep(nanoseconds: 400_000_000)
+            }
         }
     }
 
@@ -237,8 +273,8 @@ struct LectureView: View {
             }
         }
         .webJavaScriptAlert(model.uiHolder)
-        .webJavaScriptAlert(model.klasHolder)
-        .onChange(of: model.klasHolder.navigationState) { state in
+        .webJavaScriptAlert(model.klasHolder, enabled: model.showingKlas)
+        .onReceive(model.klasHolder.$navigationState) { state in
             model.handleKlasNavigation(state)
         }
         .accessibilityIdentifier("lecture_view")

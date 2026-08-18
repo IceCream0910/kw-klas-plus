@@ -3,7 +3,7 @@ package com.icecream.kwklasplus.core.bridge
 class IosHomeLegacyBridgeCommandHandler(
     private val host: HomeBridgeHost,
 ) : BridgeCommandHandler {
-    override suspend fun handle(command: ValidatedBridgeCommand): BridgeHandlerResult {
+    override suspend fun handle(command: ValidatedBridgeCommand) = command.execute {
         when (command.methodId) {
             BridgeMethodId.HOME_CHANGE_TAB -> host.changeTab(command.text(0))
             BridgeMethodId.HOME_EVALUATE -> host.evaluate(
@@ -32,9 +32,9 @@ class IosHomeLegacyBridgeCommandHandler(
             BridgeMethodId.HOME_RELOAD -> host.reload()
             BridgeMethodId.HOME_PERFORM_HAPTIC_FEEDBACK -> host.performHapticFeedback(command.text(0))
             BridgeMethodId.HOME_REQUEST_ID_CARD_QR_VALUE -> host.requestIdCardQRValue()
-            else -> return BridgeHandlerResult.Failure(BridgeErrorCode.UNKNOWN_METHOD)
+            else -> return@execute false
         }
-        return BridgeHandlerResult.Success()
+        true
     }
 }
 

@@ -66,6 +66,14 @@ final class AuthSessionController: ObservableObject {
         phase = .needsCredentials
     }
 
+    func handleHomeSessionExpired() {
+        authRuntime.expireSession { [weak self] in
+            Task { @MainActor in
+                self?.handleHomeLogout()
+            }
+        }
+    }
+
     func start() {
         startTask?.cancel()
         phase = .checkingNetwork

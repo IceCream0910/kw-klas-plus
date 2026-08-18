@@ -62,6 +62,37 @@ final class IosHomeHostTests: XCTestCase {
         )
     }
 
+    @MainActor
+    func testRetryAfterBootstrapFailureAttachesHomeHolder() {
+        let suite = "com.icecream.kwklasplus.test.home.retry.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let coordinator = HomeCoordinator(
+            authRuntime: IosAuthRuntime.companion.create(defaults: defaults),
+            onLogout: {}
+        )
+        coordinator.handleBootstrap(HomeBootstrapResultFailure(message: "temporary failure"))
+        XCTAssertEqual(coordinator.bootstrapPhase, .failed("temporary failure"))
+
+        coordinator.handleRefresh(
+            HomeBootstrapResultReady(
+                sessionToken: SecretValue.companion.of(value: "session"),
+                yearHakgi: "2026,1",
+                yearHakgiListJoined: "2026,1",
+                timetableJson: "{}",
+                deadlineJson: "[]",
+                promptYearHakgiChange: false
+            )
+        )
+
+        XCTAssertEqual(coordinator.bootstrapPhase, .ready)
+        XCTAssertNotNil(coordinator.homeHolder)
+        coordinator.dispose()
+        XCTAssertNil(coordinator.homeHolder)
+    }
+
     func testReceivedDataCallbacksUseLegacyArgumentCounts() {
         XCTAssertTrue(IosWebCallbacks.shared.receivedData(token: "t", subjectId: "s").reveal().contains("window.receivedData"))
         let three = IosWebCallbacks.shared.receivedData(token: "t", subjectId: "s", yearHakgi: "2026,1").reveal()
