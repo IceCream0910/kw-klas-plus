@@ -67,6 +67,8 @@ class IosFileTransfer: NSObject, URLSessionDownloadDelegate {
     private let policy = FileTransferPolicy.companion.create()
     private let cookies: DownloadCookieProviding
     private let injectedSession: URLSession?
+    private let stateLock = NSLock()
+    private var downloadInProgress = false
     private var session: URLSession?
     private var fileName = "download"
     private var destinationURL: URL?
@@ -90,6 +92,10 @@ class IosFileTransfer: NSObject, URLSessionDownloadDelegate {
         guard let url = URL(string: accepted.request.url) else {
             return PlatformActionResultFailed(reason: "invalid_download_request")
         }
+        guard beginDownload() else {
+            return PlatformActionResultFailed(reason: "download_already_in_progress")
+        }
+        defer { endDownload() }
         fileName = DownloadMetadata.shared.resolvedFileName(request: accepted.request)
         destinationURL = IosDownloadFileStore.makeDestination(fileName: fileName)
         guard let destinationURL else {
@@ -180,6 +186,20 @@ class IosFileTransfer: NSObject, URLSessionDownloadDelegate {
         }
         destinationURL = nil
         continuation.resume(returning: result)
+    }
+
+    private func beginDownload() -> Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        guard !downloadInProgress else { return false }
+        downloadInProgress = true
+        return true
+    }
+
+    private func endDownload() {
+        stateLock.lock()
+        downloadInProgress = false
+        stateLock.unlock()
     }
 
     static func makeURLRequest(request: FileTransferRequest, cookieHeader: String?) -> URLRequest? {

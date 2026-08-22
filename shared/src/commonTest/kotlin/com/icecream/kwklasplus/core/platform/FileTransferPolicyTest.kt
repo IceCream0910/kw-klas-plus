@@ -82,6 +82,34 @@ class FileTransferPolicyTest {
     }
 
     @Test
+    fun respectsDispositionTypeInsteadOfFilenameParameter() {
+        assertEquals(
+            false,
+            policy.shouldTreatAsDownload(
+                mimeType = "text/plain",
+                contentDisposition = """inline; filename="note.txt"""",
+                canShowMimeType = true,
+            ),
+        )
+        assertEquals(
+            true,
+            policy.shouldTreatAsDownload(
+                mimeType = "text/plain",
+                contentDisposition = """attachment; filename="note.txt"""",
+                canShowMimeType = true,
+            ),
+        )
+        assertEquals(
+            true,
+            policy.shouldTreatAsDownload(
+                mimeType = "application/x-hwp",
+                contentDisposition = """inline; filename="note.hwp"""",
+                canShowMimeType = true,
+            ),
+        )
+    }
+
+    @Test
     fun rejectsNonWebAndControlCharacterUrls() {
         listOf("file:///data/file", "javascript:download()", "https://example.com\nfile:///x").forEach { url ->
             assertIs<FileTransferValidation.Rejected>(

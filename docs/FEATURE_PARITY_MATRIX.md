@@ -39,7 +39,7 @@
 | F-022 | 앱 잠금 PIN | 공통 policy + Android lifecycle | 공통 policy + iOS scene phase | P0 | Parity | 업그레이드·위젯 예외 포함 |
 | F-023 | 생체인식 | Android biometric port | LocalAuthentication port | P0 | Parity | 성공·취소·미등록·미지원 포함 |
 | F-024 | 설정/테마/버전 | 공통 Web/Compose + settings | 동일 | P1 | Parity | 재시작 persistence 포함. iOS `KlasTheme` 토큰은 Android `values`/`values-night` light·dark 쌍 |
-| F-025 | 다운로드 | Android DownloadManager/SAF | URLSession/files/share | P1 | Parity | cookie·MIME·filename·취소 포함 |
+| F-025 | 다운로드 | Android DownloadManager/SAF | URLSession/files/share | P1 | Parity | cookie·MIME·filename·취소 포함. `inline` 파일명은 표시 가능 MIME이면 렌더링하고 `attachment`만 강제 다운로드. iOS는 single-flight로 중복 요청과 취소 완료 전 재진입을 거부 |
 | F-026 | 파일 선택/업로드 | Activity Result adapter | document/photo picker | P1 | Parity | 단일·다중·MIME·취소 포함 |
 | F-027 | 외부 링크/mailto | allowlist + Android Intent | allowlist + UIApplication | P1 | Parity | 악성 URL 거부 포함 |
 | F-028 | 햅틱 | semantic haptic adapter | UIKit feedback adapter | P2 | Parity | legacy 14개 이름 보존 |

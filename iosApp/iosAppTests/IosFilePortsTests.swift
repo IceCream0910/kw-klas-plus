@@ -38,10 +38,9 @@ final class IosFilePortsTests: XCTestCase {
         XCTAssertTrue(holder.handleDecidePolicy(urlString: "https://klasplus.yuntae.in/feed", isMainFrame: true))
     }
 
-    func testDownloadDispatchAndInlinePdfHandling() throws {
+    func testDownloadDispatchIsSingleFlightAndInlinePdfHandling() throws {
         let transfer = RecordingFileTransfer()
         let dispatched = expectation(description: "downloads dispatched to FileTransfer")
-        dispatched.expectedFulfillmentCount = 2
         transfer.onDownload = { dispatched.fulfill() }
         let holder = WebViewHolder(
             navigator: IosExternalNavigator(opener: RecordingUrlOpener()),
@@ -95,7 +94,7 @@ final class IosFilePortsTests: XCTestCase {
         )
 
         wait(for: [dispatched], timeout: 2)
-        XCTAssertEqual(transfer.requests.map { $0.url }, Array(repeating: url.absoluteString, count: 2))
+        XCTAssertEqual(transfer.requests.map { $0.url }, [url.absoluteString])
     }
 
     func testLocalDownloadedPdfIsAllowedInWebView() throws {
@@ -292,6 +291,37 @@ final class IosFilePortsTests: XCTestCase {
         transfer.cancel()
         let result = await download.value
         XCTAssertTrue(result is PlatformActionResultCancelled)
+        HangingURLProtocol.started = nil
+    }
+
+    func testFileTransferRejectsOverlappingDownloadUntilFirstCompletes() async {
+        let started = expectation(description: "first request started")
+        HangingURLProtocol.started = started
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HangingURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let transfer = IosFileTransfer(
+            cookies: StaticCookieProvider(header: "SESSION=token"),
+            urlSession: session
+        )
+        let request = FileTransferRequest(
+            url: "https://klas.kw.ac.kr/std/file",
+            suggestedFileName: "a.pdf",
+            mimeType: "application/pdf",
+            userAgent: nil,
+            contentDisposition: nil
+        )
+        let firstDownload = Task {
+            await transfer.download(request: request)
+        }
+
+        await fulfillment(of: [started], timeout: 3)
+        let overlappingResult = await transfer.download(request: request)
+        XCTAssertTrue(overlappingResult is PlatformActionResultFailed)
+
+        transfer.cancel()
+        let firstResult = await firstDownload.value
+        XCTAssertTrue(firstResult is PlatformActionResultCancelled)
         HangingURLProtocol.started = nil
     }
 

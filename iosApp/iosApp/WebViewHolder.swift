@@ -25,6 +25,7 @@ final class WebViewHolder: NSObject, ObservableObject {
     private let navigator: IosExternalNavigator
     private let filePicker: IosFilePicker
     private let fileTransfer: IosFileTransfer
+    private var activeDownloadTask: Task<Void, Never>?
     private var loadingLocalPdf = false
 
     static var websiteDataStore: WKWebsiteDataStore { .default() }
@@ -393,8 +394,10 @@ final class WebViewHolder: NSObject, ObservableObject {
     }
 
     private func startDownload(_ request: FileTransferRequest) {
-        Task { @MainActor [weak self] in
+        guard activeDownloadTask == nil else { return }
+        activeDownloadTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            defer { self.activeDownloadTask = nil }
             let result = await self.fileTransfer.download(request: request)
             self.handleDownloadResult(result)
         }

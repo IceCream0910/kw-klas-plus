@@ -37,8 +37,11 @@ class FileTransferPolicy(
     ): Boolean {
         // PDF는 iOS에서 인라인으로 연다. attachment/octet-stream이어도 공유 시트로 보내지 않는다.
         if (DownloadMetadata.looksLikePdf(mimeType, contentDisposition, url)) return false
-        val disposition = contentDisposition?.lowercase().orEmpty()
-        if ("attachment" in disposition || "filename" in disposition) return true
+        val dispositionType = contentDisposition
+            ?.substringBefore(';')
+            ?.trim()
+            ?.lowercase()
+        if (dispositionType == "attachment") return true
         val mime = mimeType?.substringBefore(';')?.trim()?.lowercase()
         if (mime != null && mime in SAVEABLE_DOCUMENT_MIME_TYPES) return true
         return !canShowMimeType

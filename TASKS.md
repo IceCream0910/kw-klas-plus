@@ -140,6 +140,8 @@
   - Depends on: M6-009
   - 작업: WKDownload/URLSession, document/photo picker, share sheet, `UIApplication.open`을 공통 요청·URL 정책에 연결
   - 완료 기준: cookie가 필요한 다운로드, MIME·파일명, 단일/다중 선택, 취소, mailto/tel/https와 악성 scheme 거부
+  - 검증: `IosFilePortsTests` — 다운로드 single-flight, 중복 요청 거부, 취소 완료 전 재진입 방지, cookie·MIME·파일명·파일 선택·외부 URL 정책
+  - 검증: `FileTransferPolicyTest` — `inline`/`attachment` disposition type, 표시 가능 MIME, 저장 대상 문서 MIME 분기
 - [ ] **M6-011 (P1, M)** WKWebView 컨테이너의 iOS UI 환경 대응
   - Depends on: M6-009
   - 작업: SwiftUI theme, safe area, 키보드·viewport, iPhone/iPad 회전과 Dynamic Type/VoiceOver focus 처리
