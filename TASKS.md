@@ -1,20 +1,20 @@
 # KLAS+ KMP 마이그레이션 작업 현황
 
-- 기준일: 2026-08-07
+- 기준일: 2026-08-23
 - 현재 단계: **Android 마이그레이션 완료, iOS 기본 제품 경로(M6) 진행 중**
 - Android 상태: KMP 공통 코어, Compose UI, WebView 브리지, 네이티브 기능의 P0/P1 패리티 완료
-- iOS 상태: 툴체인·framework·WKWebView navigation/cookie·Native bridge·인증/세션·화면별 제품 경로·다운로드/파일 완료. 다음: UI 환경
+- iOS 상태: 툴체인·framework·WKWebView navigation/cookie·Native bridge·인증/세션·화면별 제품 경로·다운로드/외부 이동 완료. 파일 업로드는 실계정 검증 남음. 다음: UI 환경
 
 ## 개요
 
 | Milestone              | 상태          | 결과 / 다음 게이트                               |
-| ---------------------- | ----------- | ----------------------------------------- |
+| ---------------------- |-------------| ----------------------------------------- |
 | M1 계약 고정               | **완료(6/6)** | Android 인증·브리지·저장소·플랫폼 계약 고정 완료           |
 | M2 KMP/Android 기반      | **완료(6/6)** | 공통 모듈과 Android source set 경계 정렬 완료        |
 | M3 공통 코어               | **완료(9/9)** | 인증·세션·API·보안 저장소·앱 잠금 공통화 및 Android 연결 완료 |
 | M4 Android Web/Compose | 진행 중(7/8)   | Android 화면 전환 완료. legacy 자산 정리만 남음        |
 | M5 Android 기능 패리티      | **완료(7/7)** | QR·잠금·PIP·위젯·파일·테마 및 전체 Android 회귀 통과     |
-| M6 iOS 기본 경로           | 진행 중(10/11) | M6-010 다운로드·파일 완료. 다음: M6-011 UI 환경     |
+| M6 iOS 기본 경로           | 진행 중(9/11)  | M6-010 다운로드·외부 이동 완료. 파일 업로드 실계정 검증 남음. 다음: M6-011 UI 환경 |
 | M7 iOS 플랫폼 기능          | 미착수(0/7)    | M6 기본 경로 이후 진행                            |
 
 ### M1 — 기존 계약 고정
@@ -72,7 +72,7 @@
 
 ### M6 — iOS 기본 기능 구현
 
-진행 순서: `M6-003` WKWebView smoke → `M6-006` navigation/cookie → `M6-007` Native bridge → `M6-008` 인증/세션 → `M6-009` 화면별 제품 경로 → `M6-010` 다운로드·파일. 완료된 `M6-004`·`M6-005`는 Web 측 선행 계약이다. `M6-010`까지 완료.
+진행 순서: `M6-003` WKWebView smoke → `M6-006` navigation/cookie → `M6-007` Native bridge → `M6-008` 인증/세션 → `M6-009` 화면별 제품 경로 → `M6-010` 다운로드·파일. 완료된 `M6-004`·`M6-005`는 Web 측 선행 계약이다. `M6-010` 다운로드·외부 이동은 완료, 파일 업로드 실계정 검증은 후속.
 
 - [x] **M6-001 (P0, M)** iOS 툴체인과 최소 지원 환경 고정
   - 브랜치: `m6-001-002/ios-toolchain-framework`
@@ -129,19 +129,11 @@
   - 작업: Home·Lecture·Board·LecturePlan·Link·Settings command 중 해당 화면에 필요한 navigation/modal/reload/callback 연결
   - 완료 기준: F-007~F-016 P0 경로에서 `KlasNativeBridge.*` 호출과 Native → Web callback이 Android와 동일한 결과를 생성
   - 검증: 앱 Web + 신 iOS 조합의 탭·back·게시판·강의·과제 링크·학기 선택·modal 회귀
-  - 증거:
-    - `./gradlew :shared:iosSimulatorArm64Test --tests 'com.icecream.kwklasplus.core.bridge.IosLegacyBridgeCommandHandlerTest' --tests 'com.icecream.kwklasplus.core.web.ProductWebUrlsTest' --tests 'com.icecream.kwklasplus.core.web.IosWebCallbacksTest'`
-    - `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' test`
-    - `IosLegacyBridgeCommandHandlerTest`: changeTab/completePageLoad/openLecture, QR stub Success, board path, settings lock JSON, board completePageLoad
-    - `IosHomeHostTests`: Home 탭 URL, receivedData 2/3/4인자, `receiveToken` 주입, `closeWebViewBottomSheet` 스크립트, 제품 UA `iOSApp_v1`, 세션 없이 학기·옵션·날짜 picker와 Settings push, 강의/게시판/과제는 세션 없으면 push하지 않음
-    - `IosHomeHostTests`: bootstrap 실패 후 재시도 성공 시 Home holder 부착과 `.ready` 전환
-    - 수동: 실계정 로그인 후 탭·강의·게시판·과제·학기 picker·modal 확인 (QR/영상/도서관/잠금은 M7 stub 안내). 웹 `bottomNav.js` iOS UA 분기는 Web 저장소 배포 후 하단 탭이 표시됨
-- [x] **M6-010 (P1, L)** WKWebView 다운로드·파일 선택·외부 이동
+- [ ] **M6-010 (P1, L)** WKWebView 다운로드·파일 선택·외부 이동
   - Depends on: M6-009
   - 작업: WKDownload/URLSession, document/photo picker, share sheet, `UIApplication.open`을 공통 요청·URL 정책에 연결
   - 완료 기준: cookie가 필요한 다운로드, MIME·파일명, 단일/다중 선택, 취소, mailto/tel/https와 악성 scheme 거부
-  - 검증: `IosFilePortsTests` — 다운로드 single-flight, 중복 요청 거부, 취소 완료 전 재진입 방지, cookie·MIME·파일명·파일 선택·외부 URL 정책
-  - 검증: `FileTransferPolicyTest` — `inline`/`attachment` disposition type, 표시 가능 MIME, 저장 대상 문서 MIME 분기
+  - 남은 일: 파일 업로드(`UIDocumentPicker`)는 계약 테스트만 통과. 실계정 KLAS 업로드 경로 검증 후 완료 처리
 - [ ] **M6-011 (P1, M)** WKWebView 컨테이너의 iOS UI 환경 대응
   - Depends on: M6-009
   - 작업: SwiftUI theme, safe area, 키보드·viewport, iPhone/iPad 회전과 Dynamic Type/VoiceOver focus 처리
