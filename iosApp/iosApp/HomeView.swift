@@ -17,10 +17,18 @@ struct HomeView: View {
             }
             if coordinator.isPageLoading {
                 KlasLoadingView(message: "불러오는 중")
+            } else if case let .failed(_, category) = holder.navigationState.loadPhase {
+                HomeFailureView(
+                    message: HomeCoordinator.pageLoadFailureMessage(for: category),
+                    onRetry: { coordinator.reloadCurrentTab() }
+                )
             }
         }
         .toolbar(.hidden, for: .navigationBar)
         .webJavaScriptAlert(holder)
+        .onReceive(holder.$navigationState) { state in
+            coordinator.handleHomeNavigation(state)
+        }
         .accessibilityIdentifier("home_view")
     }
 }

@@ -112,6 +112,29 @@ final class HomeCoordinator: ObservableObject {
         _ = haptics.performLegacy(contractName: "CLOCK_TICK")
     }
 
+    /// `switchToTab`은 같은 탭이면 return하므로, 학기 변경·로드 실패 재시도는 가드를 비운 뒤 URL을 다시 만든다.
+    func reloadCurrentTab() {
+        let tab = currentTab.isEmpty ? "feed" : currentTab
+        currentTab = ""
+        switchToTab(tab)
+    }
+
+    func handleHomeNavigation(_ state: WebNavigationState) {
+        guard case .failed = state.loadPhase else { return }
+        isPageLoading = false
+    }
+
+    static func pageLoadFailureMessage(for category: WebNavFailureCategory) -> String {
+        switch category {
+        case .network:
+            return "네트워크 연결을 확인해 주세요."
+        case .tls:
+            return "보안 연결에 실패했습니다."
+        case .http, .cancelled, .unknown:
+            return "페이지를 불러오지 못했습니다."
+        }
+    }
+
     func injectHomePageLoad() {
         guard let holder = homeHolder, let token = sessionToken else { return }
         currentTab = Self.homeTab(fromUrl: holder.webView.url?.absoluteString ?? "", fallback: currentTab)
@@ -369,9 +392,9 @@ final class HomeCoordinator: ObservableObject {
             }
             return
         }
-        if result is HomeBootstrapResultEmptyTerms {
+        if let empty = result as? HomeBootstrapResultEmptyTerms {
+            sessionToken = empty.sessionToken
             bootstrapPhase = .emptyTerms
-            sessionToken = nil
             return
         }
         if result is HomeBootstrapResultSessionExpired {
@@ -392,9 +415,14 @@ final class HomeCoordinator: ObservableObject {
                 currentTab = ""
                 switchToTab("feed")
             } else {
-                homeHolder?.reload()
+                reloadCurrentTab()
             }
             bootstrapPhase = .ready
+            return
+        }
+        if let empty = result as? HomeBootstrapResultEmptyTerms {
+            sessionToken = empty.sessionToken
+            bootstrapPhase = .emptyTerms
             return
         }
         if result is HomeBootstrapResultSessionExpired {

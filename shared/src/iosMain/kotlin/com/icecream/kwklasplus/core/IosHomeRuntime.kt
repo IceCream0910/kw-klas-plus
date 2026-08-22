@@ -32,7 +32,7 @@ sealed interface HomeBootstrapResult {
         val promptYearHakgiChange: Boolean,
     ) : HomeBootstrapResult
 
-    data object EmptyTerms : HomeBootstrapResult
+    class EmptyTerms(val sessionToken: SecretValue) : HomeBootstrapResult
     data object SessionExpired : HomeBootstrapResult
     class Failure(val message: String) : HomeBootstrapResult
 }
@@ -103,13 +103,13 @@ class IosHomeRuntime(
         return when (val termsResult = dependencies.academicRepository.fetchTerms(session, agent)) {
             is AcademicTermsResult.Success -> {
                 val terms = termsResult.terms
-                if (terms.isEmpty()) return HomeBootstrapResult.EmptyTerms
+                if (terms.isEmpty()) return HomeBootstrapResult.EmptyTerms(session)
                 val savedYearHakgi = selectedYearHakgi
                     ?: dependencies.stringPreference(LegacyPreferenceKeys.YEAR_HAKGI)
                 val savedList = dependencies.stringPreference(LegacyPreferenceKeys.YEAR_HAKGI_LIST)
                 val joined = terms.joinToString("&") { it.value }
                 val selection = AcademicTermSelector.select(terms, savedYearHakgi)
-                    ?: return HomeBootstrapResult.EmptyTerms
+                    ?: return HomeBootstrapResult.EmptyTerms(session)
                 val yearHakgi = selection.term.value
                 dependencies.writeStringPreference(LegacyPreferenceKeys.YEAR_HAKGI_LIST, joined)
                 dependencies.writeStringPreference(LegacyPreferenceKeys.YEAR_HAKGI, yearHakgi)

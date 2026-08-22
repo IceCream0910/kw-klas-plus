@@ -93,6 +93,75 @@ final class IosHomeHostTests: XCTestCase {
         XCTAssertNil(coordinator.homeHolder)
     }
 
+    @MainActor
+    func testEmptyTermsKeepsSessionTokenForNotReady() {
+        let coordinator = makeHomeCoordinator()
+        defer { coordinator.dispose() }
+        XCTAssertNil(coordinator.sessionToken)
+
+        coordinator.handleBootstrap(
+            HomeBootstrapResultEmptyTerms(
+                sessionToken: SecretValue.companion.of(value: "empty-session")
+            )
+        )
+
+        XCTAssertEqual(coordinator.bootstrapPhase, .emptyTerms)
+        XCTAssertEqual(coordinator.sessionToken?.reveal(), "empty-session")
+    }
+
+    @MainActor
+    func testHomeNavigationFailureClearsLoadingWithoutFailingBootstrap() {
+        let coordinator = makeHomeCoordinator()
+        defer { coordinator.dispose() }
+        coordinator.handleBootstrap(Self.readyHomeResult())
+
+        XCTAssertEqual(coordinator.bootstrapPhase, .ready)
+        XCTAssertTrue(coordinator.isPageLoading)
+
+        coordinator.handleHomeNavigation(
+            WebNavigationState(
+                loadPhase: .ready(url: "https://klasplus.yuntae.in/feed?yearHakgi=2026,1")
+            )
+        )
+        XCTAssertTrue(coordinator.isPageLoading)
+        XCTAssertEqual(coordinator.bootstrapPhase, .ready)
+
+        coordinator.handleHomeNavigation(
+            WebNavigationState(
+                loadPhase: .failed(url: "https://klasplus.yuntae.in/feed?yearHakgi=2026,1", category: .network)
+            )
+        )
+        XCTAssertFalse(coordinator.isPageLoading)
+        XCTAssertEqual(coordinator.bootstrapPhase, .ready)
+        XCTAssertEqual(
+            HomeCoordinator.pageLoadFailureMessage(for: .network),
+            "네트워크 연결을 확인해 주세요."
+        )
+        XCTAssertEqual(
+            HomeCoordinator.pageLoadFailureMessage(for: .tls),
+            "보안 연결에 실패했습니다."
+        )
+        XCTAssertEqual(
+            HomeCoordinator.pageLoadFailureMessage(for: .http),
+            "페이지를 불러오지 못했습니다."
+        )
+    }
+
+    @MainActor
+    func testReloadCurrentTabBypassesSameTabGuard() {
+        let coordinator = makeHomeCoordinator()
+        defer { coordinator.dispose() }
+        coordinator.handleBootstrap(Self.readyHomeResult())
+        XCTAssertEqual(coordinator.currentTab, "feed")
+
+        coordinator.isPageLoading = false
+        coordinator.reloadCurrentTab()
+
+        XCTAssertEqual(coordinator.currentTab, "feed")
+        XCTAssertTrue(coordinator.isPageLoading)
+        XCTAssertEqual(coordinator.bootstrapPhase, .ready)
+    }
+
     func testReceivedDataCallbacksUseLegacyArgumentCounts() {
         XCTAssertTrue(IosWebCallbacks.shared.receivedData(token: "t", subjectId: "s").reveal().contains("window.receivedData"))
         let three = IosWebCallbacks.shared.receivedData(token: "t", subjectId: "s", yearHakgi: "2026,1").reveal()
@@ -175,6 +244,28 @@ final class IosHomeHostTests: XCTestCase {
         XCTAssertTrue(coordinator.showOptionsMenu)
         XCTAssertTrue(coordinator.showDatePicker)
         coordinator.dispose()
+    }
+
+    @MainActor
+    private func makeHomeCoordinator() -> HomeCoordinator {
+        let suite = "com.icecream.kwklasplus.test.home.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        return HomeCoordinator(
+            authRuntime: IosAuthRuntime.companion.create(defaults: defaults),
+            onLogout: {}
+        )
+    }
+
+    private static func readyHomeResult() -> HomeBootstrapResultReady {
+        HomeBootstrapResultReady(
+            sessionToken: SecretValue.companion.of(value: "session"),
+            yearHakgi: "2026,1",
+            yearHakgiListJoined: "2026,1",
+            timetableJson: "{}",
+            deadlineJson: "[]",
+            promptYearHakgiChange: false
+        )
     }
 
     private func loadHTML(_ webView: WKWebView, _ html: String, baseURL: URL) throws {
