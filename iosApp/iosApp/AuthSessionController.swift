@@ -116,7 +116,7 @@ final class AuthSessionController: ObservableObject {
     }
 
     func openExternal(_ url: URL) {
-        UIApplication.shared.open(url)
+        _ = IosExternalNavigator.companion.system().openValidated(rawValue: url.absoluteString)
     }
 
     /// 로그인 화면 URL 분기: KLAS 복구/등록은 인앱 WebView, 그 외(동의 블로그 등)는 외부 브라우저

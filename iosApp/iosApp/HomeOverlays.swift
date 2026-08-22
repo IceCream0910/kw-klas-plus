@@ -74,10 +74,10 @@ struct HomeOverlayModifier: ViewModifier {
     private var optionsSheet: some View {
         SelectionBottomSheet(options: [
             SelectionOptionRow(title: "광운대학교 공식 앱") {
-                coordinator.openExternalAppSearch("광운대학교")
+                coordinator.openOfficialAppStore()
             },
             SelectionOptionRow(title: "중앙도서관 앱") {
-                coordinator.openExternalAppSearch("광운대학교 도서관")
+                coordinator.openLibraryAppStore()
             },
             SelectionOptionRow(title: "앱 설정") {
                 coordinator.openSettings()

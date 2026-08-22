@@ -58,7 +58,7 @@ final class HomeCoordinator: ObservableObject {
     private let routeFactory = AppRouteFactory(
         webPolicy: ExternalNavigationPolicy(maximumLength: 2048)
     )
-    private let externalPolicy = ExternalNavigationPolicy(maximumLength: 2048)
+    private let navigator = IosExternalNavigator.companion.system()
     private static let dateTimeFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
@@ -220,10 +220,7 @@ final class HomeCoordinator: ObservableObject {
     }
 
     func openExternal(url: String) {
-        let resolution = externalPolicy.resolve(rawValue: url)
-        if let allowed = resolution as? ExternalNavigationResolutionAllowed {
-            openDestination(allowed.destination)
-        }
+        _ = navigator.openValidated(rawValue: url)
     }
 
     func openBoardList(path: String, title: String, subjectId: String, yearSemester: String) {
@@ -340,9 +337,16 @@ final class HomeCoordinator: ObservableObject {
         }
     }
 
-    func openExternalAppSearch(_ query: String) {
-        let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
-        if let url = URL(string: "https://apps.apple.com/kr/search?term=\(encoded)") {
+    func openOfficialAppStore() {
+        openAppStore(id: "1510521632")
+    }
+
+    func openLibraryAppStore() {
+        openAppStore(id: "1192646132")
+    }
+
+    private func openAppStore(id: String) {
+        if let url = URL(string: "itms-apps://itunes.apple.com/app/id\(id)") {
             UIApplication.shared.open(url)
         }
         showOptionsMenu = false
@@ -452,23 +456,6 @@ final class HomeCoordinator: ObservableObject {
             handler: IosHomeLegacyBridgeCommandHandler(host: adapter)
         )
         homeHolder = holder
-    }
-
-    private func openDestination(_ destination: ExternalDestination) {
-        let raw: String
-        if let web = destination as? ExternalDestinationWeb {
-            raw = web.url
-        } else if let email = destination as? ExternalDestinationEmail {
-            raw = "mailto:\(email.address)"
-        } else if let tel = destination as? ExternalDestinationTelephone {
-            raw = "tel:\(tel.number)"
-        } else if let platform = destination as? ExternalDestinationPlatformUri {
-            raw = platform.uri
-        } else {
-            return
-        }
-        guard let url = URL(string: raw) else { return }
-        UIApplication.shared.open(url)
     }
 
     static func platformUserAgent() -> String {
