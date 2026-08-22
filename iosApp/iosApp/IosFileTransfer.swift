@@ -17,6 +17,10 @@ struct WKWebsiteCookieProvider: DownloadCookieProviding {
         let cookies: [HTTPCookie] = await withCheckedContinuation { continuation in
             store.getAllCookies { continuation.resume(returning: $0) }
         }
+        return Self.header(from: cookies, for: url)
+    }
+
+    static func header(from cookies: [HTTPCookie], for url: URL) -> String? {
         let matching = cookies.filter { $0.klas_matches(url) }
         let header = HTTPCookie.requestHeaderFields(with: matching)["Cookie"]
         return header?.isEmpty == false ? header : nil
