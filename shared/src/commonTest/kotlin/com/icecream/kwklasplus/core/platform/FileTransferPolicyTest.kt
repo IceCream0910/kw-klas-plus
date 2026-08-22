@@ -24,6 +24,64 @@ class FileTransferPolicyTest {
     }
 
     @Test
+    fun acceptsLongHttpsDownloadUrls() {
+        val query = "enc=" + "a".repeat(4_000)
+        val result = policy.validate(
+            FileTransferRequest(
+                url = "https://klas.kw.ac.kr/std/lis/board/FileDownStd.do?$query",
+                suggestedFileName = "a.pdf",
+                mimeType = "application/pdf",
+            ),
+        )
+        assertIs<FileTransferValidation.Accepted>(result)
+    }
+
+    @Test
+    fun doesNotAutoDownloadPdfsEvenWhenAttachmentOrUnshowable() {
+        assertEquals(
+            false,
+            policy.shouldTreatAsDownload(
+                mimeType = "application/pdf",
+                contentDisposition = """inline; filename="컴퓨터구조_15주차_강의자료.pdf"""",
+                canShowMimeType = true,
+            ),
+        )
+        assertEquals(
+            false,
+            policy.shouldTreatAsDownload(
+                mimeType = "application/pdf",
+                contentDisposition = """attachment; filename="컴퓨터구조_15주차_강의자료.pdf"""",
+                canShowMimeType = true,
+            ),
+        )
+        assertEquals(
+            false,
+            policy.shouldTreatAsDownload(
+                mimeType = "application/octet-stream",
+                contentDisposition = """attachment; filename="컴퓨터구조_15주차_강의자료.pdf"""",
+                canShowMimeType = false,
+                url = "https://klas.kw.ac.kr/std/lis/board/FileDownStd.do?file=1",
+            ),
+        )
+        assertEquals(
+            true,
+            policy.shouldTreatAsDownload(
+                mimeType = "application/x-hwp",
+                contentDisposition = """attachment; filename="note.hwp"""",
+                canShowMimeType = true,
+            ),
+        )
+        assertEquals(
+            false,
+            policy.shouldTreatAsDownload(
+                mimeType = "text/html",
+                contentDisposition = null,
+                canShowMimeType = true,
+            ),
+        )
+    }
+
+    @Test
     fun rejectsNonWebAndControlCharacterUrls() {
         listOf("file:///data/file", "javascript:download()", "https://example.com\nfile:///x").forEach { url ->
             assertIs<FileTransferValidation.Rejected>(
