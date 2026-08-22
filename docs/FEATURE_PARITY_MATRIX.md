@@ -20,17 +20,17 @@
 | F-003 | ID/PW 입력 및 동의 | Compose login + 공통 상태 | SwiftUI login + 공통 상태 | P0 | Parity | 평문 비밀번호 비저장. iOS: `PlainPassword`/`SecretValue` `[REDACTED]`, UserDefaults에 평문·`kwPWD` 미저장 (`IosAuthSecurityTests`) |
 | F-004 | 비밀번호 서버 암호화 | 공통 `KlasAuthApi` | 공통 `KlasAuthApi` | P0 | Parity | Android Keystore. iOS Keychain `ENCRYPTED_KLAS_PASSWORD` (`IosAuthSecurityTests` round-trip) |
 | F-005 | Web 자동 로그인 | Android WebAuthDriver | iOS WebAuthDriver | P0 | Parity | iOS `IosWebAuthDriverTests`: CAPTCHA alert, 임시 비밀번호 재노출, hanging timeout, network failure |
-| F-006 | SESSION 추출/저장/복구 | SessionCoordinator + CookieManager | SessionCoordinator + WKHTTPCookieStore | P0 | Parity | iOS SessionCoordinator↔Keychain↔WKHTTPCookieStore. UserDefaults에는 시각(`kwSESSION_timestamp`)만 두고 토큰(`kwSESSION`)은 저장하지 않음 (`IosAuthSecurityTests`) |
-| F-007 | 홈 피드/하단 탭 | Compose shell + WebView | SwiftUI shell + WKWebView | P0 | Parity | Android 패리티 완료. iOS는 M6-006 navigation snapshot·trusted/external 분기·DEBUG back/reload. 탭 shell은 M6-009 |
-| F-008 | 시간표/학기 선택 | 공통 bridge + Compose modal | 공통 bridge + iOS picker | P1 | Parity | 과거 학기 fixture 포함 |
-| F-009 | 캘린더/날짜·시간 선택 | Compose/Web date-time adapter | iOS date-time adapter | P1 | Parity | IME·3버튼/제스처 내비게이션 포함 |
-| F-010 | 프로필/학생증 QR | Web + QR bridge | Web + QR bridge | P1 | Parity | 허용 origin·로그아웃 포함 |
-| F-011 | 성적/석차/장학/KLAS AI | WebSurface | WKWebView surface | P1 | Parity | sheet·viewport 회귀 포함 |
-| F-012 | 강의 홈 | Compose + WebView | SwiftUI + WKWebView | P0 | Parity | 화면 전환·QR·refresh·back 포함 |
-| F-013 | 강의계획서 | typed Web route | typed Web route | P1 | Parity | 검색·상세·외부 페이지 포함 |
-| F-014 | 게시판 목록/상세 | Web route + file ports | 동일 | P0 | Parity | refresh·첨부·fullscreen 포함 |
-| F-015 | 과제/퀴즈/시험 링크 | KLAS Web route | 동일 | P0 | Parity | refresh·링크·영상 포함 |
-| F-016 | 일반 링크 | typed navigation + Android adapter | iOS navigation adapter | P1 | Parity | 파일·IME·전체화면 포함 |
+| F-006 | SESSION 추출/저장/복구 | SessionCoordinator + CookieManager | SessionCoordinator + WKHTTPCookieStore | P0 | Parity | iOS SessionCoordinator↔Keychain↔WKHTTPCookieStore. 세션 만료 화면의 종료도 SessionCoordinator 만료 후 로그인 화면으로 복귀. UserDefaults에는 시각(`kwSESSION_timestamp`)만 두고 토큰(`kwSESSION`)은 저장하지 않음 (`IosAuthSecurityTests`, `AuthSessionControllerTests`) |
+| F-007 | 홈 피드/하단 탭 | Compose shell + WebView | SwiftUI shell + WKWebView | P0 | Parity | Android 패리티 완료. iOS M6-009: Home holder 1개에서 `changeTab` URL 교체, `receiveToken`/시간표/마감 주입, bootstrap 실패 후 재시도 성공 시 holder 부착·ready 복구. 제품 WKWebView UA에 `iOSApp_v{build}` 접미사 (`IosHomeHostTests`). 웹 `bottomNav.js`의 iOS 분기는 Web 저장소에서 배포 |
+| F-008 | 시간표/학기 선택 | 공통 bridge + Compose modal | 공통 bridge + iOS picker | P1 | Parity | iOS: `openYearHakgiBottomSheet` → `SelectionBottomSheet` + `receiveYearHakgi`. 점 3개 메뉴도 동일 시트(Android `SelectionBottomSheetContent` 패리티). QR/영상은 M7 |
+| F-009 | 캘린더/날짜·시간 선택 | Compose/Web date-time adapter | iOS date-time adapter | P1 | Parity | iOS M6-009: `openDateTimePicker` → DatePicker sheet → `setDateTime` |
+| F-010 | 프로필/학생증 QR | Web + QR bridge | Web + QR bridge | P1 | Parity | iOS 프로필 탭은 Home `menu` URL. 학생증 QR command는 M7 stub |
+| F-011 | 성적/석차/장학/KLAS AI | WebSurface | WKWebView surface | P1 | Parity | iOS M6-009: Home `openPage` → Link 화면. sheet flag + back 시 `closeWebViewBottomSheet` |
+| F-012 | 강의 홈 | Compose + WebView | SwiftUI + WKWebView | P0 | Parity | iOS M6-009: dual WKWebView, `receivedData` 3인자, `evaluteKLASScript`. QR/영상은 M7 stub |
+| F-013 | 강의계획서 | typed Web route | typed Web route | P1 | Parity | iOS M6-009: LecturePlan surface + `receivedData` 2인자 |
+| F-014 | 게시판 목록/상세 | Web route + file ports | 동일 | P0 | Parity | iOS M6-009: Board surface + `receivedData` 4인자 |
+| F-015 | 과제/퀴즈/시험 링크 | KLAS Web route | 동일 | P0 | Parity | iOS M6-009: Task 화면(브리지 없음) localStorage bootstrap. 영상 URL은 M7 stub |
+| F-016 | 일반 링크 | typed navigation + Android adapter | iOS navigation adapter | P1 | Parity | iOS M6-009: `AppRouteFactory` + Link host |
 | F-017 | 온라인 강의 재생 | Android player/PIP host | iOS player host | P0 | Parity | 재생·seek·speed·진도 포함 |
 | F-018 | PIP | Android native | AVKit/WK media | P1 | Parity | remote action·상태 복구 포함 |
 | F-019 | QR 출석 | Android scanner port | AVFoundation/VisionKit port | P0 | Parity | 성공·실패·취소·중복 실행 포함 |
@@ -38,9 +38,9 @@
 | F-021 | 홈 화면 도서관 위젯 | AppWidgetProvider | WidgetKit extension | P1 | Parity | 잠금·만료·테마 포함 |
 | F-022 | 앱 잠금 PIN | 공통 policy + Android lifecycle | 공통 policy + iOS scene phase | P0 | Parity | 업그레이드·위젯 예외 포함 |
 | F-023 | 생체인식 | Android biometric port | LocalAuthentication port | P0 | Parity | 성공·취소·미등록·미지원 포함 |
-| F-024 | 설정/테마/버전 | 공통 Web/Compose + settings | 동일 | P1 | Parity | 재시작 persistence 포함 |
-| F-025 | 다운로드 | Android DownloadManager/SAF | URLSession/files/share | P1 | Parity | cookie·MIME·filename·취소 포함 |
-| F-026 | 파일 선택/업로드 | Activity Result adapter | document/photo picker | P1 | Parity | 단일·다중·MIME·취소 포함 |
+| F-024 | 설정/테마/버전 | 공통 Web/Compose + settings | 동일 | P1 | Parity | 재시작 persistence 포함. iOS `KlasTheme` 토큰은 Android `values`/`values-night` light·dark 쌍 |
+| F-025 | 다운로드 | Android DownloadManager/SAF | URLSession/files/share | P1 | Parity | cookie·MIME·filename·취소 포함. `inline` 파일명은 표시 가능 MIME이면 렌더링하고 `attachment`만 강제 다운로드. iOS는 single-flight로 중복 요청과 취소 완료 전 재진입을 거부 |
+| F-026 | 파일 선택/업로드 | Activity Result adapter | document/photo picker | P1 | Parity | 단일·다중·MIME·취소 포함. iOS M6-010: `UIDocumentPicker`와 계약 테스트는 있음. 실계정 업로드 검증은 후속 |
 | F-027 | 외부 링크/mailto | allowlist + Android Intent | allowlist + UIApplication | P1 | Parity | 악성 URL 거부 포함 |
 | F-028 | 햅틱 | semantic haptic adapter | UIKit feedback adapter | P2 | Parity | legacy 14개 이름 보존 |
 | F-029 | Android 인앱 업데이트 | Play Core legacy 경로 유지 | Approved difference | P2 | Parity | Android 전용 기능 |

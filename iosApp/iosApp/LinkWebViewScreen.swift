@@ -191,7 +191,7 @@ private struct LinkWebView: UIViewRepresentable {
         private let trustedOrigins = TrustedOriginPolicy(
             trustedOrigins: TrustedOriginPolicy.companion.DEFAULT_TRUSTED_ORIGINS
         )
-        private let externalPolicy = ExternalNavigationPolicy(maximumLength: 2048)
+        private let navigator = IosExternalNavigator.companion.system()
 
         init(onClose: @escaping () -> Void) {
             self.onClose = onClose
@@ -224,10 +224,7 @@ private struct LinkWebView: UIViewRepresentable {
                 return
             }
 
-            let resolution = externalPolicy.resolve(rawValue: urlString)
-            if let allowed = resolution as? ExternalNavigationResolutionAllowed {
-                openExternal(allowed.destination)
-            }
+            _ = navigator.openValidated(rawValue: urlString)
             decisionHandler(.cancel)
         }
 
@@ -274,32 +271,10 @@ private struct LinkWebView: UIViewRepresentable {
                 if trustedOrigins.isTrustedUrl(url: urlString) {
                     webView.load(navigationAction.request)
                 } else {
-                    let resolution = externalPolicy.resolve(rawValue: urlString)
-                    if let allowed = resolution as? ExternalNavigationResolutionAllowed {
-                        openExternal(allowed.destination)
-                    }
+                    _ = navigator.openValidated(rawValue: urlString)
                 }
             }
             return nil
-        }
-
-        private func openExternal(_ destination: ExternalDestination) {
-            let raw: String
-            if let web = destination as? ExternalDestinationWeb {
-                raw = web.url
-            } else if let email = destination as? ExternalDestinationEmail {
-                raw = "mailto:\(email.address)"
-            } else if let tel = destination as? ExternalDestinationTelephone {
-                raw = "tel:\(tel.number)"
-            } else if let platform = destination as? ExternalDestinationPlatformUri {
-                raw = platform.uri
-            } else {
-                return
-            }
-            guard let url = URL(string: raw) else { return }
-            DispatchQueue.main.async {
-                UIApplication.shared.open(url)
-            }
         }
     }
 }

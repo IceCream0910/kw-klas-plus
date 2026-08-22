@@ -15,6 +15,16 @@ class WebAutomationScriptsTest {
     }
 
     @Test
+    fun openLectureWhenReadyWrapsCallInRetryLoop() {
+        val script = KlasWebAutomationScripts.openLectureWhenReady("2026,1", "SUBJ'01").reveal()
+        assertTrue(script.contains("appModule.goLctrum(\"2026,1\",\"SUBJ'01\");"))
+        assertTrue(script.contains("typeof appModule.goLctrum==='function'"))
+        assertTrue(script.contains("setTimeout"))
+        assertTrue(script.startsWith("(function(){"))
+        assertTrue(script.endsWith("go(20);})();"))
+    }
+
+    @Test
     fun playerNumbersAreValidated() {
         assertEquals(
             "bcPlayController.getPlayController()._eventTarget.fire(VCPlayControllerEvent.CHANGE_PLAYBACK_RATE,Number(1.5));",

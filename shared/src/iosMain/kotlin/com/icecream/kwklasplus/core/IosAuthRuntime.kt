@@ -15,7 +15,7 @@ import platform.Foundation.NSUserDefaults
 
 // Swift에서 suspend 유스케이스를 completion으로 호출하기 위한 브릿지
 class IosAuthRuntime(
-    private val dependencies: IosSharedDependencies,
+    val dependencies: IosSharedDependencies,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
 ) {
     fun loadCredential(onResult: (StoredCredential?) -> Unit) {

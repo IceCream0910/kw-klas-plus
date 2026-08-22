@@ -46,6 +46,35 @@ final class AuthSessionControllerTests: XCTestCase {
         }
     }
 
+    func testHomeSessionExpiredClearsSessionBeforeReturningToLogin() async {
+        let suite = "com.icecream.kwklasplus.test.auth.expired.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let runtime = IosAuthRuntime.companion.create(defaults: defaults)
+        let observed = expectation(description: "session observed")
+        runtime.observeSessionToken(token: "session-expired") { result in
+            XCTAssertTrue(result is SessionResultActive)
+            observed.fulfill()
+        }
+        await fulfillment(of: [observed], timeout: 5)
+
+        let controller = AuthSessionController(
+            authRuntime: runtime,
+            networkPath: FakeNetworkPathChecker(satisfied: false)
+        )
+        controller.handleHomeSessionExpired()
+        await waitUntil { controller.phase == .needsCredentials }
+
+        XCTAssertEqual(controller.phase, .needsCredentials)
+        let restored = expectation(description: "session expired")
+        runtime.restoreSession { result in
+            XCTAssertFalse(result is SessionResultActive)
+            restored.fulfill()
+        }
+        await fulfillment(of: [restored], timeout: 5)
+        defaults.removePersistentDomain(forName: suite)
+    }
+
     private func makeController(networkPath: NetworkPathChecking) -> AuthSessionController {
         let suite = "com.icecream.kwklasplus.test.auth.network.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!

@@ -1,23 +1,21 @@
 # KLAS+ KMP 마이그레이션 작업 현황
 
-- 기준일: 2026-08-07
+- 기준일: 2026-08-23
 - 현재 단계: **Android 마이그레이션 완료, iOS 기본 제품 경로(M6) 진행 중**
 - Android 상태: KMP 공통 코어, Compose UI, WebView 브리지, 네이티브 기능의 P0/P1 패리티 완료
-- iOS 상태: 툴체인·framework·WKWebView navigation/cookie·Native bridge 완료. 다음: 인증/세션
-
+- iOS 상태: 툴체인·framework·WKWebView navigation/cookie·Native bridge·인증/세션·화면별 제품 경로·다운로드/외부 이동 완료. 파일 업로드는 실계정 검증 남음. 다음: UI 환경
 
 ## 개요
 
-| Milestone | 상태          | 결과 / 다음 게이트 |
-|---|-------------|---|
-| M1 계약 고정 | **완료(6/6)** | Android 인증·브리지·저장소·플랫폼 계약 고정 완료 |
-| M2 KMP/Android 기반 | **완료(6/6)** | 공통 모듈과 Android source set 경계 정렬 완료 |
-| M3 공통 코어 | **완료(9/9)** | 인증·세션·API·보안 저장소·앱 잠금 공통화 및 Android 연결 완료 |
-| M4 Android Web/Compose | 진행 중(7/8)   | Android 화면 전환 완료. legacy 자산 정리만 남음 |
-| M5 Android 기능 패리티 | **완료(7/7)** | QR·잠금·PIP·위젯·파일·테마 및 전체 Android 회귀 통과 |
-| M6 iOS 기본 경로 | 진행 중(8/11)  | M6-008 인증/세션 완료. 다음: M6-009 화면별 제품 경로 |
-| M7 iOS 플랫폼 기능 | 미착수(0/7)    | M6 기본 경로 이후 진행 |
-
+| Milestone              | 상태          | 결과 / 다음 게이트                               |
+| ---------------------- |-------------| ----------------------------------------- |
+| M1 계약 고정               | **완료(6/6)** | Android 인증·브리지·저장소·플랫폼 계약 고정 완료           |
+| M2 KMP/Android 기반      | **완료(6/6)** | 공통 모듈과 Android source set 경계 정렬 완료        |
+| M3 공통 코어               | **완료(9/9)** | 인증·세션·API·보안 저장소·앱 잠금 공통화 및 Android 연결 완료 |
+| M4 Android Web/Compose | 진행 중(7/8)   | Android 화면 전환 완료. legacy 자산 정리만 남음        |
+| M5 Android 기능 패리티      | **완료(7/7)** | QR·잠금·PIP·위젯·파일·테마 및 전체 Android 회귀 통과     |
+| M6 iOS 기본 경로           | 진행 중(9/11)  | M6-010 다운로드·외부 이동 완료. 파일 업로드 실계정 검증 남음. 다음: M6-011 UI 환경 |
+| M7 iOS 플랫폼 기능          | 미착수(0/7)    | M6 기본 경로 이후 진행                            |
 
 ### M1 — 기존 계약 고정
 
@@ -74,7 +72,7 @@
 
 ### M6 — iOS 기본 기능 구현
 
-진행 순서: `M6-003` WKWebView smoke → `M6-006` navigation/cookie → `M6-007` Native bridge → `M6-008` 인증/세션 → `M6-009` 화면별 제품 경로. 완료된 `M6-004`·`M6-005`는 Web 측 선행 계약이다. `M6-007`까지 완료.
+진행 순서: `M6-003` WKWebView smoke → `M6-006` navigation/cookie → `M6-007` Native bridge → `M6-008` 인증/세션 → `M6-009` 화면별 제품 경로 → `M6-010` 다운로드·파일. 완료된 `M6-004`·`M6-005`는 Web 측 선행 계약이다. `M6-010` 다운로드·외부 이동은 완료, 파일 업로드 실계정 검증은 후속.
 
 - [x] **M6-001 (P0, M)** iOS 툴체인과 최소 지원 환경 고정
   - 브랜치: `m6-001-002/ios-toolchain-framework`
@@ -109,7 +107,7 @@
 - [x] **M6-007 (P0, L)** `KlasNativeBridgeNative` transport와 Bridge router 연결
   - Depends on: M6-005, M6-006
   - `IosBridgeMessageAdapter`가 `WKScriptMessageHandlerWithReply` → 공통 `JsonBridgeRouter`로 Promise response 반환
-  - document-start에 WebKit transport shim + `KlasNativeBridge` adapter 주입. smoke host는 `AcceptingBridgeCommandHandler`
+  - document-start에 WebKit transport shim + `KlasNativeBridge` adapter 주입. 로그인/링크·브리지 테스트 host는 `AcceptingBridgeCommandHandler`
   - 완료 기준: 앱 origin과 Video용 HTTPS `*.kw.ac.kr` 정책, main-frame, payload·메서드·인자 검증 및 handler 등록/해제 구현
   - 검증:
     - `./gradlew :shared:iosSimulatorArm64Test --tests 'com.icecream.kwklasplus.core.web.WebAutomationScriptsTest' --tests 'com.icecream.kwklasplus.core.bridge.*'`
@@ -121,10 +119,11 @@
   - 작업: 로그인 제출을 공통 인증 API와 KLAS 로그인 WKWebView에 연결하고 `SESSION`을 `WKHTTPCookieStore`·`SessionCoordinator`·Keychain에 동기화
   - 완료 기준: 최초 온보딩, 수동·저장 credential 로그인, 유효 세션 즉시 진입, 만료·로그아웃·재시작 복구가 하나의 startup flow로 동작
   - 검증: F-002~F-006, CAPTCHA·임시 비밀번호·네트워크·timeout, 평문 비밀번호와 SESSION의 로그·UserDefaults 비저장 확인
-  - 증거: `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' test -only-testing:iosAppTests/IosWebAuthDriverTests -only-testing:iosAppTests/IosAuthSecurityTests`
+  - 증거: `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' test -only-testing:iosAppTests/IosWebAuthDriverTests -only-testing:iosAppTests/IosAuthSecurityTests -only-testing:iosAppTests/AuthSessionControllerTests`
     - `IosWebAuthDriverTests`: CAPTCHA alert, 임시 비밀번호 재노출, hanging timeout, scheme load network failure
     - `IosAuthSecurityTests`: SecretValue/PlainPassword `[REDACTED]`, UserDefaults에 평문/`kwPWD`/`kwSESSION`/암호문/토큰 미저장, Keychain round-trip, `kwSESSION_timestamp`만 기록
-- [ ] **M6-009 (P0, XL)** Home/Lecture/Board/Task WKWebView와 화면별 Bridge host
+    - `AuthSessionControllerTests`: 세션 만료 종료 시 SessionCoordinator 만료 후 로그인 화면 복귀
+- [x] **M6-009 (P0, XL)** Home/Lecture/Board/Task WKWebView와 화면별 Bridge host
   - Depends on: M6-008
   - 작업: 화면별 URL/surface를 SwiftUI navigation에 연결하고 Bridge command를 작은 iOS host 인터페이스로 구현
   - 작업: Home·Lecture·Board·LecturePlan·Link·Settings command 중 해당 화면에 필요한 navigation/modal/reload/callback 연결
@@ -134,6 +133,7 @@
   - Depends on: M6-009
   - 작업: WKDownload/URLSession, document/photo picker, share sheet, `UIApplication.open`을 공통 요청·URL 정책에 연결
   - 완료 기준: cookie가 필요한 다운로드, MIME·파일명, 단일/다중 선택, 취소, mailto/tel/https와 악성 scheme 거부
+  - 남은 일: 파일 업로드(`UIDocumentPicker`)는 계약 테스트만 통과. 실계정 KLAS 업로드 경로 검증 후 완료 처리
 - [ ] **M6-011 (P1, M)** WKWebView 컨테이너의 iOS UI 환경 대응
   - Depends on: M6-009
   - 작업: SwiftUI theme, safe area, 키보드·viewport, iPhone/iPad 회전과 Dynamic Type/VoiceOver focus 처리
