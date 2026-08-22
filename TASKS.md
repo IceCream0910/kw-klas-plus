@@ -3,7 +3,7 @@
 - 기준일: 2026-08-07
 - 현재 단계: **Android 마이그레이션 완료, iOS 기본 제품 경로(M6) 진행 중**
 - Android 상태: KMP 공통 코어, Compose UI, WebView 브리지, 네이티브 기능의 P0/P1 패리티 완료
-- iOS 상태: 툴체인·framework·WKWebView navigation/cookie·Native bridge·인증/세션·화면별 제품 경로 완료. 다음: 다운로드/파일
+- iOS 상태: 툴체인·framework·WKWebView navigation/cookie·Native bridge·인증/세션·화면별 제품 경로·다운로드/파일 완료. 다음: UI 환경
 
 ## 개요
 
@@ -14,7 +14,7 @@
 | M3 공통 코어               | **완료(9/9)** | 인증·세션·API·보안 저장소·앱 잠금 공통화 및 Android 연결 완료 |
 | M4 Android Web/Compose | 진행 중(7/8)   | Android 화면 전환 완료. legacy 자산 정리만 남음        |
 | M5 Android 기능 패리티      | **완료(7/7)** | QR·잠금·PIP·위젯·파일·테마 및 전체 Android 회귀 통과     |
-| M6 iOS 기본 경로           | 진행 중(9/11)  | M6-009 화면별 제품 경로 완료. 다음: M6-010 다운로드·파일 |
+| M6 iOS 기본 경로           | 진행 중(10/11) | M6-010 다운로드·파일 완료. 다음: M6-011 UI 환경     |
 | M7 iOS 플랫폼 기능          | 미착수(0/7)    | M6 기본 경로 이후 진행                            |
 
 ### M1 — 기존 계약 고정
@@ -72,7 +72,7 @@
 
 ### M6 — iOS 기본 기능 구현
 
-진행 순서: `M6-003` WKWebView smoke → `M6-006` navigation/cookie → `M6-007` Native bridge → `M6-008` 인증/세션 → `M6-009` 화면별 제품 경로. 완료된 `M6-004`·`M6-005`는 Web 측 선행 계약이다. `M6-009`까지 완료.
+진행 순서: `M6-003` WKWebView smoke → `M6-006` navigation/cookie → `M6-007` Native bridge → `M6-008` 인증/세션 → `M6-009` 화면별 제품 경로 → `M6-010` 다운로드·파일. 완료된 `M6-004`·`M6-005`는 Web 측 선행 계약이다. `M6-010`까지 완료.
 
 - [x] **M6-001 (P0, M)** iOS 툴체인과 최소 지원 환경 고정
   - 브랜치: `m6-001-002/ios-toolchain-framework`
@@ -136,7 +136,7 @@
     - `IosHomeHostTests`: Home 탭 URL, receivedData 2/3/4인자, `receiveToken` 주입, `closeWebViewBottomSheet` 스크립트, 제품 UA `iOSApp_v1`, 세션 없이 학기·옵션·날짜 picker와 Settings push, 강의/게시판/과제는 세션 없으면 push하지 않음
     - `IosHomeHostTests`: bootstrap 실패 후 재시도 성공 시 Home holder 부착과 `.ready` 전환
     - 수동: 실계정 로그인 후 탭·강의·게시판·과제·학기 picker·modal 확인 (QR/영상/도서관/잠금은 M7 stub 안내). 웹 `bottomNav.js` iOS UA 분기는 Web 저장소 배포 후 하단 탭이 표시됨
-- [ ] **M6-010 (P1, L)** WKWebView 다운로드·파일 선택·외부 이동
+- [x] **M6-010 (P1, L)** WKWebView 다운로드·파일 선택·외부 이동
   - Depends on: M6-009
   - 작업: WKDownload/URLSession, document/photo picker, share sheet, `UIApplication.open`을 공통 요청·URL 정책에 연결
   - 완료 기준: cookie가 필요한 다운로드, MIME·파일명, 단일/다중 선택, 취소, mailto/tel/https와 악성 scheme 거부

@@ -28,9 +28,9 @@
 | F-011 | 성적/석차/장학/KLAS AI | WebSurface | WKWebView surface | P1 | Parity | iOS M6-009: Home `openPage` → Link 화면. sheet flag + back 시 `closeWebViewBottomSheet` |
 | F-012 | 강의 홈 | Compose + WebView | SwiftUI + WKWebView | P0 | Parity | iOS M6-009: dual WKWebView, `receivedData` 3인자, `evaluteKLASScript`. QR/영상은 M7 stub |
 | F-013 | 강의계획서 | typed Web route | typed Web route | P1 | Parity | iOS M6-009: LecturePlan surface + `receivedData` 2인자 |
-| F-014 | 게시판 목록/상세 | Web route + file ports | 동일 | P0 | Parity | iOS M6-009: Board surface + `receivedData` 4인자. 첨부/다운로드는 M6-010 |
+| F-014 | 게시판 목록/상세 | Web route + file ports | 동일 | P0 | Parity | iOS M6-009: Board surface + `receivedData` 4인자 |
 | F-015 | 과제/퀴즈/시험 링크 | KLAS Web route | 동일 | P0 | Parity | iOS M6-009: Task 화면(브리지 없음) localStorage bootstrap. 영상 URL은 M7 stub |
-| F-016 | 일반 링크 | typed navigation + Android adapter | iOS navigation adapter | P1 | Parity | iOS M6-009: `AppRouteFactory` + Link host. 파일 선택은 M6-010 |
+| F-016 | 일반 링크 | typed navigation + Android adapter | iOS navigation adapter | P1 | Parity | iOS M6-009: `AppRouteFactory` + Link host |
 | F-017 | 온라인 강의 재생 | Android player/PIP host | iOS player host | P0 | Parity | 재생·seek·speed·진도 포함 |
 | F-018 | PIP | Android native | AVKit/WK media | P1 | Parity | remote action·상태 복구 포함 |
 | F-019 | QR 출석 | Android scanner port | AVFoundation/VisionKit port | P0 | Parity | 성공·실패·취소·중복 실행 포함 |
