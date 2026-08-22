@@ -29,6 +29,7 @@ struct HomeView: View {
         .onReceive(holder.$navigationState) { state in
             coordinator.handleHomeNavigation(state)
         }
+        .webDownloadOverlay(holder)
         .accessibilityIdentifier("home_view")
     }
 }

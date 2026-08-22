@@ -254,7 +254,10 @@ final class IosBridgeMessageAdapterTests: XCTestCase {
             HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)
         )
 
-        XCTAssertFalse(holder.handleNavigationResponse(response, isMainFrame: true))
+        XCTAssertEqual(
+            holder.handleNavigationResponse(response, isMainFrame: true, canShowMIMEType: true),
+            .cancel
+        )
         guard case .failed(let failedURL, let category) = holder.navigationState.loadPhase else {
             return XCTFail("HTTP 오류가 실패 상태로 기록되지 않음")
         }

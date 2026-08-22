@@ -271,9 +271,26 @@ struct LectureView: View {
                     Image(systemName: "chevron.left")
                 }
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                if model.uiHolder.shareableFileURL != nil || model.klasHolder.shareableFileURL != nil {
+                    Button {
+                        if model.klasHolder.shareableFileURL != nil {
+                            model.klasHolder.shareCurrentFile()
+                        } else {
+                            model.uiHolder.shareCurrentFile()
+                        }
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .accessibilityIdentifier("pdf_share_button")
+                    .accessibilityLabel("공유")
+                }
+            }
         }
         .webJavaScriptAlert(model.uiHolder)
         .webJavaScriptAlert(model.klasHolder, enabled: model.showingKlas)
+        .webDownloadOverlay(model.uiHolder)
+        .webDownloadOverlay(model.klasHolder)
         .onReceive(model.klasHolder.$navigationState) { state in
             model.handleKlasNavigation(state)
         }

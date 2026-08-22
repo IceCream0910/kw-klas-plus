@@ -11,6 +11,9 @@ final class WebViewHolder: NSObject, ObservableObject {
     @Published private(set) var navigationState = WebNavigationState()
     @Published private(set) var lastExternalURL: String?
     @Published var javaScriptAlertMessage: String?
+    @Published private(set) var downloadProgress: DownloadProgressState?
+    @Published private(set) var downloadErrorMessage: String?
+    @Published private(set) var shareableFileURL: URL?
 
     private var _webView: WKWebView?
     private var bridgeAdapter: IosBridgeMessageAdapter?
@@ -18,7 +21,11 @@ final class WebViewHolder: NSObject, ObservableObject {
     private lazy var navigationRelay = NavigationRelay(owner: self)
     private lazy var uiRelay = UIRelay(owner: self)
     private let trustedOrigins = TrustedOriginPolicy(trustedOrigins: TrustedOriginPolicy.companion.DEFAULT_TRUSTED_ORIGINS)
-    private let externalPolicy = ExternalNavigationPolicy(maximumLength: 2048)
+    private let fileTransferPolicy = FileTransferPolicy.companion.create()
+    private let navigator: IosExternalNavigator
+    private let filePicker: IosFilePicker
+    private let fileTransfer: IosFileTransfer
+    private var loadingLocalPdf = false
 
     static var websiteDataStore: WKWebsiteDataStore { .default() }
 
@@ -27,6 +34,23 @@ final class WebViewHolder: NSObject, ObservableObject {
         let build = Bundle.main.object(forInfoDictionaryKey: kCFBundleVersionKey as String) as? String ?? "1"
         let digits = build.split(whereSeparator: { !$0.isNumber }).first.flatMap { Int($0) } ?? 1
         return "iOSApp_v\(max(digits, 1))"
+    }
+
+    init(
+        navigator: IosExternalNavigator = IosExternalNavigator.companion.system(),
+        filePicker: IosFilePicker = IosFilePicker(),
+        fileTransfer: IosFileTransfer = IosFileTransfer()
+    ) {
+        self.navigator = navigator
+        self.filePicker = filePicker
+        self.fileTransfer = fileTransfer
+        super.init()
+        fileTransfer.onProgress = { [weak self] fileName, fraction in
+            self?.downloadProgress = DownloadProgressState(fileName: fileName, fraction: fraction)
+        }
+        fileTransfer.onCompletedFile = { [weak self] url in
+            self?.handleCompletedFile(url)
+        }
     }
 
     var webView: WKWebView {
@@ -151,11 +175,27 @@ final class WebViewHolder: NSObject, ObservableObject {
         return true
     }
 
+    func shareCurrentFile() {
+        guard let shareableFileURL else { return }
+        presentShareSheet(url: shareableFileURL, deleteWhenDone: false)
+    }
+
+    func cancelDownload() {
+        fileTransfer.cancel()
+        clearDownload()
+    }
+
+    func clearDownloadError() {
+        downloadErrorMessage = nil
+    }
+
     func dispose() {
         guard !isDisposed else { return }
         isDisposed = true
         bridgeAdapter?.dispose()
         bridgeAdapter = nil
+        cancelDownload()
+        clearInlinePdf()
         guard let view = _webView else {
             navigationState = WebNavigationState(loadPhase: .disposed)
             return
@@ -171,18 +211,18 @@ final class WebViewHolder: NSObject, ObservableObject {
         navigationState = WebNavigationState(loadPhase: .disposed)
     }
 
-    fileprivate func handleDecidePolicy(urlString: String, isMainFrame: Bool) -> Bool {
+    func handleDecidePolicy(urlString: String, isMainFrame: Bool) -> Bool {
         guard !isDisposed else { return false }
         guard isMainFrame else { return true }
+        if let url = URL(string: urlString), IosDownloadFileStore.isStoredFile(url) {
+            return true
+        }
 
         if trustedOrigins.isTrustedUrl(url: urlString) {
             return true
         }
 
-        let resolution = externalPolicy.resolve(rawValue: urlString)
-        if let allowed = resolution as? ExternalNavigationResolutionAllowed {
-            openExternal(allowed.destination)
-        }
+        openExternal(urlString)
         return false
     }
 
@@ -192,15 +232,17 @@ final class WebViewHolder: NSObject, ObservableObject {
         if trustedOrigins.isTrustedUrl(url: urlString) {
             load(urlString)
         } else {
-            let resolution = externalPolicy.resolve(rawValue: urlString)
-            if let allowed = resolution as? ExternalNavigationResolutionAllowed {
-                openExternal(allowed.destination)
-            }
+            openExternal(urlString)
         }
     }
 
     fileprivate func navigationDidStart(url: String?) {
         guard !isDisposed, let view = _webView else { return }
+        if loadingLocalPdf {
+            loadingLocalPdf = false
+        } else {
+            clearInlinePdf()
+        }
         let phase: WebLoadPhase = url.map { .loading(url: $0) } ?? .loading(url: view.url?.absoluteString ?? "")
         navigationState = WebNavigationState(
             loadPhase: phase,
@@ -219,26 +261,114 @@ final class WebViewHolder: NSObject, ObservableObject {
         )
     }
 
-    func handleNavigationResponse(_ response: URLResponse, isMainFrame: Bool) -> Bool {
-        guard !isDisposed else { return false }
-        guard isMainFrame,
-              let httpResponse = response as? HTTPURLResponse,
-              (400...599).contains(httpResponse.statusCode) else {
+    func handleNavigationResponse(
+        _ response: URLResponse,
+        isMainFrame: Bool,
+        canShowMIMEType: Bool
+    ) -> WKNavigationResponsePolicy {
+        guard !isDisposed else { return .cancel }
+        if isMainFrame,
+           let httpResponse = response as? HTTPURLResponse,
+           (400...599).contains(httpResponse.statusCode) {
+            guard let view = _webView else { return .cancel }
+            navigationState = WebNavigationState(
+                loadPhase: .failed(url: response.url?.absoluteString, category: .http),
+                canGoBack: view.canGoBack,
+                canGoForward: view.canGoForward
+            )
+            return .cancel
+        }
+
+        if let url = response.url, IosDownloadFileStore.isStoredFile(url) {
+            return .allow
+        }
+
+        // PDF는 공유 시트로 보내지 않는다. attachment/octet-stream은 받아서 웹뷰에 연다.
+        if looksLikePdf(response) {
+            let request = makeDownloadRequest(response)
+            let accepted = fileTransferPolicy.validate(request: request) is FileTransferValidationAccepted
+            if canShowInWebView(response, canShowMIMEType: canShowMIMEType), accepted {
+                return .allow
+            }
+            if accepted {
+                startDownload(request)
+            }
+            return .cancel
+        }
+
+        if isDownloadCandidate(response, canShowMIMEType: canShowMIMEType) {
+            if isAcceptedDownload(response) {
+                startDownload(makeDownloadRequest(response))
+            }
+            return .cancel
+        }
+        clearInlinePdf()
+        return .allow
+    }
+
+    private func looksLikePdf(_ response: URLResponse) -> Bool {
+        if DownloadMetadata.shared.looksLikePdf(
+            mimeType: response.mimeType,
+            contentDisposition: (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Disposition"),
+            url: response.url?.absoluteString
+        ) {
             return true
         }
-        guard let view = _webView else { return false }
-        navigationState = WebNavigationState(
-            loadPhase: .failed(url: response.url?.absoluteString, category: .http),
-            canGoBack: view.canGoBack,
-            canGoForward: view.canGoForward
+        return (response.suggestedFilename ?? "").lowercased().hasSuffix(".pdf")
+    }
+
+    private func canShowInWebView(_ response: URLResponse, canShowMIMEType: Bool) -> Bool {
+        guard canShowMIMEType else { return false }
+        let disposition = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Disposition")?.lowercased() ?? ""
+        if disposition.contains("attachment") { return false }
+        let mime = response.mimeType?
+            .split(separator: ";", maxSplits: 1, omittingEmptySubsequences: true)
+            .first
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        if mime == "application/octet-stream" { return false }
+        return true
+    }
+
+    private func clearInlinePdf() {
+        if let local = shareableFileURL {
+            Self.removeDownloadDirectory(for: local)
+        }
+        shareableFileURL = nil
+    }
+
+    func isDownloadCandidate(_ response: URLResponse, canShowMIMEType: Bool) -> Bool {
+        let disposition = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Disposition")
+        return fileTransferPolicy.shouldTreatAsDownload(
+            mimeType: response.mimeType,
+            contentDisposition: disposition,
+            canShowMimeType: canShowMIMEType,
+            url: response.url?.absoluteString
         )
-        return false
+    }
+
+    func isAcceptedDownload(_ response: URLResponse) -> Bool {
+        fileTransferPolicy.validate(request: makeDownloadRequest(response)) is FileTransferValidationAccepted
+    }
+
+    private func makeDownloadRequest(_ response: URLResponse) -> FileTransferRequest {
+        FileTransferRequest(
+            url: response.url?.absoluteString ?? "",
+            suggestedFileName: response.suggestedFilename,
+            mimeType: response.mimeType,
+            userAgent: _webView?.value(forKey: "userAgent") as? String,
+            contentDisposition: (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Disposition")
+        )
     }
 
     fileprivate func navigationDidFail(url: String?, error: Error) {
         guard !isDisposed, let view = _webView else { return }
         let nsError = error as NSError
         if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
+            return
+        }
+        // 다운로드, 외부 이동으로 내비게이션을 끊으면 WebKit이 102를 남긴다.
+        if nsError.code == 102,
+           nsError.domain == "WebKitErrorDomain" || nsError.domain == WKError.errorDomain {
             return
         }
         let category: WebNavFailureCategory
@@ -262,6 +392,96 @@ final class WebViewHolder: NSObject, ObservableObject {
         )
     }
 
+    private func startDownload(_ request: FileTransferRequest) {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let result = await self.fileTransfer.download(request: request)
+            self.handleDownloadResult(result)
+        }
+    }
+
+    private func handleCompletedFile(_ url: URL) {
+        if url.pathExtension.lowercased() == "pdf" {
+            openLocalPdf(url)
+            return
+        }
+        presentShareSheet(url: url, deleteWhenDone: true)
+    }
+
+    private func openLocalPdf(_ url: URL) {
+        if let previous = shareableFileURL, previous != url {
+            Self.removeDownloadDirectory(for: previous)
+        }
+        shareableFileURL = url
+        loadingLocalPdf = true
+        webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+    }
+
+    private func handleDownloadResult(_ result: PlatformActionResult) {
+        clearDownload()
+        if result is PlatformActionResultFailed {
+            downloadErrorMessage = "다운로드에 실패했습니다."
+        }
+    }
+
+    fileprivate func handleOpenPanel(allowMultiple: Bool, completionHandler: @escaping ([URL]?) -> Void) {
+        filePicker.pickForWeb(
+            allowMultiple: allowMultiple,
+            from: _webView?.klas_presentingViewController,
+            completion: completionHandler
+        )
+    }
+
+    private func openExternal(_ raw: String) {
+        let result = navigator.openValidated(rawValue: raw)
+        if result is PlatformActionResultSuccess {
+            lastExternalURL = raw
+        }
+    }
+
+    private func presentShareSheet(url: URL, deleteWhenDone: Bool) {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            if deleteWhenDone {
+                Self.removeDownloadDirectory(for: url)
+            }
+            downloadErrorMessage = "다운로드에 실패했습니다."
+            return
+        }
+        // 진행 overlay가 내려간 다음 런루프에서 올려야 iPhone에서 sheet가 가려지지 않는다.
+        DispatchQueue.main.async { [weak self] in
+            self?.presentActivityController(for: url, deleteWhenDone: deleteWhenDone)
+        }
+    }
+
+    private func presentActivityController(for url: URL, deleteWhenDone: Bool) {
+        let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        if deleteWhenDone {
+            activity.completionWithItemsHandler = { _, _, _, _ in
+                Self.removeDownloadDirectory(for: url)
+            }
+        }
+        if let popover = activity.popoverPresentationController, let webView = _webView {
+            popover.sourceView = webView
+            popover.sourceRect = CGRect(x: webView.bounds.midX, y: webView.bounds.midY, width: 1, height: 1)
+        }
+        var presenter = _webView?.klas_presentingViewController ?? UIView.klas_keyWindowRootViewController
+        while let presented = presenter?.presentedViewController {
+            presenter = presented
+        }
+        guard let presenter else {
+            if deleteWhenDone {
+                Self.removeDownloadDirectory(for: url)
+            }
+            downloadErrorMessage = "다운로드에 실패했습니다."
+            return
+        }
+        presenter.present(activity, animated: true)
+    }
+
+    private static func removeDownloadDirectory(for fileURL: URL) {
+        try? FileManager.default.removeItem(at: fileURL.deletingLastPathComponent())
+    }
+
     private func publishNavigationFlags(from view: WKWebView) {
         var next = navigationState
         next.canGoBack = view.canGoBack
@@ -269,24 +489,8 @@ final class WebViewHolder: NSObject, ObservableObject {
         navigationState = next
     }
 
-    private func openExternal(_ destination: ExternalDestination) {
-        let raw: String
-        if let web = destination as? ExternalDestinationWeb {
-            raw = web.url
-        } else if let email = destination as? ExternalDestinationEmail {
-            raw = "mailto:\(email.address)"
-        } else if let tel = destination as? ExternalDestinationTelephone {
-            raw = "tel:\(tel.number)"
-        } else if let platform = destination as? ExternalDestinationPlatformUri {
-            raw = platform.uri
-        } else {
-            return
-        }
-        lastExternalURL = raw
-        guard let url = URL(string: raw) else { return }
-        DispatchQueue.main.async {
-            UIApplication.shared.open(url)
-        }
+    private func clearDownload() {
+        downloadProgress = nil
     }
 }
 
@@ -317,11 +521,12 @@ private final class NavigationRelay: NSObject, WKNavigationDelegate {
         decidePolicyFor navigationResponse: WKNavigationResponse,
         decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
     ) {
-        let allow = owner?.handleNavigationResponse(
+        let policy = owner?.handleNavigationResponse(
             navigationResponse.response,
-            isMainFrame: navigationResponse.isForMainFrame
-        ) ?? false
-        decisionHandler(allow ? .allow : .cancel)
+            isMainFrame: navigationResponse.isForMainFrame,
+            canShowMIMEType: navigationResponse.canShowMIMEType
+        ) ?? .cancel
+        decisionHandler(policy)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -349,7 +554,7 @@ private final class UIRelay: NSObject, WKUIDelegate {
     weak var owner: WebViewHolder?
 
     init(owner: WebViewHolder) {
-        self.owner = owner;
+        self.owner = owner
     }
 
     func webView(
@@ -369,5 +574,15 @@ private final class UIRelay: NSObject, WKUIDelegate {
         completionHandler: @escaping () -> Void
     ) {
         owner?.presentJavaScriptAlert(message: message, completion: completionHandler)
+    }
+
+    @available(iOS 18.4, *)
+    func webView(
+        _ webView: WKWebView,
+        runOpenPanelWith parameters: WKOpenPanelParameters,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping ([URL]?) -> Void
+    ) {
+        owner?.handleOpenPanel(allowMultiple: parameters.allowsMultipleSelection, completionHandler: completionHandler)
     }
 }

@@ -20,8 +20,18 @@ struct PushedWebStack: View {
                     Image(systemName: "chevron.left")
                 }
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                if holder.shareableFileURL != nil {
+                    Button(action: { holder.shareCurrentFile() }) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .accessibilityIdentifier("pdf_share_button")
+                    .accessibilityLabel("공유")
+                }
+            }
         }
         .webJavaScriptAlert(holder)
+        .webDownloadOverlay(holder)
     }
 }
 
