@@ -8,7 +8,12 @@ struct PushedWebStack: View {
     var body: some View {
         ZStack {
             WebViewContainer(webView: holder.webView)
-                .ignoresSafeArea(edges: .bottom)
+                .webSurfaceLayout()
+                .accessibilityHidden(
+                    isLoading
+                        || holder.javaScriptAlertMessage != nil
+                        || holder.downloadProgress != nil
+                )
             if isLoading {
                 KlasLoadingView(message: "불러오는 중")
             }

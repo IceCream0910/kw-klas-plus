@@ -126,9 +126,10 @@ final class LectureScreenModel: ObservableObject {
 
     /// Android는 `Frame.do` 로드 시 `KlasWebAutomationScripts.openLecture(...)`를 즉시 한 번만 호출한다.
     /// (Android WebView의 `onPageFinished`는 페이지 스크립트 초기화가 끝난 뒤 불린다.)
-    /// 반면 WKWebView의 `didFinish`는 `appModule`이 바인딩되기 전에 발생할 수 있으므로,
-    /// `openLectureWhenReady`가 `appModule.goLctrum`이 준비될 때까지 폴링한 뒤 호출한다.
-    /// `didOpenLecture`로 화면당 1회만 실행되도록 보장한다.
+    /// WKWebView `didFinish`는 `appModule.goLctrum`이 함수로만 존재하고 내부 상태가 덜 준비된
+    /// 시점에 올 수 있다. 그때 호출하면 KLAS가 `오류가 발생하였습니다.` alert를 띄운다.
+    /// `openLectureWhenReady`는 함수가 생길 때까지 기다린 뒤 호출하고, 그 부트스트랩 alert가
+    /// 나면 삼키고 재시도한다. `didOpenLecture`로 화면당 주입은 1회로 제한한다.
     private func openLectureIfNeeded() {
         guard !didOpenLecture else { return }
         didOpenLecture = true
@@ -252,14 +253,31 @@ struct LectureView: View {
     var body: some View {
         ZStack {
             WebViewContainer(webView: model.uiHolder.webView)
+                .webSurfaceLayout()
+                .accessibilityHidden(
+                    model.isLoading
+                        || model.showingKlas
+                        || model.uiHolder.javaScriptAlertMessage != nil
+                        || model.klasHolder.javaScriptAlertMessage != nil
+                        || model.uiHolder.downloadProgress != nil
+                        || model.klasHolder.downloadProgress != nil
+                )
             WebViewContainer(webView: model.klasHolder.webView)
+                .webSurfaceLayout()
                 .opacity(model.showingKlas ? 1 : 0)
                 .allowsHitTesting(model.showingKlas)
+                .accessibilityHidden(
+                    model.isLoading
+                        || !model.showingKlas
+                        || model.uiHolder.javaScriptAlertMessage != nil
+                        || model.klasHolder.javaScriptAlertMessage != nil
+                        || model.uiHolder.downloadProgress != nil
+                        || model.klasHolder.downloadProgress != nil
+                )
             if model.isLoading {
                 KlasLoadingView(message: "불러오는 중")
             }
         }
-        .ignoresSafeArea(edges: .bottom)
         .navigationTitle(model.subjectName)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
@@ -287,10 +305,12 @@ struct LectureView: View {
                 }
             }
         }
-        .webJavaScriptAlert(model.uiHolder)
-        .webJavaScriptAlert(model.klasHolder, enabled: model.showingKlas)
-        .webDownloadOverlay(model.uiHolder)
-        .webDownloadOverlay(model.klasHolder)
+        .webJavaScriptAlert(
+            model.uiHolder,
+            model.klasHolder,
+            activeSecondary: model.showingKlas
+        )
+        .webDownloadOverlay(model.uiHolder, model.klasHolder)
         .onReceive(model.klasHolder.$navigationState) { state in
             model.handleKlasNavigation(state)
         }

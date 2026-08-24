@@ -62,6 +62,13 @@ final class WebViewHolder: NSObject, ObservableObject {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = Self.websiteDataStore
         configuration.applicationNameForUserAgent = Self.iosAppUserAgentToken
+        configuration.userContentController.addUserScript(
+            WKUserScript(
+                source: WebSurfaceViewportScript.source,
+                injectionTime: .atDocumentEnd,
+                forMainFrameOnly: true
+            )
+        )
         bridgeAdapter?.install(into: configuration)
         let created = WKWebView(frame: .zero, configuration: configuration)
         created.navigationDelegate = navigationRelay
@@ -148,6 +155,11 @@ final class WebViewHolder: NSObject, ObservableObject {
     func load(_ urlString: String) {
         guard !isDisposed, let url = URL(string: urlString) else { return }
         webView.load(URLRequest(url: url))
+    }
+
+    func loadHTML(_ html: String, baseURL: URL) {
+        guard !isDisposed else { return }
+        webView.loadHTMLString(html, baseURL: baseURL)
     }
 
     func reload() {

@@ -22,6 +22,30 @@ final class IosHomeHostTests: XCTestCase {
         XCTAssertEqual(holder.webView.scrollView.contentInset, .zero)
     }
 
+    func testWebViewHolderKeepsViewportAndIdentityPoliciesStable() {
+        let holder = WebViewHolder.withLegacyBridge(
+            surface: .home,
+            handler: AcceptingBridgeCommandHandler()
+        )
+        defer { holder.dispose() }
+
+        let first = holder.webView
+        let second = holder.webView
+        XCTAssertTrue(first === second)
+        XCTAssertEqual(first.scrollView.keyboardDismissMode, .interactive)
+        XCTAssertTrue(WebSurfaceViewportScript.source.contains("visualViewport"))
+        XCTAssertTrue(WebSurfaceViewportScript.source.contains("klas-visual-viewport-height"))
+        XCTAssertTrue(WebSurfaceLayoutPolicy.product.extendsUnderHomeIndicator)
+        XCTAssertFalse(WebSurfaceLayoutPolicy.embedded.extendsUnderHomeIndicator)
+    }
+
+    func testWindowWidthClassKeepsResponsiveBoundaries() {
+        XCTAssertEqual(AppWindowWidthClass.classify(width: 599), .compact)
+        XCTAssertEqual(AppWindowWidthClass.classify(width: 600), .medium)
+        XCTAssertEqual(AppWindowWidthClass.classify(width: 839), .medium)
+        XCTAssertEqual(AppWindowWidthClass.classify(width: 840), .expanded)
+    }
+
     @MainActor
     func testHomeTabUrlsMatchAndroid() {
         XCTAssertEqual(

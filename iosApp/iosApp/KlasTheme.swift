@@ -32,7 +32,7 @@ enum KlasTheme {
     static let registerURL = URL(string: "https://klas.kw.ac.kr/usr/cmn/login/modal/UserFrstModPwdPage.do")!
 }
 
-enum AppWindowWidthClass {
+enum AppWindowWidthClass: Equatable {
     case compact, medium, expanded
 
     static func classify(width: CGFloat) -> AppWindowWidthClass {
@@ -81,7 +81,8 @@ struct KlasInverseButtonStyle: ButtonStyle {
             .font(.body.weight(.semibold))
             .foregroundStyle(enabled ? KlasTheme.inverseButtonContent : KlasTheme.disabledContent)
             .frame(maxWidth: .infinity)
-            .frame(height: KlasTheme.buttonHeight)
+            .frame(minHeight: KlasTheme.buttonHeight)
+            .padding(.vertical, 4)
             .background(
                 RoundedRectangle(cornerRadius: KlasTheme.controlCornerRadius, style: .continuous)
                     .fill(enabled ? KlasTheme.inversePrimary : KlasTheme.disabledContainer)
@@ -104,13 +105,16 @@ struct KlasTextLinkButtonStyle: ButtonStyle {
 }
 
 struct KlasSelectionRowButtonStyle: ButtonStyle {
+    @ScaledMetric(relativeTo: .footnote) private var optionFontSize: CGFloat = 14
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 14, weight: .medium))
+            .font(.system(size: optionFontSize, weight: .medium))
             .foregroundStyle(KlasTheme.onSurfaceVariant)
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: KlasTheme.buttonHeight)
+            .frame(minHeight: KlasTheme.buttonHeight)
+            .padding(.vertical, 4)
             .background(
                 RoundedRectangle(cornerRadius: KlasTheme.controlCornerRadius, style: .continuous)
                     .fill(configuration.isPressed ? KlasTheme.primary.opacity(0.12) : Color.clear)
