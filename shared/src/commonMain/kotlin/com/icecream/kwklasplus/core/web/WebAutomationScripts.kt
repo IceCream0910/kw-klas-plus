@@ -15,8 +15,16 @@ object KlasWebAutomationScripts {
         require(intervalMs > 0)
         val call = openLecture(yearSemester, subjectId).reveal()
         return WebScript(
-            "(function(){function go(n){if(window.appModule&&typeof appModule.goLctrum==='function'){" +
-                "$call;return;}if(n>0)setTimeout(function(){go(n-1);},$intervalMs);}go($maxRetries);})();",
+            "(function(){function go(n){" +
+                "if(!(window.appModule&&typeof appModule.goLctrum==='function')){" +
+                "if(n>0)setTimeout(function(){go(n-1);},$intervalMs);return;}" +
+                "var failed=false;var orig=window.alert;" +
+                "window.alert=function(msg){" +
+                "if(String(msg||'').indexOf('오류가 발생')!==-1){failed=true;return;}" +
+                "return orig.apply(this,arguments);};" +
+                "try{$call}finally{window.alert=orig;}" +
+                "if(failed&&n>0)setTimeout(function(){go(n-1);},$intervalMs);" +
+                "}go($maxRetries);})();",
         )
     }
 
