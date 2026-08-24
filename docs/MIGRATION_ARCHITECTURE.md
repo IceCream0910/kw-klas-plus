@@ -222,6 +222,8 @@ KLAS 인증/학기/시간표/마감일/출석, 도서관, 학생증 QR와 강의
 
 WebView 인스턴스를 화면 재구성 때마다 만들지 않는다. 화면 수명주기와 분리된 holder/controller로 유지하고, 명시적인 dispose에서 브리지 handler와 delegate를 해제해 누수와 중복 콜백을 막는다.
 
+iOS의 WebView container는 UIKit 자동 content inset을 끄고 `container` safe area의 bottom만 선택적으로 무시한다. keyboard safe area는 무시하지 않아 WKWebView frame이 IME에 맞춰 줄어들게 하며, `visualViewport` resize/scroll 이벤트는 fixed navigation과 modal이 viewport 변화를 관찰할 수 있도록 document-end policy script로 전달한다. Native toolbar·sheet·toast·download overlay는 Web content와 별도로 SwiftUI safe area 안에 배치한다. 회전과 trait 변경은 holder identity를 바꾸지 않으며, native overlay가 표시되는 동안 뒤의 WebView는 hit-test와 VoiceOver 접근성 트리에서 제외한다.
+
 ### 4.5 버전형 JavaScript 브리지
 
 Web이 다음 envelope를 갖는 Bridge v1 프로토콜을 우선 사용한다.

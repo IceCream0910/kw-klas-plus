@@ -134,10 +134,11 @@
   - 작업: WKDownload/URLSession, document/photo picker, share sheet, `UIApplication.open`을 공통 요청·URL 정책에 연결
   - 완료 기준: cookie가 필요한 다운로드, MIME·파일명, 단일/다중 선택, 취소, mailto/tel/https와 악성 scheme 거부
   - 남은 일: 파일 업로드(`UIDocumentPicker`)는 계약 테스트만 통과. 실계정 KLAS 업로드 경로 검증 후 완료 처리
-- [ ] **M6-011 (P1, M)** WKWebView 컨테이너의 iOS UI 환경 대응
+- [x] **M6-011 (P1, M)** WKWebView 컨테이너의 iOS UI 환경 대응
   - Depends on: M6-009
   - 작업: SwiftUI theme, safe area, 키보드·viewport, iPhone/iPad 회전과 Dynamic Type/VoiceOver focus 처리
   - 완료 기준: Web content와 Native overlay가 compact/regular, 세로/가로, 키보드 표시 상태에서 가려지거나 중복 재생성되지 않음
+  - 구현: persistent WebView layout/viewport policy, screen-level overlay host, Dynamic Type·accessibility focus, iOS UI test fixture/target을 추가
 
 ### M7 — iOS 네이티브 기능 구현
 
