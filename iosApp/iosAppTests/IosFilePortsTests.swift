@@ -135,6 +135,41 @@ final class IosFilePortsTests: XCTestCase {
         }
     }
 
+    func testDownloadInterceptClearsLoadingState() throws {
+        let transfer = RecordingFileTransfer()
+        let holder = WebViewHolder(
+            navigator: IosExternalNavigator(opener: RecordingUrlOpener()),
+            fileTransfer: transfer
+        )
+        defer { holder.dispose() }
+        _ = holder.webView
+        holder.navigationDidStart(url: "https://klas.kw.ac.kr/std/file")
+        XCTAssertTrue(holder.isLoading)
+
+        let attachmentPdf = try XCTUnwrap(
+            HTTPURLResponse(
+                url: URL(string: "https://klas.kw.ac.kr/std/file")!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: [
+                    "Content-Type": "application/octet-stream",
+                    "Content-Disposition": "attachment; filename=\"week15.pdf\"",
+                ]
+            )
+        )
+        XCTAssertEqual(
+            holder.handleNavigationResponse(attachmentPdf, isMainFrame: true, canShowMIMEType: false),
+            .cancel
+        )
+        XCTAssertFalse(holder.isLoading)
+
+        holder.navigationDidFail(
+            url: "https://klas.kw.ac.kr/std/file",
+            error: NSError(domain: "WebKitErrorDomain", code: 102)
+        )
+        XCTAssertFalse(holder.isLoading)
+    }
+
     func testDownloadDispatchIsSingleFlightAndInlinePdfHandling() throws {
         let transfer = RecordingFileTransfer()
         let dispatched = expectation(description: "downloads dispatched to FileTransfer")

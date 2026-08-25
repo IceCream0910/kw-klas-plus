@@ -100,7 +100,7 @@ struct BoardView: View {
     }
 
     var body: some View {
-        PushedWebStack(holder: model.holder) {
+        PushedWebStack(holder: model.holder, showsPageLoading: false) {
             if model.holder.goBack() { return }
             dismiss()
         }

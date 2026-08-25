@@ -274,7 +274,7 @@ final class WebViewHolder: NSObject, ObservableObject {
         }
     }
 
-    fileprivate func navigationDidStart(url: String?) {
+    func navigationDidStart(url: String?) {
         guard !isDisposed, let view = _webView else { return }
         if loadingLocalPdf {
             loadingLocalPdf = false
@@ -340,6 +340,7 @@ final class WebViewHolder: NSObject, ObservableObject {
             if accepted {
                 startDownload(request)
             }
+            restoreCommittedNavigationIfLoading()
             return .cancel
         }
 
@@ -347,6 +348,7 @@ final class WebViewHolder: NSObject, ObservableObject {
             if isAcceptedDownload(response) {
                 startDownload(makeDownloadRequest(response))
             }
+            restoreCommittedNavigationIfLoading()
             return .cancel
         }
         clearInlinePdf()
@@ -407,15 +409,17 @@ final class WebViewHolder: NSObject, ObservableObject {
         )
     }
 
-    fileprivate func navigationDidFail(url: String?, error: Error) {
+    func navigationDidFail(url: String?, error: Error) {
         guard !isDisposed, let view = _webView else { return }
         let nsError = error as NSError
         if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
+            restoreCommittedNavigationIfLoading()
             return
         }
         // 다운로드, 외부 이동으로 내비게이션을 끊으면 WebKit이 102를 남긴다.
         if nsError.code == 102,
            nsError.domain == "WebKitErrorDomain" || nsError.domain == WKError.errorDomain {
+            restoreCommittedNavigationIfLoading()
             return
         }
         let category: WebNavFailureCategory
@@ -461,6 +465,17 @@ final class WebViewHolder: NSObject, ObservableObject {
             let result = await self.fileTransfer.download(request: request)
             self.handleDownloadResult(result)
         }
+    }
+
+    private func restoreCommittedNavigationIfLoading() {
+        guard !isDisposed, let view = _webView else { return }
+        guard case .loading = navigationState.loadPhase else { return }
+        let url = view.url?.absoluteString ?? ""
+        navigationState = WebNavigationState(
+            loadPhase: url.isEmpty ? .idle : .ready(url: url),
+            canGoBack: view.canGoBack,
+            canGoForward: view.canGoForward
+        )
     }
 
     private func handleCompletedFile(_ url: URL) {

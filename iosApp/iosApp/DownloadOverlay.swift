@@ -44,3 +44,28 @@ struct DownloadProgressOverlay: View {
         }
     }
 }
+
+extension View {
+    func webDownloadOverlay(_ holder: WebViewHolder) -> some View {
+        overlay {
+            if let progress = holder.downloadProgress {
+                DownloadProgressOverlay(
+                    fileName: progress.fileName,
+                    fraction: progress.fraction,
+                    onCancel: { holder.cancelDownload() }
+                )
+            }
+        }
+        .alert(
+            "다운로드 실패",
+            isPresented: Binding(
+                get: { holder.downloadErrorMessage != nil },
+                set: { if !$0 { holder.clearDownloadError() } }
+            )
+        ) {
+            Button("확인") { holder.clearDownloadError() }
+        } message: {
+            Text(holder.downloadErrorMessage ?? "")
+        }
+    }
+}

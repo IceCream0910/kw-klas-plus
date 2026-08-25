@@ -359,7 +359,8 @@ struct LectureView: View {
             }
         }
         .webJavaScriptAlert(model.uiHolder, model.klasHolder)
-        .webDownloadOverlay(model.uiHolder, model.klasHolder)
+        .webDownloadOverlay(model.uiHolder)
+        .webDownloadOverlay(model.klasHolder)
         .onReceive(model.klasHolder.$navigationState) { state in
             model.handleKlasNavigation(state)
         }
