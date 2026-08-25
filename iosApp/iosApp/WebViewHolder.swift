@@ -28,6 +28,7 @@ final class WebViewHolder: NSObject, ObservableObject {
     private let allowsInAppWeb: Bool
     private var activeDownloadTask: Task<Void, Never>?
     private var loadingLocalPdf = false
+    private var webContentTerminationRetryUsed = false
 
     static var websiteDataStore: WKWebsiteDataStore { .default() }
 
@@ -165,6 +166,7 @@ final class WebViewHolder: NSObject, ObservableObject {
 
     func load(_ urlString: String) {
         guard !isDisposed, let url = URL(string: urlString) else { return }
+        webContentTerminationRetryUsed = false
         webView.load(URLRequest(url: url))
     }
 
@@ -175,6 +177,7 @@ final class WebViewHolder: NSObject, ObservableObject {
 
     func reload() {
         guard !isDisposed, _webView != nil else { return }
+        webContentTerminationRetryUsed = false
         webView.reload()
     }
 
@@ -216,6 +219,7 @@ final class WebViewHolder: NSObject, ObservableObject {
     func dispose() {
         guard !isDisposed else { return }
         isDisposed = true
+        webContentTerminationRetryUsed = false
         suppressJavaScriptAlertContaining = nil
         onSuppressedJavaScriptAlert = nil
         bridgeAdapter?.dispose()
@@ -235,6 +239,11 @@ final class WebViewHolder: NSObject, ObservableObject {
         javaScriptAlertCompletion = nil
         javaScriptAlertMessage = nil
         navigationState = WebNavigationState(loadPhase: .disposed)
+    }
+
+    func applyWebpagePreferences(_ preferences: WKWebpagePreferences) {
+        guard allowsInAppWeb else { return }
+        preferences.preferredContentMode = .mobile
     }
 
     func handleDecidePolicy(urlString: String, isMainFrame: Bool) -> Bool {
@@ -282,6 +291,7 @@ final class WebViewHolder: NSObject, ObservableObject {
 
     fileprivate func navigationDidFinish(url: String?) {
         guard !isDisposed, let view = _webView else { return }
+        webContentTerminationRetryUsed = false
         let finished = url ?? view.url?.absoluteString ?? ""
         navigationState = WebNavigationState(
             loadPhase: .ready(url: finished),
@@ -429,6 +439,20 @@ final class WebViewHolder: NSObject, ObservableObject {
         )
     }
 
+    func handleWebContentProcessDidTerminate() {
+        guard !isDisposed, let view = _webView else { return }
+        if webContentTerminationRetryUsed {
+            navigationState = WebNavigationState(
+                loadPhase: .failed(url: view.url?.absoluteString, category: .unknown),
+                canGoBack: view.canGoBack,
+                canGoForward: view.canGoForward
+            )
+            return
+        }
+        webContentTerminationRetryUsed = true
+        view.reload()
+    }
+
     private func startDownload(_ request: FileTransferRequest) {
         guard activeDownloadTask == nil else { return }
         activeDownloadTask = Task { @MainActor [weak self] in
@@ -553,12 +577,14 @@ private final class NavigationRelay: NSObject, WKNavigationDelegate {
     func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction,
-        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+        preferences: WKWebpagePreferences,
+        decisionHandler: @escaping (WKNavigationActionPolicy, WKWebpagePreferences) -> Void
     ) {
+        owner?.applyWebpagePreferences(preferences)
         let urlString = navigationAction.request.url?.absoluteString ?? ""
         let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? true
         let allow = owner?.handleDecidePolicy(urlString: urlString, isMainFrame: isMainFrame) ?? false
-        decisionHandler(allow ? .allow : .cancel)
+        decisionHandler(allow ? .allow : .cancel, preferences)
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
@@ -596,6 +622,10 @@ private final class NavigationRelay: NSObject, WKNavigationDelegate {
         withError error: Error
     ) {
         owner?.navigationDidFail(url: webView.url?.absoluteString, error: error)
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        owner?.handleWebContentProcessDidTerminate()
     }
 }
 

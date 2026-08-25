@@ -89,6 +89,52 @@ final class IosFilePortsTests: XCTestCase {
         XCTAssertNil(defaultHolder.pageReadyScript(for: "https://www.kw.ac.kr/ko/life/notice.jsp"))
     }
 
+    func testInAppWebHolderPrefersMobileContentMode() {
+        let inApp = WebViewHolder(allowsInAppWeb: true)
+        defer { inApp.dispose() }
+        XCTAssertEqual(inApp.webView.configuration.defaultWebpagePreferences.preferredContentMode, .mobile)
+        let inAppPreferences = WKWebpagePreferences()
+        inAppPreferences.preferredContentMode = .desktop
+        inApp.applyWebpagePreferences(inAppPreferences)
+        XCTAssertEqual(inAppPreferences.preferredContentMode, .mobile)
+
+        let linkHolder = WebViewHolder.withLegacyBridge(
+            surface: .linkView,
+            handler: AcceptingBridgeCommandHandler()
+        )
+        defer { linkHolder.dispose() }
+        XCTAssertEqual(linkHolder.webView.configuration.defaultWebpagePreferences.preferredContentMode, .mobile)
+
+        let defaultHolder = WebViewHolder()
+        defer { defaultHolder.dispose() }
+        XCTAssertEqual(
+            defaultHolder.webView.configuration.defaultWebpagePreferences.preferredContentMode,
+            .recommended
+        )
+        let defaultPreferences = WKWebpagePreferences()
+        defaultPreferences.preferredContentMode = .desktop
+        defaultHolder.applyWebpagePreferences(defaultPreferences)
+        XCTAssertEqual(defaultPreferences.preferredContentMode, .desktop)
+    }
+
+    func testWebContentProcessTerminationReloadsOnceThenFails() {
+        let holder = WebViewHolder()
+        defer { holder.dispose() }
+        _ = holder.webView
+
+        holder.handleWebContentProcessDidTerminate()
+        XCTAssertFalse(holder.isFailed)
+
+        holder.handleWebContentProcessDidTerminate()
+        XCTAssertTrue(holder.isFailed)
+        XCTAssertFalse(holder.isLoading)
+        if case let .failed(_, category) = holder.navigationState.loadPhase {
+            XCTAssertEqual(category, .unknown)
+        } else {
+            XCTFail("expected failed load phase after second WebContent termination")
+        }
+    }
+
     func testDownloadDispatchIsSingleFlightAndInlinePdfHandling() throws {
         let transfer = RecordingFileTransfer()
         let dispatched = expectation(description: "downloads dispatched to FileTransfer")

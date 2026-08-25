@@ -62,7 +62,7 @@ struct LecturePlanView: View {
     }
 
     var body: some View {
-        PushedWebStack(holder: model.holder, isLoading: model.holder.isLoading) {
+        PushedWebStack(holder: model.holder) {
             if model.holder.goBack() { return }
             dismiss()
         }

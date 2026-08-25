@@ -2,7 +2,6 @@ import SwiftUI
 
 struct PushedWebStack: View {
     @ObservedObject var holder: WebViewHolder
-    var isLoading: Bool
     var onBack: () -> Void
 
     var body: some View {
@@ -10,12 +9,18 @@ struct PushedWebStack: View {
             WebViewContainer(webView: holder.webView)
                 .webSurfaceLayout()
                 .accessibilityHidden(
-                    isLoading
+                    holder.isLoading
+                        || holder.isFailed
                         || holder.javaScriptAlertMessage != nil
                         || holder.downloadProgress != nil
                 )
-            if isLoading {
+            if holder.isLoading {
                 KlasLoadingView(message: "불러오는 중")
+            } else if case let .failed(_, category) = holder.navigationState.loadPhase {
+                HomeFailureView(
+                    message: HomeCoordinator.pageLoadFailureMessage(for: category),
+                    onRetry: { holder.reload() }
+                )
             }
         }
         .navigationBarBackButtonHidden(true)
@@ -43,6 +48,11 @@ struct PushedWebStack: View {
 extension WebViewHolder {
     var isLoading: Bool {
         if case .loading = navigationState.loadPhase { return true }
+        return false
+    }
+
+    var isFailed: Bool {
+        if case .failed = navigationState.loadPhase { return true }
         return false
     }
 }
