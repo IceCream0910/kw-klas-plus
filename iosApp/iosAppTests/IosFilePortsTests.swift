@@ -61,8 +61,9 @@ final class IosFilePortsTests: XCTestCase {
         XCTAssertFalse(holder.handleDecidePolicy(urlString: "javascript:alert(1)", isMainFrame: true))
         XCTAssertFalse(holder.handleDecidePolicy(urlString: "intent://settings", isMainFrame: true))
         XCTAssertFalse(holder.handleDecidePolicy(urlString: "file:///tmp/secret", isMainFrame: true))
-        XCTAssertEqual(holder.lastExternalURL, "mailto:help@example.com")
-        XCTAssertEqual(opener.opened, ["mailto:help@example.com"])
+        XCTAssertFalse(holder.handleDecidePolicy(urlString: "https://example.com/help", isMainFrame: true))
+        XCTAssertEqual(holder.lastExternalURL, "https://example.com/help")
+        XCTAssertEqual(opener.opened, ["mailto:help@example.com", "https://example.com/help"])
     }
 
     func testLinkViewBridgeHolderAllowsInAppWebAndNoticeScrollScript() {
@@ -87,34 +88,6 @@ final class IosFilePortsTests: XCTestCase {
         let defaultHolder = WebViewHolder()
         defer { defaultHolder.dispose() }
         XCTAssertNil(defaultHolder.pageReadyScript(for: "https://www.kw.ac.kr/ko/life/notice.jsp"))
-    }
-
-    func testInAppWebHolderPrefersMobileContentMode() {
-        let inApp = WebViewHolder(allowsInAppWeb: true)
-        defer { inApp.dispose() }
-        XCTAssertEqual(inApp.webView.configuration.defaultWebpagePreferences.preferredContentMode, .mobile)
-        let inAppPreferences = WKWebpagePreferences()
-        inAppPreferences.preferredContentMode = .desktop
-        inApp.applyWebpagePreferences(inAppPreferences)
-        XCTAssertEqual(inAppPreferences.preferredContentMode, .mobile)
-
-        let linkHolder = WebViewHolder.withLegacyBridge(
-            surface: .linkView,
-            handler: AcceptingBridgeCommandHandler()
-        )
-        defer { linkHolder.dispose() }
-        XCTAssertEqual(linkHolder.webView.configuration.defaultWebpagePreferences.preferredContentMode, .mobile)
-
-        let defaultHolder = WebViewHolder()
-        defer { defaultHolder.dispose() }
-        XCTAssertEqual(
-            defaultHolder.webView.configuration.defaultWebpagePreferences.preferredContentMode,
-            .recommended
-        )
-        let defaultPreferences = WKWebpagePreferences()
-        defaultPreferences.preferredContentMode = .desktop
-        defaultHolder.applyWebpagePreferences(defaultPreferences)
-        XCTAssertEqual(defaultPreferences.preferredContentMode, .desktop)
     }
 
     func testWebContentProcessTerminationReloadsOnceThenFails() {

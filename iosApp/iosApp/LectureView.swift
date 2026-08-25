@@ -17,8 +17,8 @@ final class LectureScreenModel: ObservableObject {
     private var host: LectureHostAdapter
     private var boardNoticePath = ""
     private var boardPdsPath = ""
-    private var didOpenLecture = false
-    private var isOpeningLecture = false
+    private(set) var didOpenLecture = false
+    private(set) var isOpeningLecture = false
     private var boardPathCollectTask: Task<Void, Never>?
     private var openLectureRetryTask: Task<Void, Never>?
     private var openLectureWindowTask: Task<Void, Never>?
@@ -46,6 +46,9 @@ final class LectureScreenModel: ObservableObject {
             handler: IosLectureLegacyBridgeCommandHandler(host: host)
         )
         host.model = self
+        klasHolder.onWebContentProcessDidTerminate = { [weak self] in
+            self?.prepareLectureBootstrapAfterWebContentTermination()
+        }
         uiHolder.load(KlasUrls.shared.LECTURE_HOME)
         klasHolder.load(KlasUrls.shared.KLAS_FRAME)
     }
@@ -135,6 +138,7 @@ final class LectureScreenModel: ObservableObject {
     /// KLAS가 비동기로 `오류가 발생하였습니다.` alert를 띄운다. JS에서 `window.alert`를 덮어쓰면
     /// 그 비동기 alert를 놓치므로, 함수가 생길 때까지만 기다린 뒤 네이티브에서 부트스트랩 오류를 삼킨다.
     /// 강의 홈으로 진입하거나 대기 시간이 끝나면 억제를 해제한다. `didOpenLecture`로 주입은 1회다.
+    /// 타임아웃은 `openLectureWhenReady`가 이미 `goLctrum`을 호출한 뒤에도 두 번째 호출을 보내지 않는다.
     private func openLectureIfNeeded() {
         guard !didOpenLecture else { return }
         didOpenLecture = true
@@ -154,15 +158,24 @@ final class LectureScreenModel: ObservableObject {
         openLectureWindowTask?.cancel()
         openLectureWindowTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 5_000_000_000)
-            guard let self, !Task.isCancelled, self.isOpeningLecture else { return }
-            self.finishOpeningLecture(success: false)
-            self.klasHolder.evaluate(
-                KlasWebAutomationScripts.shared.openLecture(
-                    yearSemester: self.yearSemester,
-                    subjectId: self.subjectId
-                )
-            )
+            guard let self, !Task.isCancelled else { return }
+            self.handleOpenLectureWindowExpired()
         }
+    }
+
+    func handleOpenLectureWindowExpired() {
+        guard isOpeningLecture else { return }
+        finishOpeningLecture(success: false)
+    }
+
+    func prepareLectureBootstrapAfterWebContentTermination() {
+        guard isOpeningLecture else { return }
+        didOpenLecture = false
+        isOpeningLecture = false
+        openLectureRetryTask?.cancel()
+        openLectureWindowTask?.cancel()
+        klasHolder.suppressJavaScriptAlertContaining = nil
+        klasHolder.onSuppressedJavaScriptAlert = nil
     }
 
     private func scheduleOpenLectureRetry() {
@@ -358,7 +371,7 @@ struct LectureView: View {
                 }
             }
         }
-        .webJavaScriptAlert(model.uiHolder, model.klasHolder)
+        .webJavaScriptAlert(model.uiHolder, model.klasHolder, secondaryEnabled: model.showingKlas)
         .webDownloadOverlay(model.uiHolder)
         .webDownloadOverlay(model.klasHolder)
         .onReceive(model.klasHolder.$navigationState) { state in

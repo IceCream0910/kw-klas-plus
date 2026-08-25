@@ -21,6 +21,7 @@ final class WebViewHolder: NSObject, ObservableObject {
     private lazy var navigationRelay = NavigationRelay(owner: self)
     private lazy var uiRelay = UIRelay(owner: self)
     private let trustedOrigins = TrustedOriginPolicy(trustedOrigins: TrustedOriginPolicy.companion.DEFAULT_TRUSTED_ORIGINS)
+    private let klasContentOrigins = KlasContentOriginPolicy()
     private let fileTransferPolicy = FileTransferPolicy.companion.create()
     private let navigator: IosExternalNavigator
     private let filePicker: IosFilePicker
@@ -145,6 +146,7 @@ final class WebViewHolder: NSObject, ObservableObject {
 
     var suppressJavaScriptAlertContaining: String?
     var onSuppressedJavaScriptAlert: (() -> Void)?
+    var onWebContentProcessDidTerminate: (() -> Void)?
 
     func confirmJavaScriptAlert() {
         let completion = javaScriptAlertCompletion
@@ -222,6 +224,7 @@ final class WebViewHolder: NSObject, ObservableObject {
         webContentTerminationRetryUsed = false
         suppressJavaScriptAlertContaining = nil
         onSuppressedJavaScriptAlert = nil
+        onWebContentProcessDidTerminate = nil
         bridgeAdapter?.dispose()
         bridgeAdapter = nil
         cancelDownload()
@@ -239,11 +242,6 @@ final class WebViewHolder: NSObject, ObservableObject {
         javaScriptAlertCompletion = nil
         javaScriptAlertMessage = nil
         navigationState = WebNavigationState(loadPhase: .disposed)
-    }
-
-    func applyWebpagePreferences(_ preferences: WKWebpagePreferences) {
-        guard allowsInAppWeb else { return }
-        preferences.preferredContentMode = .mobile
     }
 
     func handleDecidePolicy(urlString: String, isMainFrame: Bool) -> Bool {
@@ -454,6 +452,7 @@ final class WebViewHolder: NSObject, ObservableObject {
             return
         }
         webContentTerminationRetryUsed = true
+        onWebContentProcessDidTerminate?()
         view.reload()
     }
 
@@ -519,12 +518,7 @@ final class WebViewHolder: NSObject, ObservableObject {
 
     private func isAllowedInAppWeb(_ raw: String) -> Bool {
         guard allowsInAppWeb else { return false }
-        guard let allowed = ExternalNavigationPolicy(maximumLength: 2048).resolve(rawValue: raw)
-            as? ExternalNavigationResolutionAllowed
-        else {
-            return false
-        }
-        return allowed.destination is ExternalDestinationWeb
+        return klasContentOrigins.isTrustedUrl(url: raw)
     }
 
     private func presentShareSheet(url: URL, deleteWhenDone: Bool) {
@@ -595,7 +589,6 @@ private final class NavigationRelay: NSObject, WKNavigationDelegate {
         preferences: WKWebpagePreferences,
         decisionHandler: @escaping (WKNavigationActionPolicy, WKWebpagePreferences) -> Void
     ) {
-        owner?.applyWebpagePreferences(preferences)
         let urlString = navigationAction.request.url?.absoluteString ?? ""
         let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? true
         let allow = owner?.handleDecidePolicy(urlString: urlString, isMainFrame: isMainFrame) ?? false

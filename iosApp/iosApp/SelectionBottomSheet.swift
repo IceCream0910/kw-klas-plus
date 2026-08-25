@@ -65,22 +65,29 @@ struct SelectionBottomSheet: View {
                 Color.clear.frame(height: 16)
             }
             ForEach(Array(options.enumerated()), id: \.offset) { index, option in
-                Button(action: option.action) {
-                    Text(option.title)
-                }
-                .buttonStyle(KlasSelectionRowButtonStyle())
-                .accessibilityAddTraits(option.isSelected ? .isSelected : [])
-                .accessibilityIdentifier("selection_option_\(index)")
-                .accessibilityFocused(
-                    $focusedElement,
-                    equals: index == 0 ? .firstOption : nil
-                )
+                optionButton(index: index, option: option)
             }
         }
         .padding(20)
         .padding(.top, (title != nil || description != nil) ? 20 : 0)
         .frame(maxWidth: 640)
         .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private func optionButton(index: Int, option: SelectionOptionRow) -> some View {
+        let button = Button(action: option.action) {
+            Text(option.title)
+        }
+        .buttonStyle(KlasSelectionRowButtonStyle())
+        .accessibilityAddTraits(option.isSelected ? .isSelected : [])
+        .accessibilityIdentifier("selection_option_\(index)")
+
+        if index == 0 {
+            button.accessibilityFocused($focusedElement, equals: .firstOption)
+        } else {
+            button
+        }
     }
 
     private var grabberAllowance: CGFloat { 20 }

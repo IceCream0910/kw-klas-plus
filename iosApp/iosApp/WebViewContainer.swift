@@ -14,12 +14,18 @@ enum WebSurfaceViewportScript {
       if (window.__klasPlusViewportPolicyInstalled) { return; }
       window.__klasPlusViewportPolicyInstalled = true;
       function publishViewport() {
-        var viewport = window.visualViewport;
-        var height = viewport ? viewport.height : window.innerHeight;
-        var offsetTop = viewport ? viewport.offsetTop : 0;
-        document.documentElement.style.setProperty('--klas-visual-viewport-height', height + 'px');
-        document.documentElement.style.setProperty('--klas-visual-viewport-offset-top', offsetTop + 'px');
-        window.dispatchEvent(new Event('resize'));
+        if (window.__klasPlusViewportPublishing) { return; }
+        window.__klasPlusViewportPublishing = true;
+        try {
+          var viewport = window.visualViewport;
+          var height = viewport ? viewport.height : window.innerHeight;
+          var offsetTop = viewport ? viewport.offsetTop : 0;
+          document.documentElement.style.setProperty('--klas-visual-viewport-height', height + 'px');
+          document.documentElement.style.setProperty('--klas-visual-viewport-offset-top', offsetTop + 'px');
+          window.dispatchEvent(new Event('resize'));
+        } finally {
+          window.__klasPlusViewportPublishing = false;
+        }
       }
       if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', publishViewport);

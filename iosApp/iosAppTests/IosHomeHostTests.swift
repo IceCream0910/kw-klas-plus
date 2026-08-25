@@ -35,6 +35,7 @@ final class IosHomeHostTests: XCTestCase {
         XCTAssertEqual(first.scrollView.keyboardDismissMode, .interactive)
         XCTAssertTrue(WebSurfaceViewportScript.source.contains("visualViewport"))
         XCTAssertTrue(WebSurfaceViewportScript.source.contains("klas-visual-viewport-height"))
+        XCTAssertTrue(WebSurfaceViewportScript.source.contains("__klasPlusViewportPublishing"))
         XCTAssertTrue(WebSurfaceLayoutPolicy.product.extendsUnderHomeIndicator)
         XCTAssertFalse(WebSurfaceLayoutPolicy.embedded.extendsUnderHomeIndicator)
     }
@@ -63,6 +64,70 @@ final class IosHomeHostTests: XCTestCase {
         XCTAssertNil(secondary.javaScriptAlertMessage)
     }
 
+    func testJavaScriptAlertPresentationKeepsStickyHolderUntilDismissed() {
+        let primary = WebViewHolder()
+        let secondary = WebViewHolder()
+        defer {
+            primary.dispose()
+            secondary.dispose()
+        }
+        primary.presentJavaScriptAlert(message: "ui") {}
+        secondary.presentJavaScriptAlert(message: "klas") {}
+
+        let first = WebJavaScriptAlertPresentation.holder(
+            primary: primary,
+            secondary: secondary,
+            secondaryEnabled: true,
+            sticky: nil
+        )
+        XCTAssertTrue(first === primary)
+
+        let sticky = WebJavaScriptAlertPresentation.holder(
+            primary: primary,
+            secondary: secondary,
+            secondaryEnabled: true,
+            sticky: primary
+        )
+        XCTAssertTrue(sticky === primary)
+
+        primary.confirmJavaScriptAlert()
+        let queued = WebJavaScriptAlertPresentation.holder(
+            primary: primary,
+            secondary: secondary,
+            secondaryEnabled: true,
+            sticky: primary
+        )
+        XCTAssertTrue(queued === secondary)
+    }
+
+    func testJavaScriptAlertPresentationIgnoresDisabledSecondary() {
+        let primary = WebViewHolder()
+        let secondary = WebViewHolder()
+        defer {
+            primary.dispose()
+            secondary.dispose()
+        }
+        secondary.presentJavaScriptAlert(message: "klas") {}
+
+        XCTAssertNil(
+            WebJavaScriptAlertPresentation.holder(
+                primary: primary,
+                secondary: secondary,
+                secondaryEnabled: false,
+                sticky: nil
+            )
+        )
+
+        primary.presentJavaScriptAlert(message: "ui") {}
+        let visible = WebJavaScriptAlertPresentation.holder(
+            primary: primary,
+            secondary: secondary,
+            secondaryEnabled: false,
+            sticky: nil
+        )
+        XCTAssertTrue(visible === primary)
+    }
+
     func testJavaScriptAlertSuppressionCompletesWithoutPresenting() {
         let holder = WebViewHolder()
         defer { holder.dispose() }
@@ -89,6 +154,102 @@ final class IosHomeHostTests: XCTestCase {
     func testBootstrapLectureErrorMatcher() {
         XCTAssertTrue(LectureScreenModel.isBootstrapLectureError("오류가 발생하였습니다."))
         XCTAssertFalse(LectureScreenModel.isBootstrapLectureError("다른 안내"))
+    }
+
+    @MainActor
+    func testOpenLectureWindowExpiryEndsSuppressionWithoutSecondCall() {
+        let coordinator = makeHomeCoordinator()
+        defer { coordinator.dispose() }
+        let model = LectureScreenModel(
+            subjectId: "TEST001",
+            subjectName: "테스트강의",
+            yearSemester: "2026,1",
+            sessionToken: SecretValue.companion.of(value: "session"),
+            coordinator: coordinator
+        )
+        defer {
+            model.uiHolder.dispose()
+            model.klasHolder.dispose()
+        }
+
+        model.handleKlasNavigation(
+            WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/cmn/frame/Frame.do"))
+        )
+        XCTAssertTrue(model.didOpenLecture)
+        XCTAssertTrue(model.isOpeningLecture)
+        XCTAssertEqual(
+            model.klasHolder.suppressJavaScriptAlertContaining,
+            LectureScreenModel.bootstrapLectureErrorMarker
+        )
+
+        model.handleOpenLectureWindowExpired()
+        XCTAssertTrue(model.didOpenLecture)
+        XCTAssertFalse(model.isOpeningLecture)
+        XCTAssertNil(model.klasHolder.suppressJavaScriptAlertContaining)
+    }
+
+    @MainActor
+    func testWebContentTerminationResetsLectureBootstrapBeforeLctrumHome() {
+        let coordinator = makeHomeCoordinator()
+        defer { coordinator.dispose() }
+        let model = LectureScreenModel(
+            subjectId: "TEST001",
+            subjectName: "테스트강의",
+            yearSemester: "2026,1",
+            sessionToken: SecretValue.companion.of(value: "session"),
+            coordinator: coordinator
+        )
+        defer {
+            model.uiHolder.dispose()
+            model.klasHolder.dispose()
+        }
+        _ = model.klasHolder.webView
+
+        model.handleKlasNavigation(
+            WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/cmn/frame/Frame.do"))
+        )
+        XCTAssertTrue(model.didOpenLecture)
+        XCTAssertTrue(model.isOpeningLecture)
+
+        model.klasHolder.handleWebContentProcessDidTerminate()
+        XCTAssertFalse(model.didOpenLecture)
+        XCTAssertFalse(model.isOpeningLecture)
+        XCTAssertNil(model.klasHolder.suppressJavaScriptAlertContaining)
+
+        model.handleKlasNavigation(
+            WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/cmn/frame/Frame.do"))
+        )
+        XCTAssertTrue(model.didOpenLecture)
+        XCTAssertTrue(model.isOpeningLecture)
+    }
+
+    @MainActor
+    func testWebContentTerminationDoesNotResetAfterLectureHome() {
+        let coordinator = makeHomeCoordinator()
+        defer { coordinator.dispose() }
+        let model = LectureScreenModel(
+            subjectId: "TEST001",
+            subjectName: "테스트강의",
+            yearSemester: "2026,1",
+            sessionToken: SecretValue.companion.of(value: "session"),
+            coordinator: coordinator
+        )
+        defer {
+            model.uiHolder.dispose()
+            model.klasHolder.dispose()
+        }
+
+        model.handleKlasNavigation(
+            WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/cmn/frame/Frame.do"))
+        )
+        model.handleKlasNavigation(
+            WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/lis/evltn/LctrumHomeStdPage.do"))
+        )
+        XCTAssertTrue(model.didOpenLecture)
+        XCTAssertFalse(model.isOpeningLecture)
+
+        model.prepareLectureBootstrapAfterWebContentTermination()
+        XCTAssertTrue(model.didOpenLecture)
     }
 
     func testWindowWidthClassKeepsResponsiveBoundaries() {
