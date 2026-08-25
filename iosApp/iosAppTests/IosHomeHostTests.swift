@@ -175,16 +175,14 @@ final class IosHomeHostTests: XCTestCase {
         model.handleKlasNavigation(
             WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/cmn/frame/Frame.do"))
         )
-        XCTAssertTrue(model.didOpenLecture)
-        XCTAssertTrue(model.isOpeningLecture)
+        XCTAssertEqual(model.bootstrap, .opening)
         XCTAssertEqual(
             model.klasHolder.suppressJavaScriptAlertContaining,
             LectureScreenModel.bootstrapLectureErrorMarker
         )
 
         model.handleOpenLectureWindowExpired()
-        XCTAssertTrue(model.didOpenLecture)
-        XCTAssertFalse(model.isOpeningLecture)
+        XCTAssertEqual(model.bootstrap, .finished)
         XCTAssertNil(model.klasHolder.suppressJavaScriptAlertContaining)
     }
 
@@ -208,19 +206,16 @@ final class IosHomeHostTests: XCTestCase {
         model.handleKlasNavigation(
             WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/cmn/frame/Frame.do"))
         )
-        XCTAssertTrue(model.didOpenLecture)
-        XCTAssertTrue(model.isOpeningLecture)
+        XCTAssertEqual(model.bootstrap, .opening)
 
         model.klasHolder.handleWebContentProcessDidTerminate()
-        XCTAssertFalse(model.didOpenLecture)
-        XCTAssertFalse(model.isOpeningLecture)
+        XCTAssertEqual(model.bootstrap, .idle)
         XCTAssertNil(model.klasHolder.suppressJavaScriptAlertContaining)
 
         model.handleKlasNavigation(
             WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/cmn/frame/Frame.do"))
         )
-        XCTAssertTrue(model.didOpenLecture)
-        XCTAssertTrue(model.isOpeningLecture)
+        XCTAssertEqual(model.bootstrap, .opening)
     }
 
     @MainActor
@@ -245,11 +240,10 @@ final class IosHomeHostTests: XCTestCase {
         model.handleKlasNavigation(
             WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/lis/evltn/LctrumHomeStdPage.do"))
         )
-        XCTAssertTrue(model.didOpenLecture)
-        XCTAssertFalse(model.isOpeningLecture)
+        XCTAssertEqual(model.bootstrap, .finished)
 
         model.prepareLectureBootstrapAfterWebContentTermination()
-        XCTAssertTrue(model.didOpenLecture)
+        XCTAssertEqual(model.bootstrap, .finished)
     }
 
     func testWindowWidthClassKeepsResponsiveBoundaries() {
