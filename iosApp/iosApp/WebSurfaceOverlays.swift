@@ -34,15 +34,10 @@ extension View {
 
     func webJavaScriptAlert(
         _ primary: WebViewHolder,
-        _ secondary: WebViewHolder,
-        activeSecondary: Bool
+        _ secondary: WebViewHolder
     ) -> some View {
         overlay {
-            WebJavaScriptAlertHost(
-                primary: primary,
-                secondary: secondary,
-                activeSecondary: activeSecondary
-            )
+            WebJavaScriptAlertHost(primary: primary, secondary: secondary)
         }
     }
 }
@@ -106,34 +101,25 @@ struct WebSurfaceOverlayHost: View {
 struct WebJavaScriptAlertHost: View {
     @ObservedObject var primary: WebViewHolder
     @ObservedObject var secondary: WebViewHolder
-    let activeSecondary: Bool
 
     var body: some View {
         EmptyView()
             .alert(
                 "안내",
                 isPresented: Binding(
-                    get: { activeHolder.javaScriptAlertMessage != nil },
-                    set: { if !$0 { activeHolder.confirmJavaScriptAlert() } }
+                    get: { presentingHolder != nil },
+                    set: { if !$0 { presentingHolder?.confirmJavaScriptAlert() } }
                 )
             ) {
-                Button("확인") { activeHolder.confirmJavaScriptAlert() }
+                Button("확인") { presentingHolder?.confirmJavaScriptAlert() }
             } message: {
-                Text(activeHolder.javaScriptAlertMessage ?? "")
-            }
-            .onReceive(primary.$javaScriptAlertMessage) { message in
-                if activeSecondary, message != nil {
-                    primary.confirmJavaScriptAlert()
-                }
-            }
-            .onReceive(secondary.$javaScriptAlertMessage) { message in
-                if !activeSecondary, message != nil {
-                    secondary.confirmJavaScriptAlert()
-                }
+                Text(presentingHolder?.javaScriptAlertMessage ?? "")
             }
     }
 
-    private var activeHolder: WebViewHolder {
-        activeSecondary ? secondary : primary
+    private var presentingHolder: WebViewHolder? {
+        if primary.javaScriptAlertMessage != nil { return primary }
+        if secondary.javaScriptAlertMessage != nil { return secondary }
+        return nil
     }
 }

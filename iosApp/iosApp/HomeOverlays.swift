@@ -55,8 +55,8 @@ struct HomeOverlayModifier: ViewModifier {
                 .preferredColorScheme(coordinator.colorScheme)
             }
             .overlay(alignment: .bottom) {
-                GeometryReader { proxy in
-                    if let toast = coordinator.toastMessage {
+                if let toast = coordinator.toastMessage {
+                    GeometryReader { proxy in
                         Text(toast)
                             .font(.subheadline)
                             .foregroundStyle(KlasTheme.onSurface)
@@ -74,6 +74,7 @@ struct HomeOverlayModifier: ViewModifier {
                             )
                             .accessibilityIdentifier("home_toast")
                     }
+                    .allowsHitTesting(false)
                 }
             }
     }

@@ -15,12 +15,12 @@ class WebAutomationScriptsTest {
     }
 
     @Test
-    fun openLectureWhenReadyWrapsCallInRetryLoop() {
+    fun openLectureWhenReadyWaitsForGoLctrumThenCallsOnce() {
         val script = KlasWebAutomationScripts.openLectureWhenReady("2026,1", "SUBJ'01").reveal()
         assertTrue(script.contains("appModule.goLctrum(\"2026,1\",\"SUBJ'01\");"))
         assertTrue(script.contains("typeof appModule.goLctrum==='function'"))
-        assertTrue(script.contains("indexOf('오류가 발생')"))
         assertTrue(script.contains("setTimeout"))
+        assertTrue(!script.contains("window.alert"))
         assertTrue(script.startsWith("(function(){"))
         assertTrue(script.endsWith("go(20);})();"))
     }

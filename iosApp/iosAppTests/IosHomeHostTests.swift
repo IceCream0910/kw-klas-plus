@@ -39,6 +39,58 @@ final class IosHomeHostTests: XCTestCase {
         XCTAssertFalse(WebSurfaceLayoutPolicy.embedded.extendsUnderHomeIndicator)
     }
 
+    func testJavaScriptAlertCompletionStaysOnThePresentingHolder() {
+        let primary = WebViewHolder()
+        let secondary = WebViewHolder()
+        defer {
+            primary.dispose()
+            secondary.dispose()
+        }
+
+        var primaryConfirmed = false
+        var secondaryConfirmed = false
+        primary.presentJavaScriptAlert(message: "ui") { primaryConfirmed = true }
+        secondary.presentJavaScriptAlert(message: "klas") { secondaryConfirmed = true }
+
+        primary.confirmJavaScriptAlert()
+        XCTAssertTrue(primaryConfirmed)
+        XCTAssertNil(primary.javaScriptAlertMessage)
+        XCTAssertFalse(secondaryConfirmed)
+        XCTAssertEqual(secondary.javaScriptAlertMessage, "klas")
+
+        secondary.confirmJavaScriptAlert()
+        XCTAssertTrue(secondaryConfirmed)
+        XCTAssertNil(secondary.javaScriptAlertMessage)
+    }
+
+    func testJavaScriptAlertSuppressionCompletesWithoutPresenting() {
+        let holder = WebViewHolder()
+        defer { holder.dispose() }
+
+        var suppressedCount = 0
+        var presented = false
+        holder.suppressJavaScriptAlertContaining = LectureScreenModel.bootstrapLectureErrorMarker
+        holder.onSuppressedJavaScriptAlert = { suppressedCount += 1 }
+
+        holder.presentJavaScriptAlert(message: "오류가 발생하였습니다.") { presented = true }
+        XCTAssertEqual(suppressedCount, 1)
+        XCTAssertTrue(presented)
+        XCTAssertNil(holder.javaScriptAlertMessage)
+
+        presented = false
+        holder.presentJavaScriptAlert(message: "다른 안내") { presented = true }
+        XCTAssertEqual(suppressedCount, 1)
+        XCTAssertEqual(holder.javaScriptAlertMessage, "다른 안내")
+        XCTAssertFalse(presented)
+        holder.confirmJavaScriptAlert()
+        XCTAssertTrue(presented)
+    }
+
+    func testBootstrapLectureErrorMatcher() {
+        XCTAssertTrue(LectureScreenModel.isBootstrapLectureError("오류가 발생하였습니다."))
+        XCTAssertFalse(LectureScreenModel.isBootstrapLectureError("다른 안내"))
+    }
+
     func testWindowWidthClassKeepsResponsiveBoundaries() {
         XCTAssertEqual(AppWindowWidthClass.classify(width: 599), .compact)
         XCTAssertEqual(AppWindowWidthClass.classify(width: 600), .medium)

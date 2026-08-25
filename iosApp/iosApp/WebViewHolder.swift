@@ -139,6 +139,9 @@ final class WebViewHolder: NSObject, ObservableObject {
         })
     }
 
+    var suppressJavaScriptAlertContaining: String?
+    var onSuppressedJavaScriptAlert: (() -> Void)?
+
     func confirmJavaScriptAlert() {
         let completion = javaScriptAlertCompletion
         javaScriptAlertCompletion = nil
@@ -147,6 +150,11 @@ final class WebViewHolder: NSObject, ObservableObject {
     }
 
     func presentJavaScriptAlert(message: String, completion: @escaping () -> Void) {
+        if let marker = suppressJavaScriptAlertContaining, message.contains(marker) {
+            completion()
+            onSuppressedJavaScriptAlert?()
+            return
+        }
         javaScriptAlertCompletion?()
         javaScriptAlertCompletion = completion
         javaScriptAlertMessage = message
@@ -205,6 +213,8 @@ final class WebViewHolder: NSObject, ObservableObject {
     func dispose() {
         guard !isDisposed else { return }
         isDisposed = true
+        suppressJavaScriptAlertContaining = nil
+        onSuppressedJavaScriptAlert = nil
         bridgeAdapter?.dispose()
         bridgeAdapter = nil
         cancelDownload()

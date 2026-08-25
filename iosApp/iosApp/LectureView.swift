@@ -18,7 +18,10 @@ final class LectureScreenModel: ObservableObject {
     private var boardNoticePath = ""
     private var boardPdsPath = ""
     private var didOpenLecture = false
+    private var isOpeningLecture = false
     private var boardPathCollectTask: Task<Void, Never>?
+    private var openLectureRetryTask: Task<Void, Never>?
+    private var openLectureWindowTask: Task<Void, Never>?
 
     init(
         subjectId: String,
@@ -49,6 +52,8 @@ final class LectureScreenModel: ObservableObject {
 
     deinit {
         boardPathCollectTask?.cancel()
+        openLectureRetryTask?.cancel()
+        openLectureWindowTask?.cancel()
         uiHolder.dispose()
         klasHolder.dispose()
     }
@@ -119,20 +124,25 @@ final class LectureScreenModel: ObservableObject {
             if isLoading { isLoading = false }
         }
         if url.contains("LctrumHomeStdPage.do") {
+            finishOpeningLecture(success: true)
             collectBoardPathsUntilReady()
             if showingKlas { showingKlas = false }
         }
     }
 
     /// Android는 `Frame.do` 로드 시 `KlasWebAutomationScripts.openLecture(...)`를 즉시 한 번만 호출한다.
-    /// (Android WebView의 `onPageFinished`는 페이지 스크립트 초기화가 끝난 뒤 불린다.)
-    /// WKWebView `didFinish`는 `appModule.goLctrum`이 함수로만 존재하고 내부 상태가 덜 준비된
-    /// 시점에 올 수 있다. 그때 호출하면 KLAS가 `오류가 발생하였습니다.` alert를 띄운다.
-    /// `openLectureWhenReady`는 함수가 생길 때까지 기다린 뒤 호출하고, 그 부트스트랩 alert가
-    /// 나면 삼키고 재시도한다. `didOpenLecture`로 화면당 주입은 1회로 제한한다.
+    /// WKWebView `didFinish`는 `goLctrum` 내부 상태가 덜 준비된 시점에 올 수 있고, 그때 호출하면
+    /// KLAS가 비동기로 `오류가 발생하였습니다.` alert를 띄운다. JS에서 `window.alert`를 덮어쓰면
+    /// 그 비동기 alert를 놓치므로, 함수가 생길 때까지만 기다린 뒤 네이티브에서 부트스트랩 오류를 삼킨다.
+    /// 강의 홈으로 진입하거나 대기 시간이 끝나면 억제를 해제한다. `didOpenLecture`로 주입은 1회다.
     private func openLectureIfNeeded() {
         guard !didOpenLecture else { return }
         didOpenLecture = true
+        isOpeningLecture = true
+        klasHolder.suppressJavaScriptAlertContaining = Self.bootstrapLectureErrorMarker
+        klasHolder.onSuppressedJavaScriptAlert = { [weak self] in
+            Task { @MainActor in self?.scheduleOpenLectureRetry() }
+        }
         klasHolder.evaluate(
             KlasWebAutomationScripts.shared.openLectureWhenReady(
                 yearSemester: yearSemester,
@@ -141,6 +151,49 @@ final class LectureScreenModel: ObservableObject {
                 intervalMs: 250,
             )
         )
+        openLectureWindowTask?.cancel()
+        openLectureWindowTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            guard let self, !Task.isCancelled, self.isOpeningLecture else { return }
+            self.finishOpeningLecture(success: false)
+            self.klasHolder.evaluate(
+                KlasWebAutomationScripts.shared.openLecture(
+                    yearSemester: self.yearSemester,
+                    subjectId: self.subjectId
+                )
+            )
+        }
+    }
+
+    private func scheduleOpenLectureRetry() {
+        openLectureRetryTask?.cancel()
+        openLectureRetryTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            guard let self, !Task.isCancelled, self.isOpeningLecture else { return }
+            self.klasHolder.evaluate(
+                KlasWebAutomationScripts.shared.openLecture(
+                    yearSemester: self.yearSemester,
+                    subjectId: self.subjectId
+                )
+            )
+        }
+    }
+
+    private func finishOpeningLecture(success: Bool) {
+        isOpeningLecture = false
+        openLectureRetryTask?.cancel()
+        openLectureWindowTask?.cancel()
+        klasHolder.suppressJavaScriptAlertContaining = nil
+        klasHolder.onSuppressedJavaScriptAlert = nil
+        if success, let message = klasHolder.javaScriptAlertMessage, Self.isBootstrapLectureError(message) {
+            klasHolder.confirmJavaScriptAlert()
+        }
+    }
+
+    nonisolated static let bootstrapLectureErrorMarker = "오류가 발생"
+
+    nonisolated static func isBootstrapLectureError(_ message: String) -> Bool {
+        message.contains(bootstrapLectureErrorMarker)
     }
 
     /// Android는 `LctrumHomeStdPage.do` 로드 시 `collectLectureBoardPaths()`를 한 번만 실행한다.
@@ -305,11 +358,7 @@ struct LectureView: View {
                 }
             }
         }
-        .webJavaScriptAlert(
-            model.uiHolder,
-            model.klasHolder,
-            activeSecondary: model.showingKlas
-        )
+        .webJavaScriptAlert(model.uiHolder, model.klasHolder)
         .webDownloadOverlay(model.uiHolder, model.klasHolder)
         .onReceive(model.klasHolder.$navigationState) { state in
             model.handleKlasNavigation(state)
