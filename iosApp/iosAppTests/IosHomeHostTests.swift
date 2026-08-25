@@ -323,6 +323,19 @@ final class IosHomeHostTests: XCTestCase {
     }
 
     @MainActor
+    func testUniversityNoticeOpenPagePushesInAppLink() {
+        let coordinator = makeHomeCoordinator()
+        defer { coordinator.dispose() }
+        let notice = "https://www.kw.ac.kr/ko/life/notice.jsp?mode=view"
+
+        coordinator.openWeb(url: notice)
+        XCTAssertEqual(coordinator.path.count, 1)
+
+        coordinator.openWeb(url: "javascript:alert(1)")
+        XCTAssertEqual(coordinator.path.count, 1)
+    }
+
+    @MainActor
     private func makeHomeCoordinator() -> HomeCoordinator {
         let suite = "com.icecream.kwklasplus.test.home.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!

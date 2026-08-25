@@ -129,6 +129,7 @@
   - 작업: Home·Lecture·Board·LecturePlan·Link·Settings command 중 해당 화면에 필요한 navigation/modal/reload/callback 연결
   - 완료 기준: F-007~F-016 P0 경로에서 `KlasNativeBridge.*` 호출과 Native → Web callback이 Android와 동일한 결과를 생성
   - 검증: 앱 Web + 신 iOS 조합의 탭·back·게시판·강의·과제 링크·학기 선택·modal 회귀
+  - 후속: 홈 공지 `openPage(www.kw.ac.kr)`는 Link holder 인앱 http(s) 모드로 Safari 대신 WKWebView 로드. `IosFilePortsTests` in-app web, `IosHomeHostTests` `testUniversityNoticeOpenPagePushesInAppLink`
 - [ ] **M6-010 (P1, L)** WKWebView 다운로드·파일 선택·외부 이동
   - Depends on: M6-009
   - 작업: WKDownload/URLSession, document/photo picker, share sheet, `UIApplication.open`을 공통 요청·URL 정책에 연결

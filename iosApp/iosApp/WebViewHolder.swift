@@ -25,6 +25,7 @@ final class WebViewHolder: NSObject, ObservableObject {
     private let navigator: IosExternalNavigator
     private let filePicker: IosFilePicker
     private let fileTransfer: IosFileTransfer
+    private let allowsInAppWeb: Bool
     private var activeDownloadTask: Task<Void, Never>?
     private var loadingLocalPdf = false
 
@@ -40,11 +41,13 @@ final class WebViewHolder: NSObject, ObservableObject {
     init(
         navigator: IosExternalNavigator = IosExternalNavigator.companion.system(),
         filePicker: IosFilePicker = IosFilePicker(),
-        fileTransfer: IosFileTransfer = IosFileTransfer()
+        fileTransfer: IosFileTransfer = IosFileTransfer(),
+        allowsInAppWeb: Bool = false
     ) {
         self.navigator = navigator
         self.filePicker = filePicker
         self.fileTransfer = fileTransfer
+        self.allowsInAppWeb = allowsInAppWeb
         super.init()
         fileTransfer.onProgress = { [weak self] fileName, fraction in
             self?.downloadProgress = DownloadProgressState(fileName: fileName, fraction: fraction)
@@ -110,7 +113,7 @@ final class WebViewHolder: NSObject, ObservableObject {
         handler: BridgeCommandHandler,
         synchronousHandler: SynchronousBridgeCommandHandler? = nil
     ) -> WebViewHolder {
-        let holder = WebViewHolder()
+        let holder = WebViewHolder(allowsInAppWeb: surface == .linkView)
         holder.installBridge(
             surface: surface,
             handler: handler,
@@ -244,15 +247,18 @@ final class WebViewHolder: NSObject, ObservableObject {
         if trustedOrigins.isTrustedUrl(url: urlString) {
             return true
         }
+        if isAllowedInAppWeb(urlString) {
+            return true
+        }
 
         openExternal(urlString)
         return false
     }
 
-    fileprivate func handleCreateWindow(urlString: String?) {
+    func handleCreateWindow(urlString: String?) {
         guard !isDisposed else { return }
         guard let urlString, !urlString.isEmpty else { return }
-        if trustedOrigins.isTrustedUrl(url: urlString) {
+        if trustedOrigins.isTrustedUrl(url: urlString) || isAllowedInAppWeb(urlString) {
             load(urlString)
         } else {
             openExternal(urlString)
@@ -282,6 +288,14 @@ final class WebViewHolder: NSObject, ObservableObject {
             canGoBack: view.canGoBack,
             canGoForward: view.canGoForward
         )
+        if let script = pageReadyScript(for: finished) {
+            evaluate(script)
+        }
+    }
+
+    func pageReadyScript(for url: String) -> WebScript? {
+        guard allowsInAppWeb, url.contains("notice.jsp") else { return nil }
+        return KlasWebAutomationScripts.shared.makeNoticeScrollable()
     }
 
     func handleNavigationResponse(
@@ -462,6 +476,16 @@ final class WebViewHolder: NSObject, ObservableObject {
         if result is PlatformActionResultSuccess {
             lastExternalURL = raw
         }
+    }
+
+    private func isAllowedInAppWeb(_ raw: String) -> Bool {
+        guard allowsInAppWeb else { return false }
+        guard let allowed = ExternalNavigationPolicy(maximumLength: 2048).resolve(rawValue: raw)
+            as? ExternalNavigationResolutionAllowed
+        else {
+            return false
+        }
+        return allowed.destination is ExternalDestinationWeb
     }
 
     private func presentShareSheet(url: URL, deleteWhenDone: Bool) {

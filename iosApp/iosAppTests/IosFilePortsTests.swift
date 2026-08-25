@@ -38,6 +38,57 @@ final class IosFilePortsTests: XCTestCase {
         XCTAssertTrue(holder.handleDecidePolicy(urlString: "https://klasplus.yuntae.in/feed", isMainFrame: true))
     }
 
+    func testInAppWebHolderLoadsUniversityNoticeInsteadOfSafari() {
+        let opener = RecordingUrlOpener()
+        let holder = WebViewHolder(
+            navigator: IosExternalNavigator(opener: opener),
+            allowsInAppWeb: true
+        )
+        defer { holder.dispose() }
+        let notice = "https://www.kw.ac.kr/ko/life/notice.jsp"
+
+        XCTAssertTrue(holder.handleDecidePolicy(urlString: notice, isMainFrame: true))
+        XCTAssertNil(holder.lastExternalURL)
+        XCTAssertTrue(opener.opened.isEmpty)
+        holder.handleCreateWindow(urlString: notice)
+        XCTAssertNil(holder.lastExternalURL)
+        XCTAssertTrue(opener.opened.isEmpty)
+
+        XCTAssertFalse(holder.handleDecidePolicy(urlString: "mailto:help@example.com", isMainFrame: true))
+        XCTAssertEqual(holder.lastExternalURL, "mailto:help@example.com")
+        XCTAssertEqual(opener.opened, ["mailto:help@example.com"])
+
+        XCTAssertFalse(holder.handleDecidePolicy(urlString: "javascript:alert(1)", isMainFrame: true))
+        XCTAssertFalse(holder.handleDecidePolicy(urlString: "intent://settings", isMainFrame: true))
+        XCTAssertFalse(holder.handleDecidePolicy(urlString: "file:///tmp/secret", isMainFrame: true))
+        XCTAssertEqual(holder.lastExternalURL, "mailto:help@example.com")
+        XCTAssertEqual(opener.opened, ["mailto:help@example.com"])
+    }
+
+    func testLinkViewBridgeHolderAllowsInAppWebAndNoticeScrollScript() {
+        let holder = WebViewHolder.withLegacyBridge(
+            surface: .linkView,
+            handler: AcceptingBridgeCommandHandler()
+        )
+        defer { holder.dispose() }
+
+        XCTAssertTrue(
+            holder.handleDecidePolicy(
+                urlString: "https://www.kw.ac.kr/ko/life/notice.jsp",
+                isMainFrame: true
+            )
+        )
+        XCTAssertNil(holder.lastExternalURL)
+        XCTAssertEqual(
+            holder.pageReadyScript(for: "https://www.kw.ac.kr/ko/life/notice.jsp")?.reveal(),
+            KlasWebAutomationScripts.shared.makeNoticeScrollable().reveal()
+        )
+        XCTAssertNil(holder.pageReadyScript(for: "https://www.kw.ac.kr/ko/life/facility11.jsp"))
+        let defaultHolder = WebViewHolder()
+        defer { defaultHolder.dispose() }
+        XCTAssertNil(defaultHolder.pageReadyScript(for: "https://www.kw.ac.kr/ko/life/notice.jsp"))
+    }
+
     func testDownloadDispatchIsSingleFlightAndInlinePdfHandling() throws {
         let transfer = RecordingFileTransfer()
         let dispatched = expectation(description: "downloads dispatched to FileTransfer")
