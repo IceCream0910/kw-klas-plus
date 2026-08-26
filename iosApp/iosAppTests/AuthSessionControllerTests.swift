@@ -46,6 +46,25 @@ final class AuthSessionControllerTests: XCTestCase {
         }
     }
 
+    func testStartPrefillsRetainedAccountIdWithoutPassword() async {
+        let suite = "com.icecream.kwklasplus.test.auth.prefill.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        defaults.set("2020123456", forKey: "kwID")
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let controller = AuthSessionController(
+            authRuntime: IosAuthRuntime.companion.create(defaults: defaults),
+            networkPath: FakeNetworkPathChecker(satisfied: true)
+        )
+
+        controller.start()
+        await waitUntil { controller.phase == .needsCredentials }
+
+        XCTAssertEqual(controller.loginState.studentId, "2020123456")
+        XCTAssertEqual(controller.loginState.password, "")
+        XCTAssertFalse(controller.loginState.onboardingVisible)
+    }
+
     func testHomeSessionExpiredClearsSessionBeforeReturningToLogin() async {
         let suite = "com.icecream.kwklasplus.test.auth.expired.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!

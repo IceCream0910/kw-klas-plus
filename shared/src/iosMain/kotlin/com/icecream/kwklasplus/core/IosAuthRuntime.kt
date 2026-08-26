@@ -24,6 +24,12 @@ class IosAuthRuntime(
         }
     }
 
+    fun loadAccountId(onResult: (String?) -> Unit) {
+        scope.launch {
+            onResult(runCatching { dependencies.credentialStore.loadAccountId() }.getOrNull())
+        }
+    }
+
     fun restoreSession(onResult: (SessionResult) -> Unit) {
         scope.launch {
             onResult(dependencies.sessionCoordinator.restore())

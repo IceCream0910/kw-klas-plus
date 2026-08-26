@@ -61,9 +61,13 @@ class PrepareCredentialUseCaseTest {
     ) : CredentialStore {
         var credential: StoredCredential? = null
         override suspend fun load() = credential
+        override suspend fun loadAccountId(): String? = credential?.accountId
         override suspend fun save(credential: StoredCredential) {
             if (failSave) error("save failed")
             this.credential = credential
+        }
+        override suspend fun clearPassword() {
+            credential = null
         }
         override suspend fun clear() {
             credential = null

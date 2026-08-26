@@ -106,6 +106,7 @@ class AndroidSharedDependencies(
 
     fun loginUseCase(webAuthDriver: WebAuthDriver) = LoginUseCase(
         prepareCredentialUseCase,
+        credentialStore,
         webAuthDriver,
         sessionCoordinator,
     )

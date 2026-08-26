@@ -173,7 +173,7 @@ final class AuthSessionController: ObservableObject {
                 }
             }
         case .goToLogin:
-            phase = .needsCredentials
+            loadAccountIdForLogin()
         }
     }
 
@@ -189,7 +189,7 @@ final class AuthSessionController: ObservableObject {
 
     private func handleLoadedCredential(_ credential: StoredCredential?) {
         guard let credential else {
-            phase = .needsCredentials
+            loadAccountIdForLogin()
             return
         }
         activeCredential = credential
@@ -260,6 +260,7 @@ final class AuthSessionController: ObservableObject {
         }
         if let failed = result as? LoginResultFailed {
             if failed.failure is AuthFailureInvalidCredentials {
+                activeCredential = nil
                 // Android는 JS alert 메시지를 먼저 보여주고, 이후 Failed(null)은 무시한다.
                 if case .blocked(.invalidCredentials) = phase { return }
                 phase = .blocked(.invalidCredentials(nil))
@@ -290,6 +291,22 @@ final class AuthSessionController: ObservableObject {
         authRuntime.loadCredential { [weak self] credential in
             Task { @MainActor in
                 self?.handleLoadedCredential(credential)
+            }
+        }
+    }
+
+    private func loadAccountIdForLogin() {
+        authRuntime.loadAccountId { [weak self] accountId in
+            Task { @MainActor in
+                guard let self else { return }
+                self.activeCredential = nil
+                self.loginState = LoginUiState(
+                    onboardingVisible: accountId == nil,
+                    studentId: accountId ?? "",
+                    password: "",
+                    agreementAccepted: false
+                )
+                self.phase = .needsCredentials
             }
         }
     }

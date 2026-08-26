@@ -23,6 +23,9 @@ class AndroidCredentialStore(
         return StoredCredential(accountId, password)
     }
 
+    override suspend fun loadAccountId(): String? =
+        preferences.getString(LegacyPreferenceKeys.KW_ID, null)?.takeIf(String::isNotBlank)
+
     override suspend fun save(credential: StoredCredential) {
         val previousPassword = secureStore.read(SecureKey.ENCRYPTED_KLAS_PASSWORD)
         val previousAccountId = preferences.getString(LegacyPreferenceKeys.KW_ID, null)
@@ -58,6 +61,20 @@ class AndroidCredentialStore(
         androidLoginCredentialMigrations.forEach { migration ->
             runCatching { legacySource.remove(migration.source) }
         }
+    }
+
+    override suspend fun clearPassword() {
+        var failure: Throwable? = null
+        runCatching { secureStore.remove(SecureKey.ENCRYPTED_KLAS_PASSWORD) }
+            .onFailure { failure = it }
+        if (!preferences.edit().remove(LegacyPreferenceKeys.KW_PASSWORD).commit() && failure == null) {
+            failure = IllegalStateException("credential password clear failed")
+        }
+        androidLoginCredentialMigrations.forEach { migration ->
+            runCatching { legacySource.remove(migration.source) }
+                .onFailure { if (failure == null) failure = it }
+        }
+        failure?.let { throw it }
     }
 
     override suspend fun clear() {

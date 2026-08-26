@@ -17,6 +17,9 @@ class IosCredentialStore(
         return StoredCredential(accountId, password)
     }
 
+    override suspend fun loadAccountId(): String? =
+        defaults.stringForKey(LegacyPreferenceKeys.KW_ID)?.takeIf(String::isNotBlank)
+
     override suspend fun save(credential: StoredCredential) {
         val previousPassword = secureStore.read(SecureKey.ENCRYPTED_KLAS_PASSWORD)
         val previousAccountId = defaults.stringForKey(LegacyPreferenceKeys.KW_ID)
@@ -46,6 +49,17 @@ class IosCredentialStore(
             defaults.synchronize()
             throw cause
         }
+    }
+
+    override suspend fun clearPassword() {
+        var failure: Throwable? = null
+        runCatching { secureStore.remove(SecureKey.ENCRYPTED_KLAS_PASSWORD) }
+            .onFailure { failure = it }
+        defaults.removeObjectForKey(LegacyPreferenceKeys.KW_PASSWORD)
+        if (!defaults.synchronize() && failure == null) {
+            failure = IllegalStateException("credential password clear failed")
+        }
+        failure?.let { throw it }
     }
 
     override suspend fun clear() {
