@@ -26,6 +26,32 @@ class WebAutomationScriptsTest {
     }
 
     @Test
+    fun lectureBoardPathCollectionWaitsForRenderedLinksWithoutJquery() {
+        val script = KlasWebAutomationScripts.collectLectureBoardPaths(
+            maxRetries = 8,
+            intervalMs = 400,
+        ).reveal()
+
+        assertTrue(script.contains("document.querySelectorAll('a[onclick],a[href]')"))
+        assertTrue(script.contains("findPath('공지사항')"))
+        assertTrue(script.contains("findPath('자료실')"))
+        assertTrue(script.contains("KlasNativeBridge.getBoardPath(notice,pds)"))
+        assertTrue(script.contains("setTimeout(function(){collect(remaining-1);},400)"))
+        assertTrue(script.endsWith("collect(8);})();"))
+        assertTrue(!script.contains("a:contains"))
+    }
+
+    @Test
+    fun lectureBoardPathCollectionRejectsInvalidRetryOptions() {
+        assertFailsWith<IllegalArgumentException> {
+            KlasWebAutomationScripts.collectLectureBoardPaths(maxRetries = 0)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            KlasWebAutomationScripts.collectLectureBoardPaths(intervalMs = 0)
+        }
+    }
+
+    @Test
     fun playerNumbersAreValidated() {
         assertEquals(
             "bcPlayController.getPlayController()._eventTarget.fire(VCPlayControllerEvent.CHANGE_PLAYBACK_RATE,Number(1.5));",

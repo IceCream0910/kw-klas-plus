@@ -7,6 +7,30 @@ enum LectureBootstrap: Equatable {
     case finished
 }
 
+struct LectureBoardPaths {
+    private var noticePath = ""
+    private var pdsPath = ""
+
+    mutating func update(notice: String, pds: String) {
+        if !notice.isEmpty { noticePath = notice }
+        if !pds.isEmpty { pdsPath = pds }
+    }
+
+    func isSupported(type: String) -> Bool {
+        type == "notice" || type == "pds"
+    }
+
+    func path(for type: String) -> String? {
+        let path: String
+        switch type {
+        case "notice": path = noticePath
+        case "pds": path = pdsPath
+        default: return nil
+        }
+        return path.isEmpty ? nil : path
+    }
+}
+
 @MainActor
 final class LectureScreenModel: ObservableObject {
     let uiHolder: WebViewHolder
@@ -21,10 +45,10 @@ final class LectureScreenModel: ObservableObject {
     weak var coordinator: HomeCoordinator?
 
     private var host: LectureHostAdapter
-    private var boardNoticePath = ""
-    private var boardPdsPath = ""
+    private var boardPaths = LectureBoardPaths()
     private(set) var bootstrap = LectureBootstrap.idle
-    private var boardPathCollectTask: Task<Void, Never>?
+    private var pendingBoardNavigation: PendingBoardNavigation?
+    private var boardPathTimeoutTask: Task<Void, Never>?
     private var openLectureRetryTask: Task<Void, Never>?
     private var openLectureWindowTask: Task<Void, Never>?
 
@@ -59,7 +83,7 @@ final class LectureScreenModel: ObservableObject {
     }
 
     deinit {
-        boardPathCollectTask?.cancel()
+        boardPathTimeoutTask?.cancel()
         openLectureRetryTask?.cancel()
         openLectureWindowTask?.cancel()
         uiHolder.dispose()
@@ -79,35 +103,16 @@ final class LectureScreenModel: ObservableObject {
     }
 
     func storeBoardPaths(notice: String, pds: String) {
-        boardNoticePath = notice
-        boardPdsPath = pds
+        boardPaths.update(notice: notice, pds: pds)
+        resumePendingBoardNavigation()
     }
 
     func openBoardList(type: String, title: String) {
-        guard let path = boardPath(for: type) else {
-            coordinator?.showToast("아직 정보를 불러오지 못했어요. 몇 초 후에 다시 시도해주세요.")
-            return
-        }
-        coordinator?.openBoardList(
-            path: path,
-            title: title,
-            subjectId: subjectId,
-            yearSemester: yearSemester
-        )
+        openOrCollectBoardPath(.list(type: type, title: title))
     }
 
     func openBoardView(type: String, boardNo: String, masterNo: String) {
-        guard let path = boardPath(for: type) else {
-            coordinator?.showToast("아직 정보를 불러오지 못했어요. 몇 초 후에 다시 시도해주세요.")
-            return
-        }
-        coordinator?.openBoardView(
-            path: path,
-            boardNumber: boardNo,
-            masterNumber: masterNo,
-            subjectId: subjectId,
-            yearSemester: yearSemester
-        )
+        openOrCollectBoardPath(.view(type: type, boardNo: boardNo, masterNo: masterNo))
     }
 
     func evaluteKLASScript(_ script: String) {
@@ -133,7 +138,7 @@ final class LectureScreenModel: ObservableObject {
         }
         if url.contains("LctrumHomeStdPage.do") {
             finishOpeningLecture(success: true)
-            collectBoardPathsUntilReady()
+            klasHolder.evaluate(KlasWebAutomationScripts.shared.collectLectureBoardPaths())
             if showingKlas { showingKlas = false }
         }
     }
@@ -212,23 +217,6 @@ final class LectureScreenModel: ObservableObject {
         message.contains(bootstrapLectureErrorMarker)
     }
 
-    /// Android는 `LctrumHomeStdPage.do` 로드 시 `collectLectureBoardPaths()`를 한 번만 실행한다.
-    /// iOS에서는 강의 홈 DOM(공지/자료실 링크)이 로드 완료 직후 아직 렌더링되지 않았을 수 있어,
-    /// 브릿지 콜백(`getBoardPath` → `storeBoardPaths`)으로 경로가 채워질 때까지 네이티브에서 폴링한다.
-    /// 최대 10회(약 4초) 시도하며, 경로가 모두 확보되거나 화면 이탈로 Task가 취소되면 중단한다.
-    private func collectBoardPathsUntilReady() {
-        boardPathCollectTask?.cancel()
-        boardPathCollectTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-            for _ in 0..<10 {
-                if Task.isCancelled { return }
-                if !self.boardNoticePath.isEmpty && !self.boardPdsPath.isEmpty { return }
-                self.klasHolder.evaluate(KlasWebAutomationScripts.shared.collectLectureBoardPaths())
-                try? await Task.sleep(nanoseconds: 400_000_000)
-            }
-        }
-    }
-
     func handleBack(dismiss: () -> Void) {
         if showingKlas {
             if !klasHolder.goBack() {
@@ -240,12 +228,67 @@ final class LectureScreenModel: ObservableObject {
         dismiss()
     }
 
-    private func boardPath(for type: String) -> String? {
-        if boardNoticePath.isEmpty || boardPdsPath.isEmpty { return nil }
-        switch type {
-        case "notice": return boardNoticePath
-        case "pds": return boardPdsPath
-        default: return ""
+    private func openOrCollectBoardPath(_ navigation: PendingBoardNavigation) {
+        guard boardPaths.isSupported(type: navigation.type) else {
+            coordinator?.showToast("지원하지 않는 게시판입니다.")
+            return
+        }
+        if let path = boardPaths.path(for: navigation.type) {
+            openBoard(navigation, path: path)
+            return
+        }
+
+        let wasWaiting = pendingBoardNavigation != nil
+        pendingBoardNavigation = navigation
+        boardPathTimeoutTask?.cancel()
+        boardPathTimeoutTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
+            guard !Task.isCancelled, let self, self.pendingBoardNavigation != nil else { return }
+            self.pendingBoardNavigation = nil
+            self.coordinator?.showToast("게시판 정보를 불러오지 못했어요. 강의 화면을 새로고침한 뒤 다시 시도해주세요.")
+        }
+        klasHolder.evaluate(KlasWebAutomationScripts.shared.collectLectureBoardPaths())
+        if !wasWaiting {
+            coordinator?.showToast("게시판 정보를 불러오는 중이에요.")
+        }
+    }
+
+    private func resumePendingBoardNavigation() {
+        guard let navigation = pendingBoardNavigation,
+              let path = boardPaths.path(for: navigation.type) else { return }
+        pendingBoardNavigation = nil
+        boardPathTimeoutTask?.cancel()
+        openBoard(navigation, path: path)
+    }
+
+    private func openBoard(_ navigation: PendingBoardNavigation, path: String) {
+        switch navigation {
+        case let .list(_, title):
+            coordinator?.openBoardList(
+                path: path,
+                title: title,
+                subjectId: subjectId,
+                yearSemester: yearSemester
+            )
+        case let .view(_, boardNo, masterNo):
+            coordinator?.openBoardView(
+                path: path,
+                boardNumber: boardNo,
+                masterNumber: masterNo,
+                subjectId: subjectId,
+                yearSemester: yearSemester
+            )
+        }
+    }
+
+    private enum PendingBoardNavigation {
+        case list(type: String, title: String)
+        case view(type: String, boardNo: String, masterNo: String)
+
+        var type: String {
+            switch self {
+            case let .list(type, _), let .view(type, _, _): return type
+            }
         }
     }
 }
