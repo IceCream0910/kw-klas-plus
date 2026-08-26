@@ -88,8 +88,7 @@ class LectureActivity : AppCompatActivity() {
     ) {
         qrScanLaunchGuard.release()
     }
-    var boardNoticePath: String = ""
-    var boardPdsPath: String = ""
+    internal val boardPaths = LectureBoardPaths()
     lateinit var webView: WebView
     lateinit var uiWebView: WebView
     lateinit var scrollView: SwipeRefreshLayout
@@ -105,6 +104,7 @@ class LectureActivity : AppCompatActivity() {
     private val filePicker = AndroidFilePicker(this)
     private val bridgeMessageAdapters = mutableListOf<AndroidBridgeMessageAdapter>()
     private val webSurfaces = mutableListOf<AndroidWebSurface>()
+    private lateinit var bridgeDelegate: LectureBridgeDelegate
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -116,7 +116,7 @@ class LectureActivity : AppCompatActivity() {
         yearHakgi = intent.getStringExtra(IntentExtras.YEAR_HAKGI)!!
 
 
-        val bridgeDelegate = LectureBridgeDelegate(this)
+        bridgeDelegate = LectureBridgeDelegate(this)
         uiWebView = WebView(this)
         val uiSurface = AndroidWebSurface(uiWebView).also(webSurfaces::add)
         uiWebView.configureAppWebView(
@@ -407,6 +407,7 @@ class LectureActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        bridgeDelegate.dispose()
         webSurfaces.forEach(AndroidWebSurface::dispose)
         webSurfaces.clear()
         bridgeMessageAdapters.forEach(AndroidBridgeMessageAdapter::dispose)
@@ -427,8 +428,36 @@ class LectureActivity : AppCompatActivity() {
 
 }
 
+internal class LectureBoardPaths {
+    private var noticePath = ""
+    private var pdsPath = ""
+
+    fun update(notice: String, pds: String) {
+        if (notice.isNotBlank()) noticePath = notice
+        if (pds.isNotBlank()) pdsPath = pds
+    }
+
+    fun isSupportedType(type: String): Boolean = type == "notice" || type == "pds"
+
+    fun pathFor(type: String): String? = when (type) {
+        "notice" -> noticePath
+        "pds" -> pdsPath
+        else -> return null
+    }.takeIf(String::isNotBlank)
+}
+
 class LectureBridgeDelegate(private val lectureActivity: LectureActivity) {
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var pendingBoardNavigation: PendingBoardNavigation? = null
+    private val boardPathTimeout = Runnable {
+        if (pendingBoardNavigation == null) return@Runnable
+        pendingBoardNavigation = null
+        Toast.makeText(
+            lectureActivity,
+            "게시판 정보를 불러오지 못했어요. 강의 화면을 새로고침한 뒤 다시 시도해주세요.",
+            Toast.LENGTH_SHORT,
+        ).show()
+    }
 
     fun completePageLoad() {
         lectureActivity.runOnUiThread {
@@ -451,25 +480,65 @@ class LectureBridgeDelegate(private val lectureActivity: LectureActivity) {
 
     fun getBoardPath(noticePath: String, pdsPath: String) {
         lectureActivity.runOnUiThread {
-            lectureActivity.boardNoticePath = noticePath
-            lectureActivity.boardPdsPath = pdsPath
+            lectureActivity.boardPaths.update(noticePath, pdsPath)
+            resumePendingBoardNavigation()
         }
     }
 
     fun openBoardList(type: String, title: String) {
         lectureActivity.runOnUiThread {
-            if(lectureActivity.boardNoticePath.isNullOrEmpty() || lectureActivity.boardPdsPath.isNullOrEmpty()) {
-                Toast.makeText(lectureActivity, "아직 정보를 불러오지 못했어요. 몇 초 후에 다시 시도해주세요.", Toast.LENGTH_SHORT).show()
-                return@runOnUiThread
-            }
-            val path = when (type) {
-                "notice" -> lectureActivity.boardNoticePath
-                "pds" -> lectureActivity.boardPdsPath
-                else -> ""
-            }
-            lectureActivity.openBoardListRoute(
+            openOrCollectBoardPath(PendingBoardNavigation.BoardList(type, title))
+        }
+    }
+
+    fun openBoardView(type: String, boardNo: String, masterNo: String) {
+        lectureActivity.runOnUiThread {
+            openOrCollectBoardPath(PendingBoardNavigation.BoardView(type, boardNo, masterNo))
+        }
+    }
+
+    private fun openOrCollectBoardPath(navigation: PendingBoardNavigation) {
+        if (!lectureActivity.boardPaths.isSupportedType(navigation.type)) {
+            Toast.makeText(lectureActivity, "지원하지 않는 게시판입니다.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val path = lectureActivity.boardPaths.pathFor(navigation.type)
+        if (path != null) {
+            openBoard(navigation, path)
+            return
+        }
+
+        val wasWaiting = pendingBoardNavigation != null
+        pendingBoardNavigation = navigation
+        mainHandler.removeCallbacks(boardPathTimeout)
+        mainHandler.postDelayed(boardPathTimeout, BOARD_PATH_TIMEOUT_MILLIS)
+        lectureActivity.webView.executeWebScript(KlasWebAutomationScripts.collectLectureBoardPaths())
+        if (!wasWaiting) {
+            Toast.makeText(lectureActivity, "게시판 정보를 불러오는 중이에요.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun resumePendingBoardNavigation() {
+        val navigation = pendingBoardNavigation ?: return
+        val path = lectureActivity.boardPaths.pathFor(navigation.type) ?: return
+        pendingBoardNavigation = null
+        mainHandler.removeCallbacks(boardPathTimeout)
+        openBoard(navigation, path)
+    }
+
+    private fun openBoard(navigation: PendingBoardNavigation, path: String) {
+        when (navigation) {
+            is PendingBoardNavigation.BoardList -> lectureActivity.openBoardListRoute(
                 path,
-                title,
+                navigation.title,
+                lectureActivity.subjID,
+                lectureActivity.yearHakgi,
+                lectureActivity.sessionId,
+            )
+            is PendingBoardNavigation.BoardView -> lectureActivity.openBoardViewRoute(
+                path,
+                navigation.boardNo,
+                navigation.masterNo,
                 lectureActivity.subjID,
                 lectureActivity.yearHakgi,
                 lectureActivity.sessionId,
@@ -477,26 +546,18 @@ class LectureBridgeDelegate(private val lectureActivity: LectureActivity) {
         }
     }
 
-    fun openBoardView(type: String, boardNo: String, masterNo: String) {
-        lectureActivity.runOnUiThread {
-            if(lectureActivity.boardNoticePath.isNullOrEmpty() || lectureActivity.boardPdsPath.isNullOrEmpty()) {
-                Toast.makeText(lectureActivity, "아직 정보를 불러오지 못했어요. 몇 초 후에 다시 시도해주세요.", Toast.LENGTH_SHORT).show()
-                return@runOnUiThread
-            }
-            val path = when (type) {
-                "notice" -> lectureActivity.boardNoticePath
-                "pds" -> lectureActivity.boardPdsPath
-                else -> ""
-            }
-            lectureActivity.openBoardViewRoute(
-                path,
-                boardNo,
-                masterNo,
-                lectureActivity.subjID,
-                lectureActivity.yearHakgi,
-                lectureActivity.sessionId,
-            )
-        }
+    fun dispose() {
+        pendingBoardNavigation = null
+        mainHandler.removeCallbacks(boardPathTimeout)
+    }
+
+    private sealed class PendingBoardNavigation(val type: String) {
+        class BoardList(type: String, val title: String) : PendingBoardNavigation(type)
+        class BoardView(type: String, val boardNo: String, val masterNo: String) : PendingBoardNavigation(type)
+    }
+
+    private companion object {
+        const val BOARD_PATH_TIMEOUT_MILLIS = 6_000L
     }
 
     fun openExternalLink(url: String) {

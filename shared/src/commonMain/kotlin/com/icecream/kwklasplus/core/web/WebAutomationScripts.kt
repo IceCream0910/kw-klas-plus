@@ -68,18 +68,28 @@ object KlasWebAutomationScripts {
             "window.scroll(0,0);})();",
     )
 
-    fun collectLectureBoardPaths(): WebScript = WebScript(
-        "(function(){var notice=\$(\"a:contains('강의 공지사항')\").attr('onclick');" +
-            "var pds=\$(\"a:contains('강의 자료실')\").attr('onclick');" +
-            "if(!notice||!pds)return;" +
-            "var noticeParts=notice.split(\"linkUrl('/std/lis/sport/\");" +
-            "var pdsParts=pds.split(\"linkUrl('/std/lis/sport/\");" +
-            "if(noticeParts[1]&&pdsParts[1])" + klasNativeBridgeCall(
-                "getBoardPath",
-                "noticeParts[1].split('/')[0]",
-                "pdsParts[1].split('/')[0]",
-            ) + ";})();",
-    )
+    fun collectLectureBoardPaths(
+        maxRetries: Int = 20,
+        intervalMs: Int = 250,
+    ): WebScript {
+        require(maxRetries > 0)
+        require(intervalMs > 0)
+        return WebScript(
+            "(function(){var marker='/std/lis/sport/';var lastNotice='';var lastPds='';" +
+                "function findPath(label){var links=document.querySelectorAll('a[onclick],a[href]');" +
+                "for(var i=0;i<links.length;i++){var link=links[i];" +
+                "if((link.textContent||'').replace(/\\s/g,'').indexOf(label)<0)continue;" +
+                "var source=link.getAttribute('onclick')||link.getAttribute('href')||'';" +
+                "var start=source.indexOf(marker);if(start<0)continue;" +
+                "var path=source.substring(start+marker.length).split(/[/'\"?\\s)]/)[0];" +
+                "if(path)return path;}return '';}" +
+                "function collect(remaining){var notice=findPath('공지사항');var pds=findPath('자료실');" +
+                "if((notice||pds)&&(notice!==lastNotice||pds!==lastPds)){lastNotice=notice;lastPds=pds;" +
+                klasNativeBridgeCall("getBoardPath", "notice", "pds") + ";}" +
+                "if(notice&&pds)return;if(remaining>0)setTimeout(function(){collect(remaining-1);},$intervalMs);}" +
+                "collect($maxRetries);})();",
+        )
+    }
 
     fun styleViewerPage(): WebScript = WebScript(
         "(function(){var style=document.createElement('style');" +
