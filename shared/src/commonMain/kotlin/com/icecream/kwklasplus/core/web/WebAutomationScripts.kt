@@ -15,8 +15,10 @@ object KlasWebAutomationScripts {
         require(intervalMs > 0)
         val call = openLecture(yearSemester, subjectId).reveal()
         return WebScript(
-            "(function(){function go(n){if(window.appModule&&typeof appModule.goLctrum==='function'){" +
-                "$call;return;}if(n>0)setTimeout(function(){go(n-1);},$intervalMs);}go($maxRetries);})();",
+            "(function(){function go(n){" +
+                "if(window.appModule&&typeof appModule.goLctrum==='function'){$call;return;}" +
+                "if(n>0)setTimeout(function(){go(n-1);},$intervalMs);}" +
+                "go($maxRetries);})();",
         )
     }
 

@@ -22,6 +22,237 @@ final class IosHomeHostTests: XCTestCase {
         XCTAssertEqual(holder.webView.scrollView.contentInset, .zero)
     }
 
+    func testWebViewHolderKeepsViewportAndIdentityPoliciesStable() {
+        let holder = WebViewHolder.withLegacyBridge(
+            surface: .home,
+            handler: AcceptingBridgeCommandHandler()
+        )
+        defer { holder.dispose() }
+
+        let first = holder.webView
+        let second = holder.webView
+        XCTAssertTrue(first === second)
+        XCTAssertEqual(first.scrollView.keyboardDismissMode, .interactive)
+        XCTAssertTrue(WebSurfaceViewportScript.source.contains("visualViewport"))
+        XCTAssertTrue(WebSurfaceViewportScript.source.contains("klas-visual-viewport-height"))
+        XCTAssertTrue(WebSurfaceViewportScript.source.contains("__klasPlusViewportPublishing"))
+        XCTAssertTrue(WebSurfaceLayoutPolicy.product.extendsUnderHomeIndicator)
+        XCTAssertFalse(WebSurfaceLayoutPolicy.embedded.extendsUnderHomeIndicator)
+    }
+
+    func testJavaScriptAlertCompletionStaysOnThePresentingHolder() {
+        let primary = WebViewHolder()
+        let secondary = WebViewHolder()
+        defer {
+            primary.dispose()
+            secondary.dispose()
+        }
+
+        var primaryConfirmed = false
+        var secondaryConfirmed = false
+        primary.presentJavaScriptAlert(message: "ui") { primaryConfirmed = true }
+        secondary.presentJavaScriptAlert(message: "klas") { secondaryConfirmed = true }
+
+        primary.confirmJavaScriptAlert()
+        XCTAssertTrue(primaryConfirmed)
+        XCTAssertNil(primary.javaScriptAlertMessage)
+        XCTAssertFalse(secondaryConfirmed)
+        XCTAssertEqual(secondary.javaScriptAlertMessage, "klas")
+
+        secondary.confirmJavaScriptAlert()
+        XCTAssertTrue(secondaryConfirmed)
+        XCTAssertNil(secondary.javaScriptAlertMessage)
+    }
+
+    func testJavaScriptAlertPresentationKeepsStickyHolderUntilDismissed() {
+        let primary = WebViewHolder()
+        let secondary = WebViewHolder()
+        defer {
+            primary.dispose()
+            secondary.dispose()
+        }
+        primary.presentJavaScriptAlert(message: "ui") {}
+        secondary.presentJavaScriptAlert(message: "klas") {}
+
+        let first = WebJavaScriptAlertPresentation.holder(
+            primary: primary,
+            secondary: secondary,
+            secondaryEnabled: true,
+            sticky: nil
+        )
+        XCTAssertTrue(first === primary)
+
+        let sticky = WebJavaScriptAlertPresentation.holder(
+            primary: primary,
+            secondary: secondary,
+            secondaryEnabled: true,
+            sticky: primary
+        )
+        XCTAssertTrue(sticky === primary)
+
+        primary.confirmJavaScriptAlert()
+        let queued = WebJavaScriptAlertPresentation.holder(
+            primary: primary,
+            secondary: secondary,
+            secondaryEnabled: true,
+            sticky: primary
+        )
+        XCTAssertTrue(queued === secondary)
+    }
+
+    func testJavaScriptAlertPresentationIgnoresDisabledSecondary() {
+        let primary = WebViewHolder()
+        let secondary = WebViewHolder()
+        defer {
+            primary.dispose()
+            secondary.dispose()
+        }
+        secondary.presentJavaScriptAlert(message: "klas") {}
+
+        XCTAssertNil(
+            WebJavaScriptAlertPresentation.holder(
+                primary: primary,
+                secondary: secondary,
+                secondaryEnabled: false,
+                sticky: nil
+            )
+        )
+
+        primary.presentJavaScriptAlert(message: "ui") {}
+        let visible = WebJavaScriptAlertPresentation.holder(
+            primary: primary,
+            secondary: secondary,
+            secondaryEnabled: false,
+            sticky: nil
+        )
+        XCTAssertTrue(visible === primary)
+    }
+
+    func testJavaScriptAlertSuppressionCompletesWithoutPresenting() {
+        let holder = WebViewHolder()
+        defer { holder.dispose() }
+
+        var suppressedCount = 0
+        var presented = false
+        holder.suppressJavaScriptAlertContaining = LectureScreenModel.bootstrapLectureErrorMarker
+        holder.onSuppressedJavaScriptAlert = { suppressedCount += 1 }
+
+        holder.presentJavaScriptAlert(message: "오류가 발생하였습니다.") { presented = true }
+        XCTAssertEqual(suppressedCount, 1)
+        XCTAssertTrue(presented)
+        XCTAssertNil(holder.javaScriptAlertMessage)
+
+        presented = false
+        holder.presentJavaScriptAlert(message: "다른 안내") { presented = true }
+        XCTAssertEqual(suppressedCount, 1)
+        XCTAssertEqual(holder.javaScriptAlertMessage, "다른 안내")
+        XCTAssertFalse(presented)
+        holder.confirmJavaScriptAlert()
+        XCTAssertTrue(presented)
+    }
+
+    func testBootstrapLectureErrorMatcher() {
+        XCTAssertTrue(LectureScreenModel.isBootstrapLectureError("오류가 발생하였습니다."))
+        XCTAssertFalse(LectureScreenModel.isBootstrapLectureError("다른 안내"))
+    }
+
+    @MainActor
+    func testOpenLectureWindowExpiryEndsSuppressionWithoutSecondCall() {
+        let coordinator = makeHomeCoordinator()
+        defer { coordinator.dispose() }
+        let model = LectureScreenModel(
+            subjectId: "TEST001",
+            subjectName: "테스트강의",
+            yearSemester: "2026,1",
+            sessionToken: SecretValue.companion.of(value: "session"),
+            coordinator: coordinator
+        )
+        defer {
+            model.uiHolder.dispose()
+            model.klasHolder.dispose()
+        }
+
+        model.handleKlasNavigation(
+            WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/cmn/frame/Frame.do"))
+        )
+        XCTAssertEqual(model.bootstrap, .opening)
+        XCTAssertEqual(
+            model.klasHolder.suppressJavaScriptAlertContaining,
+            LectureScreenModel.bootstrapLectureErrorMarker
+        )
+
+        model.handleOpenLectureWindowExpired()
+        XCTAssertEqual(model.bootstrap, .finished)
+        XCTAssertNil(model.klasHolder.suppressJavaScriptAlertContaining)
+    }
+
+    @MainActor
+    func testWebContentTerminationResetsLectureBootstrapBeforeLctrumHome() {
+        let coordinator = makeHomeCoordinator()
+        defer { coordinator.dispose() }
+        let model = LectureScreenModel(
+            subjectId: "TEST001",
+            subjectName: "테스트강의",
+            yearSemester: "2026,1",
+            sessionToken: SecretValue.companion.of(value: "session"),
+            coordinator: coordinator
+        )
+        defer {
+            model.uiHolder.dispose()
+            model.klasHolder.dispose()
+        }
+        _ = model.klasHolder.webView
+
+        model.handleKlasNavigation(
+            WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/cmn/frame/Frame.do"))
+        )
+        XCTAssertEqual(model.bootstrap, .opening)
+
+        model.klasHolder.handleWebContentProcessDidTerminate()
+        XCTAssertEqual(model.bootstrap, .idle)
+        XCTAssertNil(model.klasHolder.suppressJavaScriptAlertContaining)
+
+        model.handleKlasNavigation(
+            WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/cmn/frame/Frame.do"))
+        )
+        XCTAssertEqual(model.bootstrap, .opening)
+    }
+
+    @MainActor
+    func testWebContentTerminationDoesNotResetAfterLectureHome() {
+        let coordinator = makeHomeCoordinator()
+        defer { coordinator.dispose() }
+        let model = LectureScreenModel(
+            subjectId: "TEST001",
+            subjectName: "테스트강의",
+            yearSemester: "2026,1",
+            sessionToken: SecretValue.companion.of(value: "session"),
+            coordinator: coordinator
+        )
+        defer {
+            model.uiHolder.dispose()
+            model.klasHolder.dispose()
+        }
+
+        model.handleKlasNavigation(
+            WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/cmn/frame/Frame.do"))
+        )
+        model.handleKlasNavigation(
+            WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/lis/evltn/LctrumHomeStdPage.do"))
+        )
+        XCTAssertEqual(model.bootstrap, .finished)
+
+        model.prepareLectureBootstrapAfterWebContentTermination()
+        XCTAssertEqual(model.bootstrap, .finished)
+    }
+
+    func testWindowWidthClassKeepsResponsiveBoundaries() {
+        XCTAssertEqual(AppWindowWidthClass.classify(width: 599), .compact)
+        XCTAssertEqual(AppWindowWidthClass.classify(width: 600), .medium)
+        XCTAssertEqual(AppWindowWidthClass.classify(width: 839), .medium)
+        XCTAssertEqual(AppWindowWidthClass.classify(width: 840), .expanded)
+    }
+
     @MainActor
     func testHomeTabUrlsMatchAndroid() {
         XCTAssertEqual(
@@ -244,6 +475,19 @@ final class IosHomeHostTests: XCTestCase {
         XCTAssertTrue(coordinator.showOptionsMenu)
         XCTAssertTrue(coordinator.showDatePicker)
         coordinator.dispose()
+    }
+
+    @MainActor
+    func testUniversityNoticeOpenPagePushesInAppLink() {
+        let coordinator = makeHomeCoordinator()
+        defer { coordinator.dispose() }
+        let notice = "https://www.kw.ac.kr/ko/life/notice.jsp?mode=view"
+
+        coordinator.openWeb(url: notice)
+        XCTAssertEqual(coordinator.path.count, 1)
+
+        coordinator.openWeb(url: "javascript:alert(1)")
+        XCTAssertEqual(coordinator.path.count, 1)
     }
 
     @MainActor

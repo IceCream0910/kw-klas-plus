@@ -35,7 +35,12 @@ class IosExternalNavigator(
 
     companion object {
         fun system(): IosExternalNavigator = IosExternalNavigator { url ->
-            UIApplication.sharedApplication.openURL(url)
+            UIApplication.sharedApplication.openURL(
+                url,
+                options = emptyMap<Any?, Any>(),
+                completionHandler = null,
+            )
+            true
         }
     }
 }

@@ -14,6 +14,7 @@ struct LinkWebViewScreen: View {
         LinkWebView(url: url, onClose: onDismiss)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.white.ignoresSafeArea())
+            .webSurfaceLayout(.embedded)
             .accessibilityIdentifier("link_web_view")
     }
 }
@@ -31,6 +32,13 @@ private struct LinkWebView: UIViewRepresentable {
         configuration.websiteDataStore = .default()
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = true
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
+        configuration.userContentController.addUserScript(
+            WKUserScript(
+                source: WebSurfaceViewportScript.source,
+                injectionTime: .atDocumentEnd,
+                forMainFrameOnly: true
+            )
+        )
 
         let closeName = Coordinator.closeHandlerName
         configuration.userContentController.add(context.coordinator, name: closeName)

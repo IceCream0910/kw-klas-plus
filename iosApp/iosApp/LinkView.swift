@@ -79,7 +79,7 @@ struct LinkView: View {
     }
 
     var body: some View {
-        PushedWebStack(holder: model.holder, isLoading: model.holder.isLoading) {
+        PushedWebStack(holder: model.holder) {
             model.handleBack(dismiss: { dismiss() })
         }
         .accessibilityIdentifier("link_view")

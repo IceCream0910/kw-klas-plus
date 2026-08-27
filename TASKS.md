@@ -129,15 +129,17 @@
   - 작업: Home·Lecture·Board·LecturePlan·Link·Settings command 중 해당 화면에 필요한 navigation/modal/reload/callback 연결
   - 완료 기준: F-007~F-016 P0 경로에서 `KlasNativeBridge.*` 호출과 Native → Web callback이 Android와 동일한 결과를 생성
   - 검증: 앱 Web + 신 iOS 조합의 탭·back·게시판·강의·과제 링크·학기 선택·modal 회귀
+  - 후속: 홈 공지 `openPage(www.kw.ac.kr)`는 Link holder 인앱 http(s) 모드로 Safari 대신 WKWebView 로드. `IosFilePortsTests` in-app web, `IosHomeHostTests` `testUniversityNoticeOpenPagePushesInAppLink`
 - [ ] **M6-010 (P1, L)** WKWebView 다운로드·파일 선택·외부 이동
   - Depends on: M6-009
   - 작업: WKDownload/URLSession, document/photo picker, share sheet, `UIApplication.open`을 공통 요청·URL 정책에 연결
   - 완료 기준: cookie가 필요한 다운로드, MIME·파일명, 단일/다중 선택, 취소, mailto/tel/https와 악성 scheme 거부
   - 남은 일: 파일 업로드(`UIDocumentPicker`)는 계약 테스트만 통과. 실계정 KLAS 업로드 경로 검증 후 완료 처리
-- [ ] **M6-011 (P1, M)** WKWebView 컨테이너의 iOS UI 환경 대응
+- [x] **M6-011 (P1, M)** WKWebView 컨테이너의 iOS UI 환경 대응
   - Depends on: M6-009
   - 작업: SwiftUI theme, safe area, 키보드·viewport, iPhone/iPad 회전과 Dynamic Type/VoiceOver focus 처리
   - 완료 기준: Web content와 Native overlay가 compact/regular, 세로/가로, 키보드 표시 상태에서 가려지거나 중복 재생성되지 않음
+  - 구현: persistent WebView layout/viewport policy, screen-level overlay host, Dynamic Type·accessibility focus, iOS UI test fixture/target을 추가
 
 ### M7 — iOS 네이티브 기능 구현
 

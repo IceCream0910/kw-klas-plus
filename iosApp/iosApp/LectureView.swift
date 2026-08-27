@@ -1,6 +1,12 @@
 import Shared
 import SwiftUI
 
+enum LectureBootstrap: Equatable {
+    case idle
+    case opening
+    case finished
+}
+
 struct LectureBoardPaths {
     private var noticePath = ""
     private var pdsPath = ""
@@ -40,9 +46,11 @@ final class LectureScreenModel: ObservableObject {
 
     private var host: LectureHostAdapter
     private var boardPaths = LectureBoardPaths()
-    private var didOpenLecture = false
+    private(set) var bootstrap = LectureBootstrap.idle
     private var pendingBoardNavigation: PendingBoardNavigation?
     private var boardPathTimeoutTask: Task<Void, Never>?
+    private var openLectureRetryTask: Task<Void, Never>?
+    private var openLectureWindowTask: Task<Void, Never>?
 
     init(
         subjectId: String,
@@ -67,12 +75,17 @@ final class LectureScreenModel: ObservableObject {
             handler: IosLectureLegacyBridgeCommandHandler(host: host)
         )
         host.model = self
+        klasHolder.onWebContentProcessDidTerminate = { [weak self] in
+            self?.prepareLectureBootstrapAfterWebContentTermination()
+        }
         uiHolder.load(KlasUrls.shared.LECTURE_HOME)
         klasHolder.load(KlasUrls.shared.KLAS_FRAME)
     }
 
     deinit {
         boardPathTimeoutTask?.cancel()
+        openLectureRetryTask?.cancel()
+        openLectureWindowTask?.cancel()
         uiHolder.dispose()
         klasHolder.dispose()
     }
@@ -124,19 +137,25 @@ final class LectureScreenModel: ObservableObject {
             if isLoading { isLoading = false }
         }
         if url.contains("LctrumHomeStdPage.do") {
+            finishOpeningLecture(success: true)
             klasHolder.evaluate(KlasWebAutomationScripts.shared.collectLectureBoardPaths(maxRetries: 20, intervalMs: 250))
             if showingKlas { showingKlas = false }
         }
     }
 
     /// Android는 `Frame.do` 로드 시 `KlasWebAutomationScripts.openLecture(...)`를 즉시 한 번만 호출한다.
-    /// (Android WebView의 `onPageFinished`는 페이지 스크립트 초기화가 끝난 뒤 불린다.)
-    /// 반면 WKWebView의 `didFinish`는 `appModule`이 바인딩되기 전에 발생할 수 있으므로,
-    /// `openLectureWhenReady`가 `appModule.goLctrum`이 준비될 때까지 폴링한 뒤 호출한다.
-    /// `didOpenLecture`로 화면당 1회만 실행되도록 보장한다.
+    /// WKWebView `didFinish`는 `goLctrum` 내부 상태가 덜 준비된 시점에 올 수 있고, 그때 호출하면
+    /// KLAS가 비동기로 `오류가 발생하였습니다.` alert를 띄운다. JS에서 `window.alert`를 덮어쓰면
+    /// 그 비동기 alert를 놓치므로, 함수가 생길 때까지만 기다린 뒤 네이티브에서 부트스트랩 오류를 삼킨다.
+    /// 강의 홈으로 진입하거나 대기 시간이 끝나면 억제를 해제한다. `bootstrap == .finished`면 주입은 1회다.
+    /// 타임아웃은 `openLectureWhenReady`가 이미 `goLctrum`을 호출한 뒤에도 두 번째 호출을 보내지 않는다.
     private func openLectureIfNeeded() {
-        guard !didOpenLecture else { return }
-        didOpenLecture = true
+        guard bootstrap == .idle else { return }
+        bootstrap = .opening
+        klasHolder.suppressJavaScriptAlertContaining = Self.bootstrapLectureErrorMarker
+        klasHolder.onSuppressedJavaScriptAlert = { [weak self] in
+            Task { @MainActor in self?.scheduleOpenLectureRetry() }
+        }
         klasHolder.evaluate(
             KlasWebAutomationScripts.shared.openLectureWhenReady(
                 yearSemester: yearSemester,
@@ -145,6 +164,57 @@ final class LectureScreenModel: ObservableObject {
                 intervalMs: 250,
             )
         )
+        openLectureWindowTask?.cancel()
+        openLectureWindowTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            guard let self, !Task.isCancelled else { return }
+            self.handleOpenLectureWindowExpired()
+        }
+    }
+
+    func handleOpenLectureWindowExpired() {
+        guard bootstrap == .opening else { return }
+        finishOpeningLecture(success: false)
+    }
+
+    func prepareLectureBootstrapAfterWebContentTermination() {
+        guard bootstrap == .opening else { return }
+        clearOpeningWork(next: .idle)
+    }
+
+    private func scheduleOpenLectureRetry() {
+        openLectureRetryTask?.cancel()
+        openLectureRetryTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            guard let self, !Task.isCancelled, self.bootstrap == .opening else { return }
+            self.klasHolder.evaluate(
+                KlasWebAutomationScripts.shared.openLecture(
+                    yearSemester: self.yearSemester,
+                    subjectId: self.subjectId
+                )
+            )
+        }
+    }
+
+    private func finishOpeningLecture(success: Bool) {
+        clearOpeningWork(next: bootstrap == .opening ? .finished : bootstrap)
+        if success, let message = klasHolder.javaScriptAlertMessage, Self.isBootstrapLectureError(message) {
+            klasHolder.confirmJavaScriptAlert()
+        }
+    }
+
+    private func clearOpeningWork(next: LectureBootstrap) {
+        openLectureRetryTask?.cancel()
+        openLectureWindowTask?.cancel()
+        klasHolder.suppressJavaScriptAlertContaining = nil
+        klasHolder.onSuppressedJavaScriptAlert = nil
+        bootstrap = next
+    }
+
+    nonisolated static let bootstrapLectureErrorMarker = "오류가 발생"
+
+    nonisolated static func isBootstrapLectureError(_ message: String) -> Bool {
+        message.contains(bootstrapLectureErrorMarker)
     }
 
     func handleBack(dismiss: () -> Void) {
@@ -295,14 +365,17 @@ struct LectureView: View {
     var body: some View {
         ZStack {
             WebViewContainer(webView: model.uiHolder.webView)
+                .webSurfaceLayout()
+                .accessibilityHidden(hidesWebForOverlay || model.showingKlas)
             WebViewContainer(webView: model.klasHolder.webView)
+                .webSurfaceLayout()
                 .opacity(model.showingKlas ? 1 : 0)
                 .allowsHitTesting(model.showingKlas)
+                .accessibilityHidden(hidesWebForOverlay || !model.showingKlas)
             if model.isLoading {
                 KlasLoadingView(message: "불러오는 중")
             }
         }
-        .ignoresSafeArea(edges: .bottom)
         .navigationTitle(model.subjectName)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
@@ -330,13 +403,20 @@ struct LectureView: View {
                 }
             }
         }
-        .webJavaScriptAlert(model.uiHolder)
-        .webJavaScriptAlert(model.klasHolder, enabled: model.showingKlas)
+        .webJavaScriptAlert(model.uiHolder, model.klasHolder, secondaryEnabled: model.showingKlas)
         .webDownloadOverlay(model.uiHolder)
         .webDownloadOverlay(model.klasHolder)
         .onReceive(model.klasHolder.$navigationState) { state in
             model.handleKlasNavigation(state)
         }
         .accessibilityIdentifier("lecture_view")
+    }
+
+    private var hidesWebForOverlay: Bool {
+        model.isLoading
+            || model.uiHolder.javaScriptAlertMessage != nil
+            || model.klasHolder.javaScriptAlertMessage != nil
+            || model.uiHolder.downloadProgress != nil
+            || model.klasHolder.downloadProgress != nil
     }
 }

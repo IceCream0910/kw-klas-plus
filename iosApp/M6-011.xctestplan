@@ -1,0 +1,66 @@
+{
+  "configurations" : [
+    {
+      "id" : "M6011-FIXTURE",
+      "name" : "M6-011 Fixture",
+      "options" : {
+        "commandLineArgumentEntries" : [
+          {
+            "argument" : "-m6011-ui-test",
+            "enabled" : true
+          }
+        ],
+        "environmentVariableEntries" : [
+          {
+            "key" : "M6011_DYNAMIC_TYPE",
+            "value" : "accessibility3",
+            "enabled" : true
+          }
+        ],
+        "testTimeoutsEnabled" : true
+      }
+    },
+    {
+      "id" : "M6011-ACCESSIBILITY",
+      "name" : "M6-011 Accessibility XXXL",
+      "options" : {
+        "commandLineArgumentEntries" : [
+          {
+            "argument" : "-m6011-ui-test",
+            "enabled" : true
+          }
+        ],
+        "environmentVariableEntries" : [
+          {
+            "key" : "M6011_DYNAMIC_TYPE",
+            "value" : "accessibility5",
+            "enabled" : true
+          }
+        ],
+        "testTimeoutsEnabled" : true
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:iosApp.xcodeproj",
+        "identifier" : "A11B0005A5ED6EA33B3393BB",
+        "name" : "iosAppTests"
+      }
+    },
+    {
+      "parallelizable" : false,
+      "target" : {
+        "containerPath" : "container:iosApp.xcodeproj",
+        "identifier" : "A11C0005A5ED6EA33B3393BB",
+        "name" : "iosAppUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

@@ -13,6 +13,7 @@ struct SelectionBottomSheet: View {
     var description: String? = nil
     var options: [SelectionOptionRow]
 
+    @AccessibilityFocusState private var focusedElement: SelectionFocus?
     @State private var contentHeight: CGFloat = 240
 
     var body: some View {
@@ -20,7 +21,10 @@ struct SelectionBottomSheet: View {
             sheetBody
                 .background {
                     GeometryReader { proxy in
-                        Color.clear.preference(key: SheetContentHeightKey.self, value: proxy.size.height)
+                        Color.clear.preference(
+                            key: SheetContentHeightKey.self,
+                            value: proxy.size.height
+                        )
                     }
                 }
         }
@@ -29,22 +33,30 @@ struct SelectionBottomSheet: View {
         .presentationDetents([.height(detentHeight)])
         .presentationDragIndicator(.visible)
         .modifier(SelectionSheetSurfaceBackground())
-        .onPreferenceChange(SheetContentHeightKey.self) { contentHeight = $0 }
         .tint(KlasTheme.primary)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("selection_bottom_sheet")
+        .onPreferenceChange(SheetContentHeightKey.self) { contentHeight = $0 }
+        .onAppear {
+            DispatchQueue.main.async {
+                focusedElement = title == nil ? .firstOption : .heading
+            }
+        }
     }
 
     private var sheetBody: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let title {
                 Text(title)
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.title2.weight(.bold))
                     .foregroundStyle(KlasTheme.onSurfaceVariant)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityAddTraits(.isHeader)
+                    .accessibilityFocused($focusedElement, equals: .heading)
             }
             if let description {
                 Text(description)
-                    .font(.system(size: 14))
+                    .font(.subheadline)
                     .foregroundStyle(KlasTheme.onSurfaceVariant)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.top, title == nil ? 0 : 4)
@@ -53,19 +65,29 @@ struct SelectionBottomSheet: View {
                 Color.clear.frame(height: 16)
             }
             ForEach(Array(options.enumerated()), id: \.offset) { index, option in
-                Button(action: option.action) {
-                    Text(option.title)
-                }
-                .buttonStyle(KlasSelectionRowButtonStyle())
-                .accessibilityAddTraits(option.isSelected ? .isSelected : [])
-                .accessibilityIdentifier("selection_option_\(index)")
+                optionButton(index: index, option: option)
             }
         }
         .padding(20)
         .padding(.top, (title != nil || description != nil) ? 20 : 0)
         .frame(maxWidth: 640)
         .frame(maxWidth: .infinity)
-        .accessibilityIdentifier("selection_bottom_sheet")
+    }
+
+    @ViewBuilder
+    private func optionButton(index: Int, option: SelectionOptionRow) -> some View {
+        let button = Button(action: option.action) {
+            Text(option.title)
+        }
+        .buttonStyle(KlasSelectionRowButtonStyle())
+        .accessibilityAddTraits(option.isSelected ? .isSelected : [])
+        .accessibilityIdentifier("selection_option_\(index)")
+
+        if index == 0 {
+            button.accessibilityFocused($focusedElement, equals: .firstOption)
+        } else {
+            button
+        }
     }
 
     private var grabberAllowance: CGFloat { 20 }
@@ -77,6 +99,12 @@ struct SelectionBottomSheet: View {
     private var detentHeight: CGFloat {
         min(max(contentHeight + grabberAllowance, 1), maxDetent)
     }
+
+}
+
+private enum SelectionFocus: Hashable {
+    case heading
+    case firstOption
 }
 
 private struct SelectionSheetSurfaceBackground: ViewModifier {

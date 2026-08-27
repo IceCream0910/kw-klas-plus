@@ -30,7 +30,7 @@
 | F-013 | 강의계획서 | typed Web route | typed Web route | P1 | Parity | iOS M6-009: LecturePlan surface + `receivedData` 2인자 |
 | F-014 | 게시판 목록/상세 | Web route + file ports | 동일 | P0 | Parity | iOS M6-009: Board surface + `receivedData` 4인자 |
 | F-015 | 과제/퀴즈/시험 링크 | KLAS Web route | 동일 | P0 | Parity | iOS M6-009: Task 화면(브리지 없음) localStorage bootstrap. 영상 URL은 M7 stub |
-| F-016 | 일반 링크 | typed navigation + Android adapter | iOS navigation adapter | P1 | Parity | iOS M6-009: `AppRouteFactory` + Link host |
+| F-016 | 일반 링크 | typed navigation + Android adapter | iOS navigation adapter | P1 | Parity | iOS M6-009: `AppRouteFactory` + Link host. `openPage`는 `www.kw.ac.kr` 공지처럼 비앱 https도 Link WKWebView에 로드한다. 이후 같은 화면의 http(s)는 인앱에 남긴다(Android LinkView의 이후 비신뢰 클릭 Chrome 이동과 승인 차이). `openExternalPage`만 Safari |
 | F-017 | 온라인 강의 재생 | Android player/PIP host | iOS player host | P0 | Parity | 재생·seek·speed·진도 포함 |
 | F-018 | PIP | Android native | AVKit/WK media | P1 | Parity | remote action·상태 복구 포함 |
 | F-019 | QR 출석 | Android scanner port | AVFoundation/VisionKit port | P0 | Parity | 성공·실패·취소·중복 실행 포함 |
@@ -41,7 +41,7 @@
 | F-024 | 설정/테마/버전 | 공통 Web/Compose + settings | 동일 | P1 | Parity | 재시작 persistence 포함. iOS `KlasTheme` 토큰은 Android `values`/`values-night` light·dark 쌍 |
 | F-025 | 다운로드 | Android DownloadManager/SAF | URLSession/files/share | P1 | Parity | cookie·MIME·filename·취소 포함. `inline` 파일명은 표시 가능 MIME이면 렌더링하고 `attachment`만 강제 다운로드. iOS는 single-flight로 중복 요청과 취소 완료 전 재진입을 거부 |
 | F-026 | 파일 선택/업로드 | Activity Result adapter | document/photo picker | P1 | Parity | 단일·다중·MIME·취소 포함. iOS M6-010: `UIDocumentPicker`와 계약 테스트는 있음. 실계정 업로드 검증은 후속 |
-| F-027 | 외부 링크/mailto | allowlist + Android Intent | allowlist + UIApplication | P1 | Parity | 악성 URL 거부 포함 |
+| F-027 | 외부 링크/mailto | allowlist + Android Intent | allowlist + UIApplication | P1 | Parity | 악성 URL 거부 포함. Home 등 제품 surface는 비신뢰 https를 Safari로 보내고, Link `openPage` 화면만 인앱 http(s)를 허용한다 |
 | F-028 | 햅틱 | semantic haptic adapter | UIKit feedback adapter | P2 | Parity | legacy 14개 이름 보존 |
 | F-029 | Android 인앱 업데이트 | Play Core legacy 경로 유지 | Approved difference | P2 | Parity | Android 전용 기능 |
 | F-030 | 폰 세로/태블릿 회전 | window size/orientation policy | iOS orientation policy | P1 | Parity | 폰·태블릿·멀티윈도우 포함 |

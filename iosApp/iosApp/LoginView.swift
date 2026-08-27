@@ -155,9 +155,9 @@ private struct LoginFormContent: View {
             let widthClass = AppWindowWidthClass.classify(width: proxy.size.width)
             switch widthClass {
             case .expanded:
-                HStack(spacing: 64) {
+                HStack(alignment: .top, spacing: 64) {
                     LoginHeader(passwordVisible: state.passwordFieldVisible)
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     LoginFields(
                         state: $state,
                         focusedField: $focusedField,
@@ -165,11 +165,12 @@ private struct LoginFormContent: View {
                         onOpenURL: onOpenURL,
                         showSubmitActions: true
                     )
-                    .frame(maxWidth: 520)
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: 520, alignment: .top)
+                    .frame(maxWidth: .infinity, alignment: .top)
                 }
                 .padding(.horizontal, 64)
                 .padding(.vertical, 32)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             case .compact:
                 ZStack(alignment: .bottom) {
                     ScrollView {
@@ -260,6 +261,7 @@ private struct KlasOutlinedTextField<Trailing: View>: View {
     var isSecure: Bool
     var accessibilityId: String
     @ViewBuilder var trailing: () -> Trailing
+    @ScaledMetric(relativeTo: .body) private var fieldHeight: CGFloat = 56
 
     init(
         label: String,
@@ -327,10 +329,11 @@ private struct KlasOutlinedTextField<Trailing: View>: View {
                             .padding(.horizontal, -2)
                     }
                 }
-                .offset(x: isFloating ? 12 : 16, y: isFloating ? -28 : 0)
+                .offset(x: isFloating ? 12 : 16, y: isFloating ? -fieldHeight / 2 : 0)
                 .allowsHitTesting(false)
         }
-        .frame(height: 56)
+        .frame(height: fieldHeight)
+        .fixedSize(horizontal: false, vertical: true)
         .padding(.top, 8)
         .animation(.easeOut(duration: 0.15), value: isFloating)
         .animation(.easeOut(duration: 0.15), value: isFocused)

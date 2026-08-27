@@ -56,17 +56,25 @@ struct HomeOverlayModifier: ViewModifier {
             }
             .overlay(alignment: .bottom) {
                 if let toast = coordinator.toastMessage {
-                    Text(toast)
-                        .font(.subheadline)
-                        .foregroundStyle(KlasTheme.onSurface)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(KlasTheme.surfaceContainerHigh)
-                        )
-                        .padding(.bottom, 24)
-                        .accessibilityIdentifier("home_toast")
+                    GeometryReader { proxy in
+                        Text(toast)
+                            .font(.subheadline)
+                            .foregroundStyle(KlasTheme.onSurface)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(KlasTheme.surfaceContainerHigh)
+                            )
+                            .padding(.bottom, max(24, proxy.safeAreaInsets.bottom + 8))
+                            .frame(
+                                maxWidth: .infinity,
+                                maxHeight: .infinity,
+                                alignment: .bottom
+                            )
+                            .accessibilityIdentifier("home_toast")
+                    }
+                    .allowsHitTesting(false)
                 }
             }
     }

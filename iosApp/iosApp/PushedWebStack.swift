@@ -2,15 +2,26 @@ import SwiftUI
 
 struct PushedWebStack: View {
     @ObservedObject var holder: WebViewHolder
-    var isLoading: Bool
+    var showsPageLoading: Bool = true
     var onBack: () -> Void
 
     var body: some View {
         ZStack {
             WebViewContainer(webView: holder.webView)
-                .ignoresSafeArea(edges: .bottom)
-            if isLoading {
+                .webSurfaceLayout()
+                .accessibilityHidden(
+                    showsPageLoadingOverlay
+                        || holder.isFailed
+                        || holder.javaScriptAlertMessage != nil
+                        || holder.downloadProgress != nil
+                )
+            if showsPageLoadingOverlay {
                 KlasLoadingView(message: "불러오는 중")
+            } else if case let .failed(_, category) = holder.navigationState.loadPhase {
+                HomeFailureView(
+                    message: HomeCoordinator.pageLoadFailureMessage(for: category),
+                    onRetry: { holder.reload() }
+                )
             }
         }
         .navigationBarBackButtonHidden(true)
@@ -33,11 +44,20 @@ struct PushedWebStack: View {
         .webJavaScriptAlert(holder)
         .webDownloadOverlay(holder)
     }
+
+    private var showsPageLoadingOverlay: Bool {
+        showsPageLoading && holder.isLoading && holder.downloadProgress == nil
+    }
 }
 
 extension WebViewHolder {
     var isLoading: Bool {
         if case .loading = navigationState.loadPhase { return true }
+        return false
+    }
+
+    var isFailed: Bool {
+        if case .failed = navigationState.loadPhase { return true }
         return false
     }
 }

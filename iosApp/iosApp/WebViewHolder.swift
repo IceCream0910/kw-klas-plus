@@ -21,12 +21,15 @@ final class WebViewHolder: NSObject, ObservableObject {
     private lazy var navigationRelay = NavigationRelay(owner: self)
     private lazy var uiRelay = UIRelay(owner: self)
     private let trustedOrigins = TrustedOriginPolicy(trustedOrigins: TrustedOriginPolicy.companion.DEFAULT_TRUSTED_ORIGINS)
+    private let klasContentOrigins = KlasContentOriginPolicy()
     private let fileTransferPolicy = FileTransferPolicy.companion.create()
     private let navigator: IosExternalNavigator
     private let filePicker: IosFilePicker
     private let fileTransfer: IosFileTransfer
+    private let allowsInAppWeb: Bool
     private var activeDownloadTask: Task<Void, Never>?
     private var loadingLocalPdf = false
+    private var webContentTerminationRetryUsed = false
 
     static var websiteDataStore: WKWebsiteDataStore { .default() }
 
@@ -40,11 +43,13 @@ final class WebViewHolder: NSObject, ObservableObject {
     init(
         navigator: IosExternalNavigator = IosExternalNavigator.companion.system(),
         filePicker: IosFilePicker = IosFilePicker(),
-        fileTransfer: IosFileTransfer = IosFileTransfer()
+        fileTransfer: IosFileTransfer = IosFileTransfer(),
+        allowsInAppWeb: Bool = false
     ) {
         self.navigator = navigator
         self.filePicker = filePicker
         self.fileTransfer = fileTransfer
+        self.allowsInAppWeb = allowsInAppWeb
         super.init()
         fileTransfer.onProgress = { [weak self] fileName, fraction in
             self?.downloadProgress = DownloadProgressState(fileName: fileName, fraction: fraction)
@@ -62,6 +67,13 @@ final class WebViewHolder: NSObject, ObservableObject {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = Self.websiteDataStore
         configuration.applicationNameForUserAgent = Self.iosAppUserAgentToken
+        configuration.userContentController.addUserScript(
+            WKUserScript(
+                source: WebSurfaceViewportScript.source,
+                injectionTime: .atDocumentEnd,
+                forMainFrameOnly: true
+            )
+        )
         bridgeAdapter?.install(into: configuration)
         let created = WKWebView(frame: .zero, configuration: configuration)
         created.navigationDelegate = navigationRelay
@@ -103,7 +115,7 @@ final class WebViewHolder: NSObject, ObservableObject {
         handler: BridgeCommandHandler,
         synchronousHandler: SynchronousBridgeCommandHandler? = nil
     ) -> WebViewHolder {
-        let holder = WebViewHolder()
+        let holder = WebViewHolder(allowsInAppWeb: surface == .linkView)
         holder.installBridge(
             surface: surface,
             handler: handler,
@@ -132,6 +144,10 @@ final class WebViewHolder: NSObject, ObservableObject {
         })
     }
 
+    var suppressJavaScriptAlertContaining: String?
+    var onSuppressedJavaScriptAlert: (() -> Void)?
+    var onWebContentProcessDidTerminate: (() -> Void)?
+
     func confirmJavaScriptAlert() {
         let completion = javaScriptAlertCompletion
         javaScriptAlertCompletion = nil
@@ -140,6 +156,11 @@ final class WebViewHolder: NSObject, ObservableObject {
     }
 
     func presentJavaScriptAlert(message: String, completion: @escaping () -> Void) {
+        if let marker = suppressJavaScriptAlertContaining, message.contains(marker) {
+            completion()
+            onSuppressedJavaScriptAlert?()
+            return
+        }
         javaScriptAlertCompletion?()
         javaScriptAlertCompletion = completion
         javaScriptAlertMessage = message
@@ -147,11 +168,18 @@ final class WebViewHolder: NSObject, ObservableObject {
 
     func load(_ urlString: String) {
         guard !isDisposed, let url = URL(string: urlString) else { return }
+        webContentTerminationRetryUsed = false
         webView.load(URLRequest(url: url))
+    }
+
+    func loadHTML(_ html: String, baseURL: URL) {
+        guard !isDisposed else { return }
+        webView.loadHTMLString(html, baseURL: baseURL)
     }
 
     func reload() {
         guard !isDisposed, _webView != nil else { return }
+        webContentTerminationRetryUsed = false
         webView.reload()
     }
 
@@ -193,6 +221,10 @@ final class WebViewHolder: NSObject, ObservableObject {
     func dispose() {
         guard !isDisposed else { return }
         isDisposed = true
+        webContentTerminationRetryUsed = false
+        suppressJavaScriptAlertContaining = nil
+        onSuppressedJavaScriptAlert = nil
+        onWebContentProcessDidTerminate = nil
         bridgeAdapter?.dispose()
         bridgeAdapter = nil
         cancelDownload()
@@ -222,22 +254,25 @@ final class WebViewHolder: NSObject, ObservableObject {
         if trustedOrigins.isTrustedUrl(url: urlString) {
             return true
         }
+        if isAllowedInAppWeb(urlString) {
+            return true
+        }
 
         openExternal(urlString)
         return false
     }
 
-    fileprivate func handleCreateWindow(urlString: String?) {
+    func handleCreateWindow(urlString: String?) {
         guard !isDisposed else { return }
         guard let urlString, !urlString.isEmpty else { return }
-        if trustedOrigins.isTrustedUrl(url: urlString) {
+        if trustedOrigins.isTrustedUrl(url: urlString) || isAllowedInAppWeb(urlString) {
             load(urlString)
         } else {
             openExternal(urlString)
         }
     }
 
-    fileprivate func navigationDidStart(url: String?) {
+    func navigationDidStart(url: String?) {
         guard !isDisposed, let view = _webView else { return }
         if loadingLocalPdf {
             loadingLocalPdf = false
@@ -254,12 +289,21 @@ final class WebViewHolder: NSObject, ObservableObject {
 
     fileprivate func navigationDidFinish(url: String?) {
         guard !isDisposed, let view = _webView else { return }
+        webContentTerminationRetryUsed = false
         let finished = url ?? view.url?.absoluteString ?? ""
         navigationState = WebNavigationState(
             loadPhase: .ready(url: finished),
             canGoBack: view.canGoBack,
             canGoForward: view.canGoForward
         )
+        if let script = pageReadyScript(for: finished) {
+            evaluate(script)
+        }
+    }
+
+    func pageReadyScript(for url: String) -> WebScript? {
+        guard allowsInAppWeb, url.contains("notice.jsp") else { return nil }
+        return KlasWebAutomationScripts.shared.makeNoticeScrollable()
     }
 
     func handleNavigationResponse(
@@ -294,6 +338,7 @@ final class WebViewHolder: NSObject, ObservableObject {
             if accepted {
                 startDownload(request)
             }
+            restoreCommittedNavigationIfLoading()
             return .cancel
         }
 
@@ -301,6 +346,7 @@ final class WebViewHolder: NSObject, ObservableObject {
             if isAcceptedDownload(response) {
                 startDownload(makeDownloadRequest(response))
             }
+            restoreCommittedNavigationIfLoading()
             return .cancel
         }
         clearInlinePdf()
@@ -361,15 +407,17 @@ final class WebViewHolder: NSObject, ObservableObject {
         )
     }
 
-    fileprivate func navigationDidFail(url: String?, error: Error) {
+    func navigationDidFail(url: String?, error: Error) {
         guard !isDisposed, let view = _webView else { return }
         let nsError = error as NSError
         if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
+            restoreCommittedNavigationIfLoading()
             return
         }
         // 다운로드, 외부 이동으로 내비게이션을 끊으면 WebKit이 102를 남긴다.
         if nsError.code == 102,
            nsError.domain == "WebKitErrorDomain" || nsError.domain == WKError.errorDomain {
+            restoreCommittedNavigationIfLoading()
             return
         }
         let category: WebNavFailureCategory
@@ -393,6 +441,21 @@ final class WebViewHolder: NSObject, ObservableObject {
         )
     }
 
+    func handleWebContentProcessDidTerminate() {
+        guard !isDisposed, let view = _webView else { return }
+        if webContentTerminationRetryUsed {
+            navigationState = WebNavigationState(
+                loadPhase: .failed(url: view.url?.absoluteString, category: .unknown),
+                canGoBack: view.canGoBack,
+                canGoForward: view.canGoForward
+            )
+            return
+        }
+        webContentTerminationRetryUsed = true
+        onWebContentProcessDidTerminate?()
+        view.reload()
+    }
+
     private func startDownload(_ request: FileTransferRequest) {
         guard activeDownloadTask == nil else { return }
         activeDownloadTask = Task { @MainActor [weak self] in
@@ -401,6 +464,17 @@ final class WebViewHolder: NSObject, ObservableObject {
             let result = await self.fileTransfer.download(request: request)
             self.handleDownloadResult(result)
         }
+    }
+
+    private func restoreCommittedNavigationIfLoading() {
+        guard !isDisposed, let view = _webView else { return }
+        guard case .loading = navigationState.loadPhase else { return }
+        let url = view.url?.absoluteString ?? ""
+        navigationState = WebNavigationState(
+            loadPhase: url.isEmpty ? .idle : .ready(url: url),
+            canGoBack: view.canGoBack,
+            canGoForward: view.canGoForward
+        )
     }
 
     private func handleCompletedFile(_ url: URL) {
@@ -440,6 +514,11 @@ final class WebViewHolder: NSObject, ObservableObject {
         if result is PlatformActionResultSuccess {
             lastExternalURL = raw
         }
+    }
+
+    private func isAllowedInAppWeb(_ raw: String) -> Bool {
+        guard allowsInAppWeb else { return false }
+        return klasContentOrigins.isTrustedUrl(url: raw)
     }
 
     private func presentShareSheet(url: URL, deleteWhenDone: Bool) {
@@ -507,12 +586,13 @@ private final class NavigationRelay: NSObject, WKNavigationDelegate {
     func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction,
-        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+        preferences: WKWebpagePreferences,
+        decisionHandler: @escaping (WKNavigationActionPolicy, WKWebpagePreferences) -> Void
     ) {
         let urlString = navigationAction.request.url?.absoluteString ?? ""
         let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? true
         let allow = owner?.handleDecidePolicy(urlString: urlString, isMainFrame: isMainFrame) ?? false
-        decisionHandler(allow ? .allow : .cancel)
+        decisionHandler(allow ? .allow : .cancel, preferences)
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
@@ -550,6 +630,10 @@ private final class NavigationRelay: NSObject, WKNavigationDelegate {
         withError error: Error
     ) {
         owner?.navigationDidFail(url: webView.url?.absoluteString, error: error)
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        owner?.handleWebContentProcessDidTerminate()
     }
 }
 
