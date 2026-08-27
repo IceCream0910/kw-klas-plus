@@ -71,6 +71,7 @@ class PrepareCredentialUseCase(
 
 class LoginUseCase(
     private val prepareCredential: PrepareCredentialUseCase,
+    private val credentialStore: CredentialStore,
     private val webAuthDriver: WebAuthDriver,
     private val sessionCoordinator: SessionCoordinator,
 ) {
@@ -81,6 +82,7 @@ class LoginUseCase(
         sessionCoordinator: SessionCoordinator,
     ) : this(
         PrepareCredentialUseCase(encryptionApi, credentialStore),
+        credentialStore,
         webAuthDriver,
         sessionCoordinator,
     )
@@ -96,7 +98,18 @@ class LoginUseCase(
 
     private suspend fun authenticate(credential: StoredCredential): LoginResult =
         when (val webResult = webAuthDriver.authenticate(credential)) {
-            is WebAuthResult.Failure -> failure(webResult.failure)
+            is WebAuthResult.Failure -> {
+                if (webResult.failure == AuthFailure.InvalidCredentials) {
+                    try {
+                        credentialStore.clearPassword()
+                        LoginResult.Failed(AuthFailure.InvalidCredentials)
+                    } catch (_: Throwable) {
+                        LoginResult.Failed(AuthFailure.Storage)
+                    }
+                } else {
+                    failure(webResult.failure)
+                }
+            }
             is WebAuthResult.SessionObserved -> when (val session = sessionCoordinator.observe(webResult.token)) {
                 is SessionResult.Active -> LoginResult.Authenticated(session.session)
                 else -> LoginResult.Failed(AuthFailure.Storage)

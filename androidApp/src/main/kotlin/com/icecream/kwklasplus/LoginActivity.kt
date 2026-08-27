@@ -90,6 +90,18 @@ class LoginActivity : AppCompatActivity() {
                 )
             }
         }
+
+        if (savedInstanceState == null) {
+            lifecycleScope.launch {
+                val savedAccountId = runCatching {
+                    appDependencies.credentialStore.loadAccountId()
+                }.getOrNull()
+                if (!savedAccountId.isNullOrBlank()) {
+                    studentId = savedAccountId
+                    onboardingVisible = false
+                }
+            }
+        }
     }
 
     private fun submitLogin() {

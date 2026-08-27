@@ -97,6 +97,7 @@ class IosSharedDependencies(
 
     fun loginUseCase(webAuthDriver: WebAuthDriver) = LoginUseCase(
         prepareCredentialUseCase,
+        credentialStore,
         webAuthDriver,
         sessionCoordinator,
     )
