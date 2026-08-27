@@ -134,6 +134,50 @@ class LoginUseCaseTest {
         assertEquals(LoginResult.Failed(AuthFailure.Storage), storage)
     }
 
+    @Test
+    fun invalidCredentialsClearOnlyEncryptedPassword() = runLoginTest {
+        val stored = StoredCredential("2026000000", SecretValue.of("invalid-encrypted-password"))
+        val credentialStore = FakeCredentialStore().apply { credential = stored }
+        val useCase = useCase(
+            credentialStore = credentialStore,
+            webAuthDriver = WebAuthDriver { WebAuthResult.Failure(AuthFailure.InvalidCredentials) },
+        )
+
+        val result = useCase.resume(stored)
+
+        assertEquals(LoginResult.Failed(AuthFailure.InvalidCredentials), result)
+        assertNull(credentialStore.credential)
+        assertEquals("2026000000", credentialStore.loadAccountId())
+    }
+
+    @Test
+    fun invalidCredentialPasswordClearFailureIsStorageFailure() = runLoginTest {
+        val stored = StoredCredential("2026000000", SecretValue.of("invalid-encrypted-password"))
+        val credentialStore = FakeCredentialStore(failOnClearPassword = true).apply {
+            credential = stored
+        }
+        val useCase = useCase(
+            credentialStore = credentialStore,
+            webAuthDriver = WebAuthDriver { WebAuthResult.Failure(AuthFailure.InvalidCredentials) },
+        )
+
+        assertEquals(LoginResult.Failed(AuthFailure.Storage), useCase.resume(stored))
+        assertEquals(stored, credentialStore.credential)
+    }
+
+    @Test
+    fun networkFailureKeepsStoredCredentialForRetry() = runLoginTest {
+        val stored = StoredCredential("2026000000", SecretValue.of("encrypted-password"))
+        val credentialStore = FakeCredentialStore().apply { credential = stored }
+        val useCase = useCase(
+            credentialStore = credentialStore,
+            webAuthDriver = WebAuthDriver { WebAuthResult.Failure(AuthFailure.Network) },
+        )
+
+        assertEquals(LoginResult.Failed(AuthFailure.Network), useCase.resume(stored))
+        assertEquals(stored, credentialStore.credential)
+    }
+
     private fun useCase(
         credentialStore: FakeCredentialStore = FakeCredentialStore(),
         sessionStore: FakeSessionStore = FakeSessionStore(),
@@ -153,15 +197,27 @@ class LoginUseCaseTest {
 
     private class FakeCredentialStore(
         private val failOnSave: Boolean = false,
+        private val failOnClearPassword: Boolean = false,
     ) : CredentialStore {
+        var accountId: String? = null
         var credential: StoredCredential? = null
+            set(value) {
+                field = value
+                if (value != null) accountId = value.accountId
+            }
         override suspend fun load(): StoredCredential? = credential
+        override suspend fun loadAccountId(): String? = accountId
         override suspend fun save(credential: StoredCredential) {
             if (failOnSave) error("storage failure")
             this.credential = credential
         }
+        override suspend fun clearPassword() {
+            if (failOnClearPassword) error("password clear failure")
+            credential = null
+        }
         override suspend fun clear() {
             credential = null
+            accountId = null
         }
     }
 

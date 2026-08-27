@@ -14,7 +14,9 @@ data class StoredCredential(
 
 interface CredentialStore {
     suspend fun load(): StoredCredential?
+    suspend fun loadAccountId(): String?
     suspend fun save(credential: StoredCredential)
+    suspend fun clearPassword()
     suspend fun clear()
 }
 

@@ -138,7 +138,7 @@ final class LectureScreenModel: ObservableObject {
         }
         if url.contains("LctrumHomeStdPage.do") {
             finishOpeningLecture(success: true)
-            klasHolder.evaluate(KlasWebAutomationScripts.shared.collectLectureBoardPaths())
+            klasHolder.evaluate(KlasWebAutomationScripts.shared.collectLectureBoardPaths(maxRetries: 20, intervalMs: 250))
             if showingKlas { showingKlas = false }
         }
     }
@@ -247,7 +247,7 @@ final class LectureScreenModel: ObservableObject {
             self.pendingBoardNavigation = nil
             self.coordinator?.showToast("게시판 정보를 불러오지 못했어요. 강의 화면을 새로고침한 뒤 다시 시도해주세요.")
         }
-        klasHolder.evaluate(KlasWebAutomationScripts.shared.collectLectureBoardPaths())
+        klasHolder.evaluate(KlasWebAutomationScripts.shared.collectLectureBoardPaths(maxRetries: 20, intervalMs: 250))
         if !wasWaiting {
             coordinator?.showToast("게시판 정보를 불러오는 중이에요.")
         }

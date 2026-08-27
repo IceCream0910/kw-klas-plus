@@ -31,6 +31,12 @@ class IosCredentialStoreTest {
         assertNull(defaults.stringForKey("kwPWD"))
         assertEquals(SecretValue.of("encrypted-pw"), secrets.read(SecureKey.ENCRYPTED_KLAS_PASSWORD))
 
+        store.clearPassword()
+        assertNull(store.load())
+        assertEquals("2020123456", store.loadAccountId())
+        assertNull(secrets.read(SecureKey.ENCRYPTED_KLAS_PASSWORD))
+
+        store.save(credential)
         store.clear()
         assertNull(store.load())
         assertNull(defaults.stringForKey("kwID"))
