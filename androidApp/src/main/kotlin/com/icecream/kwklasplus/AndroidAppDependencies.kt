@@ -41,6 +41,7 @@ class AndroidAppDependencies(context: Context) {
     val credentialStore get() = shared.credentialStore
     val prepareCredentialUseCase get() = shared.prepareCredentialUseCase
     val sessionCoordinator get() = shared.sessionCoordinator
+    fun httpAuthDriver() = shared.httpAuthDriver()
 
     fun loginUseCase(webAuthDriver: WebAuthDriver) = shared.loginUseCase(webAuthDriver)
 

@@ -3,6 +3,7 @@ package com.icecream.kwklasplus.core
 import android.content.Context
 import android.content.SharedPreferences
 import com.icecream.kwklasplus.core.auth.AndroidCredentialStore
+import com.icecream.kwklasplus.core.auth.AndroidHttpAuthDriver
 import com.icecream.kwklasplus.core.auth.CredentialStore
 import com.icecream.kwklasplus.core.auth.KlasAuthRepository
 import com.icecream.kwklasplus.core.auth.LoginUseCase
@@ -92,6 +93,7 @@ class AndroidSharedDependencies(
     val prepareCredentialUseCase by lazy {
         PrepareCredentialUseCase(authRepository, credentialStore)
     }
+    fun httpAuthDriver(): WebAuthDriver = AndroidHttpAuthDriver()
     val sessionCoordinator by lazy {
         val primary = SecureSessionStore(
             secureStore,

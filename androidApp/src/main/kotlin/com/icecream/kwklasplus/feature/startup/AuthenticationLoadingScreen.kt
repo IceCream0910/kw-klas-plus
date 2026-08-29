@@ -1,7 +1,5 @@
 package com.icecream.kwklasplus.feature.startup
 
-import android.view.View
-import android.webkit.WebView
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,11 +18,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 
 @Composable
 fun AuthenticationLoadingScreen(
-    webView: WebView,
     message: String,
     modifier: Modifier = Modifier,
 ) {
@@ -37,15 +33,6 @@ fun AuthenticationLoadingScreen(
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing),
         ) {
-            AndroidView(
-                factory = {
-                    webView.apply { visibility = View.INVISIBLE }
-                },
-                update = { it.visibility = View.INVISIBLE },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .testTag("authentication_web_view"),
-            )
             Column(
                 modifier = Modifier
                     .fillMaxSize()
