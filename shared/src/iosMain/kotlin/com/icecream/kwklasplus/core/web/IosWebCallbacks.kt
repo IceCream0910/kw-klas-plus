@@ -68,4 +68,19 @@ object IosWebCallbacks {
 
     fun appLockSettingChanged(settings: AppLockSettings): WebScript =
         LegacyWebScripts.appLockSettingChanged(settings)
+
+    fun appLockSettingChanged(enabled: Boolean): WebScript =
+        LegacyWebScripts.call(
+            LegacyWebCallback.APP_LOCK_SETTING_CHANGED,
+            JavaScriptArgument.BooleanValue(enabled),
+        )
+
+    fun biometricSettingChanged(enabled: Boolean): WebScript =
+        LegacyWebScripts.call(
+            LegacyWebCallback.BIOMETRIC_SETTING_CHANGED,
+            JavaScriptArgument.BooleanValue(enabled),
+        )
+
+    fun requestSettingsReload(): WebScript =
+        WebScript("document.dispatchEvent(new Event('visibilitychange'));")
 }

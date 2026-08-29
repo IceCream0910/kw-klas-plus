@@ -138,6 +138,25 @@ final class AppLockControllerTests: XCTestCase {
         XCTAssertFalse(env.store.isEnabled())
         XCTAssertFalse(env.store.hasPassword())
     }
+
+    func testSettingsHostReadsStoreJson() {
+        let env = LockTestEnvironment()
+        defer { env.tearDown() }
+        env.store.savePassword(password: "112233")
+        env.store.setEnabled(enabled: true)
+        env.store.setBiometricEnabled(enabled: true)
+
+        let authRuntime = IosAuthRuntime.companion.create(dependencies: env.dependencies)
+        let coordinator = HomeCoordinator(authRuntime: authRuntime, onLogout: {})
+        let appLock = AppLockController(store: env.store, canUseBiometrics: { false })
+        let model = SettingsScreenModel(coordinator: coordinator, appLock: appLock)
+
+        XCTAssertEqual(
+            model.currentLockSettingsJson(),
+            "{\"enabled\":true,\"biometric\":true,\"hasPassword\":true}"
+        )
+        model.holder.dispose()
+    }
 }
 
 private final class LockTestEnvironment {
