@@ -5,6 +5,7 @@ import com.icecream.kwklasplus.core.auth.LoginResult
 import com.icecream.kwklasplus.core.auth.PlainPassword
 import com.icecream.kwklasplus.core.auth.StoredCredential
 import com.icecream.kwklasplus.core.auth.WebAuthDriver
+import com.icecream.kwklasplus.core.platform.SecureStore
 import com.icecream.kwklasplus.core.security.SecretValue
 import com.icecream.kwklasplus.core.session.SessionResult
 import kotlinx.coroutines.CoroutineScope
@@ -88,5 +89,11 @@ class IosAuthRuntime(
 
         fun create(defaults: NSUserDefaults): IosAuthRuntime =
             IosAuthRuntime(IosSharedDependencies(defaults = defaults))
+
+        // NOTE: For tests that inject SecureStore. App code should use createDefault() or create(defaults:).
+        fun createForTests(defaults: NSUserDefaults, secureStore: SecureStore): IosAuthRuntime =
+            IosAuthRuntime(
+                IosSharedDependencies(defaults = defaults, secureStoreOverride = secureStore),
+            )
     }
 }
