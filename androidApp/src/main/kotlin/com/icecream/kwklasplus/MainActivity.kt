@@ -21,7 +21,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.icecream.kwklasplus.core.auth.AuthFailure
 import com.icecream.kwklasplus.core.auth.LoginResult
 import com.icecream.kwklasplus.core.auth.StoredCredential
-import com.icecream.kwklasplus.core.session.SessionResult
+import com.icecream.kwklasplus.core.session.SessionLeaseResult
 import com.icecream.kwklasplus.feature.startup.AuthenticationLoadingScreen
 import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
 import kotlinx.coroutines.launch
@@ -71,22 +71,32 @@ class MainActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch {
-            initializeAuthentication(sharedPreferences)
+            initializeAuthentication()
         }
     }
 
-    private suspend fun initializeAuthentication(sharedPreferences: android.content.SharedPreferences) {
+    private suspend fun initializeAuthentication() {
         val credential = runCatching { appDependencies.credentialStore.load() }.getOrNull()
         if (credential == null) {
             finish()
             startActivity(Intent(this, LoginActivity::class.java))
             return
         }
-        if (appDependencies.sessionCoordinator.restore() is SessionResult.Active) {
-            isHomeStarted = true
-            startActivity(Intent(this, HomeActivity::class.java))
-            finish()
-            return
+        when (val leaseResult = appDependencies.sessionLeaseManager.maintain()) {
+            is SessionLeaseResult.Active -> {
+                appDependencies.sessionKeepAlive.onSessionAvailable(leaseResult.nextCheckAfterMillis)
+                isHomeStarted = true
+                startActivity(Intent(this, HomeActivity::class.java))
+                finish()
+                return
+            }
+            SessionLeaseResult.Expired, SessionLeaseResult.Missing -> Unit
+            is SessionLeaseResult.Retry -> {
+                showLoginFailedDialog {
+                    lifecycleScope.launch { initializeAuthentication() }
+                }
+                return
+            }
         }
 
         authenticate(credential)
@@ -103,6 +113,7 @@ class MainActivity : AppCompatActivity() {
                     if (isHomeStarted) return@launch
                     isLoginActivityStarted = true
                     isHomeStarted = true
+                    appDependencies.sessionKeepAlive.onSessionAvailable()
                     startActivityWithLock(Intent(this@MainActivity, HomeActivity::class.java))
                     finish()
                 }
@@ -141,6 +152,7 @@ class MainActivity : AppCompatActivity() {
             .setMessage("알 수 없는 오류로 인해 로그인에 실패했어요. 먼저 기기의 네트워크 상태가 불안정한지 확인 후 다시 시도해보세요. 어쩌면 전체적인 서버 장애가 발생했을 수도 있어요. 이 경우 담당자가 빠르게 대응하고 있을거예요.")
             .setNeutralButton("앱 종료") { _, _ ->
                 lifecycleScope.launch {
+                    appDependencies.sessionKeepAlive.onSessionCleared()
                     appDependencies.sessionCoordinator.expire()
                     runCatching { appDependencies.credentialStore.clear() }
                     appPreferences.edit().clear().apply()

@@ -1077,6 +1077,7 @@ class HomeActivity : AppCompatActivity() {
             .setMessage("정말 로그아웃할까요?")
             .setPositiveButton("확인") { _, _ ->
                 lifecycleScope.launch {
+                    appDependencies.sessionKeepAlive.onSessionCleared()
                     appDependencies.sessionCoordinator.expire()
                     runCatching {
                         appDependencies.secureStore.remove(SecureKey.ENCRYPTED_KLAS_PASSWORD)
@@ -1100,6 +1101,7 @@ class HomeActivity : AppCompatActivity() {
                 "종료"
             ) { _, _ ->
                 lifecycleScope.launch {
+                    appDependencies.sessionKeepAlive.onSessionCleared()
                     appDependencies.sessionCoordinator.expire()
                     finish()
                 }

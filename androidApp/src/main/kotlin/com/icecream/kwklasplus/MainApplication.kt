@@ -10,6 +10,8 @@ class MainApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         
-        ProcessLifecycleOwner.get().lifecycle.addObserver(AppLifecycleObserver(this))
+        ProcessLifecycleOwner.get().lifecycle.addObserver(
+            AppLifecycleObserver(this, dependencies.sessionKeepAlive),
+        )
     }
 }

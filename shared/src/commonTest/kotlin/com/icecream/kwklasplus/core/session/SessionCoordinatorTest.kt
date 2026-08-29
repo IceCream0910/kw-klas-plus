@@ -13,10 +13,10 @@ class SessionCoordinatorTest {
     private val token = SecretValue.of("session-token")
 
     @Test
-    fun restoresSessionWithinLegacyOneHourWindow() = runSuspend {
+    fun restoresSessionWithoutFixedLocalTtl() = runSuspend {
         val store = FakeSessionStore(Session(token, 1_000L))
         val cookies = FakeCookieStore()
-        val coordinator = SessionCoordinator(store, cookies, Clock { 3_600_999L })
+        val coordinator = SessionCoordinator(store, cookies, Clock { 24L * 60L * 60L * 1_000L })
 
         val result = coordinator.restore()
 
@@ -25,16 +25,16 @@ class SessionCoordinatorTest {
     }
 
     @Test
-    fun expiresSessionAtExactlyOneHour() = runSuspend {
+    fun oldSessionIsKeptUntilServerValidation() = runSuspend {
         val store = FakeSessionStore(Session(token, 1_000L))
         val cookies = FakeCookieStore(token)
         val coordinator = SessionCoordinator(store, cookies, Clock { 3_601_000L })
 
         val result = coordinator.restore()
 
-        assertEquals(SessionResult.Expired, result)
-        assertNull(store.session)
-        assertNull(cookies.token)
+        assertIs<SessionResult.Active>(result)
+        assertEquals(token, store.session?.token)
+        assertEquals(token, cookies.token)
     }
 
     @Test

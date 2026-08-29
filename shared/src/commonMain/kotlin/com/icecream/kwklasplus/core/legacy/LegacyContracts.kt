@@ -34,6 +34,8 @@ object KlasUrls {
     const val KLAS_LOGIN_SECURITY = "$KLAS_BASE/mst/cmn/login/LoginSecurity.do"
     const val KLAS_LOGIN_CAPTCHA = "$KLAS_BASE/usr/cmn/login/LoginCaptcha.do"
     const val KLAS_LOGIN_CONFIRM = "$KLAS_BASE/mst/cmn/login/LoginConfirm.do"
+    const val KLAS_SESSION_INFO = "$KLAS_BASE/api/v1/session/info"
+    const val KLAS_SESSION_UPDATE = "$KLAS_BASE/usr/cmn/login/UpdateSession.do"
     const val KLAS_FRAME = "$KLAS_BASE/std/cmn/frame/Frame.do"
     const val KLAS_LECTURE_HOME = "$KLAS_BASE/std/lis/evltn/LctrumHomeStdPage.do"
     const val KLAS_ONLINE_CONTENTS = "$KLAS_BASE/std/lis/evltn/OnlineCntntsStdPage.do"

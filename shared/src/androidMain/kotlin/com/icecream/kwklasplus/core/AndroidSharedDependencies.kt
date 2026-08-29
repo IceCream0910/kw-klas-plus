@@ -2,6 +2,7 @@ package com.icecream.kwklasplus.core
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.webkit.WebSettings
 import com.icecream.kwklasplus.core.auth.AndroidCredentialStore
 import com.icecream.kwklasplus.core.auth.AndroidHttpAuthDriver
 import com.icecream.kwklasplus.core.auth.CredentialStore
@@ -32,6 +33,8 @@ import com.icecream.kwklasplus.core.session.Clock
 import com.icecream.kwklasplus.core.session.MirroringSessionStore
 import com.icecream.kwklasplus.core.session.SecureSessionStore
 import com.icecream.kwklasplus.core.session.SessionCoordinator
+import com.icecream.kwklasplus.core.session.SessionLeaseManager
+import com.icecream.kwklasplus.core.network.KlasUserAgent
 
 class AndroidSharedDependencies(
     context: Context,
@@ -104,6 +107,15 @@ class AndroidSharedDependencies(
             AndroidPreferencesSessionStore(preferences),
         )
         SessionCoordinator(compatibleStore, AndroidWebCookieStore(), clock)
+    }
+    val sessionLeaseManager by lazy {
+        SessionLeaseManager(
+            sessionCoordinator = sessionCoordinator,
+            gateway = network.sessionLeaseGateway,
+            userAgent = KlasUserAgent.fromPlatform(
+                WebSettings.getDefaultUserAgent(applicationContext),
+            ),
+        )
     }
 
     fun loginUseCase(webAuthDriver: WebAuthDriver) = LoginUseCase(
