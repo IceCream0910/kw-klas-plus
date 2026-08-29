@@ -52,14 +52,19 @@ final class AuthSessionControllerTests: XCTestCase {
         defaults.removePersistentDomain(forName: suite)
         defaults.set("2020123456", forKey: "kwID")
         defer { defaults.removePersistentDomain(forName: suite) }
+
+        let keychain = IosKeychainSecureStore(
+            service: "com.icecream.kwklasplus.test.auth.prefill.keychain.\(UUID().uuidString)"
+        )
         let controller = AuthSessionController(
-            authRuntime: IosAuthRuntime.companion.create(defaults: defaults),
+            authRuntime: IosAuthRuntime.companion.createForTests(defaults: defaults, secureStore: keychain),
             networkPath: FakeNetworkPathChecker(satisfied: true)
         )
 
         controller.start()
         await waitUntil { controller.phase == .needsCredentials }
 
+        XCTAssertEqual(controller.phase, .needsCredentials)
         XCTAssertEqual(controller.loginState.studentId, "2020123456")
         XCTAssertEqual(controller.loginState.password, "")
         XCTAssertFalse(controller.loginState.onboardingVisible)
@@ -106,13 +111,16 @@ final class AuthSessionControllerTests: XCTestCase {
 
     private func waitUntil(
         timeout: TimeInterval = 3,
-        predicate: @escaping () -> Bool
+        predicate: @escaping () -> Bool,
+        file: StaticString = #filePath,
+        line: UInt = #line
     ) async {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             if predicate() { return }
             try? await Task.sleep(nanoseconds: 20_000_000)
         }
+        XCTAssertTrue(predicate(), "waitUntil timed out", file: file, line: line)
     }
 }
 
