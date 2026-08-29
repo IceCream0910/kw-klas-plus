@@ -46,7 +46,9 @@ import platform.Security.kSecValueData
 class IosKeychainSecureStore(
     private val service: String = DEFAULT_SERVICE,
 ) : SecureStore {
-    override suspend fun read(key: SecureKey): SecretValue? {
+    override suspend fun read(key: SecureKey): SecretValue? = readNow(key)
+
+    fun readNow(key: SecureKey): SecretValue? {
         val query = mutableDictionary(capacity = 5) {
             addCf(kSecClass, kSecClassGenericPassword)
             addBridged(kSecAttrService, service)
@@ -71,7 +73,9 @@ class IosKeychainSecureStore(
         }
     }
 
-    override suspend fun write(key: SecureKey, value: SecretValue) {
+    override suspend fun write(key: SecureKey, value: SecretValue) = writeNow(key, value)
+
+    fun writeNow(key: SecureKey, value: SecretValue) {
         val data = NSString.create(string = value.reveal())
             .dataUsingEncoding(NSUTF8StringEncoding)
             ?: error("Keychain write encoding failed for ${key.name}")
@@ -99,7 +103,9 @@ class IosKeychainSecureStore(
         }
     }
 
-    override suspend fun remove(key: SecureKey) {
+    override suspend fun remove(key: SecureKey) = removeNow(key)
+
+    fun removeNow(key: SecureKey) {
         val status = SecItemDelete(baseQuery(key))
         check(status == errSecSuccess || status == errSecItemNotFound) {
             "Keychain remove failed for ${key.name}: status=$status"

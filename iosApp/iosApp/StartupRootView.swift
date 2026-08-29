@@ -2,7 +2,17 @@ import Shared
 import SwiftUI
 
 struct StartupRootView: View {
-    @StateObject private var controller = AuthSessionController()
+    @StateObject private var controller: AuthSessionController
+    @StateObject private var appLock: AppLockController
+    @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        let auth = AuthSessionController()
+        _controller = StateObject(wrappedValue: auth)
+        _appLock = StateObject(
+            wrappedValue: AppLockController(store: auth.authRuntime.dependencies.appLockStore)
+        )
+    }
 
     var body: some View {
         ZStack {
@@ -38,13 +48,32 @@ struct StartupRootView: View {
                 )
             }
         }
+        .environmentObject(appLock)
         .alert(blockedAlertTitle, isPresented: blockedAlertPresented) {
             blockedAlertButtons
         } message: {
             Text(blockedAlertMessage)
         }
         .accessibilityIdentifier(isBlocked ? "auth_alert" : "")
-        .onAppear { controller.start() }
+        .fullScreenCover(item: $appLock.mode) { _ in
+            LockScreenView(controller: appLock)
+                .preferredColorScheme(lockColorScheme)
+        }
+        .onAppear {
+            controller.start()
+            appLock.handleScenePhase(.active)
+        }
+        .onChange(of: scenePhase) { phase in
+            appLock.handleScenePhase(phase)
+        }
+    }
+
+    private var lockColorScheme: ColorScheme? {
+        switch controller.authRuntime.dependencies.stringPreference(key: "appTheme") {
+        case "dark": return .dark
+        case "light": return .light
+        default: return nil
+        }
     }
 
     private var isBlocked: Bool {

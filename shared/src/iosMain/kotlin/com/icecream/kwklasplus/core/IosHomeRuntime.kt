@@ -10,7 +10,6 @@ import com.icecream.kwklasplus.core.academic.DeadlinesWebCodec
 import com.icecream.kwklasplus.core.academic.TimetableResult
 import com.icecream.kwklasplus.core.academic.TimetableWebCodec
 import com.icecream.kwklasplus.core.legacy.LegacyPreferenceKeys
-import com.icecream.kwklasplus.core.lock.AppLockSettings
 import com.icecream.kwklasplus.core.network.KlasUserAgent
 import com.icecream.kwklasplus.core.security.SecretValue
 import com.icecream.kwklasplus.core.session.SessionResult
@@ -71,11 +70,8 @@ class IosHomeRuntime(
     fun currentYearHakgiListJoined(): String =
         dependencies.stringPreference(LegacyPreferenceKeys.YEAR_HAKGI_LIST).orEmpty()
 
-    fun defaultAppLockSettingsJson(): String = AppLockSettings(
-        enabled = false,
-        biometricEnabled = false,
-        hasPassword = false,
-    ).toLegacyJson()
+    fun defaultAppLockSettingsJson(): String =
+        dependencies.appLockStore.currentSettings().toLegacyJson()
 
     fun yearHakgiButtonText(value: String): String = AcademicTermDisplay.buttonText(value)
 

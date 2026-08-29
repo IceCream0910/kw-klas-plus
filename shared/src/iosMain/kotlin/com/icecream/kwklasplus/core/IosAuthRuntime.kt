@@ -88,5 +88,8 @@ class IosAuthRuntime(
 
         fun create(defaults: NSUserDefaults): IosAuthRuntime =
             IosAuthRuntime(IosSharedDependencies(defaults = defaults))
+
+        fun create(dependencies: IosSharedDependencies): IosAuthRuntime =
+            IosAuthRuntime(dependencies)
     }
 }
