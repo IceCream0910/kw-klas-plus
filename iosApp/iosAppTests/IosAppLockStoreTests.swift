@@ -157,6 +157,14 @@ final class AppLockControllerTests: XCTestCase {
         )
         model.holder.dispose()
     }
+
+    func testLandscapeUsesTwoPaneLikeAndroid() {
+        XCTAssertFalse(LockScreenMetrics.useTwoPane(width: 393, height: 852))
+        XCTAssertTrue(LockScreenMetrics.useTwoPane(width: 852, height: 393))
+        XCTAssertTrue(LockScreenMetrics.useTwoPane(width: 932, height: 430))
+        XCTAssertFalse(LockScreenMetrics.useTwoPane(width: 834, height: 1194))
+        XCTAssertTrue(LockScreenMetrics.useTwoPane(width: 1194, height: 834))
+    }
 }
 
 private final class LockTestEnvironment {

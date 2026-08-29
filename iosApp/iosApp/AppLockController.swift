@@ -292,4 +292,9 @@ final class AppLockController: ObservableObject {
 
 enum LockScreenMetrics {
     static let pinLength = 6
+
+    static func useTwoPane(width: CGFloat, height: CGFloat) -> Bool {
+        let widthClass = AppWindowWidthClass.classify(width: width)
+        return widthClass == .expanded || (widthClass == .medium && height < 600)
+    }
 }
