@@ -78,7 +78,12 @@ final class AppLockControllerTests: XCTestCase {
     func testSetPinThenBackgroundRequestsUnlock() async {
         let env = LockTestEnvironment()
         defer { env.tearDown() }
-        let controller = AppLockController(store: env.store, canUseBiometrics: { false })
+        let controller = AppLockController(
+            store: env.store,
+            canUseBiometrics: { false },
+            isAppInBackground: { true },
+            backgroundLockDelayNanos: 0
+        )
         let finished = expectation(description: "set pin")
         var succeeded = false
 
@@ -94,10 +99,11 @@ final class AppLockControllerTests: XCTestCase {
         XCTAssertTrue(succeeded)
         XCTAssertTrue(env.store.isEnabled())
         XCTAssertTrue(env.store.verifyPassword(input: "123456"))
+        XCTAssertTrue(env.store.isUnlocked)
         XCTAssertNil(controller.mode)
 
-        env.store.isUnlocked = true
         controller.handleScenePhase(.background)
+        await waitUntil { !env.store.isUnlocked }
         XCTAssertFalse(env.store.isUnlocked)
         controller.handleScenePhase(.active)
         XCTAssertEqual(controller.mode, .unlock)
@@ -165,6 +171,116 @@ final class AppLockControllerTests: XCTestCase {
         XCTAssertFalse(LockScreenMetrics.useTwoPane(width: 834, height: 1194))
         XCTAssertTrue(LockScreenMetrics.useTwoPane(width: 1194, height: 834))
     }
+
+    func testEnableBiometricsDoesNotOpenUnlockScreen() async {
+        let env = LockTestEnvironment()
+        defer { env.tearDown() }
+        env.store.savePassword(password: "123456")
+        env.store.setEnabled(enabled: true)
+        env.store.isUnlocked = true
+
+        let box = ControllerBox()
+        let controller = AppLockController(
+            store: env.store,
+            canUseBiometrics: { true },
+            isAppInBackground: { true },
+            authenticateBiometrics: { _, _ in
+                box.controller?.handleScenePhase(.background)
+                box.controller?.handleScenePhase(.active)
+                return PlatformActionResultSuccess()
+            }
+        )
+        box.controller = controller
+
+        let result = await controller.authenticateEnableBiometrics()
+        XCTAssertTrue(result is PlatformActionResultSuccess)
+        XCTAssertTrue(env.store.isUnlocked)
+        XCTAssertNil(controller.mode)
+    }
+
+    func testSetPinBiometricPromptDoesNotOpenUnlock() async {
+        let env = LockTestEnvironment()
+        defer { env.tearDown() }
+        let box = ControllerBox()
+        let finished = expectation(description: "set pin")
+        let controller = AppLockController(
+            store: env.store,
+            canUseBiometrics: { true },
+            isAppInBackground: { true },
+            authenticateBiometrics: { _, _ in
+                box.controller?.handleScenePhase(.background)
+                box.controller?.handleScenePhase(.active)
+                return PlatformActionResultSuccess()
+            }
+        )
+        box.controller = controller
+        var succeeded = false
+        controller.presentPasswordSetup { success in
+            succeeded = success
+            finished.fulfill()
+        }
+        [1, 2, 3, 4, 5, 6].forEach(controller.appendDigit)
+        [1, 2, 3, 4, 5, 6].forEach(controller.appendDigit)
+
+        await fulfillment(of: [finished], timeout: 2)
+        XCTAssertTrue(succeeded)
+        XCTAssertTrue(env.store.isUnlocked)
+        XCTAssertTrue(env.store.isBiometricEnabled())
+        XCTAssertNil(controller.mode)
+    }
+
+    func testFaceIdInactiveDoesNotLockWhenAppStillForeground() {
+        let env = LockTestEnvironment()
+        defer { env.tearDown() }
+        env.store.savePassword(password: "123456")
+        env.store.setEnabled(enabled: true)
+        env.store.isUnlocked = true
+        let controller = AppLockController(
+            store: env.store,
+            canUseBiometrics: { false },
+            isAppInBackground: { false }
+        )
+
+        controller.handleScenePhase(.background)
+        controller.handleScenePhase(.active)
+
+        XCTAssertTrue(env.store.isUnlocked)
+        XCTAssertNil(controller.mode)
+    }
+
+    func testQuickForegroundReturnDoesNotLock() async {
+        let env = LockTestEnvironment()
+        defer { env.tearDown() }
+        env.store.savePassword(password: "123456")
+        env.store.setEnabled(enabled: true)
+        env.store.isUnlocked = true
+        let controller = AppLockController(
+            store: env.store,
+            canUseBiometrics: { false },
+            isAppInBackground: { true },
+            backgroundLockDelayNanos: 5_000_000_000
+        )
+
+        controller.handleScenePhase(.background)
+        controller.handleScenePhase(.active)
+
+        XCTAssertTrue(env.store.isUnlocked)
+        XCTAssertNil(controller.mode)
+    }
+
+    private func waitUntil(
+        timeout: TimeInterval = 1,
+        _ predicate: @escaping () -> Bool
+    ) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !predicate(), Date() < deadline {
+            await Task.yield()
+        }
+    }
+}
+
+private final class ControllerBox {
+    var controller: AppLockController?
 }
 
 private final class LockTestEnvironment {

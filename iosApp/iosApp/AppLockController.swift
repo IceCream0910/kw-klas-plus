@@ -23,8 +23,9 @@ final class AppLockController: ObservableObject {
     let store: IosAppLockStore
 
     private let policy = AppLockPolicy()
-    private let biometrics = IosBiometrics()
     private let canUseBiometrics: () -> Bool
+    private let isAppInBackgroundOverride: (() -> Bool)?
+    private let authenticateBiometrics: (BiometricPurpose, String?) async -> PlatformActionResult
     private var input = ""
     private var firstNewPassword: String?
     private var oldPassword: String?
@@ -32,29 +33,66 @@ final class AppLockController: ObservableObject {
     private var settingsCompletion: ((Bool) -> Void)?
     private var toastTask: Task<Void, Never>?
     private var didAutoPromptBiometric = false
+    private var isBiometricPromptActive = false
+    private var backgroundLockTask: Task<Void, Never>?
+    private let backgroundLockDelayNanos: UInt64
 
     init(
         store: IosAppLockStore,
-        canUseBiometrics: @escaping () -> Bool = { IosBiometricAvailability.canAuthenticate() }
+        canUseBiometrics: @escaping () -> Bool = { IosBiometricAvailability.canAuthenticate() },
+        isAppInBackground: (() -> Bool)? = nil,
+        backgroundLockDelayNanos: UInt64 = UInt64(AppLockPolicy.companion.BACKGROUND_LOCK_DELAY_MS) * 1_000_000,
+        authenticateBiometrics: ((BiometricPurpose, String?) async -> PlatformActionResult)? = nil
     ) {
         self.store = store
         self.canUseBiometrics = canUseBiometrics
+        self.isAppInBackgroundOverride = isAppInBackground
+        self.backgroundLockDelayNanos = backgroundLockDelayNanos
+        let biometrics = IosBiometrics()
+        self.authenticateBiometrics = authenticateBiometrics ?? { purpose, reason in
+            await biometrics.authenticate(purpose: purpose, localizedReason: reason)
+        }
     }
 
     var canCancel: Bool { mode != .unlock }
 
+    private func isProcessInBackground() -> Bool {
+        isAppInBackgroundOverride?() ?? (UIApplication.shared.applicationState == .background)
+    }
+
     func handleScenePhase(_ phase: ScenePhase) {
         switch phase {
         case .background:
-            let reduced = policy.reduce(
-                state: store.currentState(),
-                event: AppLockEventEnteredBackground.shared
-            )
-            store.isUnlocked = reduced.unlocked
+            guard !isBiometricPromptActive, isProcessInBackground() else { return }
+            scheduleBackgroundLock()
         case .active:
+            backgroundLockTask?.cancel()
+            backgroundLockTask = nil
+            guard !isBiometricPromptActive else { return }
             requestUnlockIfNeeded()
         default:
             break
+        }
+    }
+
+    private func scheduleBackgroundLock() {
+        backgroundLockTask?.cancel()
+        backgroundLockTask = Task { @MainActor in
+            do {
+                if backgroundLockDelayNanos > 0 {
+                    try await Task.sleep(nanoseconds: backgroundLockDelayNanos)
+                } else if Task.isCancelled {
+                    return
+                }
+                guard !isBiometricPromptActive, isProcessInBackground() else { return }
+                let reduced = policy.reduce(
+                    state: store.currentState(),
+                    event: AppLockEventEnteredBackground.shared
+                )
+                store.isUnlocked = reduced.unlocked
+            } catch {
+                return
+            }
         }
     }
 
@@ -104,7 +142,7 @@ final class AppLockController: ObservableObject {
     }
 
     func authenticateEnableBiometrics() async -> PlatformActionResult {
-        await biometrics.authenticate(purpose: .enableBiometrics)
+        await runBiometricPrompt { await authenticateBiometrics(.enableBiometrics, nil) }
     }
 
     private func present(_ mode: Mode, disabling: Bool, completion: ((Bool) -> Void)?) {
@@ -193,6 +231,7 @@ final class AppLockController: ObservableObject {
         }
         store.savePassword(password: value)
         store.setEnabled(enabled: true)
+        store.isUnlocked = true
         showToast("비밀번호가 설정되었습니다.")
         Task { await completePasswordUpdate() }
     }
@@ -238,10 +277,12 @@ final class AppLockController: ObservableObject {
 
     private func completePasswordUpdate() async {
         if canUseBiometrics() {
-            let result = await biometrics.authenticate(
-                purpose: .enableBiometrics,
-                localizedReason: "생체인증을 사용하려면 인증이 필요합니다."
-            )
+            let result = await runBiometricPrompt {
+                await authenticateBiometrics(
+                    .enableBiometrics,
+                    "생체인증을 사용하려면 인증이 필요합니다."
+                )
+            }
             if result is PlatformActionResultSuccess {
                 store.setBiometricEnabled(enabled: true)
                 showToast("생체인증이 활성화되었습니다.")
@@ -251,10 +292,18 @@ final class AppLockController: ObservableObject {
     }
 
     private func authenticateUnlock() async {
-        let result = await biometrics.authenticate(purpose: .unlockApp)
+        let result = await runBiometricPrompt { await authenticateBiometrics(.unlockApp, nil) }
         if result is PlatformActionResultSuccess {
             unlockSuccess()
         }
+    }
+
+    private func runBiometricPrompt(
+        _ body: () async -> PlatformActionResult
+    ) async -> PlatformActionResult {
+        isBiometricPromptActive = true
+        defer { isBiometricPromptActive = false }
+        return await body()
     }
 
     private func unlockSuccess() {
