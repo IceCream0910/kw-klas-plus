@@ -90,6 +90,9 @@ class IosAuthRuntime(
         fun create(defaults: NSUserDefaults): IosAuthRuntime =
             IosAuthRuntime(IosSharedDependencies(defaults = defaults))
 
+        fun create(dependencies: IosSharedDependencies): IosAuthRuntime =
+            IosAuthRuntime(dependencies)
+
         // NOTE: For tests that inject SecureStore. App code should use createDefault() or create(defaults:).
         fun createForTests(defaults: NSUserDefaults, secureStore: SecureStore): IosAuthRuntime =
             IosAuthRuntime(

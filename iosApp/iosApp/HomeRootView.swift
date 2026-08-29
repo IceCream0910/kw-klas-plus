@@ -3,6 +3,7 @@ import SwiftUI
 
 struct HomeRootView: View {
     @StateObject private var coordinator: HomeCoordinator
+    @EnvironmentObject private var appLock: AppLockController
     private let onSessionExpired: () -> Void
 
     init(
@@ -106,7 +107,7 @@ struct HomeRootView: View {
                 coordinator: coordinator
             )
         case .settings:
-            SettingsView(coordinator: coordinator)
+            SettingsView(coordinator: coordinator, appLock: appLock)
         }
     }
 }

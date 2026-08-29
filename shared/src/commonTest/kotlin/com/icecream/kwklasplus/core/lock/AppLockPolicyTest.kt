@@ -15,6 +15,11 @@ class AppLockPolicyTest {
     }
 
     @Test
+    fun backgroundLockDelayMatchesProcessLifecycleOwner() {
+        assertEquals(700L, AppLockPolicy.BACKGROUND_LOCK_DELAY_MS)
+    }
+
+    @Test
     fun backgroundLocksEnabledApp() {
         val state = AppLockPolicy().reduce(
             AppLockState(enabled = true, unlocked = true),

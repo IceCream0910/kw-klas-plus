@@ -33,4 +33,8 @@ class AppLockPolicy {
         AppLockEvent.AuthenticationFailed -> state.copy(unlocked = false)
         AppLockEvent.LockDisabled -> AppLockState(enabled = false, unlocked = true)
     }
+
+    companion object {
+        const val BACKGROUND_LOCK_DELAY_MS = 700L
+    }
 }
