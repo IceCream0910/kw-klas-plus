@@ -20,6 +20,7 @@ final class SettingsScreenModel: ObservableObject {
         )
         host.model = self
         host.store = appLock.store
+        coordinator.attachSettingsWebView(holder)
         holder.load(KlasUrls.shared.SETTINGS)
     }
 
