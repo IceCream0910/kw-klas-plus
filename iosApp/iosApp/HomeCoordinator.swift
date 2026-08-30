@@ -28,6 +28,13 @@ enum HomeBootstrapPhase: Equatable {
     case failed(String)
 }
 
+enum QrAttendancePhase: Equatable {
+    case idle
+    case preparing
+    case authenticating
+    case result(title: String, message: String)
+}
+
 @MainActor
 final class HomeCoordinator: ObservableObject {
     @Published var path = NavigationPath()
@@ -44,6 +51,8 @@ final class HomeCoordinator: ObservableObject {
     @Published var datePickerIsStart = true
     @Published var showLogoutConfirm = false
     @Published var theme = "system"
+    @Published var qrPhase: QrAttendancePhase = .idle
+    @Published var isPresentingQrScanner = false
 
     let homeRuntime: IosHomeRuntime
     let onLogout: () -> Void
@@ -67,9 +76,17 @@ final class HomeCoordinator: ObservableObject {
     }()
 
     private let haptics = IosHaptics()
+    private let qrScanner: IosQrScanner?
+    private let attendanceRepository: AttendanceRepository
+    private var qrScanCompletion: ((QrScanResult) -> Void)?
+    private let prepareCheckInOverride: ((QrPreparationRequest, SecretValue) async -> QrPreparationResult)?
+    private let checkInOverride: ((QrAttendancePayload, SecretValue, SecretValue) async -> QrCheckInResult)?
+    private let qrScanLaunchGuard = QrScanLaunchGuard()
     private var homeHost: HomeBridgeHostAdapter?
     private var toastTask: Task<Void, Never>?
+    private var qrTask: Task<Void, Never>?
     private var didStart = false
+    private var releaseQrGuardOnDismiss = false
     private weak var settingsWebHolder: WebViewHolder?
 
     var colorScheme: ColorScheme? {
@@ -84,10 +101,22 @@ final class HomeCoordinator: ObservableObject {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
     }
 
-    init(authRuntime: IosAuthRuntime, onLogout: @escaping () -> Void) {
-        self.homeRuntime = IosHomeRuntime.companion.create(dependencies: authRuntime.dependencies)
+    init(
+        authRuntime: IosAuthRuntime,
+        onLogout: @escaping () -> Void,
+        qrScanner: IosQrScanner? = nil,
+        attendanceRepository: AttendanceRepository? = nil,
+        prepareCheckIn: ((QrPreparationRequest, SecretValue) async -> QrPreparationResult)? = nil,
+        checkIn: ((QrAttendancePayload, SecretValue, SecretValue) async -> QrCheckInResult)? = nil
+    ) {
+        let dependencies = authRuntime.dependencies
+        self.homeRuntime = IosHomeRuntime.companion.create(dependencies: dependencies)
         self.onLogout = onLogout
         self.theme = homeRuntime.currentTheme()
+        self.qrScanner = qrScanner
+        self.attendanceRepository = attendanceRepository ?? dependencies.attendanceRepository
+        self.prepareCheckInOverride = prepareCheckIn
+        self.checkInOverride = checkIn
     }
 
     func start() {
@@ -322,7 +351,103 @@ final class HomeCoordinator: ObservableObject {
         showToast("곧 지원 예정입니다.")
     }
 
+    func startQrCheckIn(
+        subjectId: String,
+        subjectName: String,
+        yearHakgi: String,
+        requireParsedTerm: Bool
+    ) {
+        guard qrScanLaunchGuard.tryAcquire() else { return }
+        guard let session = sessionToken,
+              !subjectId.isEmpty,
+              !subjectName.isEmpty else {
+            qrScanLaunchGuard.release()
+            showToast(
+                requireParsedTerm
+                    ? "QR출석을 위한 정보를 불러오지 못했어요. 다시 시도해주세요."
+                    : "출석 정보를 확인하지 못했습니다."
+            )
+            return
+        }
+        guard let term = yearAndSemester(from: yearHakgi, requireParsedTerm: requireParsedTerm) else {
+            qrScanLaunchGuard.release()
+            showToast("QR출석을 위한 정보를 불러오지 못했어요. 다시 시도해주세요.")
+            return
+        }
+        qrPhase = .preparing
+        qrTask = Task { @MainActor in
+            var scannerLaunched = false
+            defer {
+                if !scannerLaunched {
+                    if qrPhase == .preparing { qrPhase = .idle }
+                    qrScanLaunchGuard.release()
+                }
+            }
+            let request = QrPreparationRequest(
+                year: term.year,
+                semester: term.semester,
+                subjectId: subjectId,
+                subjectName: subjectName
+            )
+            let prepared = await prepareAttendance(request, session: session)
+            guard !Task.isCancelled else { return }
+            if let success = prepared as? QrPreparationResultSuccess {
+                qrPhase = .idle
+                scannerLaunched = true
+                await scanAndCheckIn(payload: success.payload, session: session)
+                return
+            }
+            if prepared is QrPreparationResultUnsupportedSubject {
+                showToast("QR출석이 지원되지 않는 강의입니다.")
+                return
+            }
+            if prepared is QrPreparationResultSessionExpired {
+                presentQrSessionExpired()
+                return
+            }
+            showToast("출석 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.")
+        }
+    }
+
+    func dismissQrAlert() {
+        qrPhase = .idle
+        if releaseQrGuardOnDismiss {
+            qrScanLaunchGuard.release()
+            releaseQrGuardOnDismiss = false
+        }
+    }
+
+    var usesOverlayQrScanner: Bool { qrScanner == nil }
+
+    func finishQrScan(_ result: QrScanResult) {
+        guard qrScanCompletion != nil || isPresentingQrScanner else { return }
+        isPresentingQrScanner = false
+        let completion = qrScanCompletion
+        qrScanCompletion = nil
+        completion?(result)
+    }
+
+    var qrAlertTitle: String {
+        if case let .result(title, _) = qrPhase { return title }
+        return ""
+    }
+
+    var qrAlertMessage: String {
+        if case let .result(_, message) = qrPhase { return message }
+        return ""
+    }
+
+    var isQrAlertPresented: Bool {
+        if case .result = qrPhase { return true }
+        return false
+    }
+
     func dispose() {
+        qrTask?.cancel()
+        qrTask = nil
+        qrScanLaunchGuard.release()
+        qrPhase = .idle
+        finishQrScan(QrScanResultCancelled())
         let holder = homeHolder
         homeHolder = nil
         holder?.dispose()
@@ -470,6 +595,175 @@ final class HomeCoordinator: ObservableObject {
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .nilIfEmpty ?? "Mozilla/5.0"
     }
+
+    private func scanAndCheckIn(payload: QrAttendancePayload, session: SecretValue) async {
+        let scan = await performScan()
+        guard !Task.isCancelled else {
+            qrScanLaunchGuard.release()
+            return
+        }
+        if scan is QrScanResultCancelled {
+            qrScanLaunchGuard.release()
+            return
+        }
+        if scan is QrScanResultPermissionRequired {
+            presentQrResult(
+                title: "QR 스캔 실패",
+                message: "카메라 권한을 허용해주세요."
+            )
+            return
+        }
+        if let failed = scan as? QrScanResultFailed {
+            presentQrResult(
+                title: "QR 스캔 실패",
+                message: scannerFailureMessage(failed.reason)
+            )
+            return
+        }
+        guard let success = scan as? QrScanResultSuccess else {
+            qrScanLaunchGuard.release()
+            return
+        }
+        qrPhase = .authenticating
+        let checked = await submitCheckIn(payload: payload, session: session, scanned: SecretValue.companion.of(value: success.value))
+        guard !Task.isCancelled else {
+            qrScanLaunchGuard.release()
+            qrPhase = .idle
+            return
+        }
+        if checked is QrCheckInResultSuccess {
+            _ = haptics.performLegacy(contractName: "CONFIRM")
+            presentQrResult(title: "출석 체크 성공", message: "정상적으로 출석 처리 되었습니다.")
+            return
+        }
+        if let rejected = checked as? QrCheckInResultRejected {
+            _ = haptics.performLegacy(contractName: "REJECT")
+            presentQrResult(
+                title: "출석 체크 실패",
+                message: rejectedMessages(rejected)
+            )
+            return
+        }
+        presentQrResult(title: "오류 발생", message: "출석 체크 중 오류가 발생했습니다. \(checkInErrorMessage(checked))")
+    }
+
+    private func performScan() async -> QrScanResult {
+        if let qrScanner {
+            isPresentingQrScanner = true
+            defer { isPresentingQrScanner = false }
+            return await qrScanner.scan()
+        }
+        return await withCheckedContinuation { continuation in
+            qrScanCompletion = { continuation.resume(returning: $0) }
+            isPresentingQrScanner = true
+        }
+    }
+
+    private func presentQrResult(title: String, message: String) {
+        releaseQrGuardOnDismiss = true
+        qrPhase = .result(title: title, message: message)
+    }
+
+    private func presentQrSessionExpired() {
+        path = NavigationPath()
+        qrPhase = .idle
+        bootstrapPhase = .sessionExpired
+    }
+
+    private func prepareAttendance(
+        _ request: QrPreparationRequest,
+        session: SecretValue
+    ) async -> QrPreparationResult {
+        if let prepareCheckInOverride {
+            return await prepareCheckInOverride(request, session)
+        }
+        return await withCheckedContinuation { continuation in
+            attendanceRepository.prepareCheckIn(
+                session: session,
+                userAgent: klasUserAgent(),
+                request: request,
+                completionHandler: { result, _ in
+                    continuation.resume(returning: result ?? QrPreparationResultNetworkFailure.shared)
+                }
+            )
+        }
+    }
+
+    private func submitCheckIn(
+        payload: QrAttendancePayload,
+        session: SecretValue,
+        scanned: SecretValue
+    ) async -> QrCheckInResult {
+        if let checkInOverride {
+            return await checkInOverride(payload, session, scanned)
+        }
+        return await withCheckedContinuation { continuation in
+            attendanceRepository.checkIn(
+                session: session,
+                userAgent: klasUserAgent(),
+                payload: payload,
+                scannedCode: scanned,
+                completionHandler: { result, _ in
+                    continuation.resume(returning: result ?? QrCheckInResultNetworkFailure.shared)
+                }
+            )
+        }
+    }
+
+    private func klasUserAgent() -> KlasUserAgent {
+        KlasUserAgent.companion.fromPlatform(value: Self.platformUserAgent())
+    }
+
+    private func yearAndSemester(
+        from yearHakgi: String,
+        requireParsedTerm: Bool
+    ) -> (year: String, semester: String)? {
+        if let term = AcademicTermKey.companion.parse(value: yearHakgi) {
+            return (term.year, term.semester)
+        }
+        if requireParsedTerm { return nil }
+        let now = Date()
+        let calendar = Calendar.current
+        let year = String(calendar.component(.year, from: now))
+        let month = calendar.component(.month, from: now)
+        let semester = month < 8 ? "1" : "2"
+        return (year, semester)
+    }
+
+    private func scannerFailureMessage(_ reason: String) -> String {
+        switch reason {
+        case "scanner_camera_permission_required":
+            return "카메라 권한을 허용해주세요."
+        case "scanner_unavailable":
+            return "이 기기에서는 카메라를 사용할 수 없습니다."
+        default:
+            return "QR 스캔 중 오류가 발생했습니다: \(reason)"
+        }
+    }
+
+    private func checkInErrorMessage(_ result: QrCheckInResult) -> String {
+        if result is QrCheckInResultSessionExpired {
+            return "로그인 세션이 만료되었습니다. 앱을 재시작한 후 다시 시도해보세요."
+        }
+        if result is QrCheckInResultTimeout {
+            return "서버 응답 시간이 초과되었습니다."
+        }
+        if result is QrCheckInResultNetworkFailure {
+            return "네트워크 연결을 확인해주세요."
+        }
+        if let http = result as? QrCheckInResultHttpFailure {
+            return "서버 오류: \(http.statusCode)"
+        }
+        if result is QrCheckInResultEmptyResponse {
+            return "응답 내용이 비어있습니다."
+        }
+        return "서버 응답을 처리하지 못했습니다."
+    }
+
+    private func rejectedMessages(_ rejected: QrCheckInResultRejected) -> String {
+        let values = rejected.messages as? [String] ?? (rejected.messages as? NSArray as? [String]) ?? []
+        return values.joined(separator: " ")
+    }
 }
 
 private extension String {
@@ -516,7 +810,14 @@ final class HomeBridgeHostAdapter: HomeBridgeHost {
     }
 
     func qrCheckIn(subjId: String, subjName: String) {
-        Task { @MainActor in coordinator?.presentUnavailable() }
+        Task { @MainActor in
+            coordinator?.startQrCheckIn(
+                subjectId: subjId,
+                subjectName: subjName,
+                yearHakgi: coordinator?.yearHakgi ?? "",
+                requireParsedTerm: false
+            )
+        }
     }
 
     func openDateTimePicker(currentDateTime: String?, isStart: Bool) {

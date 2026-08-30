@@ -27,7 +27,6 @@ struct HomeRootView: View {
         .preferredColorScheme(coordinator.colorScheme)
         .tint(KlasTheme.primary)
         .onAppear { coordinator.start() }
-        .onDisappear { coordinator.dispose() }
         .homeOverlays(coordinator)
     }
 
