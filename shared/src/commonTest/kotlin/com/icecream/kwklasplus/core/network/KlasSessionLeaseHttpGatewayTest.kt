@@ -62,6 +62,10 @@ class KlasSessionLeaseHttpGatewayTest {
     fun mapsExpiredHtmlAndAuthenticationStatus() = runBlocking {
         assertEquals(
             SessionInfoResult.SessionExpired,
+            infoResult("{}"),
+        )
+        assertEquals(
+            SessionInfoResult.SessionExpired,
             infoResult("<!DOCTYPE html><html></html>"),
         )
         assertEquals(
@@ -76,7 +80,10 @@ class KlasSessionLeaseHttpGatewayTest {
 
     @Test
     fun rejectsMalformedOrInvalidLeaseResponses() = runBlocking {
-        assertEquals(SessionInfoResult.MalformedResponse, infoResult("{}"))
+        assertEquals(
+            SessionInfoResult.MalformedResponse,
+            infoResult("{\"unexpected\":true}"),
+        )
         assertEquals(
             SessionInfoResult.MalformedResponse,
             infoResult("{\"logoutCountDownSec\":300,\"sessionNotiSec\":6900,\"remainingTime\":-1}"),

@@ -93,6 +93,10 @@ class KlasSessionLeaseHttpGateway(
         }
 
     private fun parseInfo(body: String): SessionInfoResult {
+        val element = json.parseToJsonElement(body)
+        if (element is JsonObject && element.isEmpty()) {
+            return SessionInfoResult.SessionExpired
+        }
         val response = json.decodeFromString<SessionInfoResponse>(body)
         return runCatching {
             SessionLeaseInfo(
