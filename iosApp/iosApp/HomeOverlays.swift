@@ -54,6 +54,39 @@ struct HomeOverlayModifier: ViewModifier {
                 .onAppear { datePickerDetent = .large }
                 .preferredColorScheme(coordinator.colorScheme)
             }
+            .fullScreenCover(
+                isPresented: Binding(
+                    get: { coordinator.isPresentingQrScanner && coordinator.usesOverlayQrScanner },
+                    set: { if !$0 { coordinator.finishQrScan(QrScanResultCancelled()) } }
+                )
+            ) {
+                QrDataScannerView { result in
+                    coordinator.finishQrScan(result)
+                }
+                .ignoresSafeArea()
+            }
+            .overlay {
+                switch coordinator.qrPhase {
+                case .preparing:
+                    KlasLoadingView(message: "불러오는 중")
+                case .authenticating:
+                    KlasLoadingView(message: "인증 중")
+                        .accessibilityIdentifier("qr_check_in_loading")
+                default:
+                    EmptyView()
+                }
+            }
+            .alert(
+                coordinator.qrAlertTitle,
+                isPresented: Binding(
+                    get: { coordinator.isQrAlertPresented },
+                    set: { if !$0 { coordinator.dismissQrAlert() } }
+                )
+            ) {
+                Button("확인") { coordinator.dismissQrAlert() }
+            } message: {
+                Text(coordinator.qrAlertMessage)
+            }
             .overlay(alignment: .bottom) {
                 if let toast = coordinator.toastMessage {
                     GeometryReader { proxy in

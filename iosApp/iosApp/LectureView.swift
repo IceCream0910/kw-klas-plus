@@ -336,7 +336,15 @@ final class LectureHostAdapter: LectureBridgeHost {
     }
 
     func openQRScan() {
-        Task { @MainActor in model?.coordinator?.presentUnavailable() }
+        Task { @MainActor in
+            guard let model else { return }
+            model.coordinator?.startQrCheckIn(
+                subjectId: model.subjectId,
+                subjectName: model.subjectName,
+                yearHakgi: model.yearSemester,
+                requireParsedTerm: true
+            )
+        }
     }
 }
 
