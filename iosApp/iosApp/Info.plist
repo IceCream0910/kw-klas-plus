@@ -4,6 +4,8 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>QR 출석을 위해 카메라를 사용합니다.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>앱 잠금을 해제하기 위해 Face ID를 사용합니다.</string>
 	<key>UILaunchStoryboardName</key>

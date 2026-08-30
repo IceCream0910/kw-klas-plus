@@ -4,6 +4,7 @@ import com.icecream.kwklasplus.core.academic.AcademicRepository
 import com.icecream.kwklasplus.core.academic.DeadlineRepository
 import com.icecream.kwklasplus.core.academic.IosDeadlineDateParsers
 import com.icecream.kwklasplus.core.academic.TimetableRepository
+import com.icecream.kwklasplus.core.attendance.AttendanceRepository
 import com.icecream.kwklasplus.core.auth.CredentialStore
 import com.icecream.kwklasplus.core.auth.IosCredentialStore
 import com.icecream.kwklasplus.core.auth.IosHttpAuthDriver
@@ -49,6 +50,10 @@ class IosSharedDependencies(
 
     val academicRepository: AcademicRepository by lazy {
         AcademicRepository(KlasSessionHttpClient(httpClient))
+    }
+
+    val attendanceRepository: AttendanceRepository by lazy {
+        AttendanceRepository(KlasSessionHttpClient(httpClient))
     }
 
     val timetableRepository: TimetableRepository by lazy {
