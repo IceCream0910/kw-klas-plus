@@ -23,7 +23,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-internal fun interface LoginTokenEncryptor {
+fun interface LoginTokenEncryptor {
     fun encrypt(publicKey: String, payload: String): String?
 }
 

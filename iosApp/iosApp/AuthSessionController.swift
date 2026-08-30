@@ -3,7 +3,6 @@ import Network
 import Shared
 import SwiftUI
 import UIKit
-import WebKit
 
 enum AuthPhase: Equatable {
     case checkingNetwork
@@ -36,13 +35,14 @@ final class AuthSessionController: ObservableObject {
     @Published var presentedLinkURL: URL?
 
     let authRuntime: IosAuthRuntime
-    private(set) var authWebView: WKWebView
     private let networkPath: NetworkPathChecking
-    private var webAuthDriver: IosWebAuthDriver?
+    private let loginTokenEncryptor = IosRsaLoginTokenEncryptor()
+    private let platformUserAgent = HomeCoordinator.platformUserAgent()
     private var startTask: Task<Void, Never>?
     private var loadingHintTask: Task<Void, Never>?
     private var toastTask: Task<Void, Never>?
     private var activeCredential: StoredCredential?
+    private var isAppActive = false
 
     init(
         authRuntime: IosAuthRuntime = IosAuthRuntime.companion.createDefault(),
@@ -50,12 +50,10 @@ final class AuthSessionController: ObservableObject {
     ) {
         self.authRuntime = authRuntime
         self.networkPath = networkPath
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = WebViewHolder.websiteDataStore
-        self.authWebView = WKWebView(frame: .zero, configuration: configuration)
     }
 
     func handleHomeLogout() {
+        authRuntime.stopSessionKeepAlive()
         activeCredential = nil
         loginState = LoginUiState(
             onboardingVisible: false,
@@ -67,10 +65,25 @@ final class AuthSessionController: ObservableObject {
     }
 
     func handleHomeSessionExpired() {
+        authRuntime.stopSessionKeepAlive()
         authRuntime.expireSession { [weak self] in
             Task { @MainActor in
-                self?.handleHomeLogout()
+                guard let self else { return }
+                if let credential = self.activeCredential {
+                    self.beginHttpLogin(credential: credential)
+                } else {
+                    self.beginBootstrap()
+                }
             }
+        }
+    }
+
+    func setAppActive(_ active: Bool) {
+        isAppActive = active
+        if active, phase == .authenticated {
+            startSessionKeepAlive(initialDelayMillis: 0)
+        } else if !active {
+            authRuntime.stopSessionKeepAlive()
         }
     }
 
@@ -107,12 +120,12 @@ final class AuthSessionController: ObservableObject {
         }
     }
 
-    func retryWebLogin() {
+    func retryAuthentication() {
         guard let credential = activeCredential else {
             phase = .needsCredentials
             return
         }
-        beginWebLogin(credential: credential)
+        validateStoredSession(credential: credential)
     }
 
     func openExternal(_ url: URL) {
@@ -158,7 +171,7 @@ final class AuthSessionController: ObservableObject {
             }
             phase = .needsCredentials
         case .retry:
-            retryWebLogin()
+            retryAuthentication()
         case .wipeAndExit:
             authRuntime.wipeForFailedLogin { [weak self] in
                 Task { @MainActor in
@@ -193,26 +206,35 @@ final class AuthSessionController: ObservableObject {
             return
         }
         activeCredential = credential
-        authRuntime.restoreSession { [weak self] result in
+        validateStoredSession(credential: credential)
+    }
+
+    private func validateStoredSession(credential: StoredCredential) {
+        phase = .bootstrapping
+        authRuntime.maintainSession(userAgent: platformUserAgent) { [weak self] result in
             Task { @MainActor in
-                self?.handleRestoreResult(result, credential: credential)
+                self?.handleLeaseResult(result, credential: credential)
             }
         }
     }
 
-    private func handleRestoreResult(_ result: SessionResult, credential: StoredCredential) {
-        if result is SessionResultActive {
-            phase = .authenticated
+    private func handleLeaseResult(_ result: SessionLeaseResult, credential: StoredCredential) {
+        if let active = result as? SessionLeaseResultActive {
+            enterAuthenticated(initialDelayMillis: active.nextCheckAfterMillis)
             return
         }
-        beginWebLogin(credential: credential)
+        if result is SessionLeaseResultExpired || result is SessionLeaseResultMissing {
+            beginHttpLogin(credential: credential)
+            return
+        }
+        phase = .blocked(.loginFailed)
     }
 
     private func handlePrepareResult(_ result: CredentialPreparationResult) {
         if let success = result as? CredentialPreparationResultSuccess {
             loginState.password = ""
             activeCredential = success.credential
-            beginWebLogin(credential: success.credential)
+            beginHttpLogin(credential: success.credential)
             return
         }
         if let failure = result as? CredentialPreparationResultFailure {
@@ -230,18 +252,14 @@ final class AuthSessionController: ObservableObject {
         }
     }
 
-    private func beginWebLogin(credential: StoredCredential) {
+    private func beginHttpLogin(credential: StoredCredential) {
         phase = .authenticating
         loadingMessage = "로그인 중"
         startLoadingHint()
-        let driver = IosWebAuthDriver(webView: authWebView)
-        driver.onInvalidCredentialAlert = { [weak self] message in
-            Task { @MainActor in
-                self?.phase = .blocked(.invalidCredentials(message))
-            }
-        }
-        webAuthDriver = driver
-        authRuntime.resumeLogin(driver: driver, credential: credential) { [weak self] result in
+        authRuntime.resumeHttpLogin(
+            tokenEncryptor: loginTokenEncryptor,
+            credential: credential
+        ) { [weak self] result in
             Task { @MainActor in
                 self?.handleLoginResult(result)
             }
@@ -251,7 +269,7 @@ final class AuthSessionController: ObservableObject {
     private func handleLoginResult(_ result: LoginResult) {
         cancelLoadingHint()
         if result is LoginResultAuthenticated {
-            phase = .authenticated
+            enterAuthenticated(initialDelayMillis: 0)
             return
         }
         if result is LoginResultUserActionRequired {
@@ -261,11 +279,7 @@ final class AuthSessionController: ObservableObject {
         if let failed = result as? LoginResultFailed {
             if failed.failure is AuthFailureInvalidCredentials {
                 activeCredential = nil
-                // Android는 JS alert 메시지를 먼저 보여주고, 이후 Failed(null)은 무시한다.
-                if case .blocked(.invalidCredentials) = phase { return }
                 phase = .blocked(.invalidCredentials(nil))
-            } else if failed.failure is AuthFailureNetwork {
-                phase = .blocked(.noNetwork)
             } else {
                 phase = .blocked(.loginFailed)
             }
@@ -291,6 +305,28 @@ final class AuthSessionController: ObservableObject {
         authRuntime.loadCredential { [weak self] credential in
             Task { @MainActor in
                 self?.handleLoadedCredential(credential)
+            }
+        }
+    }
+
+    private func enterAuthenticated(initialDelayMillis: Int64) {
+        phase = .authenticated
+        guard isAppActive else { return }
+        startSessionKeepAlive(initialDelayMillis: initialDelayMillis)
+    }
+
+    private func startSessionKeepAlive(initialDelayMillis: Int64) {
+        authRuntime.startSessionKeepAlive(
+            userAgent: platformUserAgent,
+            initialDelayMillis: initialDelayMillis
+        ) { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                guard let credential = self.activeCredential else {
+                    self.beginBootstrap()
+                    return
+                }
+                self.beginHttpLogin(credential: credential)
             }
         }
     }

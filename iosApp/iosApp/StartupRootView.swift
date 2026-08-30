@@ -2,6 +2,7 @@ import Shared
 import SwiftUI
 
 struct StartupRootView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var controller = AuthSessionController()
 
     var body: some View {
@@ -26,10 +27,7 @@ struct StartupRootView: View {
                     LinkWebViewScreen(url: item.url, onDismiss: { controller.dismissLinkWeb() })
                 }
             case .authenticating, .blocked:
-                AuthenticationLoadingView(
-                    message: controller.loadingMessage,
-                    webView: controller.authWebView
-                )
+                AuthenticationLoadingView(message: controller.loadingMessage)
             case .authenticated:
                 HomeRootView(
                     authRuntime: controller.authRuntime,
@@ -44,7 +42,13 @@ struct StartupRootView: View {
             Text(blockedAlertMessage)
         }
         .accessibilityIdentifier(isBlocked ? "auth_alert" : "")
-        .onAppear { controller.start() }
+        .onAppear {
+            controller.setAppActive(scenePhase == .active)
+            controller.start()
+        }
+        .onChange(of: scenePhase) { newPhase in
+            controller.setAppActive(newPhase == .active)
+        }
     }
 
     private var isBlocked: Bool {
