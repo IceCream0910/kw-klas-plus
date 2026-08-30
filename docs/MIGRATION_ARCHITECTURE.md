@@ -145,34 +145,43 @@ iosApp/
 ```text
 ColdStart
   ├─ no credential ─> NeedsCredentials
-  ├─ valid cached session ─> Authenticated
-  └─ stored credential ─> WebLogin
+  ├─ server-valid stored session ─> Authenticated
+  └─ stored credential ─> PlatformLogin
 
 NeedsCredentials
   └─ POST plaintext password over TLS to SelectScrtyPwd.do
-       ├─ success: save server-encrypted password ─> WebLogin
+       ├─ success: save server-encrypted password ─> PlatformLogin
        └─ failure ─> RecoverableError
 
-WebLogin
-  └─ load KLAS login page, inject id + encrypted password
-       ├─ SESSION cookie observed ─> persist session ─> Authenticated
-       ├─ CAPTCHA/temp password ─> UserActionRequired
-       └─ timeout/network/server failure ─> RecoverableError
+PlatformLogin
+  ├─ common: LoginSecurity → RSA loginToken → LoginCaptcha → LoginConfirm HTTP
+  ├─ Android: OkHttp cookie jar + JVM RSA/PKCS#1 v1.5
+  ├─ iOS: Darwin cookie jar + Security.framework RSA/PKCS#1 v1.5
+  ├─ SESSION observed ─> persist session ─> Authenticated
+  ├─ CAPTCHA/temp password/additional authentication ─> UserActionRequired
+  └─ timeout/network/server failure ─> RecoverableError
 
 Authenticated
   ├─ WebView: cookie store contains SESSION
   ├─ Native HTTP: Cookie: SESSION=<token>
-  └─ unauthorized/session expiry ─> WebLogin
+  ├─ startup/foreground lease check: /session/info
+  │    ├─ active ─> schedule next foreground check
+  │    ├─ near expiry ─> UpdateSession.do ─> /session/info confirmation
+  │    └─ server expiry ─> clear session/cookie ─> PlatformLogin
+  └─ timeout/network/server failure ─> preserve session and bounded retry
 ```
 
 구현 원칙:
 
 - 상태 전이는 `shared`에서 순수하게 테스트한다.
-- 실제 로그인 페이지 제어와 쿠키 관찰은 `WebAuthDriver` 플랫폼 구현이 맡는다.
+- `commonMain`의 `KlasHttpAuthDriver`가 양 플랫폼 HTTP 로그인 순서, JSON 계약, 쿠키 SESSION 추출과 오류 매핑을 소유한다. Android는 OkHttp/JVM RSA, iOS는 Darwin/Security.framework RSA 어댑터만 제공한다.
+- 기존 `IosWebAuthDriver`는 rollback과 CAPTCHA/DOM 특성 테스트 자산으로 유지하되 제품 기본 인증 경로에서는 사용하지 않는다.
 - `CredentialStore`, `SessionStore`, `WebCookieStore`, `Clock`, `KlasAuthApi`를 주입한다.
 - 평문 입력의 암호화와 credential 검증 저장은 `PrepareCredentialUseCase`, 저장 credential을 이용한 Web 로그인과 SESSION 반영은 `LoginUseCase`가 소유한다.
-- URL/허용 host/SESSION cookie/로그인 재노출/alert 판정은 공통 `WebAuthObservationPolicy`가 담당하고, Android WebView와 iOS WKWebView는 이벤트 전달만 담당한다.
-- 세션의 1시간 로컬 캐시 정책은 기존 호환 기본값으로 시작하되 서버 401/로그인 리다이렉트가 최종 진실이다.
+- HTTP 인증이 지원하지 못하는 후속 보안 흐름은 사용자 조치 결과로 분리하고 KLAS 브라우저 로그인을 안내한다. 평문·암호화 비밀번호와 loginToken은 로그에 남기지 않는다.
+- 로컬 고정 TTL은 사용하지 않는다. `SessionLeaseManager`가 `/api/v1/session/info`의 `remainingTime`을 서버 기준으로 판정하고, 연장 응답 뒤 `/info`를 다시 조회해 시간이 증가한 경우만 성공으로 인정한다.
+- `SessionLeaseManager.maintain()`은 lifecycle을 모르는 공통 one-shot 계약이다. Android `ProcessLifecycleOwner`와 iOS SwiftUI `scenePhase`는 앱 foreground에서 반복 호출하고 background에서 중단하며, 향후 WorkManager·BGTask·snapshot 동기화도 같은 계약을 재사용한다.
+- 명시적 만료(401/403, 로그인 HTML, `remainingTime == 0`)만 세션을 폐기한다. timeout·network·5xx·malformed 응답은 세션을 보존하고 제한 주기로 재시도한다.
 - 앱 시작 시 WebView 쿠키와 네이티브 세션 저장소를 한 방향으로만 우연히 복사하지 않는다. 명시적인 `SessionCoordinator`가 갱신·삭제·타임스탬프를 함께 처리한다.
 - 로그아웃/계정 변경 시 일반 세션, WebView cookie, localStorage의 토큰, 보안 자격증명을 정책에 따라 원자적으로 삭제한다.
 
@@ -377,6 +386,8 @@ iOS WidgetKit과 PIP는 앱 본체와 별도의 extension/entitlement/실기기 
 | 관찰 | 위험 | 조치 |
 |---|---|---|
 | credential을 JS 문자열에 직접 삽입 | 따옴표/escape 문제, script injection | JSON 직렬화 envelope 사용 |
+| Android 자동 로그인이 KLAS DOM/JS와 숨은 WebView에 의존 | 페이지 변경 시 로그인 중단, 불필요한 WebView 수명주기 | 공통 HTTP 인증 순서와 schema 테스트, 플랫폼 RSA/engine만 분리 |
+| loginToken/SESSION이 로그·예외에 노출 | 자격증명·세션 탈취 | secret 값을 결과/로그 문자열에 포함하지 않고 SESSION은 SessionCoordinator로 즉시 전달 |
 | JavaScript bridge가 WebView에 광범위 노출 | 외부 페이지가 native 기능 호출 가능 | `KlasNativeBridgeNative`를 exact trusted origin과 main frame에만 연결 |
 | 온라인 강의 player가 `klas.kw.ac.kr` 외 KLAS subdomain 사용 | exact 앱 origin만 적용하면 state 주입 중단, 문자열 포함 검사는 host 위장 허용 | 앱 bridge origin과 player content host 정책을 분리하고 HTTPS `kw.ac.kr` DNS boundary 검증 |
 | `usesCleartextTraffic=true` | 불필요한 평문 트래픽 허용 | endpoint 조사 후 false 및 예외 최소화 |
@@ -394,7 +405,8 @@ iOS WidgetKit과 PIP는 앱 본체와 별도의 extension/entitlement/실기기 
 
 | 위험 | 가능성/영향 | 대응 |
 |---|---|---|
-| 학교 로그인 DOM/JS 변경 | 높음/치명 | selector 및 성공 조건 contract test, 원격 차단/안내 |
+| 학교 로그인 endpoint/schema/RSA 변경 | 높음/치명 | 공통 HTTP 요청·응답 contract test, malformed 분리, 원격 차단/안내 |
+| iOS 학교 로그인 DOM/JS 변경 | 높음/치명 | selector 및 성공 조건 contract test, 원격 차단/안내 |
 | 웹 앱과 네이티브 앱의 독립 배포 | 높음/높음 | bridge version negotiation, 구/신 API 동시 지원 |
 | Android Compose 전환 중 WebView 상태 손실 | 중간/높음 | stable holder, route별 상태 저장, process recreation test |
 | Android/iOS CookieStore 차이 | 높음/높음 | SessionCoordinator, 양 플랫폼 통합 테스트 |

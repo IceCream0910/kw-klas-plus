@@ -19,8 +19,8 @@
 | F-002 | 최초 온보딩 | Compose + WebView | SwiftUI + WKWebView | P1 | Parity | M5 전체 회귀 반영 |
 | F-003 | ID/PW 입력 및 동의 | Compose login + 공통 상태 | SwiftUI login + 공통 상태 | P0 | Parity | 평문 비밀번호 비저장. iOS: `PlainPassword`/`SecretValue` `[REDACTED]`, UserDefaults에 평문·`kwPWD` 미저장 (`IosAuthSecurityTests`) |
 | F-004 | 비밀번호 서버 암호화 | 공통 `KlasAuthApi` | 공통 `KlasAuthApi` | P0 | Parity | Android Keystore. iOS Keychain `ENCRYPTED_KLAS_PASSWORD` (`IosAuthSecurityTests` round-trip) |
-| F-005 | Web 자동 로그인 | Android WebAuthDriver | iOS WebAuthDriver | P0 | Parity | iOS `IosWebAuthDriverTests`: CAPTCHA alert, 임시 비밀번호 재노출, hanging timeout, network failure |
-| F-006 | SESSION 추출/저장/복구 | SessionCoordinator + CookieManager | SessionCoordinator + WKHTTPCookieStore | P0 | Parity | iOS SessionCoordinator↔Keychain↔WKHTTPCookieStore. 세션 만료 화면의 종료도 SessionCoordinator 만료 후 로그인 화면으로 복귀. UserDefaults에는 시각(`kwSESSION_timestamp`)만 두고 토큰(`kwSESSION`)은 저장하지 않음 (`IosAuthSecurityTests`, `AuthSessionControllerTests`) |
+| F-005 | 자동 로그인 | 공통 KlasHttpAuthDriver + Android RSA/OkHttp | 공통 KlasHttpAuthDriver + iOS RSA/Darwin | P0 | Parity | 양 플랫폼이 `LoginSecurity` → `LoginCaptcha` → `LoginConfirm` 공통 계약 사용. Android 실제 계정 확인 완료. iOS Security.framework RSA/X.509 변환 테스트와 제품 연결 구현, macOS·실계정 회귀는 후속 |
+| F-006 | SESSION 추출/저장/복구·연장 | 공통 SessionLeaseManager + Android foreground keep-alive + CookieManager | 공통 SessionLeaseManager + SwiftUI scenePhase + WKHTTPCookieStore | P0 | Implemented | 양 플랫폼 모두 `/session/info` 판정과 `UpdateSession.do` 후 재확인 사용. 서버 만료 시 session/cookie만 폐기하고 저장 credential로 HTTP 재인증. iOS 장시간 foreground 실계정 검증은 후속 |
 | F-007 | 홈 피드/하단 탭 | Compose shell + WebView | SwiftUI shell + WKWebView | P0 | Parity | Android 패리티 완료. iOS M6-009: Home holder 1개에서 `changeTab` URL 교체, `receiveToken`/시간표/마감 주입, bootstrap 실패 후 재시도 성공 시 holder 부착·ready 복구. 제품 WKWebView UA에 `iOSApp_v{build}` 접미사 (`IosHomeHostTests`). 웹 `bottomNav.js`의 iOS 분기는 Web 저장소에서 배포 |
 | F-008 | 시간표/학기 선택 | 공통 bridge + Compose modal | 공통 bridge + iOS picker | P1 | Parity | iOS: `openYearHakgiBottomSheet` → `SelectionBottomSheet` + `receiveYearHakgi`. 점 3개 메뉴도 동일 시트(Android `SelectionBottomSheetContent` 패리티). QR/영상은 M7 |
 | F-009 | 캘린더/날짜·시간 선택 | Compose/Web date-time adapter | iOS date-time adapter | P1 | Parity | iOS M6-009: `openDateTimePicker` → DatePicker sheet → `setDateTime` |
@@ -36,8 +36,8 @@
 | F-019 | QR 출석 | Android scanner port | AVFoundation/VisionKit port | P0 | Parity | 성공·실패·취소·중복 실행 포함 |
 | F-020 | 도서관 QR 조회 | 공통 API + Android UI | 공통 API + iOS UI | P1 | Parity | 캐시·밝기·IME·갱신 포함 |
 | F-021 | 홈 화면 도서관 위젯 | AppWidgetProvider | WidgetKit extension | P1 | Parity | 잠금·만료·테마 포함 |
-| F-022 | 앱 잠금 PIN | 공통 policy + Android lifecycle | 공통 policy + iOS scene phase | P0 | Parity | 업그레이드·위젯 예외 포함 |
-| F-023 | 생체인식 | Android biometric port | LocalAuthentication port | P0 | Parity | 성공·취소·미등록·미지원 포함 |
+| F-022 | 앱 잠금 PIN | 공통 policy + Android lifecycle | 공통 policy + iOS scene phase | P0 | Parity | iOS PIN SET/CHANGE/VERIFY/UNLOCK, Settings `getAppLockSettings`/`onAppLockSettingChanged`. hash/salt는 Keychain, 플래그는 UserDefaults `a_l_e`/`b_m_e`. 위젯 예외는 M7-006. (`IosAppLockStoreTests`, `AppLockControllerTests`) |
+| F-023 | 생체인식 | Android biometric port | LocalAuthentication port | P0 | Parity | `IosBiometrics` 성공·취소·미등록·미지원 매핑, Settings `onBiometricSettingChanged`. Face ID 실기기 검증 남음 |
 | F-024 | 설정/테마/버전 | 공통 Web/Compose + settings | 동일 | P1 | Parity | 재시작 persistence 포함. iOS `KlasTheme` 토큰은 Android `values`/`values-night` light·dark 쌍 |
 | F-025 | 다운로드 | Android DownloadManager/SAF | URLSession/files/share | P1 | Parity | cookie·MIME·filename·취소 포함. `inline` 파일명은 표시 가능 MIME이면 렌더링하고 `attachment`만 강제 다운로드. iOS는 single-flight로 중복 요청과 취소 완료 전 재진입을 거부 |
 | F-026 | 파일 선택/업로드 | Activity Result adapter | document/photo picker | P1 | Parity | 단일·다중·MIME·취소 포함. iOS M6-010: `UIDocumentPicker`와 계약 테스트는 있음. 실계정 업로드 검증은 후속 |
@@ -155,13 +155,15 @@ Web의 `/modal/idCard`, `/modal/agreePolicy`에 남은 `closeModal()`은 Compose
 |---|---|---|---|
 | A-001 | 저장 정보 없음 | 앱 시작 | 온보딩/수동 로그인 표시 |
 | A-002 | 올바른 ID/PW | 암호화 API 성공 | 평문 미저장, 암호화 값 secure 저장, WebLogin 진입 |
-| A-003 | 저장 credential, 세션 없음 | 앱 시작 | 로그인 페이지 자동 입력/제출 |
-| A-004 | 1시간 내 세션 | 앱 시작 | cookie 동기화 후 홈 즉시 진입 |
+| A-003 | 저장 credential, 세션 없음 | 앱 시작 | Android HTTP 자동 로그인 또는 iOS 로그인 페이지 자동 입력/제출 |
+| A-004 | 저장 세션 존재 | 앱 시작 | `/session/info`가 유효하면 cookie 동기화 후 홈 진입 |
 | A-005 | 만료/거부 세션 | API 또는 페이지 접근 | 저장 세션 폐기 후 WebLogin |
-| A-006 | 자동 로그인 성공 | SESSION cookie 생성 | secure 저장, timestamp 기록, 홈 한 번만 시작 |
-| A-007 | CAPTCHA/임시 PW | 로그인 페이지 재노출/alert | 사용자 조치 안내 및 브라우저 열기 |
+| A-006 | 자동 로그인 성공 | 인증 HTTP/WKWebView에서 SESSION 관찰 | secure 저장, Web cookie 동기화, timestamp 기록, 홈 한 번만 시작 |
+| A-007 | CAPTCHA/임시 PW/2차 인증 | 인증 응답 또는 로그인 페이지 재노출/alert | 사용자 조치 안내 및 브라우저 열기 |
 | A-008 | 네트워크 없음 | 앱 시작 | 명확한 오류, secret 삭제 없음 |
 | A-009 | 로그인 timeout | 15초 경과 | 종료/상태 확인/재시도 제공 |
 | A-010 | 앱 업그레이드 | 구 일반 prefs에 `kwPWD` 존재 | 신규 SecureStore로 무손실 이전 |
 | A-011 | 로그아웃 | 사용자 확인 | Web cookie, session, 관련 localStorage 정책대로 정리 |
-| A-012 | 특수문자 credential/payload | JS 전달 | 문법 오류·주입 없이 정확히 전달 |
+| A-012 | 특수문자 credential/payload | HTTP JSON 또는 JS 전달 | 직렬화 오류·주입 없이 정확히 전달 |
+| A-013 | 앱 foreground, 추가 API 요청 없음 | 서버 만료 구간 접근 | `UpdateSession.do` 후 `/session/info`에서 연장 확인, 홈 상태 유지 |
+| A-014 | 앱 background | lifecycle stop | foreground keep-alive 중단, 복귀 시 서버 상태 즉시 재확인 |

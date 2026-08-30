@@ -15,7 +15,7 @@
 | M4 Android Web/Compose | 진행 중(7/8)   | Android 화면 전환 완료. legacy 자산 정리만 남음        |
 | M5 Android 기능 패리티      | **완료(7/7)** | QR·잠금·PIP·위젯·파일·테마 및 전체 Android 회귀 통과     |
 | M6 iOS 기본 경로           | 진행 중(9/11)  | M6-010 다운로드·외부 이동 완료. 파일 업로드 실계정 검증 남음. 다음: M6-011 UI 환경 |
-| M7 iOS 플랫폼 기능          | 미착수(0/7)    | M6 기본 경로 이후 진행                            |
+| M7 iOS 플랫폼 기능          | 진행 중(1/7)    | M7-001 앱 잠금 완료. 다음: M7-002 QR 출석 |
 
 ### M1 — 기존 계약 고정
 
@@ -143,8 +143,13 @@
 
 ### M7 — iOS 네이티브 기능 구현
 
-- [ ] **M7-001 (P0, L)** 앱 잠금·LocalAuthentication·Keychain
+- [x] **M7-001 (P0, L)** 앱 잠금·LocalAuthentication·Keychain
   - 작업: 네이티브 UI 구현 후 WebView의 settings 페이지 내 '앱 잠금' 관련 옵션 및 버튼 상태 연동
+  - 구현: `IosAppLockStore`(Keychain hash/salt, UserDefaults `a_l_e`/`b_m_e`), SwiftUI PIN(`SET`/`CHANGE`/`VERIFY`/`UNLOCK`), `scenePhase` + `AppLockPolicy`, Settings 브리지 콜백
+  - 검증:
+    - `./gradlew :shared:iosSimulatorArm64Test --tests 'com.icecream.kwklasplus.core.lock.IosAppLockCredentialCodecTest' --tests 'com.icecream.kwklasplus.core.web.IosWebCallbacksTest'`
+    - `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' test -only-testing:iosAppTests/IosAppLockStoreTests -only-testing:iosAppTests/AppLockControllerTests`
+  - 남은 일: Face ID 활성화·UNLOCK은 실기기 검증
 - [ ] **M7-002 (P0, L)** QR 출석 스캐너
   - Depends on: M6-009
 - [ ] **M7-003 (P0, M)** iOS 온라인 강의 player·PIP 방식 결정
