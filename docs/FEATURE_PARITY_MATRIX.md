@@ -33,7 +33,7 @@
 | F-016 | 일반 링크 | typed navigation + Android adapter | iOS navigation adapter | P1 | Parity | iOS M6-009: `AppRouteFactory` + Link host. `openPage`는 `www.kw.ac.kr` 공지처럼 비앱 https도 Link WKWebView에 로드한다. 이후 같은 화면의 http(s)는 인앱에 남긴다(Android LinkView의 이후 비신뢰 클릭 Chrome 이동과 승인 차이). `openExternalPage`만 Safari |
 | F-017 | 온라인 강의 재생 | Android player/PIP host | iOS player host | P0 | Parity | 재생·seek·speed·진도 포함 |
 | F-018 | PIP | Android native | AVKit/WK media | P1 | Parity | remote action·상태 복구 포함 |
-| F-019 | QR 출석 | Android scanner port | AVFoundation/VisionKit port | P0 | Parity | 성공·실패·취소·중복 실행 포함 |
+| F-019 | QR 출석 | Android scanner port | AVFoundation/VisionKit port | P0 | Parity | iOS: VisionKit `DataScannerViewController`, Home `qrCheckIn`·Lecture `openQRScan`, 성공·실패·취소·중복 실행 (`QrAttendanceTests`). |
 | F-020 | 도서관 QR 조회 | 공통 API + Android UI | 공통 API + iOS UI | P1 | Parity | 캐시·밝기·IME·갱신 포함 |
 | F-021 | 홈 화면 도서관 위젯 | AppWidgetProvider | WidgetKit extension | P1 | Parity | 잠금·만료·테마 포함 |
 | F-022 | 앱 잠금 PIN | 공통 policy + Android lifecycle | 공통 policy + iOS scene phase | P0 | Parity | iOS PIN SET/CHANGE/VERIFY/UNLOCK, Settings `getAppLockSettings`/`onAppLockSettingChanged`. hash/salt는 Keychain, 플래그는 UserDefaults `a_l_e`/`b_m_e`. 위젯 예외는 M7-006. (`IosAppLockStoreTests`, `AppLockControllerTests`) |
