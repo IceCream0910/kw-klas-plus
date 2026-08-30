@@ -11,25 +11,13 @@ fun interface Clock {
     fun nowEpochMillis(): Long
 }
 
-class SessionPolicy(
-    private val maxAgeMillis: Long = LEGACY_SESSION_MAX_AGE_MILLIS,
-) {
-    init {
-        require(maxAgeMillis > 0)
-    }
-
+class SessionPolicy {
     fun isUsable(session: Session, nowEpochMillis: Long): Boolean {
         return isUsable(session.observedAtEpochMillis, nowEpochMillis)
     }
 
     fun isUsable(observedAtEpochMillis: Long, nowEpochMillis: Long): Boolean {
-        if (observedAtEpochMillis < 0 || nowEpochMillis < observedAtEpochMillis) return false
-        val age = nowEpochMillis - observedAtEpochMillis
-        return age >= 0 && age < maxAgeMillis
-    }
-
-    companion object {
-        const val LEGACY_SESSION_MAX_AGE_MILLIS = 60L * 60L * 1_000L
+        return observedAtEpochMillis >= 0 && nowEpochMillis >= observedAtEpochMillis
     }
 }
 

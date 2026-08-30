@@ -22,13 +22,13 @@ class AuthStateMachineTest {
     }
 
     @Test
-    fun bootstrapFallsBackToWebLoginWhenSessionExpired() {
+    fun bootstrapDoesNotExpireSessionByFixedLocalAge() {
         val state = machine.reduce(
             AuthState.Initializing,
             AuthEvent.Bootstrap(credential, session, 3_601_000L),
         )
 
-        assertEquals(AuthState.AwaitingWebLogin(credential), state)
+        assertEquals(AuthState.SignedIn(session), state)
     }
 
     @Test

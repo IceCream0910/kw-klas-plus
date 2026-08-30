@@ -9,7 +9,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.webkit.WebView
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -22,15 +21,13 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.icecream.kwklasplus.core.auth.AuthFailure
 import com.icecream.kwklasplus.core.auth.LoginResult
 import com.icecream.kwklasplus.core.auth.StoredCredential
-import com.icecream.kwklasplus.core.session.SessionResult
+import com.icecream.kwklasplus.core.session.SessionLeaseResult
 import com.icecream.kwklasplus.feature.startup.AuthenticationLoadingScreen
-import com.icecream.kwklasplus.platform.web.AndroidWebAuthDriver
 import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var webView: WebView
     private var loadingMessage by mutableStateOf("로그인 중")
     private val handler = Handler(Looper.getMainLooper())
     private var loadingHintRunnable: Runnable? = null
@@ -40,11 +37,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        webView = WebView(this)
         setContent {
             KlasPlusTheme {
                 AuthenticationLoadingScreen(
-                    webView = webView,
                     message = loadingMessage,
                 )
             }
@@ -76,42 +71,41 @@ class MainActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch {
-            initializeAuthentication(sharedPreferences)
+            initializeAuthentication()
         }
     }
 
-    private suspend fun initializeAuthentication(sharedPreferences: android.content.SharedPreferences) {
+    private suspend fun initializeAuthentication() {
         val credential = runCatching { appDependencies.credentialStore.load() }.getOrNull()
-        webView.configureAppWebView(
-            disableScrollBars = false,
-            transparentBackground = false,
-            domStorageEnabled = false
-        )
-        webView.settings.userAgentString =
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Whale/3.25.232.19 Safari/537.36"
-
         if (credential == null) {
             finish()
             startActivity(Intent(this, LoginActivity::class.java))
             return
         }
-        if (appDependencies.sessionCoordinator.restore() is SessionResult.Active) {
-            isHomeStarted = true
-            startActivity(Intent(this, HomeActivity::class.java))
-            finish()
-            return
+        when (val leaseResult = appDependencies.sessionLeaseManager.maintain()) {
+            is SessionLeaseResult.Active -> {
+                appDependencies.sessionKeepAlive.onSessionAvailable(leaseResult.nextCheckAfterMillis)
+                isHomeStarted = true
+                startActivity(Intent(this, HomeActivity::class.java))
+                finish()
+                return
+            }
+            SessionLeaseResult.Expired, SessionLeaseResult.Missing -> Unit
+            is SessionLeaseResult.Retry -> {
+                showLoginFailedDialog {
+                    lifecycleScope.launch { initializeAuthentication() }
+                }
+                return
+            }
         }
 
-        authenticate(webView, credential)
+        authenticate(credential)
     }
 
-    private fun authenticate(webView: WebView, credential: StoredCredential) {
+    private fun authenticate(credential: StoredCredential) {
         lifecycleScope.launch {
             startLoginTimer()
-            val driver = AndroidWebAuthDriver(
-                webView,
-                onInvalidCredentialAlert = ::showInvalidCredentialDialog,
-            )
+            val driver = appDependencies.httpAuthDriver()
             val result = appDependencies.loginUseCase(driver).resume(credential)
             cancelLoginTimers()
             when (result) {
@@ -119,13 +113,14 @@ class MainActivity : AppCompatActivity() {
                     if (isHomeStarted) return@launch
                     isLoginActivityStarted = true
                     isHomeStarted = true
+                    appDependencies.sessionKeepAlive.onSessionAvailable()
                     startActivityWithLock(Intent(this@MainActivity, HomeActivity::class.java))
                     finish()
                 }
                 is LoginResult.UserActionRequired -> showSecurityActionRequiredDialog()
                 is LoginResult.Failed -> when (result.failure) {
                     AuthFailure.InvalidCredentials -> showInvalidCredentialDialog(null)
-                    else -> showLoginFailedDialog { authenticate(webView, credential) }
+                    else -> showLoginFailedDialog { authenticate(credential) }
                 }
             }
         }
@@ -157,6 +152,7 @@ class MainActivity : AppCompatActivity() {
             .setMessage("알 수 없는 오류로 인해 로그인에 실패했어요. 먼저 기기의 네트워크 상태가 불안정한지 확인 후 다시 시도해보세요. 어쩌면 전체적인 서버 장애가 발생했을 수도 있어요. 이 경우 담당자가 빠르게 대응하고 있을거예요.")
             .setNeutralButton("앱 종료") { _, _ ->
                 lifecycleScope.launch {
+                    appDependencies.sessionKeepAlive.onSessionCleared()
                     appDependencies.sessionCoordinator.expire()
                     runCatching { appDependencies.credentialStore.clear() }
                     appPreferences.edit().clear().apply()
@@ -204,7 +200,7 @@ class MainActivity : AppCompatActivity() {
 
         val dialog = MaterialAlertDialogBuilder(this)
             .setTitle("로그인 실패")
-            .setMessage("임시 비밀번호 변경이 필요하거나 3회 이상 로그인 실패로 인해 CAPTCHA 입력이 필요해요. 계정 보안을 위해 KLAS 웹사이트에서 먼저 로그인하신 후 다시 시도해 주세요.")
+            .setMessage("임시 비밀번호 변경, CAPTCHA 입력 또는 2차 인증이 필요해요. 계정 보안을 위해 KLAS 웹사이트에서 먼저 로그인하신 후 다시 시도해 주세요.")
             .setPositiveButton("브라우저 열기") { _, _ ->
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(AppUrls.KLAS_BASE))
                 startActivity(intent)
@@ -241,8 +237,6 @@ class MainActivity : AppCompatActivity() {
         cancelLoginTimers()
         errorDialog?.dismiss()
         errorDialog = null
-        webView.stopLoading()
-        webView.destroy()
         super.onDestroy()
     }
 }

@@ -36,10 +36,7 @@ struct StartupRootView: View {
                     LinkWebViewScreen(url: item.url, onDismiss: { controller.dismissLinkWeb() })
                 }
             case .authenticating, .blocked:
-                AuthenticationLoadingView(
-                    message: controller.loadingMessage,
-                    webView: controller.authWebView
-                )
+                AuthenticationLoadingView(message: controller.loadingMessage)
             case .authenticated:
                 HomeRootView(
                     authRuntime: controller.authRuntime,
@@ -60,10 +57,12 @@ struct StartupRootView: View {
                 .preferredColorScheme(lockColorScheme)
         }
         .onAppear {
+            controller.setAppActive(scenePhase == .active)
             controller.start()
-            appLock.handleScenePhase(.active)
+            appLock.handleScenePhase(scenePhase)
         }
         .onChange(of: scenePhase) { phase in
+            controller.setAppActive(phase == .active)
             appLock.handleScenePhase(phase)
         }
     }

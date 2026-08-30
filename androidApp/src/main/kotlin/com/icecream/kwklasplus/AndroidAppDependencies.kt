@@ -2,6 +2,7 @@ package com.icecream.kwklasplus
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.view.View
 import androidx.fragment.app.FragmentActivity
 import com.icecream.kwklasplus.core.AndroidSharedDependencies
@@ -9,6 +10,7 @@ import com.icecream.kwklasplus.core.auth.WebAuthDriver
 import com.icecream.kwklasplus.core.platform.AndroidExternalNavigator
 import com.icecream.kwklasplus.core.platform.AndroidHaptics
 import com.icecream.kwklasplus.manager.AppDownloadManager
+import com.icecream.kwklasplus.manager.AndroidSessionKeepAlive
 import com.icecream.kwklasplus.platform.biometric.AndroidBiometrics
 import com.icecream.kwklasplus.platform.navigation.AndroidRouteNavigator
 import com.icecream.kwklasplus.platform.pip.AndroidPictureInPicture
@@ -41,6 +43,20 @@ class AndroidAppDependencies(context: Context) {
     val credentialStore get() = shared.credentialStore
     val prepareCredentialUseCase get() = shared.prepareCredentialUseCase
     val sessionCoordinator get() = shared.sessionCoordinator
+    val sessionLeaseManager get() = shared.sessionLeaseManager
+    val sessionKeepAlive by lazy {
+        AndroidSessionKeepAlive(
+            maintainer = shared.sessionLeaseManager,
+            onExpired = {
+                applicationContext.startActivity(
+                    Intent(applicationContext, MainActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    },
+                )
+            },
+        )
+    }
+    fun httpAuthDriver() = shared.httpAuthDriver()
 
     fun loginUseCase(webAuthDriver: WebAuthDriver) = shared.loginUseCase(webAuthDriver)
 

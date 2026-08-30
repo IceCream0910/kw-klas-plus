@@ -17,5 +17,10 @@ class LegacyContractsTest {
     fun preservesLoginAndPasswordEncryptionUrls() {
         assertEquals("https://klas.kw.ac.kr/mst/cmn/login/LoginForm.do", KlasUrls.KLAS_LOGIN)
         assertEquals("https://klas.kw.ac.kr/mst/cmn/login/SelectScrtyPwd.do", KlasUrls.KLAS_PASSWORD_ENCRYPT)
+        assertEquals("https://klas.kw.ac.kr/mst/cmn/login/LoginSecurity.do", KlasUrls.KLAS_LOGIN_SECURITY)
+        assertEquals("https://klas.kw.ac.kr/usr/cmn/login/LoginCaptcha.do", KlasUrls.KLAS_LOGIN_CAPTCHA)
+        assertEquals("https://klas.kw.ac.kr/mst/cmn/login/LoginConfirm.do", KlasUrls.KLAS_LOGIN_CONFIRM)
+        assertEquals("https://klas.kw.ac.kr/api/v1/session/info", KlasUrls.KLAS_SESSION_INFO)
+        assertEquals("https://klas.kw.ac.kr/usr/cmn/login/UpdateSession.do", KlasUrls.KLAS_SESSION_UPDATE)
     }
 }

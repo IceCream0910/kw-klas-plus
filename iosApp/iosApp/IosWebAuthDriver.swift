@@ -2,7 +2,7 @@ import Foundation
 import Shared
 import WebKit
 
-/// Android WebAuthDriver 패리티: KLAS 로그인 페이지 관찰,주입,SESSION 감지
+/// HTTP 인증 회귀 시 사용할 KLAS 로그인 페이지 관찰·주입 fallback
 final class IosWebAuthDriver: NSObject, WebAuthDriver, WKNavigationDelegate, WKUIDelegate {
     static let desktopUserAgent = IosWebAuthScripts.shared.DESKTOP_LOGIN_USER_AGENT
     static let timeoutMillis = Int(IosWebAuthScripts.shared.TIMEOUT_MILLIS)

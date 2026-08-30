@@ -13,7 +13,10 @@ import com.icecream.kwklasplus.core.lock.AppLockEvent
 import com.icecream.kwklasplus.core.lock.AppLockPolicy
 import com.icecream.kwklasplus.core.lock.AppLockState
 
-class AppLifecycleObserver(private val context: Context) : DefaultLifecycleObserver, Application.ActivityLifecycleCallbacks {
+class AppLifecycleObserver(
+    private val context: Context,
+    private val sessionKeepAlive: AndroidSessionKeepAlive,
+) : DefaultLifecycleObserver, Application.ActivityLifecycleCallbacks {
 
     private var currentActivity: Activity? = null
     private val policy = AppLockPolicy()
@@ -24,6 +27,7 @@ class AppLifecycleObserver(private val context: Context) : DefaultLifecycleObser
 
     override fun onStart(owner: LifecycleOwner) {
         super.onStart(owner)
+        sessionKeepAlive.onForeground()
         
         val state = AppLockState(AppLockManager.isAppLockEnabled(context), AppLockManager.isUnlocked)
         val isExemptHost = currentActivity is LockActivity || currentActivity is LibraryQRWidgetActivity
@@ -38,6 +42,7 @@ class AppLifecycleObserver(private val context: Context) : DefaultLifecycleObser
 
     override fun onStop(owner: LifecycleOwner) {
         super.onStop(owner)
+        sessionKeepAlive.onBackground()
         val state = AppLockState(AppLockManager.isAppLockEnabled(context), AppLockManager.isUnlocked)
         AppLockManager.isUnlocked = policy.reduce(state, AppLockEvent.EnteredBackground).unlocked
     }

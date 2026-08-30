@@ -47,7 +47,7 @@ class IosSessionCoordinatorWiringTest {
     }
 
     @Test
-    fun restoreExpiresStaleSession() = runSuspendTest {
+    fun restoreKeepsOldSessionUntilServerValidation() = runSuspendTest {
         val secrets = InMemorySecureStore()
         val cookies = IosWebCookieStore.createForTests(InMemoryHttpCookieStoreOps())
         secrets.write(SecureKey.SESSION_TOKEN, SecretValue.of("stale"))
@@ -57,10 +57,10 @@ class IosSessionCoordinatorWiringTest {
         val coordinator = SessionCoordinator(
             SecureSessionStore(secrets, IosUserDefaultsSessionTimestampStore(defaults)),
             cookies,
-            Clock { SessionPolicy.LEGACY_SESSION_MAX_AGE_MILLIS + 2 },
+            Clock { 24L * 60L * 60L * 1_000L },
         )
         val result = coordinator.restore()
-        assertTrue(result is SessionResult.Expired)
-        assertNull(secrets.read(SecureKey.SESSION_TOKEN))
+        assertTrue(result is SessionResult.Active)
+        assertEquals(SecretValue.of("stale"), secrets.read(SecureKey.SESSION_TOKEN))
     }
 }

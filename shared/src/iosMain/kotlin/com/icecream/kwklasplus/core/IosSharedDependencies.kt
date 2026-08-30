@@ -6,7 +6,9 @@ import com.icecream.kwklasplus.core.academic.IosDeadlineDateParsers
 import com.icecream.kwklasplus.core.academic.TimetableRepository
 import com.icecream.kwklasplus.core.auth.CredentialStore
 import com.icecream.kwklasplus.core.auth.IosCredentialStore
+import com.icecream.kwklasplus.core.auth.IosHttpAuthDriver
 import com.icecream.kwklasplus.core.auth.KlasAuthRepository
+import com.icecream.kwklasplus.core.auth.LoginTokenEncryptor
 import com.icecream.kwklasplus.core.auth.LoginUseCase
 import com.icecream.kwklasplus.core.auth.PrepareCredentialUseCase
 import com.icecream.kwklasplus.core.auth.WebAuthDriver
@@ -15,6 +17,8 @@ import com.icecream.kwklasplus.core.lock.IosAppLockCredentialCodec
 import com.icecream.kwklasplus.core.lock.IosAppLockSecretStore
 import com.icecream.kwklasplus.core.lock.IosAppLockStore
 import com.icecream.kwklasplus.core.network.KlasSessionHttpClient
+import com.icecream.kwklasplus.core.network.KlasSessionLeaseHttpGateway
+import com.icecream.kwklasplus.core.network.KlasUserAgent
 import com.icecream.kwklasplus.core.network.createIosKlasHttpClient
 import com.icecream.kwklasplus.core.platform.IosUserDefaultsPreferencesStore
 import com.icecream.kwklasplus.core.platform.PreferencesStore
@@ -25,6 +29,7 @@ import com.icecream.kwklasplus.core.session.IosUserDefaultsSessionTimestampStore
 import com.icecream.kwklasplus.core.session.IosWebCookieStore
 import com.icecream.kwklasplus.core.session.SecureSessionStore
 import com.icecream.kwklasplus.core.session.SessionCoordinator
+import com.icecream.kwklasplus.core.session.SessionLeaseManager
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.NSDate
 import platform.Foundation.timeIntervalSince1970
@@ -109,6 +114,17 @@ class IosSharedDependencies(
             clock,
         )
     }
+
+    private val sessionLeaseGateway by lazy { KlasSessionLeaseHttpGateway(httpClient) }
+
+    fun sessionLeaseManager(userAgent: String) = SessionLeaseManager(
+        sessionCoordinator = sessionCoordinator,
+        gateway = sessionLeaseGateway,
+        userAgent = KlasUserAgent.fromPlatform(userAgent),
+    )
+
+    fun httpAuthDriver(tokenEncryptor: LoginTokenEncryptor): WebAuthDriver =
+        IosHttpAuthDriver(tokenEncryptor)
 
     fun loginUseCase(webAuthDriver: WebAuthDriver) = LoginUseCase(
         prepareCredentialUseCase,
