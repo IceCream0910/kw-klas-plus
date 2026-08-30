@@ -1,9 +1,9 @@
 # KLAS+ KMP 마이그레이션 작업 현황
 
-- 기준일: 2026-08-23
+- 기준일: 2026-08-30
 - 현재 단계: **Android 마이그레이션 완료, iOS 기본 제품 경로(M6) 진행 중**
 - Android 상태: KMP 공통 코어, Compose UI, WebView 브리지, 네이티브 기능의 P0/P1 패리티 완료
-- iOS 상태: 툴체인·framework·WKWebView navigation/cookie·Native bridge·인증/세션·화면별 제품 경로·다운로드/외부 이동 완료. 파일 업로드는 실계정 검증 남음. 다음: UI 환경
+- iOS 상태: 툴체인·framework·WKWebView navigation/cookie·Native bridge·인증/세션·화면별 제품 경로·다운로드/외부 이동 완료. 파일 업로드는 실계정 검증 남음. 다음: M7-004 온라인 강의 player·PIP
 
 ## 개요
 
@@ -15,7 +15,7 @@
 | M4 Android Web/Compose | 진행 중(7/8)   | Android 화면 전환 완료. legacy 자산 정리만 남음        |
 | M5 Android 기능 패리티      | **완료(7/7)** | QR·잠금·PIP·위젯·파일·테마 및 전체 Android 회귀 통과     |
 | M6 iOS 기본 경로           | 진행 중(9/11)  | M6-010 다운로드·외부 이동 완료. 파일 업로드 실계정 검증 남음. 다음: M6-011 UI 환경 |
-| M7 iOS 플랫폼 기능          | 진행 중(2/7)    | M7-002 QR 출석 완료. 다음: M7-003 온라인 강의 player·PIP |
+| M7 iOS 플랫폼 기능          | 진행 중(3/7)    | M7-003 player·PIP 방식 확정. 다음: M7-004 구현 |
 
 ### M1 — 기존 계약 고정
 
@@ -155,11 +155,11 @@
   - 구현: Home `qrCheckIn` / Lecture `openQRScan` → `AttendanceRepository` + VisionKit `DataScannerViewController`
   - 검증: `iosAppTests/QrAttendanceTests`. 
   - 남은일: 실기기로 카메라가 뜨는 것까지는 검증했으나, 실제 강의 QR은 테스트해보지 못함.
-- [ ] **M7-003 (P0, M)** iOS 온라인 강의 player·PIP 방식 결정
+- [x] **M7-003 (P0, M)** iOS 온라인 강의 player·PIP 방식 결정
   - Depends on: M6-009
-  - 작업: KLAS 강의 URL/진도 추출, WKWebView media와 AVPlayer 중 재생 방식, `AVPictureInPictureController` 연결 가능성을 비교
-  - 작업: Android `VideoPlayerActivity`의 재생·seek·속도·진도·fullscreen·PIP command/state 계약을 iOS 구조에 매핑
-  - 완료 기준: 선택 방식, 미지원/DRM·cookie 제약, fallback, PIP 복귀 상태 복원 방식을 ADR 또는 spike 문서로 확정
+  - 정책: [`docs/adr/ADR-005-ios-player-pip.md`](docs/adr/ADR-005-ios-player-pip.md)
+  - 결정: WKWebView 세 holder. PIP는 `allowsPictureInPictureMediaPlayback`. `AVPlayer`는 쓰지 않는다.
+  - 완료 기준: 선택 방식, 미지원/DRM·cookie 제약, fallback, PIP 복귀 상태 복원 방식을 ADR로 확정
 - [ ] **M7-004 (P0, XL)** SwiftUI 온라인 강의 player와 PIP 구현
   - Depends on: M7-003
   - 작업: Android 네이티브 VideoPlayer에 대응하는 SwiftUI 재생 화면과 play/pause·seek·속도·진도·fullscreen controls 구현

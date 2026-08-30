@@ -276,7 +276,7 @@ Web이 다음 envelope를 갖는 Bridge v1 프로토콜을 우선 사용한다.
 | 비밀번호 잠금 | 검증 유스케이스 | Keystore-backed hash/salt | Keychain-backed hash/salt |
 | QR 출석 | payload/결과/HTTP | Google code scanner | AVFoundation/VisionKit 후보 spike |
 | 도서관 QR | API/파싱/캐시 정책 | 위젯 갱신, QR bitmap | WidgetKit timeline, SwiftUI QR |
-| 강의 PIP | 플레이어 명령/상태 | PictureInPictureParams | AVPictureInPictureController/WK media spike |
+| 강의 PIP | 플레이어 명령/상태 | PictureInPictureParams | WK `allowsPictureInPictureMediaPlayback` (ADR-005) |
 | 다운로드 | 요청 모델/정책 | DownloadManager/SAF | URLSession/share sheet/files |
 | 파일 선택 | 요청/결과 모델 | Activity Result API | UIDocumentPicker/Photos picker |
 | 외부 링크 | URL 정책 | Intent | UIApplication/openURL |
@@ -410,7 +410,7 @@ iOS WidgetKit과 PIP는 앱 본체와 별도의 extension/entitlement/실기기 
 | 웹 앱과 네이티브 앱의 독립 배포 | 높음/높음 | bridge version negotiation, 구/신 API 동시 지원 |
 | Android Compose 전환 중 WebView 상태 손실 | 중간/높음 | stable holder, route별 상태 저장, process recreation test |
 | Android/iOS CookieStore 차이 | 높음/높음 | SessionCoordinator, 양 플랫폼 통합 테스트 |
-| iOS PIP가 현재 웹 플레이어와 호환되지 않음 | 중간/높음 | 초기 spike, AVPlayer 전환 fallback 설계 |
+| iOS PIP가 현재 웹 플레이어와 호환되지 않음 | 중간/높음 | ADR-005. 실패 시 인앱 재생 유지 |
 | Widget에서 비밀 데이터 접근 | 중간/높음 | 최소 파생 데이터만 App Group 공유, 만료/잠금 정책 |
 | 라이브러리 API의 Android 식별값 `device_gb=A` | 높음/중간 | 서버 허용값 조사, iOS 요청 계약 테스트 |
 
@@ -434,7 +434,7 @@ Android 앱은 코드/콘텐츠 endpoint가 모두 HTTPS임을 확인한 상태�
 2. `ADR-002`: 브리지 v1 envelope와 웹/앱 버전 협상 — `docs/adr/ADR-002-bridge-v1-protocol.md` 승인
 3. `ADR-003`: Android SecureStore 및 구 데이터 이전 방식
 4. `ADR-004`: 네트워크 계층(Ktor engine, cookie ownership, User-Agent)
-5. `ADR-005`: iOS PIP 방식(WKWebView media vs AVPlayer)
+5. `ADR-005`: iOS PIP 방식(WKWebView media vs AVPlayer) — `docs/adr/ADR-005-ios-player-pip.md` 승인(M7-003)
 6. `ADR-006`: Widget 공유 데이터와 잠금 상태 정책
 7. `ADR-007`: min Android/iOS 버전과 태블릿/회전 정책 — `docs/adr/ADR-007-min-platform-versions.md` 승인(최소 OS·기기). 태블릿/회전 UI 세부는 Android §6.3, iOS M6-011
 
