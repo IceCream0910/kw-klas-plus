@@ -13,6 +13,9 @@ import com.icecream.kwklasplus.core.auth.LoginUseCase
 import com.icecream.kwklasplus.core.auth.PrepareCredentialUseCase
 import com.icecream.kwklasplus.core.auth.WebAuthDriver
 import com.icecream.kwklasplus.core.legacy.LegacyPreferenceKeys
+import com.icecream.kwklasplus.core.lock.IosAppLockCredentialCodec
+import com.icecream.kwklasplus.core.lock.IosAppLockSecretStore
+import com.icecream.kwklasplus.core.lock.IosAppLockStore
 import com.icecream.kwklasplus.core.network.KlasSessionHttpClient
 import com.icecream.kwklasplus.core.network.KlasSessionLeaseHttpGateway
 import com.icecream.kwklasplus.core.network.KlasUserAgent
@@ -73,8 +76,20 @@ class IosSharedDependencies(
         defaults.synchronize()
     }
 
+    private val iosKeychainStore: IosKeychainSecureStore by lazy {
+        (secureStoreOverride as? IosKeychainSecureStore) ?: IosKeychainSecureStore()
+    }
+
     val secureStore: SecureStore by lazy {
-        secureStoreOverride ?: IosKeychainSecureStore()
+        secureStoreOverride ?: iosKeychainStore
+    }
+
+    val appLockCredentialCodec by lazy { IosAppLockCredentialCodec() }
+
+    val appLockSecretStore by lazy { IosAppLockSecretStore(iosKeychainStore) }
+
+    val appLockStore by lazy {
+        IosAppLockStore(defaults, appLockSecretStore, appLockCredentialCodec)
     }
 
     val credentialStore: CredentialStore by lazy {
@@ -127,5 +142,17 @@ class IosSharedDependencies(
         defaults.removeObjectForKey(LegacyPreferenceKeys.YEAR_HAKGI)
         defaults.removeObjectForKey(LegacyPreferenceKeys.YEAR_HAKGI_LIST)
         defaults.synchronize()
+    }
+
+    companion object {
+        fun create(
+            defaults: NSUserDefaults,
+            secureStore: SecureStore? = null,
+            cookieStore: IosWebCookieStore? = null,
+        ): IosSharedDependencies = IosSharedDependencies(
+            defaults = defaults,
+            secureStoreOverride = secureStore,
+            cookieStoreOverride = cookieStore,
+        )
     }
 }

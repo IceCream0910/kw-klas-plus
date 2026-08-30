@@ -2,6 +2,7 @@ package com.icecream.kwklasplus.core.web
 
 import com.icecream.kwklasplus.core.academic.AcademicTermDisplay
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class IosWebCallbacksTest {
@@ -18,6 +19,18 @@ class IosWebCallbacksTest {
             IosWebCallbacks.updateYearHakgiButtonText(AcademicTermDisplay.buttonText("2026,1"))
                 .reveal()
                 .contains("년도"),
+        )
+        assertEquals(
+            "window.onAppLockSettingChanged(false);",
+            IosWebCallbacks.appLockSettingChanged(false).reveal(),
+        )
+        assertEquals(
+            "window.onBiometricSettingChanged(true);",
+            IosWebCallbacks.biometricSettingChanged(true).reveal(),
+        )
+        assertEquals(
+            "document.dispatchEvent(new Event('visibilitychange'));",
+            IosWebCallbacks.requestSettingsReload().reveal(),
         )
     }
 }

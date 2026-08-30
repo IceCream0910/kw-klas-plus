@@ -70,6 +70,7 @@ final class HomeCoordinator: ObservableObject {
     private var homeHost: HomeBridgeHostAdapter?
     private var toastTask: Task<Void, Never>?
     private var didStart = false
+    private weak var settingsWebHolder: WebViewHolder?
 
     var colorScheme: ColorScheme? {
         switch theme {
@@ -282,12 +283,18 @@ final class HomeCoordinator: ObservableObject {
         path.append(HomeDestination.settings)
     }
 
+    func attachSettingsWebView(_ holder: WebViewHolder) {
+        settingsWebHolder = holder
+    }
+
     func selectYearHakgi(_ value: String) {
         yearHakgi = value
         homeRuntime.saveYearHakgi(value: value)
         showYearHakgiPicker = false
         reloadHome()
-        homeHolder?.evaluate(IosWebCallbacks.shared.receiveYearHakgi(value: value))
+        let script = IosWebCallbacks.shared.receiveYearHakgi(value: value)
+        homeHolder?.evaluate(script)
+        settingsWebHolder?.evaluate(script)
     }
 
     func applyTheme(_ type: String) {
