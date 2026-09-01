@@ -99,6 +99,13 @@ struct HomeRootView: View {
                 sessionToken: coordinator.sessionToken,
                 coordinator: coordinator
             )
+        case let .video(subjectId, yearSemester):
+            VideoView(
+                subjectId: subjectId,
+                yearSemester: yearSemester,
+                sessionToken: coordinator.sessionToken,
+                coordinator: coordinator
+            )
         case let .link(url):
             LinkView(
                 url: url,
