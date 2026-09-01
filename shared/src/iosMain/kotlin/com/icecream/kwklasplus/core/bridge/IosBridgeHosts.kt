@@ -65,3 +65,21 @@ interface SettingsBridgeHost {
     fun setBiometricEnabled(enabled: Boolean)
     fun getAppLockSettings(): String
 }
+
+interface VideoBridgeHost {
+    fun completePageLoad()
+    fun openExternalLink(url: String)
+    fun openInKLAS()
+    fun requestOnlineLecture(json: String)
+    fun receivePlayerStates(
+        currentTime: String,
+        duration: String,
+        isMuted: String,
+        isPlaying: String,
+        isFullscreen: String,
+    )
+    fun receiveInitSpeed(currentSpeed: String)
+    fun receiveVideoData(progress: String, time: String)
+    fun receiveVideoURL(videoURL: String)
+    fun performHapticFeedback(type: String)
+}

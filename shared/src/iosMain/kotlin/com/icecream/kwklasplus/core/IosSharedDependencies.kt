@@ -17,6 +17,7 @@ import com.icecream.kwklasplus.core.legacy.LegacyPreferenceKeys
 import com.icecream.kwklasplus.core.lock.IosAppLockCredentialCodec
 import com.icecream.kwklasplus.core.lock.IosAppLockSecretStore
 import com.icecream.kwklasplus.core.lock.IosAppLockStore
+import com.icecream.kwklasplus.core.media.MediaMetadataRepository
 import com.icecream.kwklasplus.core.network.KlasSessionHttpClient
 import com.icecream.kwklasplus.core.network.KlasSessionLeaseHttpGateway
 import com.icecream.kwklasplus.core.network.KlasUserAgent
@@ -67,6 +68,10 @@ class IosSharedDependencies(
             onlineLectureEndParser = IosDeadlineDateParsers.onlineLecture,
             assignmentEndParser = IosDeadlineDateParsers.assignment,
         )
+    }
+
+    val mediaMetadataRepository: MediaMetadataRepository by lazy {
+        MediaMetadataRepository(httpClient)
     }
 
     val preferencesStore: PreferencesStore by lazy {
