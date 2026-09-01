@@ -114,8 +114,10 @@ class PlayerBridgeCodec(
         return value.intOrNull ?: value.contentOrNull?.toIntOrNull() ?: 0
     }
 
-    private companion object {
-        val PLAYED_MINUTES_PATTERN = Regex("""학습시간\s*(\d+)\s*분""")
+    companion object {
+        fun create(): PlayerBridgeCodec = PlayerBridgeCodec()
+
+        private val PLAYED_MINUTES_PATTERN = Regex("""학습시간\s*(\d+)\s*분""")
     }
 }
 

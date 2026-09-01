@@ -30,18 +30,28 @@ class TrustedOriginPolicy(
 
 class KlasContentOriginPolicy {
     fun isTrustedUrl(url: String): Boolean {
-        if (url.isBlank() || url != url.trim() || url.any(Char::isISOControl)) return false
+        val authority = httpsAuthority(url) ?: return false
+        return authority == ROOT_HOST || authority.endsWith(".$ROOT_HOST")
+    }
+
+    fun isTrustedVideoUrl(url: String): Boolean {
+        val authority = httpsAuthority(url) ?: return false
+        return authority != ROOT_HOST && authority.endsWith(".$ROOT_HOST")
+    }
+
+    private fun httpsAuthority(url: String): String? {
+        if (url.isBlank() || url != url.trim() || url.any(Char::isISOControl)) return null
         val schemeSeparator = url.indexOf("://")
         if (schemeSeparator <= 0 || url.substring(0, schemeSeparator).lowercase() != "https") {
-            return false
+            return null
         }
         val authority = url.substring(schemeSeparator + 3)
             .substringBefore('/')
             .substringBefore('?')
             .substringBefore('#')
             .lowercase()
-        if (authority.isBlank() || '@' in authority || ':' in authority) return false
-        return authority == ROOT_HOST || authority.endsWith(".$ROOT_HOST")
+        if (authority.isBlank() || '@' in authority || ':' in authority) return null
+        return authority
     }
 
     private companion object {

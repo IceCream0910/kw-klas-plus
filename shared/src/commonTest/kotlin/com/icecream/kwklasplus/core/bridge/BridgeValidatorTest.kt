@@ -26,6 +26,9 @@ class BridgeValidatorTest {
 
         assertTrue(policy.isTrustedUrl("https://vod.kw.ac.kr/player/content"))
         assertTrue(policy.isTrustedUrl("https://klas.kw.ac.kr/player"))
+        assertTrue(policy.isTrustedUrl("https://kw.ac.kr/"))
+        assertTrue(policy.isTrustedVideoUrl("https://vod.kw.ac.kr/player/content"))
+        assertFalse(policy.isTrustedVideoUrl("https://kw.ac.kr/"))
         assertFalse(policy.isTrustedUrl("http://vod.kw.ac.kr/player"))
         assertFalse(policy.isTrustedUrl("https://vod.kw.ac.kr.evil.example/player"))
         assertFalse(policy.isTrustedUrl("https://evil.example/?next=vod.kw.ac.kr"))

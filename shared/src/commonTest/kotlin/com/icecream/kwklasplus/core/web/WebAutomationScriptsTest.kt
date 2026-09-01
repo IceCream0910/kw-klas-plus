@@ -117,6 +117,49 @@ class WebAutomationScriptsTest {
     }
 
     @Test
+    fun redirectWindowOpenToSameFrameNavigatesCurrentWindow() {
+        val script = KlasWebAutomationScripts.redirectWindowOpenToSameFrame().reveal()
+        assertTrue(script.contains("w.open=go"))
+        assertTrue(script.contains("location.href=href"))
+        assertTrue(script.contains("about:blank"))
+        assertTrue(script.contains("install(frames[i])"))
+        assertTrue(!script.contains("Android."))
+    }
+
+    @Test
+    fun onlineContentViewerUsesGoViewCntntsWithoutCertFlag() {
+        val request = PlayerWebScripts.OnlineContentRequest(
+            groupCode = "G",
+            subjectId = "S",
+            year = "2026",
+            semester = "1",
+            classNumber = "01",
+            module = "M",
+            lesson = "L",
+            objectId = "O",
+            starting = "S",
+            contentsType = "V",
+            weekNumber = 2,
+            weeklySequence = 1,
+            width = 1280,
+            height = 720,
+            today = "20260717",
+            startDate = "20260701",
+            endDate = "20260731",
+            playerType = "P",
+            learnTime = "30",
+            progress = 50,
+            playTime = "10",
+        )
+        val viewer = PlayerWebScripts.openOnlineContentViewer(request).reveal()
+        assertTrue(viewer.startsWith("appModule.goViewCntnts("))
+        assertTrue(!viewer.contains(",\"C\","))
+        val certi = PlayerWebScripts.openOnlineContent(request).reveal()
+        assertTrue(certi.startsWith("lrnCerti.checkCerti("))
+        assertTrue(certi.contains(",\"C\","))
+    }
+
+    @Test
     fun nativeBridgeAdapterOwnsBridgeV1TransportDetails() {
         val source = KlasNativeBridgeScripts.installAdapter().reveal()
 
