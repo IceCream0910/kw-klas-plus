@@ -8,9 +8,12 @@ final class WebViewHolder: NSObject, ObservableObject {
     let creationID = UUID()
 
     @Published private(set) var isDisposed = false
-    @Published private(set) var navigationState = WebNavigationState()
+    @Published private(set) var navigationState = WebNavigationState() {
+        didSet { onNavigationStateChange?(navigationState) }
+    }
     @Published private(set) var lastExternalURL: String?
     @Published var javaScriptAlertMessage: String?
+    @Published var javaScriptConfirmMessage: String?
     @Published private(set) var downloadProgress: DownloadProgressState?
     @Published private(set) var downloadErrorMessage: String?
     @Published private(set) var shareableFileURL: URL?
@@ -18,6 +21,7 @@ final class WebViewHolder: NSObject, ObservableObject {
     private var _webView: WKWebView?
     private var bridgeAdapter: IosBridgeMessageAdapter?
     private var javaScriptAlertCompletion: (() -> Void)?
+    private var javaScriptConfirmCompletion: ((Bool) -> Void)?
     private lazy var navigationRelay = NavigationRelay(owner: self)
     private lazy var uiRelay = UIRelay(owner: self)
     private let trustedOrigins = TrustedOriginPolicy(trustedOrigins: TrustedOriginPolicy.companion.DEFAULT_TRUSTED_ORIGINS)
@@ -27,9 +31,12 @@ final class WebViewHolder: NSObject, ObservableObject {
     private let filePicker: IosFilePicker
     private let fileTransfer: IosFileTransfer
     private let allowsInAppWeb: Bool
+    private let allowsVideoContentHosts: Bool
     private var activeDownloadTask: Task<Void, Never>?
     private var loadingLocalPdf = false
     private var webContentTerminationRetryUsed = false
+    private var pendingDocumentStartScripts: [WKUserScript] = []
+    var onNavigationStateChange: ((WebNavigationState) -> Void)?
 
     static var websiteDataStore: WKWebsiteDataStore { .default() }
 
@@ -44,12 +51,14 @@ final class WebViewHolder: NSObject, ObservableObject {
         navigator: IosExternalNavigator = IosExternalNavigator.companion.system(),
         filePicker: IosFilePicker = IosFilePicker(),
         fileTransfer: IosFileTransfer = IosFileTransfer(),
-        allowsInAppWeb: Bool = false
+        allowsInAppWeb: Bool = false,
+        allowsVideoContentHosts: Bool = false
     ) {
         self.navigator = navigator
         self.filePicker = filePicker
         self.fileTransfer = fileTransfer
         self.allowsInAppWeb = allowsInAppWeb
+        self.allowsVideoContentHosts = allowsVideoContentHosts
         super.init()
         fileTransfer.onProgress = { [weak self] fileName, fraction in
             self?.downloadProgress = DownloadProgressState(fileName: fileName, fraction: fraction)
@@ -67,6 +76,15 @@ final class WebViewHolder: NSObject, ObservableObject {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = Self.websiteDataStore
         configuration.applicationNameForUserAgent = Self.iosAppUserAgentToken
+        if allowsVideoContentHosts {
+            configuration.allowsInlineMediaPlayback = true
+            configuration.mediaTypesRequiringUserActionForPlayback = []
+            configuration.allowsPictureInPictureMediaPlayback = true
+            configuration.preferences.javaScriptCanOpenWindowsAutomatically = true
+        }
+        for script in pendingDocumentStartScripts {
+            configuration.userContentController.addUserScript(script)
+        }
         configuration.userContentController.addUserScript(
             WKUserScript(
                 source: WebSurfaceViewportScript.source,
@@ -93,6 +111,22 @@ final class WebViewHolder: NSObject, ObservableObject {
         scrollView.keyboardDismissMode = .interactive
     }
 
+    /// WKWebView 생성 전에만 호출. 매 문서 로드 시작 시 localStorage 등을 심는다.
+    func addDocumentStartScript(_ script: WebScript, forMainFrameOnly: Bool = true) {
+        addDocumentStartScriptSource(script.reveal(), forMainFrameOnly: forMainFrameOnly)
+    }
+
+    func addDocumentStartScriptSource(_ source: String, forMainFrameOnly: Bool = true) {
+        precondition(_webView == nil, "document-start script는 WKWebView 생성 전에 설치해야 한다")
+        pendingDocumentStartScripts.append(
+            WKUserScript(
+                source: source,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: forMainFrameOnly
+            )
+        )
+    }
+
     /// WKWebView 생성 전에만 호출
     func installBridge(
         surface: BridgeSurface,
@@ -115,7 +149,10 @@ final class WebViewHolder: NSObject, ObservableObject {
         handler: BridgeCommandHandler,
         synchronousHandler: SynchronousBridgeCommandHandler? = nil
     ) -> WebViewHolder {
-        let holder = WebViewHolder(allowsInAppWeb: surface == .linkView)
+        let holder = WebViewHolder(
+            allowsInAppWeb: surface == .linkView,
+            allowsVideoContentHosts: surface == .video
+        )
         holder.installBridge(
             surface: surface,
             handler: handler,
@@ -129,9 +166,9 @@ final class WebViewHolder: NSObject, ObservableObject {
             completion?(nil)
             return
         }
-        webView.evaluateJavaScript(script.reveal(), completionHandler: { result, _ in
+        webView.evaluateJavaScript(script.reveal()) { result, _ in
             completion?(result)
-        })
+        }
     }
 
     func evaluateRaw(_ source: String, completion: ((Any?) -> Void)? = nil) {
@@ -139,13 +176,15 @@ final class WebViewHolder: NSObject, ObservableObject {
             completion?(nil)
             return
         }
-        webView.evaluateJavaScript(source, completionHandler: { result, _ in
+        webView.evaluateJavaScript(source) { result, _ in
             completion?(result)
-        })
+        }
     }
 
+    var autoDismissJavaScriptAlerts: Bool = false
     var suppressJavaScriptAlertContaining: String?
     var onSuppressedJavaScriptAlert: (() -> Void)?
+    var onJavaScriptAlertReceived: ((String) -> Void)?
     var onWebContentProcessDidTerminate: (() -> Void)?
 
     func confirmJavaScriptAlert() {
@@ -156,6 +195,11 @@ final class WebViewHolder: NSObject, ObservableObject {
     }
 
     func presentJavaScriptAlert(message: String, completion: @escaping () -> Void) {
+        onJavaScriptAlertReceived?(message)
+        if autoDismissJavaScriptAlerts {
+            completion()
+            return
+        }
         if let marker = suppressJavaScriptAlertContaining, message.contains(marker) {
             completion()
             onSuppressedJavaScriptAlert?()
@@ -166,10 +210,32 @@ final class WebViewHolder: NSObject, ObservableObject {
         javaScriptAlertMessage = message
     }
 
+    func presentJavaScriptConfirm(message: String, completion: @escaping (Bool) -> Void) {
+        if autoDismissJavaScriptAlerts {
+            completion(true)
+            return
+        }
+        javaScriptConfirmCompletion?(false)
+        javaScriptConfirmCompletion = completion
+        javaScriptConfirmMessage = message
+    }
+
+    func answerJavaScriptConfirm(_ confirmed: Bool) {
+        let completion = javaScriptConfirmCompletion
+        javaScriptConfirmCompletion = nil
+        javaScriptConfirmMessage = nil
+        completion?(confirmed)
+    }
+
     func load(_ urlString: String) {
         guard !isDisposed, let url = URL(string: urlString) else { return }
+        loadRequest(URLRequest(url: url))
+    }
+
+    func loadRequest(_ request: URLRequest) {
+        guard !isDisposed else { return }
         webContentTerminationRetryUsed = false
-        webView.load(URLRequest(url: url))
+        webView.load(request)
     }
 
     func loadHTML(_ html: String, baseURL: URL) {
@@ -221,14 +287,22 @@ final class WebViewHolder: NSObject, ObservableObject {
     func dispose() {
         guard !isDisposed else { return }
         isDisposed = true
-        webContentTerminationRetryUsed = false
-        suppressJavaScriptAlertContaining = nil
+        activeDownloadTask?.cancel()
+        activeDownloadTask = nil
         onSuppressedJavaScriptAlert = nil
+        onJavaScriptAlertReceived = nil
         onWebContentProcessDidTerminate = nil
+        onNavigationStateChange = nil
         bridgeAdapter?.dispose()
         bridgeAdapter = nil
         cancelDownload()
         clearInlinePdf()
+        javaScriptAlertCompletion?()
+        javaScriptAlertCompletion = nil
+        javaScriptAlertMessage = nil
+        javaScriptConfirmCompletion?(false)
+        javaScriptConfirmCompletion = nil
+        javaScriptConfirmMessage = nil
         guard let view = _webView else {
             navigationState = WebNavigationState(loadPhase: .disposed)
             return
@@ -238,9 +312,6 @@ final class WebViewHolder: NSObject, ObservableObject {
         view.uiDelegate = nil
         view.removeFromSuperview()
         _webView = nil
-        javaScriptAlertCompletion?()
-        javaScriptAlertCompletion = nil
-        javaScriptAlertMessage = nil
         navigationState = WebNavigationState(loadPhase: .disposed)
     }
 
@@ -257,16 +328,25 @@ final class WebViewHolder: NSObject, ObservableObject {
         if isAllowedInAppWeb(urlString) {
             return true
         }
+        if isAllowedVideoContent(urlString) {
+            return true
+        }
 
         openExternal(urlString)
         return false
     }
 
     func handleCreateWindow(urlString: String?) {
+        guard let urlString, !urlString.isEmpty, let url = URL(string: urlString) else { return }
+        handleCreateWindow(request: URLRequest(url: url))
+    }
+
+    func handleCreateWindow(request: URLRequest) {
         guard !isDisposed else { return }
-        guard let urlString, !urlString.isEmpty else { return }
-        if trustedOrigins.isTrustedUrl(url: urlString) || isAllowedInAppWeb(urlString) {
-            load(urlString)
+        let urlString = request.url?.absoluteString ?? ""
+        guard !urlString.isEmpty, urlString != "about:blank" else { return }
+        if trustedOrigins.isTrustedUrl(url: urlString) || isAllowedInAppWeb(urlString) || isAllowedVideoContent(urlString) {
+            loadRequest(request)
         } else {
             openExternal(urlString)
         }
@@ -521,6 +601,11 @@ final class WebViewHolder: NSObject, ObservableObject {
         return klasContentOrigins.isTrustedUrl(url: raw)
     }
 
+    private func isAllowedVideoContent(_ raw: String) -> Bool {
+        guard allowsVideoContentHosts else { return false }
+        return klasContentOrigins.isTrustedVideoUrl(url: raw)
+    }
+
     private func presentShareSheet(url: URL, deleteWhenDone: Bool) {
         guard FileManager.default.fileExists(atPath: url.path) else {
             if deleteWhenDone {
@@ -650,7 +735,7 @@ private final class UIRelay: NSObject, WKUIDelegate {
         for navigationAction: WKNavigationAction,
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
-        owner?.handleCreateWindow(urlString: navigationAction.request.url?.absoluteString)
+        owner?.handleCreateWindow(request: navigationAction.request)
         return nil
     }
 
@@ -663,6 +748,15 @@ private final class UIRelay: NSObject, WKUIDelegate {
         owner?.presentJavaScriptAlert(message: message, completion: completionHandler)
     }
 
+    func webView(
+        _ webView: WKWebView,
+        runJavaScriptConfirmPanelWithMessage message: String,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping (Bool) -> Void
+    ) {
+        owner?.presentJavaScriptConfirm(message: message, completion: completionHandler)
+    }
+
     @available(iOS 18.4, *)
     func webView(
         _ webView: WKWebView,
@@ -673,3 +767,4 @@ private final class UIRelay: NSObject, WKUIDelegate {
         owner?.handleOpenPanel(allowMultiple: parameters.allowsMultipleSelection, completionHandler: completionHandler)
     }
 }
+

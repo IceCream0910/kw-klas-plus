@@ -88,6 +88,44 @@ final class IosFilePortsTests: XCTestCase {
         let defaultHolder = WebViewHolder()
         defer { defaultHolder.dispose() }
         XCTAssertNil(defaultHolder.pageReadyScript(for: "https://www.kw.ac.kr/ko/life/notice.jsp"))
+        XCTAssertFalse(defaultHolder.webView.configuration.preferences.javaScriptCanOpenWindowsAutomatically)
+    }
+
+    func testVideoHolderAllowsKwSubdomainAndRejectsRootHost() {
+        let opener = RecordingUrlOpener()
+        let holder = WebViewHolder(
+            navigator: IosExternalNavigator(opener: opener),
+            allowsVideoContentHosts: true
+        )
+        holder.installBridge(surface: .video, handler: AcceptingBridgeCommandHandler())
+        defer { holder.dispose() }
+
+        XCTAssertTrue(
+            holder.handleDecidePolicy(
+                urlString: "https://vod.kw.ac.kr/player/content",
+                isMainFrame: true
+            )
+        )
+        XCTAssertNil(holder.lastExternalURL)
+        holder.handleCreateWindow(urlString: "https://vod.kw.ac.kr/embed")
+        XCTAssertTrue(opener.opened.isEmpty)
+
+        XCTAssertFalse(
+            holder.handleDecidePolicy(urlString: "https://kw.ac.kr/", isMainFrame: true)
+        )
+        XCTAssertEqual(holder.lastExternalURL, "https://kw.ac.kr/")
+
+        XCTAssertFalse(
+            holder.handleDecidePolicy(urlString: "https://example.com/video", isMainFrame: true)
+        )
+        XCTAssertEqual(opener.opened, ["https://kw.ac.kr/", "https://example.com/video"])
+        XCTAssertNil(holder.pageReadyScript(for: "https://www.kw.ac.kr/ko/life/notice.jsp"))
+
+        _ = holder.webView
+        XCTAssertTrue(holder.webView.configuration.allowsInlineMediaPlayback)
+        XCTAssertTrue(holder.webView.configuration.allowsPictureInPictureMediaPlayback)
+        XCTAssertTrue(holder.webView.configuration.mediaTypesRequiringUserActionForPlayback.isEmpty)
+        XCTAssertTrue(holder.webView.configuration.preferences.javaScriptCanOpenWindowsAutomatically)
     }
 
     func testWebContentProcessTerminationReloadsOnceThenFails() {

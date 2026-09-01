@@ -151,6 +151,51 @@ final class IosHomeHostTests: XCTestCase {
         XCTAssertTrue(presented)
     }
 
+    func testJavaScriptConfirmAnswersCompleteHandler() {
+        let holder = WebViewHolder()
+        defer { holder.dispose() }
+
+        var answered: Bool?
+        holder.presentJavaScriptConfirm(message: "수강하시겠습니까?") { answered = $0 }
+        XCTAssertEqual(holder.javaScriptConfirmMessage, "수강하시겠습니까?")
+        holder.answerJavaScriptConfirm(true)
+        XCTAssertEqual(answered, true)
+        XCTAssertNil(holder.javaScriptConfirmMessage)
+
+        holder.presentJavaScriptConfirm(message: "취소 테스트") { answered = $0 }
+        holder.answerJavaScriptConfirm(false)
+        XCTAssertEqual(answered, false)
+        XCTAssertNil(holder.javaScriptConfirmMessage)
+    }
+
+    func testJavaScriptConfirmPresentationIgnoresDisabledSecondary() {
+        let primary = WebViewHolder()
+        let secondary = WebViewHolder()
+        defer {
+            primary.dispose()
+            secondary.dispose()
+        }
+        secondary.presentJavaScriptConfirm(message: "klas") { _ in }
+
+        XCTAssertNil(
+            WebJavaScriptConfirmPresentation.holder(
+                primary: primary,
+                secondary: secondary,
+                secondaryEnabled: false,
+                sticky: nil
+            )
+        )
+
+        primary.presentJavaScriptConfirm(message: "ui") { _ in }
+        let visible = WebJavaScriptConfirmPresentation.holder(
+            primary: primary,
+            secondary: secondary,
+            secondaryEnabled: false,
+            sticky: nil
+        )
+        XCTAssertTrue(visible === primary)
+    }
+
     func testBootstrapLectureErrorMatcher() {
         XCTAssertTrue(LectureScreenModel.isBootstrapLectureError("오류가 발생하였습니다."))
         XCTAssertFalse(LectureScreenModel.isBootstrapLectureError("다른 안내"))
