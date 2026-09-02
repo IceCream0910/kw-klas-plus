@@ -231,7 +231,7 @@ final class HomeCoordinator: ObservableObject {
 
     func openTask(path: String, subjectId: String, yearSemester: String) {
         if path.contains("OnlineCntntsStdPage.do") {
-            openVideo(subjectId: subjectId, yearSemester: yearSemester)
+            openOnlineLectureList(subjectId: subjectId, yearSemester: yearSemester)
             return
         }
         guard let token = sessionToken else { return }
@@ -285,6 +285,13 @@ final class HomeCoordinator: ObservableObject {
             path.removeLast()
         }
         path.append(HomeDestination.video(subjectId: subjectId, yearSemester: yearSemester))
+    }
+
+    func openOnlineLectureList(subjectId: String, yearSemester: String, replacingCurrent: Bool = false) {
+        if let active = activeVideoModel, !active.isInPictureInPicture {
+            activeVideoModel = nil
+        }
+        openVideo(subjectId: subjectId, yearSemester: yearSemester, replacingCurrent: replacingCurrent)
     }
 
     func openWeb(url: String) {

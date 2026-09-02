@@ -33,19 +33,21 @@ struct VideoPlayerOverlay<Media: View>: View {
         GeometryReader { proxy in
             let isLandscape = proxy.size.width > proxy.size.height
             if isLandscape {
-                HStack(spacing: 16) {
+                HStack(spacing: 20) {
                     media()
                         .aspectRatio(16 / 9, contentMode: .fit)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     ScrollView(.vertical, showsIndicators: false) {
                         playerControls
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: max(0, proxy.size.height - 40), alignment: .center)
                     }
                     .frame(width: min(380, proxy.size.width * 0.45))
                 }
-                .padding(16)
+                .padding(20)
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 0) {
+                    VStack(spacing: 16) {
                         media()
                             .aspectRatio(16 / 9, contentMode: .fit)
                             .frame(maxWidth: .infinity)
@@ -169,7 +171,6 @@ struct VideoPlayerOverlay<Media: View>: View {
         }
         .padding(20)
         .background(KlasTheme.surface, in: RoundedRectangle(cornerRadius: KlasTheme.controlCornerRadius, style: .continuous))
-        .padding(.top, 16)
         .accessibilityIdentifier("video_player_controls")
     }
 

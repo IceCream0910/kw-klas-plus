@@ -22,7 +22,7 @@ final class TaskScreenModel: ObservableObject {
         self.holder = WebViewHolder()
         let url = ProductWebUrls.shared.task(path: path)
         if url.contains("OnlineCntntsStdPage.do") {
-            coordinator.openVideo(subjectId: subjectId, yearSemester: yearSemester, replacingCurrent: true)
+            coordinator.openOnlineLectureList(subjectId: subjectId, yearSemester: yearSemester, replacingCurrent: true)
             return
         }
         holder.load(url)
@@ -41,7 +41,7 @@ final class TaskScreenModel: ObservableObject {
             return
         }
         if url.contains("OnlineCntntsStdPage.do") {
-            coordinator?.openVideo(
+            coordinator?.openOnlineLectureList(
                 subjectId: subjectId,
                 yearSemester: yearSemester,
                 replacingCurrent: true

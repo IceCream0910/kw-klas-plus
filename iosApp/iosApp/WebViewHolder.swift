@@ -182,10 +182,12 @@ final class WebViewHolder: NSObject, ObservableObject {
     }
 
     var autoDismissJavaScriptAlerts: Bool = false
+    var autoDismissJavaScriptConfirms: Bool = false
     var suppressJavaScriptAlertContaining: String?
     var onSuppressedJavaScriptAlert: (() -> Void)?
     var onJavaScriptAlertReceived: ((String) -> Void)?
     var onWebContentProcessDidTerminate: (() -> Void)?
+    var onWindowCloseRequested: (() -> Void)?
 
     func confirmJavaScriptAlert() {
         let completion = javaScriptAlertCompletion
@@ -211,7 +213,7 @@ final class WebViewHolder: NSObject, ObservableObject {
     }
 
     func presentJavaScriptConfirm(message: String, completion: @escaping (Bool) -> Void) {
-        if autoDismissJavaScriptAlerts {
+        if autoDismissJavaScriptConfirms {
             completion(true)
             return
         }
@@ -755,6 +757,10 @@ private final class UIRelay: NSObject, WKUIDelegate {
         completionHandler: @escaping (Bool) -> Void
     ) {
         owner?.presentJavaScriptConfirm(message: message, completion: completionHandler)
+    }
+
+    func webViewDidClose(_ webView: WKWebView) {
+        owner?.onWindowCloseRequested?()
     }
 
     @available(iOS 18.4, *)

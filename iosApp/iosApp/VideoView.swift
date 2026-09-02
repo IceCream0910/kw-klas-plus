@@ -18,7 +18,6 @@ final class VideoScreenModel: ObservableObject {
     @Published var isPictureInPictureSupported = true
     @Published var showSpeedSheet = false
     @Published var showCloseConfirm = false
-    @Published var alertMessage: String?
 
     private(set) var lastVideoScriptSource: String?
     private(set) var lastKlasScriptSource: String?
@@ -32,9 +31,9 @@ final class VideoScreenModel: ObservableObject {
     private var lastPlaytime: Float = 0
     private var duration: Float = 0
     private var isFullscreen = false
-    private var restoreAfterPictureInPicture = false
     private var titleFetchTask: Task<Void, Never>?
     private(set) var didStart = false
+    private var lastOnlineContentRequest: PlayerWebScripts.OnlineContentRequest?
     var onDismissRequested: (() -> Void)?
 
     static let speedOptions: [Double] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
@@ -67,17 +66,23 @@ final class VideoScreenModel: ObservableObject {
         listHolder.autoDismissJavaScriptAlerts = true
         listHolder.onJavaScriptAlertReceived = { [weak self] message in
             guard let self, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-            self.alertMessage = message
+            self.coordinator.showToast(message)
         }
         klasHolder.autoDismissJavaScriptAlerts = true
         klasHolder.onJavaScriptAlertReceived = { [weak self] message in
             guard let self, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-            self.alertMessage = message
+            self.coordinator.showToast(message)
+
+            if (message.contains("인증") && (message.contains("되었습니다") || message.contains("완료"))),
+               let lastReq = self.lastOnlineContentRequest {
+                let viewerScript = PlayerWebScripts.shared.openOnlineContentViewer(request: lastReq)
+                self.evaluateKlas(viewerScript)
+            }
         }
         videoHolder.autoDismissJavaScriptAlerts = true
         videoHolder.onJavaScriptAlertReceived = { [weak self] message in
             guard let self, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-            self.alertMessage = message
+            self.coordinator.showToast(message)
         }
         klasHolder.addDocumentStartScript(
             IosWebCallbacks.shared.setLocalStorage(key: "selectYearhakgi", value: yearSemester)
@@ -139,11 +144,12 @@ final class VideoScreenModel: ObservableObject {
             coordinator.showToast("강의를 불러오는 중 오류가 발생했습니다.")
             return
         }
+        self.lastOnlineContentRequest = success.request
         let script = PlayerWebScripts.shared.openOnlineContent(request: success.request)
         uiState = VideoPlayerUiState()
         evaluateKlas(script)
         isPlayerVisible = false
-        showingKlas = false
+        showingKlas = true
     }
 
     func receivePlayerStates(
@@ -217,12 +223,15 @@ final class VideoScreenModel: ObservableObject {
             return
         }
         isKlasLoaded = true
-        if !url.contains("OnlineCntntsStdPage") {
+
+        if !url.contains("OnlineCntntsStdPage") && !url.contains("Certi") {
             evaluateKlas(KlasWebAutomationScripts.shared.styleViewerPage())
             evaluateKlas(KlasWebAutomationScripts.shared.monitorLectureProgress())
             evaluateKlas(KlasWebAutomationScripts.shared.reportViewerVideoUrl())
         } else {
-            isPlayerVisible = false
+            if !url.contains("Certi") {
+                isPlayerVisible = false
+            }
         }
     }
 
@@ -334,25 +343,14 @@ final class VideoScreenModel: ObservableObject {
         klasHolder.load(KlasUrls.shared.KLAS_ONLINE_CONTENTS)
     }
 
-    func restorePlayerAfterPictureInPicture(isClosed: Bool = false) {
-        let wasInPip = isInPictureInPicture
+    func restorePlayerAfterPictureInPicture() {
+        guard isInPictureInPicture else { return }
         isInPictureInPicture = false
-        if isFullscreen {
-            evaluateVideo(PlayerWebScripts.shared.closeFullScreenIfAvailable())
-            isFullscreen = false
-        }
         hideController()
         IosPlayerOrientation.lockPortraitOnPhone()
-        if wasInPip {
-            if isClosed {
-                resetToLectureList()
-                coordinator.clearActiveVideoModelIfIdle()
-            } else {
-                Task { @MainActor in
-                    if !self.coordinator.isVideoScreenPresented {
-                        self.coordinator.openVideo(subjectId: self.subjectId, yearSemester: self.yearSemester)
-                    }
-                }
+        Task { @MainActor in
+            if !self.coordinator.isVideoScreenPresented {
+                self.coordinator.openVideo(subjectId: self.subjectId, yearSemester: self.yearSemester)
             }
         }
     }
@@ -364,8 +362,7 @@ final class VideoScreenModel: ObservableObject {
                 let raw = (result as? String) ?? "inline:playing"
                 let parts = raw.split(separator: ":")
                 let mode = parts.first.map(String.init) ?? "inline"
-                let isPaused = parts.count > 1 ? (parts[1] == "paused") : false
-                let pip = mode == "picture-in-picture"
+                let pip = (mode == "picture-in-picture")
                 if pip {
                     let wasInPip = self.isInPictureInPicture
                     self.isInPictureInPicture = true
@@ -373,7 +370,7 @@ final class VideoScreenModel: ObservableObject {
                         self.onDismissRequested?()
                     }
                 } else if self.isInPictureInPicture {
-                    self.restorePlayerAfterPictureInPicture(isClosed: isPaused)
+                    self.restorePlayerAfterPictureInPicture()
                 }
             }
         }
@@ -544,6 +541,8 @@ struct VideoView: View {
                 }
             }
         }
+        .webJavaScriptAlert(model.listHolder, model.klasHolder, secondaryEnabled: model.showingKlas)
+        .webJavaScriptAlert(model.videoHolder, enabled: model.isPlayerVisible)
         .webDownloadOverlay(model.listHolder)
         .webDownloadOverlay(model.klasHolder)
         .onAppear {
@@ -572,17 +571,6 @@ struct VideoView: View {
                     }
                 }
             )
-        }
-        .alert(
-            "안내",
-            isPresented: Binding(
-                get: { model.alertMessage != nil },
-                set: { if !$0 { model.alertMessage = nil } }
-            )
-        ) {
-            Button("확인") { model.alertMessage = nil }
-        } message: {
-            Text(model.alertMessage ?? "")
         }
         .confirmationDialog("강의 종료", isPresented: $model.showCloseConfirm, titleVisibility: .visible) {
             Button("확인", role: .destructive) { model.confirmClose() }

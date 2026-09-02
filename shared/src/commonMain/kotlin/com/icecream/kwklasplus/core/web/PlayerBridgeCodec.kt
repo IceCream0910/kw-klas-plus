@@ -111,7 +111,7 @@ class PlayerBridgeCodec(
 
     private fun JsonObject.int(key: String): Int {
         val value = get(key) as? JsonPrimitive ?: return 0
-        return value.intOrNull ?: value.contentOrNull?.toIntOrNull() ?: 0
+        return value.intOrNull ?: value.contentOrNull?.toDoubleOrNull()?.toInt() ?: 0
     }
 
     companion object {
