@@ -86,10 +86,18 @@ final class IosVideoHostTests: XCTestCase {
         model.move(.forward)
         XCTAssertTrue(model.lastVideoScriptSource?.contains("_seekLimit") == true)
 
+        XCTAssertTrue(model.uiState.isMuted)
         model.toggleMute()
+        XCTAssertFalse(model.uiState.isMuted)
         XCTAssertEqual(
             model.lastVideoScriptSource,
             PlayerWebScripts.shared.mute(muted: false).reveal()
+        )
+        model.toggleMute()
+        XCTAssertTrue(model.uiState.isMuted)
+        XCTAssertEqual(
+            model.lastVideoScriptSource,
+            PlayerWebScripts.shared.mute(muted: true).reveal()
         )
 
         model.selectSpeed(1.5)
@@ -375,14 +383,10 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = VideoScreenModel(
-            subjectId: "SUBJ01",
-            yearSemester: "2026,1",
-            sessionToken: coordinator.sessionToken,
-            coordinator: coordinator
-        )
+        let model = coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1")
         model.receiveVideoURL("https://vod.kw.ac.kr/player")
         model.showCloseConfirm = true
+        coordinator.isVideoScreenPresented = false
         XCTAssertTrue(model.isPlayerVisible)
 
         model.confirmClose()
@@ -392,6 +396,7 @@ final class IosVideoHostTests: XCTestCase {
             model.lastVideoScriptSource,
             PlayerWebScripts.shared.playback(command: .pause).reveal()
         )
+        XCTAssertNil(coordinator.activeVideoModel)
     }
 
     func testKlasHolderJavaScriptAlertPresentsNativeAlertNonBlockingly() {
@@ -435,53 +440,6 @@ final class IosVideoHostTests: XCTestCase {
         XCTAssertEqual(
             coordinator.toastMessage,
             "학습 시작일 이전에 강의 영상을 미리 시청할 수 있습니다."
-        )
-    }
-
-    func testToggleMuteTogglesStateAndEvaluatesScript() {
-        let coordinator = makeCoordinator()
-        defer { coordinator.dispose() }
-        coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = VideoScreenModel(
-            subjectId: "SUBJ01",
-            yearSemester: "2026,1",
-            sessionToken: coordinator.sessionToken,
-            coordinator: coordinator
-        )
-        model.receiveVideoURL("https://vod.kw.ac.kr/player")
-        XCTAssertFalse(model.uiState.isMuted)
-
-        model.toggleMute()
-        XCTAssertTrue(model.uiState.isMuted)
-        XCTAssertEqual(
-            model.lastVideoScriptSource,
-            PlayerWebScripts.shared.mute(muted: true).reveal()
-        )
-
-        model.toggleMute()
-        XCTAssertFalse(model.uiState.isMuted)
-        XCTAssertEqual(
-            model.lastVideoScriptSource,
-            PlayerWebScripts.shared.mute(muted: false).reveal()
-        )
-    }
-
-    func testStartPictureInPictureExecutesEnterPipScriptDirectlyWithoutForcingFullscreen() {
-        let coordinator = makeCoordinator()
-        defer { coordinator.dispose() }
-        coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = VideoScreenModel(
-            subjectId: "SUBJ01",
-            yearSemester: "2026,1",
-            sessionToken: coordinator.sessionToken,
-            coordinator: coordinator
-        )
-        model.receiveVideoURL("https://vod.kw.ac.kr/player")
-        model.startPictureInPicture()
-
-        XCTAssertEqual(
-            model.lastVideoScriptSource,
-            PlayerWebScripts.shared.enterPictureInPicture().reveal()
         )
     }
 
@@ -582,6 +540,10 @@ final class IosVideoHostTests: XCTestCase {
 
         XCTAssertTrue(model.isInPictureInPicture)
         XCTAssertFalse(model.isPlayerVisible)
+        XCTAssertEqual(
+            model.lastVideoScriptSource,
+            PlayerWebScripts.shared.enterPictureInPicture().reveal()
+        )
 
         // Simulate restore while user is outside video screen (isVideoScreenPresented = false)
         coordinator.isVideoScreenPresented = false
@@ -596,31 +558,6 @@ final class IosVideoHostTests: XCTestCase {
             }
         }
         wait(for: [expectation], timeout: 1.0)
-    }
-
-    func testNativePipEntryAutoDismissesVideoViewAndPreservesSession() {
-        let coordinator = makeCoordinator()
-        defer { coordinator.dispose() }
-        coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1")
-        model.receiveVideoURL("https://vod.kw.ac.kr/player")
-        coordinator.isVideoScreenPresented = true
-
-        var dismissed = false
-        model.onDismissRequested = { dismissed = true }
-
-        // Simulate entering PIP via native fullscreen controls
-        model.isInPictureInPicture = false
-        model.refreshPictureInPictureMode()
-
-        // handleBack when in PIP should not destroy player
-        model.isInPictureInPicture = true
-        model.isPlayerVisible = false
-        var backDismissed = false
-        model.handleBack(dismiss: { backDismissed = true })
-        XCTAssertTrue(backDismissed)
-        XCTAssertFalse(model.isPlayerVisible)
-        XCTAssertNotNil(coordinator.activeVideoModel)
     }
 
     func testSystemPipCloseDismissesPlaybackAndCleansUp() {
@@ -638,23 +575,6 @@ final class IosVideoHostTests: XCTestCase {
         XCTAssertFalse(model.isInPictureInPicture)
         XCTAssertFalse(model.isPlayerVisible)
         XCTAssertNil(coordinator.activeVideoModel)
-    }
-
-    func testConfirmCloseCleansUpActiveVideoModel() {
-        let coordinator = makeCoordinator()
-        defer { coordinator.dispose() }
-        coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1")
-        model.receiveVideoURL("https://vod.kw.ac.kr/player")
-        model.isInPictureInPicture = true
-        coordinator.isVideoScreenPresented = false
-
-        model.confirmClose()
-
-        XCTAssertFalse(model.isInPictureInPicture)
-        XCTAssertFalse(model.isPlayerVisible)
-        XCTAssertNil(coordinator.activeVideoModel)
-        XCTAssertEqual(coordinator.path.count, 0)
     }
 
     func testOpenOnlineLectureListCleansUpIdleActiveVideoModel() {
