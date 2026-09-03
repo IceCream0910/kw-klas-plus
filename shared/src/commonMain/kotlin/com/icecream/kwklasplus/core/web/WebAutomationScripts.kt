@@ -70,14 +70,18 @@ object KlasWebAutomationScripts {
             "window.scroll(0,0);})();",
     )
 
-    /// Android WebView는 `supportMultipleWindows=false`일 때 `window.open` 호출 시 현재 웹뷰에서 바로 이동합니다.
-    /// 반면 iOS WKWebView는 네이티브(evaluateJavaScript)에서 간접 트리거된 `window.open` 팝업을 보안의 이유로 차단합니다.
-    /// 따라서 새 창 대신 현재 웹뷰(top frame)에서 페이지가 이동하도록 모든 프레임의 `window.open`을 가로챕니다.
+    /// Android WebView는 `supportMultipleWindows=false` 설정 시 새 창(window.open)이나 폼 전송을 현재 웹뷰에서 바로 처리합니다.
+    /// 반면 iOS(특히 iOS 17)의 WKWebView는 폼을 새 창으로 제출할 때(`createWebViewWith`) 폼 데이터(POST Body)가 유실되는 문제가 있습니다.
+    /// 따라서 새 창 대신 현재 웹뷰에서 페이지가 열리고, 폼도 현재 창(`_self`)으로 안전하게 제출되도록 가로챕니다.
     fun redirectWindowOpenToSameFrame(): WebScript = WebScript(
-        "(function(root){function go(url){var href=url==null||url===undefined?'':String(url);" +
+        "(function(root){function go(url,name){var href=url==null||url===undefined?'':String(url);" +
+            "if(name){try{root.top.name=name;}catch(e){}try{root.name=name;}catch(e){}}" +
             "if(href&&href!=='about:blank'){try{root.top.location.href=href;}catch(e){" +
             "try{root.location.href=href;}catch(e2){}}}return root.top||root;}" +
             "function install(w){if(!w)return;try{w.open=go;}catch(e){}" +
+            "try{if(w.HTMLFormElement&&w.HTMLFormElement.prototype){var s=w.HTMLFormElement.prototype.submit;" +
+            "w.HTMLFormElement.prototype.submit=function(){this.target='_self';return s.apply(this,arguments);};}}catch(e){}" +
+            "try{if(w.document){w.document.addEventListener('submit',function(e){if(e.target&&e.target.tagName==='FORM'){e.target.target='_self';}},true);}}catch(e){}" +
             "try{var frames=w.frames;for(var i=0;i<frames.length;i++)try{install(frames[i]);}catch(e){}}" +
             "catch(e){}}install(root);})(window);",
     )
