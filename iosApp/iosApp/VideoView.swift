@@ -5,7 +5,8 @@ import SwiftUI
 final class VideoScreenModel: ObservableObject {
     let listHolder: WebViewHolder
     let klasHolder: WebViewHolder
-    let videoHolder: WebViewHolder
+    @Published private(set) var videoHolder: WebViewHolder
+    private(set) var pipVideoHolder: WebViewHolder?
     let subjectId: String
     let yearSemester: String
     let sessionToken: SecretValue?
@@ -19,10 +20,16 @@ final class VideoScreenModel: ObservableObject {
     @Published var showSpeedSheet = false
     @Published var showCloseConfirm = false
 
+    var hasActivePip: Bool {
+        isInPictureInPicture || pipVideoHolder != nil
+    }
+
     private(set) var lastVideoScriptSource: String?
     private(set) var lastKlasScriptSource: String?
 
     private var host: VideoHostAdapter
+    private var videoHost: VideoHostAdapter
+    private var pipHost: VideoHostAdapter?
     private let codec = PlayerBridgeCodec.companion.create()
     private let originPolicy = KlasContentOriginPolicy()
     private let haptics = IosHaptics()
@@ -34,6 +41,8 @@ final class VideoScreenModel: ObservableObject {
     private var titleFetchTask: Task<Void, Never>?
     private(set) var didStart = false
     private var lastOnlineContentRequest: PlayerWebScripts.OnlineContentRequest?
+    private var pendingOnlineContentScript: WebScript?
+    private var isKlasOnViewerPage = false
     var onDismissRequested: (() -> Void)?
 
     static let speedOptions: [Double] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
@@ -49,7 +58,9 @@ final class VideoScreenModel: ObservableObject {
         self.sessionToken = sessionToken
         self.coordinator = coordinator
         let host = VideoHostAdapter()
+        let videoHost = VideoHostAdapter()
         self.host = host
+        self.videoHost = videoHost
         self.listHolder = WebViewHolder.withLegacyBridge(
             surface: .video,
             handler: IosVideoLegacyBridgeCommandHandler(host: host)
@@ -60,9 +71,10 @@ final class VideoScreenModel: ObservableObject {
         )
         self.videoHolder = WebViewHolder.withLegacyBridge(
             surface: .video,
-            handler: IosVideoLegacyBridgeCommandHandler(host: host)
+            handler: IosVideoLegacyBridgeCommandHandler(host: videoHost)
         )
         host.model = self
+        videoHost.model = self
         listHolder.autoDismissJavaScriptAlerts = true
         listHolder.onJavaScriptAlertReceived = { [weak self] message in
             guard let self, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
@@ -73,6 +85,10 @@ final class VideoScreenModel: ObservableObject {
             guard let self, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
             self.coordinator.showToast(message)
 
+            // KLAS 본인인증 완료 후 자동 전환
+            // Android는 알림창(AlertDialog)의 '확인'을 누르면 KLAS 웹페이지가 알아서 다음 영상 화면으로 넘어갑니다.
+            // 반면 iOS는 알림창으로 멈추지 않고 백그라운드에서 자동 처리(토스트 안내)하므로,
+            // "인증 완료" 메시지가 오면 앱이 직접 영상 화면 여는 스크립트(openOnlineContentViewer)를 실행해 주어야 합니다.
             if (message.contains("인증") && (message.contains("되었습니다") || message.contains("완료"))),
                let lastReq = self.lastOnlineContentRequest {
                 let viewerScript = PlayerWebScripts.shared.openOnlineContentViewer(request: lastReq)
@@ -101,8 +117,8 @@ final class VideoScreenModel: ObservableObject {
         }
     }
 
-    /// WKWebView가 윈도우에 붙은 뒤 로드한다. 생성 직후 로드하면 JS·localStorage가 실행되지 않아
-    /// KLAS OnlineCntntsStdPage가 스피너에 남는다.
+    /// 화면이 실제로 나타난 뒤(.onAppear) 강의 목록을 불러옵니다.
+    /// 화면에 뜨기 전에 미리 불러오면 자바스크립트가 실행되지 않아 강의 목록이 무한 로딩에 빠집니다.
     func start() {
         guard !didStart else { return }
         didStart = true
@@ -114,8 +130,25 @@ final class VideoScreenModel: ObservableObject {
         titleFetchTask?.cancel()
         listHolder.dispose()
         klasHolder.dispose()
-        videoHolder.dispose()
         IosPlaybackAudioSession.deactivate()
+    }
+
+    func createNewVideoHolder() {
+        let newHost = VideoHostAdapter()
+        newHost.model = self
+        self.videoHost = newHost
+        self.videoHolder = WebViewHolder.withLegacyBridge(
+            surface: .video,
+            handler: IosVideoLegacyBridgeCommandHandler(host: newHost)
+        )
+        videoHolder.autoDismissJavaScriptAlerts = true
+        videoHolder.onJavaScriptAlertReceived = { [weak self] message in
+            guard let self, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            self.coordinator.showToast(message)
+        }
+        videoHolder.onNavigationStateChange = { [weak self] state in
+            self?.handleVideoNavigation(state)
+        }
     }
 
     func completePageLoad() {
@@ -144,12 +177,48 @@ final class VideoScreenModel: ObservableObject {
             coordinator.showToast("강의를 불러오는 중 오류가 발생했습니다.")
             return
         }
-        self.lastOnlineContentRequest = success.request
-        let script = PlayerWebScripts.shared.openOnlineContent(request: success.request)
+        let req = success.request
+
+        if isSameLecture(as: req) && (isInPictureInPicture || isPlayerVisible) {
+            isPlayerVisible = true
+            showingKlas = false
+            return
+        }
+
+        if isInPictureInPicture {
+            pipHost = videoHost
+            pipHost?.model = nil
+            pipVideoHolder = videoHolder
+
+            createNewVideoHolder()
+            isInPictureInPicture = false
+        }
+
+        self.lastOnlineContentRequest = req
+        let script = PlayerWebScripts.shared.openOnlineContent(request: req)
         uiState = VideoPlayerUiState()
-        evaluateKlas(script)
         isPlayerVisible = false
         showingKlas = true
+
+        if isKlasOnViewerPage {
+            pendingOnlineContentScript = script
+            isKlasLoaded = false
+            klasHolder.load(KlasUrls.shared.KLAS_ONLINE_CONTENTS)
+        } else {
+            evaluateKlas(script)
+        }
+    }
+
+    func isSameLecture(as req: PlayerWebScripts.OnlineContentRequest) -> Bool {
+        guard let last = lastOnlineContentRequest else { return false }
+        return last.subjectId == req.subjectId &&
+            last.year == req.year &&
+            last.semester == req.semester &&
+            last.classNumber == req.classNumber &&
+            last.module == req.module &&
+            last.lesson == req.lesson &&
+            last.objectId == req.objectId &&
+            last.weeklySequence == req.weeklySequence
     }
 
     func receivePlayerStates(
@@ -224,7 +293,17 @@ final class VideoScreenModel: ObservableObject {
         }
         isKlasLoaded = true
 
+        if url.contains("OnlineCntntsStdPage") {
+            isKlasOnViewerPage = false
+            if let pending = pendingOnlineContentScript {
+                pendingOnlineContentScript = nil
+                evaluateKlas(pending)
+                return
+            }
+        }
+
         if !url.contains("OnlineCntntsStdPage") && !url.contains("Certi") {
+            isKlasOnViewerPage = true
             evaluateKlas(KlasWebAutomationScripts.shared.styleViewerPage())
             evaluateKlas(KlasWebAutomationScripts.shared.monitorLectureProgress())
             evaluateKlas(KlasWebAutomationScripts.shared.reportViewerVideoUrl())
@@ -297,8 +376,15 @@ final class VideoScreenModel: ObservableObject {
             coordinator.showToast("이 기기에서는 PIP를 사용할 수 없습니다.")
             return
         }
+        if let previous = pipVideoHolder {
+            previous.evaluate(PlayerWebScripts.shared.playback(command: .pause))
+            previous.dispose()
+            pipVideoHolder = nil
+            pipHost = nil
+        }
         hideController()
         isInPictureInPicture = true
+        isPlayerVisible = false
         evaluateVideo(PlayerWebScripts.shared.enterPictureInPicture())
         dismiss?()
     }
@@ -311,6 +397,11 @@ final class VideoScreenModel: ObservableObject {
 
     func handleBack(dismiss: () -> Void) {
         if isInPictureInPicture {
+            if isPlayerVisible || showingKlas {
+                isPlayerVisible = false
+                showingKlas = false
+                return
+            }
             dismiss()
             return
         }
@@ -324,11 +415,23 @@ final class VideoScreenModel: ObservableObject {
 
     func confirmClose() {
         showCloseConfirm = false
-        if isInPictureInPicture {
-            restorePlayerAfterPictureInPicture()
+        isInPictureInPicture = false
+        hideController()
+        IosPlayerOrientation.lockPortraitOnPhone()
+        if let previous = pipVideoHolder {
+            previous.evaluate(PlayerWebScripts.shared.playback(command: .pause))
+            previous.dispose()
+            pipVideoHolder = nil
+            pipHost = nil
         }
         resetToLectureList()
         coordinator.clearActiveVideoModelIfIdle()
+    }
+
+    func showPlayerFromPip() {
+        guard isInPictureInPicture else { return }
+        isPlayerVisible = true
+        showingKlas = false
     }
 
     private func resetToLectureList() {
@@ -339,6 +442,8 @@ final class VideoScreenModel: ObservableObject {
         uiState = VideoPlayerUiState()
         lastPlaytime = 0
         duration = 0
+        lastOnlineContentRequest = nil
+        pendingOnlineContentScript = nil
         isKlasLoaded = false
         klasHolder.load(KlasUrls.shared.KLAS_ONLINE_CONTENTS)
     }
@@ -346,6 +451,7 @@ final class VideoScreenModel: ObservableObject {
     func restorePlayerAfterPictureInPicture() {
         guard isInPictureInPicture else { return }
         isInPictureInPicture = false
+        isPlayerVisible = true
         hideController()
         IosPlayerOrientation.lockPortraitOnPhone()
         Task { @MainActor in
@@ -355,6 +461,22 @@ final class VideoScreenModel: ObservableObject {
         }
     }
 
+    func handlePictureInPictureClosedBySystem() {
+        guard isInPictureInPicture else { return }
+        isInPictureInPicture = false
+        isPlayerVisible = false
+        hideController()
+        IosPlayerOrientation.lockPortraitOnPhone()
+        if let previous = pipVideoHolder {
+            previous.evaluate(PlayerWebScripts.shared.playback(command: .pause))
+            previous.dispose()
+            pipVideoHolder = nil
+            pipHost = nil
+        }
+        resetToLectureList()
+        coordinator.clearActiveVideoModelIfIdle()
+    }
+
     func refreshPictureInPictureMode() {
         videoHolder.evaluate(PlayerWebScripts.shared.pictureInPicturePresentationMode()) { [weak self] result in
             Task { @MainActor in
@@ -362,15 +484,24 @@ final class VideoScreenModel: ObservableObject {
                 let raw = (result as? String) ?? "inline:playing"
                 let parts = raw.split(separator: ":")
                 let mode = parts.first.map(String.init) ?? "inline"
+                let isPaused = parts.count > 1 ? (parts[1] == "paused") : false
                 let pip = (mode == "picture-in-picture")
                 if pip {
                     let wasInPip = self.isInPictureInPicture
+                    let wasPlayerVisible = self.isPlayerVisible
                     self.isInPictureInPicture = true
-                    if !wasInPip && self.coordinator.isVideoScreenPresented {
-                        self.onDismissRequested?()
+                    if !wasInPip {
+                        self.isPlayerVisible = false
+                        if wasPlayerVisible && self.coordinator.isVideoScreenPresented {
+                            self.onDismissRequested?()
+                        }
                     }
                 } else if self.isInPictureInPicture {
-                    self.restorePlayerAfterPictureInPicture()
+                    if isPaused {
+                        self.handlePictureInPictureClosedBySystem()
+                    } else {
+                        self.restorePlayerAfterPictureInPicture()
+                    }
                 }
             }
         }
@@ -521,9 +652,11 @@ struct VideoView: View {
                     onLectureTimeClick: { model.seekToLastPlaytime() }
                 ) {
                     WebViewContainer(webView: model.videoHolder.webView)
+                        .id(model.videoHolder.creationID)
                 }
             } else {
                 WebViewContainer(webView: model.videoHolder.webView)
+                    .id(model.videoHolder.creationID)
                     .opacity(0)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
@@ -549,7 +682,9 @@ struct VideoView: View {
             model.videoHolder.webView.alpha = 1
             model.start()
             model.coordinator.isVideoScreenPresented = true
-            model.onDismissRequested = { dismiss() }
+            model.onDismissRequested = {
+                dismiss()
+            }
         }
         .onDisappear {
             model.videoHolder.webView.alpha = 0

@@ -268,7 +268,7 @@ final class HomeCoordinator: ObservableObject {
     }
 
     func clearActiveVideoModelIfIdle() {
-        if let active = activeVideoModel, !active.isInPictureInPicture {
+        if let active = activeVideoModel, !active.hasActivePip {
             activeVideoModel = nil
         }
     }
@@ -288,8 +288,12 @@ final class HomeCoordinator: ObservableObject {
     }
 
     func openOnlineLectureList(subjectId: String, yearSemester: String, replacingCurrent: Bool = false) {
-        if let active = activeVideoModel, !active.isInPictureInPicture {
-            activeVideoModel = nil
+        if let active = activeVideoModel {
+            if !active.hasActivePip {
+                activeVideoModel = nil
+            } else if active.subjectId == subjectId && active.yearSemester == yearSemester {
+                active.isPlayerVisible = false
+            }
         }
         openVideo(subjectId: subjectId, yearSemester: yearSemester, replacingCurrent: replacingCurrent)
     }
