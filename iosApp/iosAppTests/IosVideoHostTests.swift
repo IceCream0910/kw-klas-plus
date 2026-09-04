@@ -577,6 +577,18 @@ final class IosVideoHostTests: XCTestCase {
         XCTAssertNil(coordinator.activeVideoModel)
     }
 
+    func testPiPRestoreTrackerMarksAndResetsRequestedState() {
+        let tracker = PiPRestoreTracker.shared
+        tracker.reset()
+        XCTAssertFalse(tracker.isRestoreRequested)
+
+        tracker.markRestoreRequested()
+        XCTAssertTrue(tracker.isRestoreRequested)
+
+        tracker.reset()
+        XCTAssertFalse(tracker.isRestoreRequested)
+    }
+
     func testOpenOnlineLectureListCleansUpIdleActiveVideoModel() {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }

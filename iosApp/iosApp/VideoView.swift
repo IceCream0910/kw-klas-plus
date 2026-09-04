@@ -52,6 +52,7 @@ final class VideoScreenModel: ObservableObject {
         self.yearSemester = yearSemester
         self.sessionToken = sessionToken
         self.coordinator = coordinator
+        PiPRestoreTracker.shared.installIfNeeded()
         let host = VideoHostAdapter()
         self.host = host
         self.listHolder = WebViewHolder.withLegacyBridge(
@@ -372,6 +373,7 @@ final class VideoScreenModel: ObservableObject {
             coordinator.showToast("이 기기에서는 PIP를 사용할 수 없습니다.")
             return
         }
+        PiPRestoreTracker.shared.reset()
         hideController()
         isInPictureInPicture = true
         isPlayerVisible = false
@@ -475,10 +477,15 @@ final class VideoScreenModel: ObservableObject {
                         }
                     }
                 } else if self.isInPictureInPicture {
-                    if isPaused {
-                        self.handlePictureInPictureClosedBySystem()
-                    } else {
+                    let isRestoreRequested = PiPRestoreTracker.shared.isRestoreRequested
+                    PiPRestoreTracker.shared.reset()
+
+                    let shouldRestore = isRestoreRequested || (mode == "fullscreen")
+
+                    if shouldRestore {
                         self.restorePlayerAfterPictureInPicture()
+                    } else {
+                        self.handlePictureInPictureClosedBySystem()
                     }
                 }
             }
