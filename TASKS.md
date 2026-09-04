@@ -3,7 +3,7 @@
 - 기준일: 2026-09-01
 - 현재 단계: **Android 마이그레이션 완료, iOS 기본 제품 경로(M6) 진행 중**
 - Android 상태: KMP 공통 코어, Compose UI, WebView 브리지, 네이티브 기능의 P0/P1 패리티 완료
-- iOS 상태: 툴체인·framework·WKWebView navigation/cookie·Native bridge·인증/세션·화면별 제품 경로·다운로드/외부 이동·온라인 강의 player·PIP 완료. 파일 업로드는 실계정 검증 남음. 다음: M7-005 도서관 QR App Group 정책
+- iOS 상태: 툴체인·framework·WKWebView navigation/cookie·Native bridge·인증/세션·화면별 제품 경로·다운로드/외부 이동·온라인 강의 player·PIP·도서관 QR 정책 완료. 파일 업로드는 실계정 검증 남음. 다음: M7-006 SwiftUI 도서관 QR 및 WidgetKit 구현
 
 ## 개요
 
@@ -15,7 +15,7 @@
 | M4 Android Web/Compose | 진행 중(7/8)   | Android 화면 전환 완료. legacy 자산 정리만 남음        |
 | M5 Android 기능 패리티      | **완료(7/7)** | QR·잠금·PIP·위젯·파일·테마 및 전체 Android 회귀 통과     |
 | M6 iOS 기본 경로           | 진행 중(9/11)  | M6-010 다운로드·외부 이동 완료. 파일 업로드 실계정 검증 남음. 다음: M6-011 UI 환경 |
-| M7 iOS 플랫폼 기능          | 진행 중(4/7)    | M7-004 player·PIP 구현. 다음: M7-005 도서관 QR 정책 |
+| M7 iOS 플랫폼 기능          | 진행 중(5/7)    | M7-005 도서관 QR 정책 확정. 다음: M7-006 도서관 QR·위젯 구현 |
 
 ### M1 — 기존 계약 고정
 
@@ -166,10 +166,11 @@
   - 작업: `KlasNativeBridge`의 `receiveVideoURL`·`receiveVideoData`·`receivePlayerStates` 및 player command를 선택한 iOS media host에 연결
   - 완료 기준: F-017·F-018의 재생, 이어보기, 진도 보고, background/foreground, PIP 시작·종료·remote action·화면 복귀 동작
   - 구현: `VideoBridgeHost` + 세 `WebViewHolder`(list/KLAS/video) + SwiftUI overlay. PIP는 WK HTML5 `allowsPictureInPictureMediaPlayback`.
-- [ ] **M7-005 (P1, M)** 도서관 QR App Group·WidgetKit 공유 정책 확정
+- [x] **M7-005 (P1, M)** 도서관 QR App Group·WidgetKit 공유 정책 확정
   - Depends on: M6-008
-  - 작업: 공통 도서관 QR repository 결과 중 앱·Widget에 공유할 캐시 schema, App Group, Keychain 접근 범위와 만료·잠금 정책 결정
-  - 완료 기준: 개인정보 저장 위치, timeline 갱신 주기, 로그아웃/만료/오프라인 fallback, widget deep link를 문서와 fixture로 고정
+  - 정책: [`docs/adr/ADR-006-ios-library-qr-widget.md`](docs/adr/ADR-006-ios-library-qr-widget.md)
+  - 결정: WidgetKit Launcher 방식(`widgetURL: kwklasplus://library-qr`), App Group 비민감 메타데이터 캐시(`LibraryWidgetSnapshot`), 도서관 자격증명/세션키는 메인 앱 Keychain 격리, 앱 잠금 시 위젯 정보 마스킹 및 탭 후 Face ID/PIN 해제 즉시 QR 모달 팝업.
+  - 검증: `iosAppTests/LibraryQrWidgetPolicyTests` (스냅샷 Codable, 마스킹 규칙, 딥링크 형식, fallback fixture 5개 테스트 통과).
 - [ ] **M7-006 (P1, XL)** SwiftUI 도서관 출입증 QR 화면과 WidgetKit 구현
   - Depends on: M7-005
   - 작업: Android 네이티브 도서관 QR 화면에 대응하는 조회·설정·로딩·오류·갱신 UI와 QR 렌더링을 SwiftUI로 구현
