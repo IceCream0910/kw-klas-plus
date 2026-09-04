@@ -12,6 +12,8 @@ import com.icecream.kwklasplus.core.bridge.BridgeRouter
 import com.icecream.kwklasplus.core.bridge.BridgeSurface
 import com.icecream.kwklasplus.core.bridge.JsonBridgeRouter
 import com.icecream.kwklasplus.core.bridge.SynchronousBridgeCommandHandler
+import com.icecream.kwklasplus.core.legacy.KlasUrls.KLAS_BASE
+import com.icecream.kwklasplus.core.legacy.KlasUrls.KLAS_PLUS_BASE
 import com.icecream.kwklasplus.core.web.KlasNativeBridgeScripts
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -93,8 +95,8 @@ class AndroidBridgeMessageAdapter(
     companion object {
         const val NATIVE_OBJECT_NAME = "KlasNativeBridgeNative"
         val ALLOWED_ORIGINS = setOf(
-            "https://klas.kw.ac.kr",
-            "https://klasplus.yuntae.in",
+            KLAS_BASE,
+            KLAS_PLUS_BASE
         )
         val VIDEO_ALLOWED_ORIGINS = ALLOWED_ORIGINS + "https://*.kw.ac.kr"
     }

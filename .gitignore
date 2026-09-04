@@ -22,3 +22,5 @@ iosApp/Configuration/Config.local.xcconfig
 !*.xcworkspace/contents.xcworkspacedata
 **/xcshareddata/WorkspaceSettings.xcsettings
 node_modules/
+*.apk
+*.dm

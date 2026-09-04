@@ -1,5 +1,8 @@
 package com.icecream.kwklasplus.core.bridge
 
+import com.icecream.kwklasplus.core.legacy.KlasUrls.KLAS_BASE
+import com.icecream.kwklasplus.core.legacy.KlasUrls.KLAS_PLUS_BASE
+
 class TrustedOriginPolicy(
     private val trustedOrigins: Set<String> = DEFAULT_TRUSTED_ORIGINS,
 ) {
@@ -22,8 +25,8 @@ class TrustedOriginPolicy(
 
     companion object {
         val DEFAULT_TRUSTED_ORIGINS = setOf(
-            "https://klas.kw.ac.kr",
-            "https://klasplus.yuntae.in",
+            KLAS_BASE,
+            KLAS_PLUS_BASE
         )
     }
 }
