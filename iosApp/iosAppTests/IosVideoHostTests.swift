@@ -649,7 +649,7 @@ final class IosVideoHostTests: XCTestCase {
         XCTAssertFalse(model.showingKlas)
     }
 
-    func testRequestOnlineLectureDifferentLectureWhileInPipResetsPreviousSession() {
+    func testRequestOnlineLectureDifferentLectureWhileInPipShowsConfirmDialog() {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
@@ -720,30 +720,98 @@ final class IosVideoHostTests: XCTestCase {
         model.onDismissRequested = { autoDismissed = true }
         coordinator.isVideoScreenPresented = true
 
-        let previousHolder = model.videoHolder
         model.requestOnlineLecture(json: lecture2)
 
-        // Plan A: previous videoHolder is retained as pipVideoHolder, and new videoHolder is created
-        XCTAssertNotNil(model.pipVideoHolder)
-        XCTAssertTrue(model.pipVideoHolder === previousHolder)
-        XCTAssertFalse(model.videoHolder === previousHolder)
+        // 확인 다이얼로그가 표시되고, PiP는 아직 유지
+        XCTAssertTrue(model.showLectureChangeConfirm)
+        XCTAssertTrue(model.isInPictureInPicture)
+        XCTAssertFalse(model.showingKlas)
+        XCTAssertFalse(model.isPlayerVisible)
+        XCTAssertFalse(autoDismissed)
+
+        // 확인 시 PiP 종료 후 새 강의 로드
+        model.confirmLectureChange()
+        XCTAssertFalse(model.showLectureChangeConfirm)
         XCTAssertFalse(model.isInPictureInPicture)
-        XCTAssertTrue(model.hasActivePip)
         XCTAssertTrue(model.showingKlas)
         XCTAssertFalse(model.isPlayerVisible)
-        XCTAssertFalse(autoDismissed, "VideoView should NOT auto-dismiss when selecting a different lecture!")
+    }
 
-        // When new video URL arrives, it displays in the player overlay on the main screen
-        model.receiveVideoURL("https://vod.kw.ac.kr/player2")
-        XCTAssertTrue(model.isPlayerVisible)
-        XCTAssertFalse(model.showingKlas)
-        XCTAssertTrue(model.hasActivePip)
+    func testRequestOnlineLectureDifferentLectureWhileInPipCancelKeepsPip() {
+        let coordinator = makeCoordinator()
+        defer { coordinator.dispose() }
+        coordinator.handleBootstrap(Self.readyHomeResult())
+        let model = coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1")
+        model.handleKlasNavigation(
+            WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/lis/evltn/OnlineCntntsStdPage.do"))
+        )
+        model.handleKlasNavigation(
+            WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/lis/evltn/OnlineCntntsStdPage.do"))
+        )
 
-        // When starting PiP on the new video, the previous PiP holder is cleanly disposed
+        let lecture1 = """
+        {
+            "grcode": "GR01",
+            "subj": "SUBJ01",
+            "year": "2026",
+            "hakgi": "1",
+            "bunban": "01",
+            "module": "M01",
+            "lesson": "L01",
+            "oid": "O01",
+            "starting": "0",
+            "contentsType": "mp4",
+            "weeklyseq": 1,
+            "weeklysubseq": 1,
+            "width": 1280,
+            "height": 720,
+            "today": "20260902",
+            "startdate": "20260901",
+            "enddate": "20260908",
+            "ptype": "1",
+            "lrntime": "60",
+            "prog": 50,
+            "playtime": "0"
+        }
+        """
+        model.requestOnlineLecture(json: lecture1)
+        model.receiveVideoURL("https://vod.kw.ac.kr/player1")
         model.startPictureInPicture()
-        XCTAssertNil(model.pipVideoHolder)
         XCTAssertTrue(model.isInPictureInPicture)
-        XCTAssertFalse(model.isPlayerVisible)
+
+        let lecture2 = """
+        {
+            "grcode": "GR01",
+            "subj": "SUBJ01",
+            "year": "2026",
+            "hakgi": "1",
+            "bunban": "01",
+            "module": "M02",
+            "lesson": "L02",
+            "oid": "O02",
+            "starting": "0",
+            "contentsType": "mp4",
+            "weeklyseq": 2,
+            "weeklysubseq": 1,
+            "width": 1280,
+            "height": 720,
+            "today": "20260902",
+            "startdate": "20260901",
+            "enddate": "20260908",
+            "ptype": "1",
+            "lrntime": "60",
+            "prog": 0,
+            "playtime": "0"
+        }
+        """
+        model.requestOnlineLecture(json: lecture2)
+        XCTAssertTrue(model.showLectureChangeConfirm)
+
+        // 취소 시 PiP 유지
+        model.cancelLectureChange()
+        XCTAssertFalse(model.showLectureChangeConfirm)
+        XCTAssertTrue(model.isInPictureInPicture)
+        XCTAssertFalse(model.showingKlas)
     }
 
     func testRequestOnlineLectureWhileOnViewerPageQueuesScriptAndExecutesOnListReady() {
