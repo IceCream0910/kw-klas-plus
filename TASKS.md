@@ -169,8 +169,8 @@
 - [x] **M7-005 (P1, M)** 도서관 QR App Group·WidgetKit 공유 정책 확정
   - Depends on: M6-008
   - 정책: [`docs/adr/ADR-006-ios-library-qr-widget.md`](docs/adr/ADR-006-ios-library-qr-widget.md)
-  - 결정: WidgetKit Launcher 방식(`widgetURL: kwklasplus://library-qr`), App Group 비민감 메타데이터 캐시(`LibraryWidgetSnapshot`), 도서관 자격증명/세션키는 메인 앱 Keychain 격리, 앱 잠금 시 위젯 정보 마스킹 및 탭 후 Face ID/PIN 해제 즉시 QR 모달 팝업.
-  - 검증: `iosAppTests/LibraryQrWidgetPolicyTests` (스냅샷 Codable, 마스킹 규칙, 딥링크 형식, fallback fixture 5개 테스트 통과).
+  - 결정: Android 원본과 동일한 정적 아이콘 WidgetKit Launcher 방식(`widgetURL: kwklasplus://library-qr`), 개인정보 App Group 미저장(Zero Shared PII), 도서관 자격증명/세션키는 메인 앱 Keychain 격리, 도서관 QR 시트 단독 앱 잠금 예외 허용(F-022 패리티), 시트 닫힘 시 메모리 파기 및 전체 앱 잠금 유지, 미설정 시 인증 후 설정 화면 이동.
+  - 검증: `iosAppTests/LibraryQrWidgetPolicyTests` (딥링크 규격, QR 단독 잠금 예외 라우팅, 미설정 잠금 요구 분기, 수명주기 메모리 파기 및 잠금 보존 5개 테스트 통과).
 - [ ] **M7-006 (P1, XL)** SwiftUI 도서관 출입증 QR 화면과 WidgetKit 구현
   - Depends on: M7-005
   - 작업: Android 네이티브 도서관 QR 화면에 대응하는 조회·설정·로딩·오류·갱신 UI와 QR 렌더링을 SwiftUI로 구현
