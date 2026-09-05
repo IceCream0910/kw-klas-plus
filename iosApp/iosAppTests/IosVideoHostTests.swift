@@ -528,7 +528,7 @@ final class IosVideoHostTests: XCTestCase {
         XCTAssertNil(coordinator.activeVideoModel)
     }
 
-    func testStartPictureInPictureInvokesDismissAndRestorePipNavigatesToVideo() {
+    func testStartPictureInPictureInvokesDismissAndRestorePipNavigatesToVideo() async {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
@@ -538,6 +538,7 @@ final class IosVideoHostTests: XCTestCase {
         var dismissed = false
         model.startPictureInPicture(dismiss: { dismissed = true })
 
+        XCTAssertTrue(dismissed)
         XCTAssertTrue(model.isInPictureInPicture)
         XCTAssertFalse(model.isPlayerVisible)
         XCTAssertEqual(
@@ -551,13 +552,8 @@ final class IosVideoHostTests: XCTestCase {
         XCTAssertFalse(model.isInPictureInPicture)
         XCTAssertTrue(model.isPlayerVisible)
 
-        let expectation = expectation(description: "Restore navigates to video")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            if coordinator.path.count > 0 {
-                expectation.fulfill()
-            }
-        }
-        wait(for: [expectation], timeout: 1.0)
+        await Task.yield()
+        XCTAssertGreaterThan(coordinator.path.count, 0)
     }
 
     func testSystemPipCloseDismissesPlaybackAndCleansUp() {
