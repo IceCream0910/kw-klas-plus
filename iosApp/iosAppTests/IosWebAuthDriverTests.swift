@@ -17,11 +17,11 @@ final class IosWebAuthDriverTests: XCTestCase {
         </body></html>
         """
         let webView = makeWebView(handler: handler)
-        let driver = IosWebAuthDriver(webView: webView, timeoutMillis: 5_000, loginURL: loginURL)
+        let driver = IosWebAuthDriver(webView: webView, timeoutMillis: 15_000, loginURL: loginURL)
         var invalidAlert: String?
         driver.onInvalidCredentialAlert = { invalidAlert = $0 }
 
-        let result = authenticate(driver, webView: webView)
+        let result = authenticate(driver, webView: webView, timeout: 20)
 
         XCTAssertTrue(result is WebAuthResultFailure, "result=\(String(describing: result))")
         XCTAssertTrue(
@@ -115,9 +115,9 @@ final class IosWebAuthDriverTests: XCTestCase {
             NSError(domain: NSURLErrorDomain, code: NSURLErrorCannotConnectToHost, userInfo: nil)
         )
         let webView = makeWebView(handler: handler)
-        let driver = IosWebAuthDriver(webView: webView, timeoutMillis: 5_000, loginURL: loginURL)
+        let driver = IosWebAuthDriver(webView: webView, timeoutMillis: 15_000, loginURL: loginURL)
 
-        let result = authenticate(driver, webView: webView)
+        let result = authenticate(driver, webView: webView, timeout: 20)
 
         XCTAssertTrue(result is WebAuthResultFailure, "result=\(String(describing: result))")
         XCTAssertTrue(

@@ -96,7 +96,7 @@ jobs:
           -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}"
           -derivedDataPath "${{ runner.temp }}/ios-derived-data"
           -parallel-testing-enabled NO
-          CODE_SIGNING_ALLOWED=NO
+          CODE_SIGN_IDENTITY=-
           build-for-testing
 
       - name: Run iOS unit tests
@@ -115,7 +115,6 @@ jobs:
           -default-test-execution-time-allowance 60
           -maximum-test-execution-time-allowance 120
           -resultBundlePath "${{ runner.temp }}/ios-unit-tests.xcresult"
-          CODE_SIGNING_ALLOWED=NO
           test-without-building
 
       - name: Upload iOS test diagnostics
