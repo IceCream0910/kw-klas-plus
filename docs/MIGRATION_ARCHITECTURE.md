@@ -126,7 +126,12 @@ shared/
   src/iosMain/kotlin/.../            # Darwin engine, iOS-specific shared APIs
 
 iosApp/
-  iosApp/                            # SwiftUI entry, WKWebView and native integrations
+  iosApp/
+    App/                             # SwiftUI entry & lifecycle
+    Features/                        # Feature-first screens (Auth, Home, Lecture, Video, etc.)
+    WebView/                         # WKWebView & Bridge infrastructure
+    Platform/                        # Native hardware & OS adapters
+    UI/                              # Theme & shared components
   widgetExtension/                   # WidgetKit + App Group
 ```
 
