@@ -168,6 +168,19 @@ enum class PlayerSeekDirection {
 }
 
 object PlayerWebScripts {
+    fun monitorStateWhenReady(maxRetries: Int = 60, intervalMs: Int = 250): WebScript {
+        require(maxRetries > 0 && intervalMs > 0)
+        return WebScript(
+            "(function(){if(window.__klasPlusStateMonitorRequested)return;" +
+                "window.__klasPlusStateMonitorRequested=true;function install(remaining){" +
+                "var controller=typeof bcPlayController!=='undefined'?bcPlayController:null;" +
+                "if(controller&&typeof controller.getPlayController==='function'&&controller.getPlayController()&&typeof \$==='function'){" +
+                monitorState().reveal() + "return;}" +
+                "if(remaining>0)setTimeout(function(){install(remaining-1);},$intervalMs);}" +
+                "install($maxRetries);})();",
+        )
+    }
+
     data class OnlineContentRequest(
         val groupCode: String,
         val subjectId: String,

@@ -167,3 +167,5 @@ Web의 `/modal/idCard`, `/modal/agreePolicy`에 남은 `closeModal()`은 Compose
 | A-012 | 특수문자 credential/payload | HTTP JSON 또는 JS 전달 | 직렬화 오류·주입 없이 정확히 전달 |
 | A-013 | 앱 foreground, 추가 API 요청 없음 | 서버 만료 구간 접근 | `UpdateSession.do` 후 `/session/info`에서 연장 확인, 홈 상태 유지 |
 | A-014 | 앱 background | lifecycle stop | foreground keep-alive 중단, 복귀 시 서버 상태 즉시 재확인 |
+
+2026-09-04 F17/F18 후속: 사용자 요청으로 VOD 자동 클릭을 제거하고 seekbar 탐색 중 좌측 시간 미리보기를 추가했다. PiP 닫기는 즉시 WebView/소유권 정리하며 정상 복귀·잠금은 구분한다. JVM/JS 검증 및 기기 검증 상태는 `ANDROID_PLAYER_TRANSITIONS.md` 참조. 실제 seekbar 시간 표시·닫기 후 무음·출석 저장은 실기기 검증 대기.

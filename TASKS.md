@@ -65,6 +65,13 @@
 - [x] **M5-001 (P0, L)** QR 출석과 공통 AttendanceRepository
 - [x] **M5-002 (P0, L)** Compose 앱 잠금과 Android 생체인식
 - [x] **M5-003 (P0, XL)** Compose 비디오 플레이어와 Android PIP
+  - 2026-09-04 후속: PiP 닫기 즉시 WebView 정리 및 수명주기 fallback, seekbar 탐색 중 좌측 시간 미리보기. 사용자 요청으로 VOD 자동 클릭 제거. 검증과 미완료 실기기 항목: `docs/ANDROID_PLAYER_TRANSITIONS.md`.
+  - 2026-09-04 후속 구현: 본인인증 성공 후 선택 강의 viewer를 한 번만 자동 실행. 기존 페이지가 자체 이동하거나 뒤로가기/새 요청이 발생하면 예약 실행 취소.
+  - PiP 진입 시 강제 fullscreen, 복귀 시 강제 portrait 제거. 진입 전 inline/fullscreen 모드 유지, 영상 `sourceRectHint`, Android 15 전환 UI, 동일 WebView의 Compose 이동 적용.
+  - 단일 강의 재생: 목록 탐색은 기존 PiP 유지. 다른 영상 선택 시 `지금 재생 중인 강의를 종료하고 선택한 강의를 재생할까요?` 확인 후 기존 영상 종료 완료 → 새 강의 인증/재생. 취소·창 닫기는 현재 강의 유지. 최초 로딩 예약은 확인 대상에서 제외하고 준비 완료 후 일시정지는 포함. 동일 문서 VOD 중복 전달 무시.
+  - KLAS alert에 Material 3 확인 창 적용. VOD 자동 클릭은 제거하고 기존 사용자 재생 조작 유지.
+  - 작업 기준: Native `kmp` `c136ef8b018573d3d45d46b9ca3d41b6a7f6e67b`; 원본 Android 로컬 `origin/main` `76be3b50ba6f3f28ab81c58918542203c6b5933c`; Web `main` `133afc18a75c5cf3bba74048df1a392a786bba48` (원격 최신 여부 미조회). 참고: iOS PR #25 `d858c0eb64eee3c39b63beceab5492ca8975a6a0`의 인증 후 viewer 진입만 반영.
+  - 검증/실기기 후속/롤백: `docs/ANDROID_PLAYER_TRANSITIONS.md`. 후속 개선은 실기기 패리티 확인 전이며 기존 완료 표시와 별도로 추적.
 - [x] **M5-004 (P1, L)** 도서관 QR과 AppWidget
 - [x] **M5-005 (P1, L)** 다운로드·파일 선택·외부 이동
 - [x] **M5-006 (P1, M)** 테마·방향·태블릿·햅틱·인앱 업데이트 패리티

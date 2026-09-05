@@ -386,6 +386,10 @@ iOS WidgetKit과 PIP는 앱 본체와 별도의 extension/entitlement/실기기 
 
 ## 9. 보안 및 안정성 개선 항목
 
+M5-003 Android 강의 인증 후 자동 진행은 `klas.kw.ac.kr`의 명시적 성공 alert와 현재 선택한 요청이 있을 때만 동작한다. 안내/실패/취소 메시지 오인, 중복 alert 및 페이지 이동 후 이전 요청 실행을 위협으로 취급하며 `LectureCertificationContinuationTest`와 navigation revision 검사로 방어한다. 이는 학교의 인증을 대체하지 않고 인증 이후 viewer 호출만 이어준다. 실제 학교 문구·세션 만료·출석 저장과 PiP 방향 전환의 기기 검증은 `ANDROID_PLAYER_TRANSITIONS.md`에 별도 기록한다.
+
+Android 강의 전환은 프로세스 내 단일 재생 소유자와 확인 창으로 직렬화한다. 확인 전 기존 영상·KLAS 세션을 건드리지 않고, 승인 후 이전 영상 문서 종료를 기다린다. 종료 지연 시 정리/오류 경로로 빠져 동시 재생을 허용하지 않는다. 이전 Activity의 dispose가 새 소유자를 해제하지 않는지 `SingleLecturePlaybackTest`로 검증하며, remote action도 활성 소유자만 처리한다.
+
 패리티를 깨지 않는 범위에서 다음을 마이그레이션 게이트로 다룬다.
 
 | 관찰 | 위험 | 조치 |

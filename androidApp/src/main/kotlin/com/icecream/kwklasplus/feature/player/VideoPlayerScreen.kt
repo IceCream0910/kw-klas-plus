@@ -1,6 +1,7 @@
 package com.icecream.kwklasplus.feature.player
 
 import android.view.View
+import com.icecream.kwklasplus.core.web.PlayerBridgeCodec
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
@@ -49,6 +50,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -71,6 +73,7 @@ data class VideoPlayerUiState(
     val lectureTime: String = "",
     val currentTime: String = "00:00",
     val totalTime: String = "",
+    val durationSeconds: Float = 0f,
     val progress: Float = 0f,
     val isPlaying: Boolean = false,
     val isMuted: Boolean = true,
@@ -82,6 +85,7 @@ fun VideoPlayerScreen(
     webContainer: View,
     state: VideoPlayerUiState,
     isPlayerVisible: Boolean = true,
+    isPictureInPicture: Boolean = false,
     onSeek: (Float) -> Unit,
     onPlayPauseClick: () -> Unit,
     onBackwardClick: () -> Unit,
@@ -94,9 +98,20 @@ fun VideoPlayerScreen(
     onLectureTimeClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val mediaContent = remember(webContainer) {
+        movableContentOf<Modifier> { contentModifier ->
+            ComposePlatformViewHost(
+                contentView = webContainer,
+                isLoading = false,
+                modifier = contentModifier,
+                contentTag = "video_web_container",
+            )
+        }
+    }
     PlayerScreenLayout(
         state = state,
         isPlayerVisible = isPlayerVisible,
+        isPictureInPicture = isPictureInPicture,
         onSeek = onSeek,
         onPlayPauseClick = onPlayPauseClick,
         onBackwardClick = onBackwardClick,
@@ -107,14 +122,7 @@ fun VideoPlayerScreen(
         onSpeedClick = onSpeedClick,
         onCloseClick = onCloseClick,
         onLectureTimeClick = onLectureTimeClick,
-        mediaContent = { contentModifier ->
-            ComposePlatformViewHost(
-                contentView = webContainer,
-                isLoading = false,
-                modifier = contentModifier,
-                contentTag = "video_web_container",
-            )
-        },
+        mediaContent = mediaContent,
         modifier = modifier,
     )
 }
@@ -135,6 +143,7 @@ private fun PlayerScreenLayout(
     onLectureTimeClick: () -> Unit,
     mediaContent: @Composable (Modifier) -> Unit,
     modifier: Modifier = Modifier,
+    isPictureInPicture: Boolean = false,
 ) {
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -143,10 +152,10 @@ private fun PlayerScreenLayout(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.safeDrawing),
+                .then(if (isPictureInPicture) Modifier else Modifier.windowInsetsPadding(WindowInsets.safeDrawing)),
         ) {
             val expanded = classifyWindowWidth(maxWidth.value.toInt()) == AppWindowWidthClass.Expanded
-            if (!isPlayerVisible) {
+            if (isPictureInPicture || !isPlayerVisible) {
                 mediaContent(Modifier.fillMaxSize())
             } else if (expanded) {
                 Row(
@@ -236,6 +245,7 @@ private fun PlayerControls(
     modifier: Modifier = Modifier,
 ) {
     val controlsScrollState = rememberScrollState()
+    val timeFormatter = remember { PlayerBridgeCodec() }
     var sliderProgress by remember {
         mutableFloatStateOf(state.progress.coerceIn(0f, 1f))
     }
@@ -294,7 +304,11 @@ private fun PlayerControls(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = state.currentTime,
+                        text = if (isSeeking) {
+                            timeFormatter.formatTime(sliderProgress * state.durationSeconds)
+                        } else {
+                            state.currentTime
+                        },
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

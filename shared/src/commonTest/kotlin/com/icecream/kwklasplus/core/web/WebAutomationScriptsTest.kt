@@ -63,8 +63,7 @@ class WebAutomationScriptsTest {
 
     @Test
     fun onlineContentArgumentsAreJsonEncoded() {
-        val script = PlayerWebScripts.openOnlineContent(
-            PlayerWebScripts.OnlineContentRequest(
+        val request = PlayerWebScripts.OnlineContentRequest(
                 groupCode = "G'\"\\",
                 subjectId = "한글\n과목",
                 year = "2026",
@@ -86,11 +85,16 @@ class WebAutomationScriptsTest {
                 learnTime = "30",
                 progress = 50,
                 playTime = "10",
-            ),
-        ).reveal()
+            )
+        val script = PlayerWebScripts.openOnlineContent(request).reveal()
 
         assertTrue(script.startsWith("lrnCerti.checkCerti(\"G'\\\"\\\\\",\"한글\\n과목\""))
         assertTrue(script.endsWith(",50,\"C\",\"10\");"))
+        val viewer = PlayerWebScripts.openOnlineContentViewer(request).reveal()
+        assertEquals(
+            script.replace("lrnCerti.checkCerti(", "appModule.goViewCntnts(").replace(",50,\"C\",", ",50,"),
+            viewer,
+        )
     }
 
     @Test

@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.PictureInPictureParams
 import android.app.RemoteAction
 import android.content.pm.PackageManager
+import android.graphics.Rect
 import android.os.Build
 import android.util.Rational
 import com.icecream.kwklasplus.core.platform.PictureInPicture
@@ -21,11 +22,13 @@ class AndroidPictureInPicture(
     fun enterNow(
         state: PictureInPictureState,
         actions: List<RemoteAction>,
+        sourceRectHint: Rect? = null,
+        closeAction: RemoteAction? = null,
     ): PlatformActionResult {
         if (!activity.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
             return PlatformActionResult.Unsupported
         }
-        val params = createParams(state, actions) ?: return PlatformActionResult.Failed("invalid_pip_state")
+        val params = createParams(state, actions, sourceRectHint = sourceRectHint, closeAction = closeAction) ?: return PlatformActionResult.Failed("invalid_pip_state")
         return try {
             if (activity.enterPictureInPictureMode(params)) PlatformActionResult.Success
             else PlatformActionResult.Failed("pip_entry_rejected")
@@ -38,8 +41,13 @@ class AndroidPictureInPicture(
         state: PictureInPictureState,
         actions: List<RemoteAction>,
         autoEnterEnabled: Boolean = false,
+        sourceRectHint: Rect? = null,
+        closeAction: RemoteAction? = null,
     ): PlatformActionResult {
-        val params = createParams(state, actions, autoEnterEnabled)
+        if (!activity.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
+            return PlatformActionResult.Unsupported
+        }
+        val params = createParams(state, actions, autoEnterEnabled, sourceRectHint, closeAction)
             ?: return PlatformActionResult.Failed("invalid_pip_state")
         return try {
             activity.setPictureInPictureParams(params)
@@ -53,14 +61,19 @@ class AndroidPictureInPicture(
         state: PictureInPictureState,
         actions: List<RemoteAction>,
         autoEnterEnabled: Boolean = false,
+        sourceRectHint: Rect? = null,
+        closeAction: RemoteAction? = null,
     ): PictureInPictureParams? {
         if (state.aspectRatioWidth <= 0 || state.aspectRatioHeight <= 0) return null
         return PictureInPictureParams.Builder()
             .setAspectRatio(Rational(state.aspectRatioWidth, state.aspectRatioHeight))
             .setActions(actions)
             .apply {
+                sourceRectHint?.takeUnless { it.isEmpty }?.let { setSourceRectHint(it) }
+                if (Build.VERSION.SDK_INT >= 33) setCloseAction(closeAction)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     setAutoEnterEnabled(autoEnterEnabled)
+                    setSeamlessResizeEnabled(true)
                 }
             }
             .build()
