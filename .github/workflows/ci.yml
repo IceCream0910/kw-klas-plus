@@ -88,12 +88,44 @@ jobs:
           xcrun simctl bootstatus "$simulator_udid" -b
           echo "udid=$simulator_udid" >> "$GITHUB_OUTPUT"
 
-      - name: Build and run iOS unit tests
+      - name: Build iOS unit tests
         run: >-
           xcodebuild
           -project iosApp/iosApp.xcodeproj
-          -scheme iosApp
+          -scheme iosAppUnitTests
           -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}"
-          -only-testing:iosAppTests
+          -derivedDataPath "${{ runner.temp }}/ios-derived-data"
+          -parallel-testing-enabled NO
           CODE_SIGNING_ALLOWED=NO
-          test
+          build-for-testing
+
+      - name: Run iOS unit tests
+        timeout-minutes: 15
+        env:
+          NSUnbufferedIO: YES
+        run: >-
+          xcodebuild
+          -project iosApp/iosApp.xcodeproj
+          -scheme iosAppUnitTests
+          -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}"
+          -derivedDataPath "${{ runner.temp }}/ios-derived-data"
+          -only-testing:iosAppTests
+          -parallel-testing-enabled NO
+          -test-timeouts-enabled YES
+          -default-test-execution-time-allowance 60
+          -maximum-test-execution-time-allowance 120
+          -resultBundlePath "${{ runner.temp }}/ios-unit-tests.xcresult"
+          CODE_SIGNING_ALLOWED=NO
+          test-without-building
+
+      - name: Upload iOS test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-unit-test-results
+          path: ${{ runner.temp }}/ios-unit-tests.xcresult
+          if-no-files-found: ignore
+
+      - name: Shut down iOS simulator
+        if: always()
+        run: xcrun simctl shutdown "${{ steps.simulator.outputs.udid }}" || true
