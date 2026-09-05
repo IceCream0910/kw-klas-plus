@@ -156,6 +156,35 @@ class IosSettingsLegacyBridgeCommandHandler(
     }
 }
 
+class IosVideoLegacyBridgeCommandHandler(
+    private val host: VideoBridgeHost,
+) : BridgeCommandHandler {
+    override suspend fun handle(command: ValidatedBridgeCommand) = command.execute {
+        when (command.methodId) {
+            BridgeMethodId.VIDEO_COMPLETE_PAGE_LOAD -> host.completePageLoad()
+            BridgeMethodId.VIDEO_OPEN_EXTERNAL_LINK -> host.openExternalLink(command.text(0))
+            BridgeMethodId.VIDEO_OPEN_IN_KLAS -> host.openInKLAS()
+            BridgeMethodId.VIDEO_REQUEST_ONLINE_LECTURE -> host.requestOnlineLecture(command.text(0))
+            BridgeMethodId.VIDEO_RECEIVE_PLAYER_STATES -> host.receivePlayerStates(
+                command.text(0),
+                command.text(1),
+                command.text(2),
+                command.text(3),
+                command.text(4),
+            )
+            BridgeMethodId.VIDEO_RECEIVE_INIT_SPEED -> host.receiveInitSpeed(command.text(0))
+            BridgeMethodId.VIDEO_RECEIVE_VIDEO_DATA -> host.receiveVideoData(
+                command.text(0),
+                command.text(1),
+            )
+            BridgeMethodId.VIDEO_RECEIVE_VIDEO_URL -> host.receiveVideoURL(command.text(0))
+            BridgeMethodId.VIDEO_PERFORM_HAPTIC_FEEDBACK -> host.performHapticFeedback(command.text(0))
+            else -> return@execute false
+        }
+        true
+    }
+}
+
 class IosSettingsLegacySynchronousBridgeCommandHandler(
     private val host: SettingsBridgeHost,
 ) : SynchronousBridgeCommandHandler {

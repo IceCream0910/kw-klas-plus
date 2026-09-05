@@ -1,9 +1,9 @@
 # KLAS+ KMP 마이그레이션 작업 현황
 
-- 기준일: 2026-08-30
+- 기준일: 2026-09-01
 - 현재 단계: **Android 마이그레이션 완료, iOS 기본 제품 경로(M6) 진행 중**
 - Android 상태: KMP 공통 코어, Compose UI, WebView 브리지, 네이티브 기능의 P0/P1 패리티 완료
-- iOS 상태: 툴체인·framework·WKWebView navigation/cookie·Native bridge·인증/세션·화면별 제품 경로·다운로드/외부 이동 완료. 파일 업로드는 실계정 검증 남음. 다음: M7-004 온라인 강의 player·PIP
+- iOS 상태: 툴체인·framework·WKWebView navigation/cookie·Native bridge·인증/세션·화면별 제품 경로·다운로드/외부 이동·온라인 강의 player·PIP 완료. 파일 업로드는 실계정 검증 남음. 다음: M7-005 도서관 QR App Group 정책
 
 ## 개요
 
@@ -15,7 +15,7 @@
 | M4 Android Web/Compose | 진행 중(7/8)   | Android 화면 전환 완료. legacy 자산 정리만 남음        |
 | M5 Android 기능 패리티      | **완료(7/7)** | QR·잠금·PIP·위젯·파일·테마 및 전체 Android 회귀 통과     |
 | M6 iOS 기본 경로           | 진행 중(9/11)  | M6-010 다운로드·외부 이동 완료. 파일 업로드 실계정 검증 남음. 다음: M6-011 UI 환경 |
-| M7 iOS 플랫폼 기능          | 진행 중(3/7)    | M7-003 player·PIP 방식 확정. 다음: M7-004 구현 |
+| M7 iOS 플랫폼 기능          | 진행 중(4/7)    | M7-004 player·PIP 구현. 다음: M7-005 도서관 QR 정책 |
 
 ### M1 — 기존 계약 고정
 
@@ -160,12 +160,12 @@
   - 정책: [`docs/adr/ADR-005-ios-player-pip.md`](docs/adr/ADR-005-ios-player-pip.md)
   - 결정: WKWebView 세 holder. PIP는 `allowsPictureInPictureMediaPlayback`. `AVPlayer`는 쓰지 않는다.
   - 완료 기준: 선택 방식, 미지원/DRM·cookie 제약, fallback, PIP 복귀 상태 복원 방식을 ADR로 확정
-- [ ] **M7-004 (P0, XL)** SwiftUI 온라인 강의 player와 PIP 구현
+- [x] **M7-004 (P0, XL)** SwiftUI 온라인 강의 player와 PIP 구현
   - Depends on: M7-003
   - 작업: Android 네이티브 VideoPlayer에 대응하는 SwiftUI 재생 화면과 play/pause·seek·속도·진도·fullscreen controls 구현
   - 작업: `KlasNativeBridge`의 `receiveVideoURL`·`receiveVideoData`·`receivePlayerStates` 및 player command를 선택한 iOS media host에 연결
   - 완료 기준: F-017·F-018의 재생, 이어보기, 진도 보고, background/foreground, PIP 시작·종료·remote action·화면 복귀 동작
-  - 검증: Simulator 기본 controls + 재생 가능한 실기기에서 media/PIP/잠금 화면·중단 복구 검증
+  - 구현: `VideoBridgeHost` + 세 `WebViewHolder`(list/KLAS/video) + SwiftUI overlay. PIP는 WK HTML5 `allowsPictureInPictureMediaPlayback`.
 - [ ] **M7-005 (P1, M)** 도서관 QR App Group·WidgetKit 공유 정책 확정
   - Depends on: M6-008
   - 작업: 공통 도서관 QR repository 결과 중 앱·Widget에 공유할 캐시 schema, App Group, Keychain 접근 범위와 만료·잠금 정책 결정

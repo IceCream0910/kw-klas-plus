@@ -70,6 +70,22 @@ object KlasWebAutomationScripts {
             "window.scroll(0,0);})();",
     )
 
+    /// Android WebView는 `supportMultipleWindows=false` 설정 시 새 창(window.open)이나 폼 전송을 현재 웹뷰에서 바로 처리합니다.
+    /// 반면 iOS(특히 iOS 17)의 WKWebView는 폼을 새 창으로 제출할 때(`createWebViewWith`) 폼 데이터(POST Body)가 유실되는 문제가 있습니다.
+    /// 따라서 새 창 대신 현재 웹뷰에서 페이지가 열리고, 폼도 현재 창(`_self`)으로 안전하게 제출되도록 가로챕니다.
+    fun redirectWindowOpenToSameFrame(): WebScript = WebScript(
+        "(function(root){function go(url,name){var href=url==null||url===undefined?'':String(url);" +
+            "if(name){try{root.top.name=name;}catch(e){}try{root.name=name;}catch(e){}}" +
+            "if(href&&href!=='about:blank'){try{root.top.location.href=href;}catch(e){" +
+            "try{root.location.href=href;}catch(e2){}}}return root.top||root;}" +
+            "function install(w){if(!w)return;try{w.open=go;}catch(e){}" +
+            "try{if(w.HTMLFormElement&&w.HTMLFormElement.prototype){var s=w.HTMLFormElement.prototype.submit;" +
+            "w.HTMLFormElement.prototype.submit=function(){this.target='_self';return s.apply(this,arguments);};}}catch(e){}" +
+            "try{if(w.document){w.document.addEventListener('submit',function(e){if(e.target&&e.target.tagName==='FORM'){e.target.target='_self';}},true);}}catch(e){}" +
+            "try{var frames=w.frames;for(var i=0;i<frames.length;i++)try{install(frames[i]);}catch(e){}}" +
+            "catch(e){}}install(root);})(window);",
+    )
+
     fun collectLectureBoardPaths(
         maxRetries: Int = 20,
         intervalMs: Int = 250,
@@ -140,6 +156,9 @@ object KlasWebAutomationScripts {
 enum class PlayerPlaybackCommand {
     PLAY,
     PAUSE,
+    MUTE,
+    UNMUTE,
+    OPEN_FULL_SCREEN,
     CLOSE_FULL_SCREEN,
 }
 
@@ -195,8 +214,20 @@ object PlayerWebScripts {
                 "bcPlayController._uniPlayerEventTarget.fire(VCPlayControllerEvent.PLAY);"
             PlayerPlaybackCommand.PAUSE ->
                 "bcPlayController._uniPlayerEventTarget.fire(VCPlayControllerEvent.PAUSE);"
+            PlayerPlaybackCommand.MUTE ->
+                "(function(){" +
+                    "try{var v=document.querySelector('video');if(v)v.muted=true;}catch(e){}" +
+                    "try{if(window.bcPlayController&&bcPlayController.getPlayController){var p=bcPlayController.getPlayController();p._isMuted=true;if(p._eventTarget)p._eventTarget.fire(VCPlayControllerEvent.MUTE);}}catch(e){}" +
+                    "})();"
+            PlayerPlaybackCommand.UNMUTE ->
+                "(function(){" +
+                    "try{var v=document.querySelector('video');if(v)v.muted=false;}catch(e){}" +
+                    "try{if(window.bcPlayController&&bcPlayController.getPlayController){var p=bcPlayController.getPlayController();p._isMuted=false;if(p._eventTarget)p._eventTarget.fire(VCPlayControllerEvent.UNMUTE);}}catch(e){}" +
+                    "})();"
+            PlayerPlaybackCommand.OPEN_FULL_SCREEN ->
+                "if(window.bcPlayController)bcPlayController.getPlayController()._eventTarget.fire(VCPlayControllerEvent.FULL_SCREEN);"
             PlayerPlaybackCommand.CLOSE_FULL_SCREEN ->
-                "bcPlayController.getPlayController()._eventTarget.fire(VCPlayControllerEvent.CLOSE_FULL_SCREEN);"
+                "if(window.bcPlayController)bcPlayController.getPlayController()._eventTarget.fire(VCPlayControllerEvent.CLOSE_FULL_SCREEN);"
         }
         return WebScript(source)
     }
@@ -206,13 +237,20 @@ object PlayerWebScripts {
             klasNativeBridgeCall("receiveInitSpeed", "speed") +
             ";clearInterval(window.__klasPlusPlayerStateInterval);" +
             "window.__klasPlusPlayerStateInterval=setInterval(function(){\$('#content-metadata').remove();" +
-            "var player=bcPlayController.getPlayController();" + klasNativeBridgeCall(
+            "var player=(window.bcPlayController&&bcPlayController.getPlayController)?bcPlayController.getPlayController():null;" +
+            "var v=document.querySelector('video');" +
+            "var isMuted=v?v.muted:(player?player._isMuted===true:false);" +
+            "var isPlaying=player&&player._isPlaying!==undefined?player._isPlaying:(v?!v.paused:false);" +
+            "var currTime=player&&player._currTime!==undefined?player._currTime:(v?v.currentTime:0);" +
+            "var duration=player&&player._duration!==undefined?player._duration:(v?v.duration:0);" +
+            "var isFullscreen=player&&player._isFullScreen!==undefined?player._isFullScreen:false;" +
+            klasNativeBridgeCall(
                 "receivePlayerStates",
-                "String(player._currTime)",
-                "String(player._duration)",
-                "String(player._isMuted)",
-                "String(player._isPlaying)",
-                "String(player._isFullScreen)",
+                "String(currTime)",
+                "String(duration)",
+                "String(isMuted)",
+                "String(isPlaying)",
+                "String(isFullscreen)",
             ) + ";},200);})();",
     )
 
@@ -241,7 +279,45 @@ object PlayerWebScripts {
         "if(window.bcPlayController){" + playback(PlayerPlaybackCommand.CLOSE_FULL_SCREEN).reveal() + "}",
     )
 
-    fun openOnlineContent(request: OnlineContentRequest): WebScript {
+    fun openFullScreenIfAvailable(): WebScript = WebScript(
+        "if(window.bcPlayController){" + playback(PlayerPlaybackCommand.OPEN_FULL_SCREEN).reveal() + "}",
+    )
+
+    fun mute(muted: Boolean): WebScript =
+        playback(if (muted) PlayerPlaybackCommand.MUTE else PlayerPlaybackCommand.UNMUTE)
+
+    fun enterPictureInPicture(): WebScript = WebScript(
+        "(function(){var video=document.querySelector('video');" +
+            "if(!video)return;" +
+            "try{if(video.webkitSetPresentationMode){video.webkitSetPresentationMode('picture-in-picture');return;}}catch(e){}" +
+            "try{if(typeof video.requestPictureInPicture==='function'){video.requestPictureInPicture();}}catch(e){}})();",
+    )
+
+    fun pictureInPicturePresentationMode(): WebScript = WebScript(
+        "(function(){var video=document.querySelector('video');" +
+            "if(!video)return 'none:paused';" +
+            "var mode=(video.webkitPresentationMode)?String(video.webkitPresentationMode):(document.pictureInPictureElement?'picture-in-picture':'inline');" +
+            "var isPaused=(video.paused===true)?'paused':'playing';" +
+            "return mode+':'+isPaused;})();",
+    )
+
+    fun isPictureInPictureSupported(): WebScript = WebScript(
+        "(function(){var video=document.querySelector('video');" +
+            "if(video&&video.webkitSetPresentationMode)return 'true';" +
+            "if(video&&video.webkitSupportsPresentationMode)return video.webkitSupportsPresentationMode('picture-in-picture')?'true':'false';" +
+            "return (document.pictureInPictureEnabled||'pictureInPictureEnabled' in document)?'true':'false';})();",
+    )
+
+    fun openOnlineContent(request: OnlineContentRequest): WebScript =
+        openOnlineContent(request, directViewer = false)
+
+    fun openOnlineContentViewer(request: OnlineContentRequest): WebScript =
+        openOnlineContent(request, directViewer = true)
+
+    private fun openOnlineContent(
+        request: OnlineContentRequest,
+        directViewer: Boolean,
+    ): WebScript {
         require(request.weekNumber >= 0 && request.weeklySequence >= 0)
         require(request.width >= 0 && request.height >= 0)
         require(request.progress in 0..100)
@@ -269,9 +345,12 @@ object PlayerWebScripts {
             request.learnTime,
         ).map(JavaScriptEncoder::encodeText)
         values += request.progress.toString()
-        if (request.progress != 100) values += JavaScriptEncoder.encodeText("C")
+        val function =
+            if (directViewer || request.progress == 100) "appModule.goViewCntnts" else "lrnCerti.checkCerti"
+        if (function == "lrnCerti.checkCerti") {
+            values += JavaScriptEncoder.encodeText("C")
+        }
         values += JavaScriptEncoder.encodeText(request.playTime)
-        val function = if (request.progress == 100) "appModule.goViewCntnts" else "lrnCerti.checkCerti"
         return WebScript("$function(${values.joinToString(",")});")
     }
 }

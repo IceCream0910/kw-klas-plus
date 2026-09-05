@@ -61,6 +61,50 @@ class IosLegacyBridgeCommandHandlerTest {
         assertEquals(1, host.completeCount)
     }
 
+    @Test
+    fun videoCommandsReachHost() = runSuspendTest {
+        val host = RecordingVideoHost()
+        val handler = IosVideoLegacyBridgeCommandHandler(host)
+        handler.handle(command(BridgeMethodId.VIDEO_COMPLETE_PAGE_LOAD))
+        handler.handle(command(BridgeMethodId.VIDEO_OPEN_IN_KLAS))
+        handler.handle(command(BridgeMethodId.VIDEO_REQUEST_ONLINE_LECTURE, BridgeValue.Text("{}")))
+        handler.handle(
+            command(
+                BridgeMethodId.VIDEO_RECEIVE_PLAYER_STATES,
+                BridgeValue.Text("1"),
+                BridgeValue.Text("10"),
+                BridgeValue.Text("true"),
+                BridgeValue.Text("false"),
+                BridgeValue.Text("false"),
+            ),
+        )
+        handler.handle(command(BridgeMethodId.VIDEO_RECEIVE_INIT_SPEED, BridgeValue.Text("1.5")))
+        handler.handle(
+            command(
+                BridgeMethodId.VIDEO_RECEIVE_VIDEO_DATA,
+                BridgeValue.Text("progress"),
+                BridgeValue.Text("time"),
+            ),
+        )
+        handler.handle(
+            command(
+                BridgeMethodId.VIDEO_RECEIVE_VIDEO_URL,
+                BridgeValue.Text("https://vod.kw.ac.kr/player"),
+            ),
+        )
+        handler.handle(command(BridgeMethodId.VIDEO_OPEN_EXTERNAL_LINK, BridgeValue.Text("https://example.com")))
+        handler.handle(command(BridgeMethodId.VIDEO_PERFORM_HAPTIC_FEEDBACK, BridgeValue.Text("CLOCK_TICK")))
+        assertEquals(1, host.completeCount)
+        assertEquals(1, host.openInKlasCount)
+        assertEquals(listOf("{}"), host.onlineLectures)
+        assertEquals(listOf("1" to "10"), host.playerStates)
+        assertEquals(listOf("1.5"), host.speeds)
+        assertEquals(listOf("progress" to "time"), host.videoData)
+        assertEquals(listOf("https://vod.kw.ac.kr/player"), host.videoUrls)
+        assertEquals(listOf("https://example.com"), host.externalLinks)
+        assertEquals(listOf("CLOCK_TICK"), host.haptics)
+    }
+
     private fun command(
         methodId: BridgeMethodId,
         vararg arguments: BridgeValue,
@@ -165,4 +209,58 @@ private class RecordingSettingsHost : SettingsBridgeHost {
     override fun setAppLockPassword() = Unit
     override fun setBiometricEnabled(enabled: Boolean) = Unit
     override fun getAppLockSettings(): String = AppLockSettings(false, false, false).toLegacyJson()
+}
+
+private class RecordingVideoHost : VideoBridgeHost {
+    var completeCount = 0
+    var openInKlasCount = 0
+    val onlineLectures = mutableListOf<String>()
+    val playerStates = mutableListOf<Pair<String, String>>()
+    val speeds = mutableListOf<String>()
+    val videoData = mutableListOf<Pair<String, String>>()
+    val videoUrls = mutableListOf<String>()
+    val externalLinks = mutableListOf<String>()
+    val haptics = mutableListOf<String>()
+
+    override fun completePageLoad() {
+        completeCount += 1
+    }
+
+    override fun openExternalLink(url: String) {
+        externalLinks += url
+    }
+
+    override fun openInKLAS() {
+        openInKlasCount += 1
+    }
+
+    override fun requestOnlineLecture(json: String) {
+        onlineLectures += json
+    }
+
+    override fun receivePlayerStates(
+        currentTime: String,
+        duration: String,
+        isMuted: String,
+        isPlaying: String,
+        isFullscreen: String,
+    ) {
+        playerStates += currentTime to duration
+    }
+
+    override fun receiveInitSpeed(currentSpeed: String) {
+        speeds += currentSpeed
+    }
+
+    override fun receiveVideoData(progress: String, time: String) {
+        videoData += progress to time
+    }
+
+    override fun receiveVideoURL(videoURL: String) {
+        videoUrls += videoURL
+    }
+
+    override fun performHapticFeedback(type: String) {
+        haptics += type
+    }
 }

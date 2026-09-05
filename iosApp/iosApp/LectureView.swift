@@ -129,7 +129,8 @@ final class LectureScreenModel: ObservableObject {
         if url.contains("OnlineCntntsStdPage.do") {
             klasHolder.evaluate(IosWebCallbacks.shared.setLocalStorage(key: "selectYearhakgi", value: yearSemester))
             klasHolder.evaluate(IosWebCallbacks.shared.setLocalStorage(key: "selectSubj", value: subjectId))
-            coordinator?.presentUnavailable()
+            klasHolder.load(KlasUrls.shared.KLAS_LECTURE_HOME)
+            coordinator?.openOnlineLectureList(subjectId: subjectId, yearSemester: yearSemester)
         }
         if url.contains("Frame.do") {
             openLectureIfNeeded()
@@ -325,7 +326,10 @@ final class LectureHostAdapter: LectureBridgeHost {
     }
 
     func openOnlineLecture() {
-        Task { @MainActor in model?.coordinator?.presentUnavailable() }
+        Task { @MainActor in
+            guard let model else { return }
+            model.coordinator?.openOnlineLectureList(subjectId: model.subjectId, yearSemester: model.yearSemester)
+        }
     }
 
     func openLecturePlan() {

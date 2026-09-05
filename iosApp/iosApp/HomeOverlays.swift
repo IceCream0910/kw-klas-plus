@@ -87,29 +87,6 @@ struct HomeOverlayModifier: ViewModifier {
             } message: {
                 Text(coordinator.qrAlertMessage)
             }
-            .overlay(alignment: .bottom) {
-                if let toast = coordinator.toastMessage {
-                    GeometryReader { proxy in
-                        Text(toast)
-                            .font(.subheadline)
-                            .foregroundStyle(KlasTheme.onSurface)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
-                            .background(
-                                Capsule(style: .continuous)
-                                    .fill(KlasTheme.surfaceContainerHigh)
-                            )
-                            .padding(.bottom, max(24, proxy.safeAreaInsets.bottom + 8))
-                            .frame(
-                                maxWidth: .infinity,
-                                maxHeight: .infinity,
-                                alignment: .bottom
-                            )
-                            .accessibilityIdentifier("home_toast")
-                    }
-                    .allowsHitTesting(false)
-                }
-            }
     }
 
     private var optionsSheet: some View {
@@ -142,5 +119,79 @@ struct HomeOverlayModifier: ViewModifier {
                 }
             }
         )
+    }
+}
+
+@MainActor
+enum ToastBanner {
+    private static var activeToastHosting: UIViewController?
+    private static var activeDismissTask: Task<Void, Never>?
+
+    static func show(_ message: String) {
+        guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard let windowScene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first(where: { $0.activationState == .foregroundActive }) ??
+            UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first,
+            let window = windowScene.windows.first(where: { $0.isKeyWindow }) ?? windowScene.windows.first else {
+            return
+        }
+
+        activeDismissTask?.cancel()
+        activeToastHosting?.view.removeFromSuperview()
+        activeToastHosting?.removeFromParent()
+
+        let toastController = UIHostingController(
+            rootView: HStack {
+                Text(message)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(KlasTheme.onSurface)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(KlasTheme.surfaceContainerHigh)
+                            .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
+                    )
+            }
+        )
+
+        let toastView = toastController.view!
+        toastView.backgroundColor = .clear
+        toastView.translatesAutoresizingMaskIntoConstraints = false
+        toastView.isUserInteractionEnabled = false
+        toastView.alpha = 0
+        toastView.transform = CGAffineTransform(translationX: 0, y: 20)
+        toastView.accessibilityIdentifier = "home_toast"
+
+        window.addSubview(toastView)
+        NSLayoutConstraint.activate([
+            toastView.centerXAnchor.constraint(equalTo: window.centerXAnchor),
+            toastView.bottomAnchor.constraint(equalTo: window.safeAreaLayoutGuide.bottomAnchor, constant: -36),
+            toastView.leadingAnchor.constraint(greaterThanOrEqualTo: window.leadingAnchor, constant: 24),
+            toastView.trailingAnchor.constraint(lessThanOrEqualTo: window.trailingAnchor, constant: -24),
+        ])
+
+        activeToastHosting = toastController
+
+        UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut, .allowUserInteraction]) {
+            toastView.alpha = 1
+            toastView.transform = .identity
+        }
+
+        activeDismissTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            guard activeToastHosting === toastController else { return }
+            UIView.animate(withDuration: 0.25, animations: {
+                toastView.alpha = 0
+                toastView.transform = CGAffineTransform(translationX: 0, y: 20)
+            }) { _ in
+                if activeToastHosting === toastController {
+                    toastView.removeFromSuperview()
+                    activeToastHosting = nil
+                }
+            }
+        }
     }
 }

@@ -16,6 +16,7 @@ enum HomeDestination: Hashable {
     )
     case task(path: String, subjectId: String, yearSemester: String)
     case lecturePlan(subjectId: String)
+    case video(subjectId: String, yearSemester: String)
     case link(url: String)
     case settings
 }
@@ -53,8 +54,10 @@ final class HomeCoordinator: ObservableObject {
     @Published var theme = "system"
     @Published var qrPhase: QrAttendancePhase = .idle
     @Published var isPresentingQrScanner = false
+    var isVideoScreenPresented = false
 
     let homeRuntime: IosHomeRuntime
+    let mediaMetadataRepository: MediaMetadataRepository
     let onLogout: () -> Void
 
     private(set) var sessionToken: SecretValue?
@@ -111,6 +114,7 @@ final class HomeCoordinator: ObservableObject {
     ) {
         let dependencies = authRuntime.dependencies
         self.homeRuntime = IosHomeRuntime.companion.create(dependencies: dependencies)
+        self.mediaMetadataRepository = dependencies.mediaMetadataRepository
         self.onLogout = onLogout
         self.theme = homeRuntime.currentTheme()
         self.qrScanner = qrScanner
@@ -226,6 +230,10 @@ final class HomeCoordinator: ObservableObject {
     }
 
     func openTask(path: String, subjectId: String, yearSemester: String) {
+        if path.contains("OnlineCntntsStdPage.do") {
+            openOnlineLectureList(subjectId: subjectId, yearSemester: yearSemester)
+            return
+        }
         guard let token = sessionToken else { return }
         let resolution = routeFactory.task(
             path: path,
@@ -240,6 +248,54 @@ final class HomeCoordinator: ObservableObject {
                 yearSemester: yearSemester
             ))
         }
+    }
+
+    private(set) var activeVideoModel: VideoScreenModel?
+
+    func videoModel(subjectId: String, yearSemester: String) -> VideoScreenModel {
+        if let existing = activeVideoModel,
+           existing.subjectId == subjectId && existing.yearSemester == yearSemester {
+            return existing
+        }
+        let newModel = VideoScreenModel(
+            subjectId: subjectId,
+            yearSemester: yearSemester,
+            sessionToken: sessionToken,
+            coordinator: self
+        )
+        activeVideoModel = newModel
+        return newModel
+    }
+
+    func clearActiveVideoModelIfIdle() {
+        if let active = activeVideoModel, !active.isInPictureInPicture {
+            activeVideoModel = nil
+        }
+    }
+
+    func openVideo(subjectId: String, yearSemester: String, replacingCurrent: Bool = false) {
+        guard let token = sessionToken else { return }
+        let resolution = routeFactory.video(
+            subjectId: subjectId,
+            yearSemester: yearSemester,
+            session: token
+        )
+        guard resolution is AppRouteResolutionAccepted else { return }
+        if replacingCurrent, path.count > 0 {
+            path.removeLast()
+        }
+        path.append(HomeDestination.video(subjectId: subjectId, yearSemester: yearSemester))
+    }
+
+    func openOnlineLectureList(subjectId: String, yearSemester: String, replacingCurrent: Bool = false) {
+        if let active = activeVideoModel {
+            if !active.isInPictureInPicture {
+                activeVideoModel = nil
+            } else if active.subjectId == subjectId && active.yearSemester == yearSemester {
+                active.isPlayerVisible = false
+            }
+        }
+        openVideo(subjectId: subjectId, yearSemester: yearSemester, replacingCurrent: replacingCurrent)
     }
 
     func openWeb(url: String) {
@@ -451,6 +507,7 @@ final class HomeCoordinator: ObservableObject {
         let holder = homeHolder
         homeHolder = nil
         holder?.dispose()
+        activeVideoModel = nil
     }
 
     func presentLogoutConfirm() {
@@ -485,13 +542,18 @@ final class HomeCoordinator: ObservableObject {
     }
 
     func showToast(_ message: String) {
-        toastMessage = message
+        withAnimation(.easeInOut(duration: 0.2)) {
+            toastMessage = message
+        }
+        ToastBanner.show(message)
         UIAccessibility.post(notification: .announcement, argument: message)
         toastTask?.cancel()
         toastTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 2_500_000_000)
-            if toastMessage == message {
-                toastMessage = nil
+            withAnimation(.easeInOut(duration: 0.2)) {
+                if toastMessage == message {
+                    toastMessage = nil
+                }
             }
         }
     }

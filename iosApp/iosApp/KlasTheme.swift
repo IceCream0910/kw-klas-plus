@@ -18,6 +18,7 @@ enum KlasTheme {
     static let inversePrimary = Color(light: 0xFFB2BA, dark: 0x8F4953)
     static let inverseButtonContent = Color(light: 0x561D27, dark: 0xFFFFFF)
     static let secondaryContainer = Color(light: 0xFFD9DC, dark: 0x5C3F42)
+    static let onSecondaryContainer = Color(light: 0x5C3F42, dark: 0xFFD9DC)
     static let surfaceContainerLow = Color(light: 0xFFF0F0, dark: 0x22191A)
     static let surfaceContainerHigh = Color(light: 0xF6E4E5, dark: 0x312828)
     static let scrim = Color.black
