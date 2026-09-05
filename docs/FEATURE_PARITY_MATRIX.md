@@ -34,8 +34,8 @@
 | F-017 | 온라인 강의 재생 | Android player/PIP host | iOS player host | P0 | Parity | 재생·seek·speed·진도 포함. iOS M7-004: 세 WKWebView + SwiftUI overlay + `PlayerWebScripts` (`IosVideoHostTests`). |
 | F-018 | PIP | Android native | WK HTML5 PIP | P1 | Parity | iOS는 웹뷰 PIP 및 백그라운드 재생 설정을 완료했습니다. 단, Android PIP와 달리 iOS PIP 창에서는 10초 앞/뒤 이동 버튼이 지원되지 않으며(앱 내 재생 화면에서만 지원), 이는 OS 제약에 따른 정상 차이점으로 인정 |
 | F-019 | QR 출석 | Android scanner port | AVFoundation/VisionKit port | P0 | Parity | iOS: VisionKit `DataScannerViewController`, Home `qrCheckIn`·Lecture `openQRScan`, 성공·실패·취소·중복 실행 (`QrAttendanceTests`). |
-| F-020 | 도서관 QR 조회 | 공통 API + Android UI | 공통 API + iOS UI | P1 | Parity | 캐시·밝기·IME·갱신 포함 |
-| F-021 | 홈 화면 도서관 위젯 | AppWidgetProvider | WidgetKit extension | P1 | Parity | 잠금·만료·테마 포함 |
+| F-020 | 도서관 QR 조회 | 공통 API + Android UI | 공통 API + iOS UI | P1 | Parity | 캐시·밝기·IME·갱신 포함. iOS 정책은 ADR-006 확정, UI 구현은 M7-006 |
+| F-021 | 홈 화면 도서관 위젯 | AppWidgetProvider | WidgetKit extension | P1 | Parity | 잠금·만료·테마 포함. iOS는 Android 원본과 동일한 정적 아이콘 런처 정책(ADR-006, Zero Shared PII)으로 패리티 확정, 구현은 M7-006 |
 | F-022 | 앱 잠금 PIN | 공통 policy + Android lifecycle | 공통 policy + iOS scene phase | P0 | Parity | iOS PIN SET/CHANGE/VERIFY/UNLOCK, Settings `getAppLockSettings`/`onAppLockSettingChanged`. hash/salt는 Keychain, 플래그는 UserDefaults `a_l_e`/`b_m_e`. 위젯 예외는 M7-006. (`IosAppLockStoreTests`, `AppLockControllerTests`) |
 | F-023 | 생체인식 | Android biometric port | LocalAuthentication port | P0 | Parity | `IosBiometrics` 성공·취소·미등록·미지원 매핑, Settings `onBiometricSettingChanged`. Face ID 실기기 검증 남음 |
 | F-024 | 설정/테마/버전 | 공통 Web/Compose + settings | 동일 | P1 | Parity | 재시작 persistence 포함. iOS `KlasTheme` 토큰은 Android `values`/`values-night` light·dark 쌍 |
