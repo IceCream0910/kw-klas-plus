@@ -14,6 +14,24 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
 class TimetableRepositoryTest {
+    @Test fun optionalWeekendFieldsArePreserved() = runBlocking {
+        val repository = TimetableRepository(KlasAuthenticatedTransport { _, _, _, _ ->
+            KlasAuthenticatedResult.Success(buildJsonArray {
+                add(buildJsonObject {
+                    put("wtTime", 1)
+                    for (day in 6..7) {
+                        put("wtSubj_$day", "W$day")
+                        put("wtSubjNm_$day", "주말 수업")
+                        put("wtLocHname_$day", "301")
+                    }
+                })
+            })
+        })
+        val result = assertIs<TimetableResult.Success>(repository.fetch(SecretValue.of("session"),
+            KlasUserAgent.fromPlatform("UA"), "2026", "2"))
+        assertEquals(listOf(5, 6), result.entriesBySubject.values.flatten().map { it.day })
+    }
+
     @Test
     fun mapsLegacyDynamicDayFieldsAndPeriodSpan() = runBlocking {
         var endpoint: AuthenticatedKlasEndpoint? = null

@@ -85,7 +85,7 @@ class TimetableRepository(
             val row = element as? JsonObject ?: return TimetableResult.MalformedResponse
             if (row.string("wtHasSchedule") == "N") continue
             val period = row.int("wtTime") ?: return TimetableResult.MalformedResponse
-            for (day in 1..6) {
+            for (day in 1..7) {
                 val subjectId = row.string("wtSubj_$day") ?: continue
                 val title = row.string("wtSubjNm_$day") ?: continue
                 val place = row.string("wtLocHname_$day") ?: continue

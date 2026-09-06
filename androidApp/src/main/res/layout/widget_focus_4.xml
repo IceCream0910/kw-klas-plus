@@ -1,0 +1,15 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/academic_widget_root"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical"
+    android:padding="16dp" android:background="@drawable/academic_widget_background">
+    <TextView android:id="@+id/widget_focus_label" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textSize="12sp" android:textStyle="bold" android:textColor="@color/academic_widget_secondary" android:maxLines="1"/>
+    <TextView android:id="@+id/widget_focus_title" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+        android:gravity="top" android:paddingTop="5dp" android:textStyle="bold" android:textColor="@color/academic_widget_text"
+        android:textSize="20sp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="11sp" android:autoSizeMaxTextSize="20sp"
+        android:autoSizeStepGranularity="1sp" android:maxLines="3" android:ellipsize="end"/>
+    <TextView android:id="@+id/widget_focus_detail" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textSize="12sp" android:textColor="@color/academic_widget_secondary" android:maxLines="1" android:ellipsize="end"/>
+    <ProgressBar android:id="@+id/widget_focus_progress" style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent" android:layout_height="5dp" android:layout_marginTop="10dp"
+        android:indeterminate="false" android:progressDrawable="@drawable/widget_progress_4"/>
+</LinearLayout>

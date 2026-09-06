@@ -1,0 +1,26 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/academic_widget_root"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical"
+    android:padding="16dp" android:background="@drawable/academic_widget_background">
+    <TextView android:id="@+id/widget_date_header" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textSize="16sp" android:textStyle="bold" android:layout_marginBottom="8dp" android:textColor="@color/academic_widget_text" android:maxLines="1" android:ellipsize="end"/>
+    <TextView android:id="@+id/widget_today_empty" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:paddingTop="8dp" android:text="오늘 일정이 없어요" android:textSize="13sp" android:textColor="@color/academic_widget_secondary" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_next_date" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:paddingTop="10dp" android:paddingBottom="4dp" android:textSize="14sp" android:textStyle="bold" android:textColor="@color/academic_widget_secondary" android:visibility="gone"/>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+        <LinearLayout android:id="@+id/widget_date_rail" android:layout_width="48dp" android:layout_height="match_parent" android:orientation="vertical" android:paddingTop="4dp">
+            <TextView android:id="@+id/widget_weekday" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="12sp" android:textStyle="bold" android:textColor="@color/widget_day_accent"/>
+            <TextView android:id="@+id/widget_day" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="32sp" android:textStyle="bold" android:textColor="@color/academic_widget_text"/>
+        </LinearLayout>
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1">
+            <ListView android:id="@+id/academic_widget_list" android:layout_width="match_parent" android:layout_height="match_parent" android:divider="@android:color/transparent" android:dividerHeight="6dp" android:scrollbars="none"/>
+            <TextView android:id="@+id/academic_widget_empty" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:textAlignment="center" android:textSize="13sp" android:textColor="@color/academic_widget_secondary"/>
+        </FrameLayout>
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:id="@+id/academic_widget_status" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:textSize="9sp" android:textColor="@color/academic_widget_secondary" android:maxLines="1" android:ellipsize="end"/>
+        <ImageButton android:id="@+id/academic_widget_refresh" android:layout_width="24dp" android:layout_height="24dp"
+            android:padding="4dp" android:background="@android:color/transparent" android:src="@drawable/widget_refresh"
+            android:contentDescription="일정 즉시 업데이트" android:tint="@color/academic_widget_secondary"/>
+    </LinearLayout>
+</LinearLayout>

@@ -9,6 +9,7 @@ class MainApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        dependencies.academicWidgets.start()
         
         ProcessLifecycleOwner.get().lifecycle.addObserver(
             AppLifecycleObserver(this, dependencies.sessionKeepAlive),

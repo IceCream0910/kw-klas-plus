@@ -1,0 +1,6 @@
+<resources>
+    <color name="academic_widget_background">#111214</color>
+    <color name="academic_widget_text">#F7F7F8</color>
+    <color name="academic_widget_secondary">#ADAEB5</color>
+    <color name="widget_day_accent">#FF858C</color>
+</resources>
