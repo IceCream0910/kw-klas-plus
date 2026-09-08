@@ -106,11 +106,9 @@ struct KlasTextLinkButtonStyle: ButtonStyle {
 }
 
 struct KlasSelectionRowButtonStyle: ButtonStyle {
-    @ScaledMetric(relativeTo: .footnote) private var optionFontSize: CGFloat = 14
-
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: optionFontSize, weight: .medium))
+            .font(.footnote.weight(.medium))
             .foregroundStyle(KlasTheme.onSurfaceVariant)
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
