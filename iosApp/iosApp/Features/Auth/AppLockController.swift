@@ -104,6 +104,12 @@ final class AppLockController: ObservableObject {
         }
     }
 
+    func dismissUnlockCover() {
+        guard mode == .unlock else { return }
+        mode = nil
+        didAutoPromptBiometric = false
+    }
+
     func presentUnlock(completion: @escaping (Bool) -> Void) {
         if !store.isEnabled() || store.isUnlocked {
             completion(true)
@@ -302,6 +308,7 @@ final class AppLockController: ObservableObject {
 
     private func authenticateUnlock() async {
         let result = await runBiometricPrompt { await authenticateBiometrics(.unlockApp, nil) }
+        guard mode == .unlock else { return }
         if result is PlatformActionResultSuccess {
             unlockSuccess()
         }

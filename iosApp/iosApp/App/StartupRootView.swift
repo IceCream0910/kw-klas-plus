@@ -76,21 +76,20 @@ struct StartupRootView: View {
             controller.start()
             Task { @MainActor in
                 await Task.yield()
-                if !libraryQr.isQrBypassActive {
-                    appLock.handleScenePhase(scenePhase)
-                }
+                applyAppLock(for: scenePhase)
             }
         }
         .onChange(of: scenePhase) { phase in
             controller.setAppActive(phase == .active)
             libraryQr.handleScenePhase(phase)
-            if phase != .active || !libraryQr.isQrBypassActive {
-                appLock.handleScenePhase(phase)
-            }
+            applyAppLock(for: phase)
         }
         .onChange(of: controller.phase) { phase in
             if phase == .authenticated {
                 libraryQr.handleAuthenticated()
+                applyAppLock(for: scenePhase)
+            } else {
+                appLock.dismissUnlockCover()
             }
         }
         .onChange(of: appLock.mode) { mode in
@@ -103,11 +102,27 @@ struct StartupRootView: View {
         }
     }
 
+    private var isSessionAuthenticated: Bool {
+        controller.phase == .authenticated
+    }
+
     private var lockCoverMode: Binding<AppLockController.Mode?> {
         Binding(
-            get: { libraryQr.isQrBypassActive ? nil : appLock.mode },
+            get: {
+                guard isSessionAuthenticated, !libraryQr.isQrBypassActive else { return nil }
+                return appLock.mode
+            },
             set: { appLock.mode = $0 }
         )
+    }
+
+    private func applyAppLock(for phase: ScenePhase) {
+        if phase == .background {
+            appLock.handleScenePhase(phase)
+            return
+        }
+        guard isSessionAuthenticated, !libraryQr.isQrBypassActive else { return }
+        appLock.handleScenePhase(phase)
     }
 
     private var lockColorScheme: ColorScheme? {
