@@ -153,7 +153,7 @@ final class HomeCoordinator: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                self?.endIdCardModalIfNeeded()
+                self?.handleAppWillResignActive()
             }
         }
     }
@@ -465,6 +465,11 @@ final class HomeCoordinator: ObservableObject {
         }
         idCardProbe = probe
         probe.start()
+    }
+
+    func handleAppWillResignActive() {
+        guard isIdCardModalActive else { return }
+        restoreIdCardBrightness()
     }
 
     func endIdCardModalIfNeeded() {

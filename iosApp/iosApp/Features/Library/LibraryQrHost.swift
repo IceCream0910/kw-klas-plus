@@ -11,14 +11,6 @@ struct LibraryQrHostModifier: ViewModifier {
                     .preferredColorScheme(colorScheme)
             }
             .alert(
-                controller.setupAlertTitle,
-                isPresented: $controller.setupAlertPresented
-            ) {
-                Button("확인") { controller.confirmSetupAlert() }
-            } message: {
-                Text(controller.setupAlertMessage)
-            }
-            .alert(
                 controller.errorTitle,
                 isPresented: $controller.errorAlertPresented
             ) {

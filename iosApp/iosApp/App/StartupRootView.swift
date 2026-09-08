@@ -86,15 +86,9 @@ struct StartupRootView: View {
         }
         .onChange(of: controller.phase) { phase in
             if phase == .authenticated {
-                libraryQr.handleAuthenticated()
                 applyAppLock(for: scenePhase)
             } else {
                 appLock.dismissUnlockCover()
-            }
-        }
-        .onChange(of: appLock.mode) { mode in
-            if mode == nil {
-                libraryQr.handleLockCoverDismissed()
             }
         }
         .onOpenURL { url in

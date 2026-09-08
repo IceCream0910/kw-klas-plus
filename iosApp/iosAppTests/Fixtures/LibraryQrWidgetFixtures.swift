@@ -6,13 +6,11 @@ enum LibraryQrWidgetFixtures {
 
     public static func resolveRoute(
         url: URL,
-        hasConfiguredCredentials: Bool,
-        isAppLockActive: Bool
+        hasConfiguredCredentials: Bool
     ) -> LibraryQrRouteDecision? {
         LibraryQrRouter.resolveRoute(
             url: url,
-            hasConfiguredCredentials: hasConfiguredCredentials,
-            isAppLockActive: isAppLockActive
+            hasConfiguredCredentials: hasConfiguredCredentials
         )
     }
 }

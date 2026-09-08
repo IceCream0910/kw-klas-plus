@@ -25,27 +25,23 @@ final class LibraryQrController: ObservableObject {
     @Published var presentedSheet: LibraryQrPresentedSheet?
     @Published var qrState = LibraryQrUiState()
     @Published var settingsState = LibraryQrSettingsUiState(studentNumber: "", password: "", phone: "")
-    @Published var setupAlertPresented = false
     @Published var errorAlertPresented = false
     @Published var addWidgetAlertPresented = false
     @Published var isQrBypassActive = false
 
     let errorTitle = "오류"
     let errorMessage = "모바일 학생증 정보를 가져올 수 없습니다.\n모바일 학생증 설정에서 입력한 정보가 올바른지 확인한 후 다시 시도해주세요."
-    let setupAlertTitle = "모바일 학생증"
-    let setupAlertMessage = "먼저 앱에서 모바일 학생증 설정을 완료해주세요."
+    let setupNoticeMessage = "먼저 앱에서 모바일 학생증 설정을 완료해주세요."
     let addWidgetMessage = "홈 화면을 길게 누른 뒤 위젯 추가에서 광운대학교+ 도서관 출입증을 선택해주세요."
 
     private let service: IosLibraryService
     private let appLock: AppLockController
     private let colorScheme: () -> ColorScheme?
     private let widgetInstalled: (@escaping (Bool) -> Void) -> Void
-    private var pending = LibraryQrPendingGate()
     private var originalBrightness: CGFloat?
     private var refreshTask: Task<Void, Never>?
     private var fetchGeneration = 0
     private var isRetry = false
-    private var qrAfterSettings: (isWidgetEntry: Bool, bypassLock: Bool)?
     private var refreshWebAfterSettings = false
     private var suppressDismissCleanup = false
     var onWebIdCardRefreshNeeded: (() -> Void)?
@@ -67,43 +63,40 @@ final class LibraryQrController: ObservableObject {
         }
     }
 
-    var isAppLockActive: Bool {
-        appLock.store.isEnabled() && !appLock.store.isUnlocked
-    }
-
     func handleOpenURL(_ url: URL) -> Bool {
-        guard LibraryQrRouter.isLibraryQrURL(url) else { return false }
-        pending.remember(url)
-        flushPending(lockCoverVisible: appLock.mode != nil)
-        return true
-    }
-
-    func handleAuthenticated() {
-        flushPending(lockCoverVisible: appLock.mode != nil)
-    }
-
-    func handleLockCoverDismissed() {
-        flushPending(lockCoverVisible: false)
+        switch LibraryQrRouter.resolveRoute(
+            url: url,
+            hasConfiguredCredentials: service.hasConfiguredCredentials()
+        ) {
+        case .openQrDirectly:
+            presentWidgetQr()
+            return true
+        case .showUnconfiguredNotice:
+            presentUnconfiguredWidgetNotice()
+            return true
+        case nil:
+            return false
+        }
     }
 
     func presentQrFromApp() {
         if service.hasConfiguredCredentials() {
-            presentQr(isWidgetEntry: false, bypassLock: false)
+            qrState.isWidgetEntry = false
+            presentQr()
         } else {
-            qrAfterSettings = (false, false)
+            qrState.isWidgetEntry = false
             refreshWebAfterSettings = false
             presentSettings()
         }
     }
 
     func presentSettingsFromApp() {
-        qrAfterSettings = (false, false)
+        qrState.isWidgetEntry = false
         refreshWebAfterSettings = false
         presentSettings()
     }
 
     func presentSettingsFromHome() {
-        qrAfterSettings = nil
         refreshWebAfterSettings = true
         presentSettings()
     }
@@ -124,18 +117,15 @@ final class LibraryQrController: ObservableObject {
     }
 
     func presentSettingsFromQr() {
-        qrAfterSettings = (qrState.isWidgetEntry, isQrBypassActive)
         refreshWebAfterSettings = false
         presentSettings()
     }
 
     func saveSettings() {
         guard settingsState.canSave else { return }
-        let followUp = qrAfterSettings
         let refreshWeb = refreshWebAfterSettings
-        qrAfterSettings = nil
         refreshWebAfterSettings = false
-        suppressDismissCleanup = followUp != nil
+        suppressDismissCleanup = !refreshWeb
         service.saveCredentials(
             studentNumber: settingsState.studentNumber,
             phoneNumber: settingsState.phone,
@@ -146,21 +136,13 @@ final class LibraryQrController: ObservableObject {
             self.settingsState.password = ""
             if refreshWeb {
                 self.onWebIdCardRefreshNeeded?()
-            }
-            if let followUp {
+            } else {
                 Task { @MainActor in
-                    self.presentQr(
-                        isWidgetEntry: followUp.isWidgetEntry,
-                        bypassLock: followUp.bypassLock
-                    )
+                    self.presentQr()
                 }
             }
         }
         presentedSheet = nil
-    }
-
-    func confirmSetupAlert() {
-        setupAlertPresented = false
     }
 
     func dismissErrorAlert() {
@@ -175,48 +157,32 @@ final class LibraryQrController: ObservableObject {
             suppressDismissCleanup = false
             return
         }
-        qrAfterSettings = nil
         refreshWebAfterSettings = false
         dismissQr(restoreLock: true)
     }
 
-    private func flushPending(lockCoverVisible: Bool) {
-        guard let url = pending.pendingURL else { return }
-        let decision = LibraryQrRouter.resolveRoute(
-            url: url,
-            hasConfiguredCredentials: service.hasConfiguredCredentials(),
-            isAppLockActive: isAppLockActive
-        )
-        switch decision {
-        case .openQrDirectly(let bypass):
-            _ = pending.consume()
-            presentWidgetQr(bypassLock: bypass)
-        case .showUnconfiguredNotice:
-            guard !lockCoverVisible else { return }
-            _ = pending.consume()
-            setupAlertPresented = true
-        case nil:
-            _ = pending.consume()
+    private func presentUnconfiguredWidgetNotice() {
+        Task { @MainActor in
+            await Task.yield()
+            ToastBanner.show(setupNoticeMessage)
         }
     }
 
-    private func presentWidgetQr(bypassLock: Bool) {
-        isQrBypassActive = bypassLock
-        appLock.isLibraryQrExempt = bypassLock
-        Task { @MainActor [weak self] in
-            self?.presentQr(isWidgetEntry: true, bypassLock: bypassLock)
-        }
+    private func presentWidgetQr() {
+        qrState.isWidgetEntry = true
+        presentQr()
     }
 
-    private func presentQr(isWidgetEntry: Bool, bypassLock: Bool) {
-        qrState.isWidgetEntry = isWidgetEntry
-        isQrBypassActive = bypassLock
-        appLock.isLibraryQrExempt = bypassLock
+    private func presentQr() {
+        let isWidgetEntry = qrState.isWidgetEntry
+        isQrBypassActive = isWidgetEntry
+        appLock.isLibraryQrExempt = isWidgetEntry
         presentedSheet = .qr(isWidgetEntry: isWidgetEntry)
         captureBrightness()
         UIScreen.main.brightness = 1.0
         widgetInstalled { [weak self] installed in
-            self?.qrState.canAddWidget = !isWidgetEntry && !installed
+            guard let self else { return }
+            self.qrState.canAddWidget = !self.qrState.isWidgetEntry && !installed
         }
         loadQr(resetRetry: true)
         startTimer()
