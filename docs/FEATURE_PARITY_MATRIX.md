@@ -24,7 +24,7 @@
 | F-007 | 홈 피드/하단 탭 | Compose shell + WebView | SwiftUI shell + WKWebView | P0 | Parity | Android 패리티 완료. iOS M6-009: Home holder 1개에서 `changeTab` URL 교체, `receiveToken`/시간표/마감 주입, bootstrap 실패 후 재시도 성공 시 holder 부착·ready 복구. 제품 WKWebView UA에 `iOSApp_v{build}` 접미사 (`IosHomeHostTests`). 웹 `bottomNav.js`의 iOS 분기는 Web 저장소에서 배포 |
 | F-008 | 시간표/학기 선택 | 공통 bridge + Compose modal | 공통 bridge + iOS picker | P1 | Parity | iOS: `openYearHakgiBottomSheet` → `SelectionBottomSheet` + `receiveYearHakgi`. 점 3개 메뉴도 동일 시트(Android `SelectionBottomSheetContent` 패리티). QR/영상은 M7 |
 | F-009 | 캘린더/날짜·시간 선택 | Compose/Web date-time adapter | iOS date-time adapter | P1 | Parity | iOS M6-009: `openDateTimePicker` → DatePicker sheet → `setDateTime` |
-| F-010 | 프로필/학생증 QR | Web + QR bridge | Web + QR bridge | P1 | Parity | iOS 프로필 탭은 Home `menu` URL. 학생증 QR command는 M7 stub |
+| F-010 | 프로필/학생증 QR | Web + QR bridge | Web + QR bridge | P1 | Parity | iOS 프로필 탭은 Home `menu` URL. `requestIdCardQRValue`는 `window.receiveIdCardQRValue(libraryQR, idCardQR)`로 학생증·도서관 QR을 전달 (`IosHomeHostTests`) |
 | F-011 | 성적/석차/장학/KLAS AI | WebSurface | WKWebView surface | P1 | Parity | iOS M6-009: Home `openPage` → Link 화면. sheet flag + back 시 `closeWebViewBottomSheet` |
 | F-012 | 강의 홈 | Compose + WebView | SwiftUI + WKWebView | P0 | Parity | iOS M6-009: dual WKWebView, `receivedData` 3인자, `evaluteKLASScript`. QR/영상은 M7 stub |
 | F-013 | 강의계획서 | typed Web route | typed Web route | P1 | Parity | iOS M6-009: LecturePlan surface + `receivedData` 2인자 |
@@ -34,9 +34,9 @@
 | F-017 | 온라인 강의 재생 | Android player/PIP host | iOS player host | P0 | Parity | 재생·seek·speed·진도 포함. iOS M7-004: 세 WKWebView + SwiftUI overlay + `PlayerWebScripts` (`IosVideoHostTests`). |
 | F-018 | PIP | Android native | WK HTML5 PIP | P1 | Parity | iOS는 웹뷰 PIP 및 백그라운드 재생 설정을 완료했습니다. 단, Android PIP와 달리 iOS PIP 창에서는 10초 앞/뒤 이동 버튼이 지원되지 않으며(앱 내 재생 화면에서만 지원), 이는 OS 제약에 따른 정상 차이점으로 인정 |
 | F-019 | QR 출석 | Android scanner port | AVFoundation/VisionKit port | P0 | Parity | iOS: VisionKit `DataScannerViewController`, Home `qrCheckIn`·Lecture `openQRScan`, 성공·실패·취소·중복 실행 (`QrAttendanceTests`). |
-| F-020 | 도서관 QR 조회 | 공통 API + Android UI | 공통 API + iOS UI | P1 | Parity | 캐시·밝기·IME·갱신 포함. iOS 정책은 ADR-006 확정, UI 구현은 M7-006 |
-| F-021 | 홈 화면 도서관 위젯 | AppWidgetProvider | WidgetKit extension | P1 | Parity | 잠금·만료·테마 포함. iOS는 Android 원본과 동일한 정적 아이콘 런처 정책(ADR-006, Zero Shared PII)으로 패리티 확정, 구현은 M7-006 |
-| F-022 | 앱 잠금 PIN | 공통 policy + Android lifecycle | 공통 policy + iOS scene phase | P0 | Parity | iOS PIN SET/CHANGE/VERIFY/UNLOCK, Settings `getAppLockSettings`/`onAppLockSettingChanged`. hash/salt는 Keychain, 플래그는 UserDefaults `a_l_e`/`b_m_e`. 위젯 예외는 M7-006. (`IosAppLockStoreTests`, `AppLockControllerTests`) |
+| F-020 | 도서관 QR 조회 | 공통 API + Android UI | 공통 API + iOS UI | P1 | Parity | 캐시·밝기·IME·갱신 포함. iOS M7-006: SwiftUI QR/설정 시트, Keychain session cache(secret 30일/authKey 12시간), 밝기 1.0·30초 갱신·실패 1회 재시도, 로그아웃 시 학번·전화·비밀번호·cache 삭제. 실계정 조회는 실기기 후속 |
+| F-021 | 홈 화면 도서관 위젯 | AppWidgetProvider | WidgetKit extension | P1 | Parity | 잠금·만료·테마 포함. iOS M7-006: WidgetKit `systemSmall` 정적 아이콘 런처, `widgetURL kwklasplus://library-qr`, light/dark 에셋, App Group 없음(ADR-006 Zero Shared PII). 미설정 탭은 Android와 같이 안내 알림만 표시하고 설정 시트를 열지 않음. 홈 화면 위젯 추가 버튼은 pin API가 없어 안내 알림만 표시(승인 차이) |
+| F-022 | 앱 잠금 PIN | 공통 policy + Android lifecycle | 공통 policy + iOS scene phase | P0 | Parity | iOS PIN SET/CHANGE/VERIFY/UNLOCK, Settings `getAppLockSettings`/`onAppLockSettingChanged`. hash/salt는 Keychain, 플래그는 UserDefaults `a_l_e`/`b_m_e`. 위젯/딥링크 QR 단독 예외는 M7-006에서 연결(설정됨=bypass, 미설정=안내 알림만, dismiss 후 잠금 유지). (`IosAppLockStoreTests`, `AppLockControllerTests`) |
 | F-023 | 생체인식 | Android biometric port | LocalAuthentication port | P0 | Parity | `IosBiometrics` 성공·취소·미등록·미지원 매핑, Settings `onBiometricSettingChanged`. Face ID 실기기 검증 남음 |
 | F-024 | 설정/테마/버전 | 공통 Web/Compose + settings | 동일 | P1 | Parity | 재시작 persistence 포함. iOS `KlasTheme` 토큰은 Android `values`/`values-night` light·dark 쌍 |
 | F-025 | 다운로드 | Android DownloadManager/SAF | URLSession/files/share | P1 | Parity | cookie·MIME·filename·취소 포함. `inline` 파일명은 표시 가능 MIME이면 렌더링하고 `attachment`만 강제 다운로드. iOS는 single-flight로 중복 요청과 취소 완료 전 재진입을 거부 |
