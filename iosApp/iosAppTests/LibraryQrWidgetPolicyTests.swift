@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+@testable import kw_klas_plus
 
 final class LibraryQrWidgetPolicyTests: XCTestCase {
 
@@ -8,11 +9,6 @@ final class LibraryQrWidgetPolicyTests: XCTestCase {
         XCTAssertEqual(qrUrl.scheme, "kwklasplus")
         XCTAssertEqual(qrUrl.host, "library-qr")
         XCTAssertEqual(qrUrl.path, "")
-
-        let settingsUrl = LibraryQrWidgetFixtures.deepLinkSettings
-        XCTAssertEqual(settingsUrl.scheme, "kwklasplus")
-        XCTAssertEqual(settingsUrl.host, "library-qr")
-        XCTAssertEqual(settingsUrl.path, "/settings")
     }
 
     func testConfiguredAppLockBypassPolicy() {
@@ -33,51 +29,66 @@ final class LibraryQrWidgetPolicyTests: XCTestCase {
         XCTAssertEqual(decisionUnlocked, .openQrDirectly(isAppLockBypassed: false))
     }
 
-    func testUnconfiguredRequiresUnlockThenSettings() {
-        // 도서관 자격증명이 미설정된 경우, 인증 없이 설정 화면을 열지 않고 잠금 해제를 거치도록 분기
-        let decision = LibraryQrWidgetFixtures.resolveRoute(
+    func testUnconfiguredWidgetShowsNoticeOnly() {
+        let locked = LibraryQrWidgetFixtures.resolveRoute(
             url: LibraryQrWidgetFixtures.deepLinkQr,
             hasConfiguredCredentials: false,
             isAppLockActive: true
         )
-        XCTAssertEqual(decision, .requireUnlockThenOpenSettings)
+        XCTAssertEqual(locked, .showUnconfiguredNotice)
+
+        let unlocked = LibraryQrWidgetFixtures.resolveRoute(
+            url: LibraryQrWidgetFixtures.deepLinkQr,
+            hasConfiguredCredentials: false,
+            isAppLockActive: false
+        )
+        XCTAssertEqual(unlocked, .showUnconfiguredNotice)
     }
 
-    func testExplicitSettingsDeepLinkRequiresUnlock() {
-        // settings 딥링크로의 직접 접근은 항상 잠금 해제를 거쳐야 함
-        let decision = LibraryQrWidgetFixtures.resolveRoute(
-            url: LibraryQrWidgetFixtures.deepLinkSettings,
-            hasConfiguredCredentials: true,
-            isAppLockActive: true
+    func testUnknownPathIsIgnored() {
+        let settingsUrl = URL(string: "kwklasplus://library-qr/settings")!
+        XCTAssertFalse(LibraryQrRouter.isLibraryQrURL(settingsUrl))
+        XCTAssertNil(
+            LibraryQrWidgetFixtures.resolveRoute(
+                url: settingsUrl,
+                hasConfiguredCredentials: true,
+                isAppLockActive: true
+            )
         )
-        XCTAssertEqual(decision, .requireUnlockThenOpenSettings)
     }
 
-    func testSessionLifecycleCleansUpMemoryAndMaintainsLock() {
-        var state = LibraryQrSessionState(
-            screenBrightness: 0.4,
-            isAppLocked: true
-        )
+    func testPendingDeepLinkWaitsForKlasLogin() {
+        var gate = LibraryQrPendingGate()
+        gate.remember(LibraryQrRouter.qrURL)
+        XCTAssertEqual(gate.pendingURL, LibraryQrRouter.qrURL)
+        XCTAssertEqual(gate.consume(), LibraryQrRouter.qrURL)
+        XCTAssertNil(gate.pendingURL)
+    }
 
-        // 1. QR 바텀시트 진입: 밝기 1.0 및 QR/개인정보 로드
-        state.enterSheet(
-            qrData: "KW_LIB_QR_SAMPLE_DATA_12345",
-            userName: "홍길동",
-            userCode: "2020202020"
+    func testAuthenticatedDeepLinkIsReturnedImmediately() {
+        var gate = LibraryQrPendingGate()
+        XCTAssertEqual(
+            gate.receive(url: LibraryQrRouter.qrURL, isAuthenticated: true),
+            LibraryQrRouter.qrURL
         )
-        XCTAssertEqual(state.screenBrightness, 1.0)
-        XCTAssertEqual(state.qrData, "KW_LIB_QR_SAMPLE_DATA_12345")
-        XCTAssertEqual(state.userName, "홍길동")
-        XCTAssertTrue(state.isSheetVisible)
-        XCTAssertTrue(state.isAppLocked) // 전체 잠금은 유지
+        XCTAssertNil(gate.pendingURL)
+    }
 
-        // 2. 바텀시트 퇴장 (닫힘 또는 백그라운드 전환): 메모리 파기 및 밝기 복원, 전체 앱 잠금 유지
-        state.dismissSheet(originalBrightness: 0.4)
-        XCTAssertEqual(state.screenBrightness, 0.4)
-        XCTAssertNil(state.qrData)
-        XCTAssertNil(state.userName)
-        XCTAssertNil(state.userCode)
-        XCTAssertFalse(state.isSheetVisible)
-        XCTAssertTrue(state.isAppLocked) // 시트가 닫혀도 앱 잠금 상태는 안전하게 보존됨
+    func testPendingUrlSurvivesUntilConsumed() {
+        var gate = LibraryQrPendingGate()
+        gate.remember(LibraryQrRouter.qrURL)
+        gate.remember(LibraryQrRouter.qrURL)
+        XCTAssertEqual(gate.pendingURL, LibraryQrRouter.qrURL)
+        XCTAssertNil(gate.takePending(isAuthenticated: false))
+        XCTAssertEqual(gate.pendingURL, LibraryQrRouter.qrURL)
+        XCTAssertEqual(gate.takePending(isAuthenticated: true), LibraryQrRouter.qrURL)
+        XCTAssertNil(gate.pendingURL)
+    }
+
+    func testSettingsCanSaveRequiresEveryField() {
+        XCTAssertFalse(LibraryQrSettingsUiState(studentNumber: "", password: "password", phone: "010").canSave)
+        XCTAssertFalse(LibraryQrSettingsUiState(studentNumber: "2026000001", password: "", phone: "010").canSave)
+        XCTAssertFalse(LibraryQrSettingsUiState(studentNumber: "2026000001", password: "password", phone: "").canSave)
+        XCTAssertTrue(LibraryQrSettingsUiState(studentNumber: "2026000001", password: "password", phone: "010").canSave)
     }
 }

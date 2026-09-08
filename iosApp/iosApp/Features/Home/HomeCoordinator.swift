@@ -55,6 +55,13 @@ final class HomeCoordinator: ObservableObject {
     @Published var qrPhase: QrAttendancePhase = .idle
     @Published var isPresentingQrScanner = false
     var isVideoScreenPresented = false
+    var libraryQr: LibraryQrController? {
+        didSet {
+            libraryQr?.onWebIdCardRefreshNeeded = { [weak self] in
+                self?.requestIdCardQRValue()
+            }
+        }
+    }
 
     let homeRuntime: IosHomeRuntime
     let mediaMetadataRepository: MediaMetadataRepository
@@ -85,11 +92,17 @@ final class HomeCoordinator: ObservableObject {
     private let prepareCheckInOverride: ((QrPreparationRequest, SecretValue) async -> QrPreparationResult)?
     private let checkInOverride: ((QrAttendancePayload, SecretValue, SecretValue) async -> QrCheckInResult)?
     private let qrScanLaunchGuard = QrScanLaunchGuard()
+    private let libraryService: IosLibraryService
+    private let idCardQrRepository: IdCardQrRepository
     private var homeHost: HomeBridgeHostAdapter?
     private var toastTask: Task<Void, Never>?
     private var qrTask: Task<Void, Never>?
     private var didStart = false
     private var releaseQrGuardOnDismiss = false
+    private var idCardProbe: IdCardQrFetcher?
+    private var isIdCardModalActive = false
+    private var idCardOriginalBrightness: CGFloat?
+    private var resignActiveObserver: NSObjectProtocol?
     private weak var settingsWebHolder: WebViewHolder?
 
     var colorScheme: ColorScheme? {
@@ -115,6 +128,8 @@ final class HomeCoordinator: ObservableObject {
         let dependencies = authRuntime.dependencies
         self.homeRuntime = IosHomeRuntime.companion.create(dependencies: dependencies)
         self.mediaMetadataRepository = dependencies.mediaMetadataRepository
+        self.libraryService = dependencies.libraryService
+        self.idCardQrRepository = dependencies.idCardQrRepository
         self.onLogout = onLogout
         self.theme = homeRuntime.currentTheme()
         self.qrScanner = qrScanner
@@ -131,6 +146,21 @@ final class HomeCoordinator: ObservableObject {
             Task { @MainActor in
                 self?.handleBootstrap(result)
             }
+        }
+        resignActiveObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.willResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.endIdCardModalIfNeeded()
+            }
+        }
+    }
+
+    deinit {
+        if let resignActiveObserver {
+            NotificationCenter.default.removeObserver(resignActiveObserver)
         }
     }
 
@@ -405,6 +435,57 @@ final class HomeCoordinator: ObservableObject {
 
     func presentUnavailable() {
         showToast("곧 지원 예정입니다.")
+    }
+
+    func requestIdCardQRValue() {
+        isIdCardModalActive = true
+        captureIdCardBrightness()
+        UIScreen.main.brightness = 1.0
+
+        let state = IdCardQrRequestState()
+        let notifyWeb: () -> Void = { [weak self] in
+            self?.homeHolder?.evaluate(
+                IosWebCallbacks.shared.receiveIdCardQRValue(
+                    libraryQR: state.libraryQR,
+                    idCardQR: state.studentQR
+                )
+            )
+        }
+
+        libraryService.getLibraryQrData { result in
+            state.libraryQR = (result as? LibraryQrResultSuccess)?.data.values["qr_code"] ?? ""
+            notifyWeb()
+        }
+
+        idCardProbe?.cancel()
+        let probe = IdCardQrFetcher(repository: idCardQrRepository) { [weak self] value in
+            state.studentQR = value
+            notifyWeb()
+            self?.idCardProbe = nil
+        }
+        idCardProbe = probe
+        probe.start()
+    }
+
+    func endIdCardModalIfNeeded() {
+        guard isIdCardModalActive else { return }
+        isIdCardModalActive = false
+        idCardProbe?.cancel()
+        idCardProbe = nil
+        restoreIdCardBrightness()
+    }
+
+    private func captureIdCardBrightness() {
+        if idCardOriginalBrightness == nil {
+            idCardOriginalBrightness = UIScreen.main.brightness
+        }
+    }
+
+    private func restoreIdCardBrightness() {
+        if let idCardOriginalBrightness {
+            UIScreen.main.brightness = idCardOriginalBrightness
+        }
+        idCardOriginalBrightness = nil
     }
 
     func startQrCheckIn(
@@ -860,11 +941,11 @@ final class HomeBridgeHostAdapter: HomeBridgeHost {
     }
 
     func openLibraryQR() {
-        Task { @MainActor in coordinator?.presentUnavailable() }
+        Task { @MainActor in coordinator?.libraryQr?.presentQrFromApp() }
     }
 
     func openLibraryQRSettingsModal() {
-        Task { @MainActor in coordinator?.presentUnavailable() }
+        Task { @MainActor in coordinator?.libraryQr?.presentSettingsFromHome() }
     }
 
     func openLectureActivity(subj: String, subjName: String) {
@@ -891,7 +972,10 @@ final class HomeBridgeHostAdapter: HomeBridgeHost {
     }
 
     func closeWebViewBottomSheet() {
-        Task { @MainActor in coordinator?.isWebBottomSheetOpen = false }
+        Task { @MainActor in
+            coordinator?.endIdCardModalIfNeeded()
+            coordinator?.isWebBottomSheetOpen = false
+        }
     }
 
     func openOptionsMenu() {
@@ -911,6 +995,11 @@ final class HomeBridgeHostAdapter: HomeBridgeHost {
     }
 
     func requestIdCardQRValue() {
-        Task { @MainActor in coordinator?.presentUnavailable() }
+        Task { @MainActor in coordinator?.requestIdCardQRValue() }
     }
+}
+
+private final class IdCardQrRequestState {
+    var libraryQR = "pending"
+    var studentQR = "pending"
 }

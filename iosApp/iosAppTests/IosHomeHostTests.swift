@@ -479,6 +479,35 @@ final class IosHomeHostTests: XCTestCase {
         waitForExpectations(timeout: 5)
     }
 
+    @MainActor
+    func testRequestIdCardQRValueDoesNotShowUnavailableToast() async {
+        let suite = "com.icecream.kwklasplus.test.idcard.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let coordinator = HomeCoordinator(
+            authRuntime: IosAuthRuntime.companion.create(defaults: defaults),
+            onLogout: {}
+        )
+        coordinator.requestIdCardQRValue()
+        try? await Task.sleep(nanoseconds: 150_000_000)
+        XCTAssertNil(coordinator.toastMessage)
+        coordinator.endIdCardModalIfNeeded()
+    }
+
+    func testStudentIdQrURLDetection() {
+        XCTAssertTrue(
+            IdCardQrWebProbe.isStudentIdQrURL(
+                URL(string: "https://klas.kw.ac.kr/path/myidv2_main.php?menu=qid")!
+            )
+        )
+        XCTAssertFalse(
+            IdCardQrWebProbe.isStudentIdQrURL(
+                URL(string: "https://klas.kw.ac.kr/mst/sys/optrn/MyNumberQrStdPage.do")!
+            )
+        )
+    }
+
     func testCloseBottomSheetScriptName() {
         XCTAssertTrue(
             KlasWebAutomationScripts.shared.closeBottomSheet().reveal().contains("window.closeWebViewBottomSheet")

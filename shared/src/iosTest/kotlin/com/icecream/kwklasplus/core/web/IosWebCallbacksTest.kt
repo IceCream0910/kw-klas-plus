@@ -32,5 +32,9 @@ class IosWebCallbacksTest {
             "document.dispatchEvent(new Event('visibilitychange'));",
             IosWebCallbacks.requestSettingsReload().reveal(),
         )
+        assertEquals(
+            """window.receiveIdCardQRValue("LIB","ID");""",
+            IosWebCallbacks.receiveIdCardQRValue("LIB", "ID").reveal(),
+        )
     }
 }

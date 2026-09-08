@@ -268,6 +268,48 @@ final class AppLockControllerTests: XCTestCase {
         XCTAssertNil(controller.mode)
     }
 
+    func testLibraryQrExemptSkipsUnlockPrompt() {
+        let env = LockTestEnvironment()
+        defer { env.tearDown() }
+        env.store.savePassword(password: "123456")
+        env.store.setEnabled(enabled: true)
+        env.store.isUnlocked = false
+        let controller = AppLockController(store: env.store, canUseBiometrics: { false })
+        controller.isLibraryQrExempt = true
+        controller.handleScenePhase(.active)
+        XCTAssertNil(controller.mode)
+        XCTAssertFalse(env.store.isUnlocked)
+    }
+
+    func testPresentUnlockCompletesWhenAlreadyUnlocked() {
+        let env = LockTestEnvironment()
+        defer { env.tearDown() }
+        env.store.savePassword(password: "123456")
+        env.store.setEnabled(enabled: true)
+        env.store.isUnlocked = true
+        let controller = AppLockController(store: env.store, canUseBiometrics: { false })
+        var succeeded: Bool?
+        controller.presentUnlock { succeeded = $0 }
+        XCTAssertEqual(succeeded, true)
+        XCTAssertNil(controller.mode)
+    }
+
+    func testPresentUnlockSuccessCallsCompletion() {
+        let env = LockTestEnvironment()
+        defer { env.tearDown() }
+        env.store.savePassword(password: "123456")
+        env.store.setEnabled(enabled: true)
+        env.store.isUnlocked = false
+        let controller = AppLockController(store: env.store, canUseBiometrics: { false })
+        var succeeded: Bool?
+        controller.presentUnlock { succeeded = $0 }
+        XCTAssertEqual(controller.mode, .unlock)
+        [1, 2, 3, 4, 5, 6].forEach(controller.appendDigit)
+        XCTAssertEqual(succeeded, true)
+        XCTAssertTrue(env.store.isUnlocked)
+        XCTAssertNil(controller.mode)
+    }
+
     private func waitUntil(
         timeout: TimeInterval = 1,
         _ predicate: @escaping () -> Bool
