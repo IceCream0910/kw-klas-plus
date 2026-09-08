@@ -123,6 +123,7 @@ class IosAuthRuntime(
         scope.launch {
             runCatching { dependencies.sessionCoordinator.expire() }
             runCatching { dependencies.credentialStore.clear() }
+            runCatching { dependencies.libraryService.clearAll() }
             dependencies.clearNonSecretPreferences()
             onDone()
         }

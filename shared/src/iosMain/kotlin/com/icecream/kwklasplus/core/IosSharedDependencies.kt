@@ -14,10 +14,16 @@ import com.icecream.kwklasplus.core.auth.LoginUseCase
 import com.icecream.kwklasplus.core.auth.PrepareCredentialUseCase
 import com.icecream.kwklasplus.core.auth.WebAuthDriver
 import com.icecream.kwklasplus.core.legacy.LegacyPreferenceKeys
+import com.icecream.kwklasplus.core.library.IosKeychainLibraryAccountSecrets
+import com.icecream.kwklasplus.core.library.IosLibraryService
+import com.icecream.kwklasplus.core.library.IosLibrarySessionCache
+import com.icecream.kwklasplus.core.library.LibraryGateway
+import com.icecream.kwklasplus.core.library.LibraryHttpGateway
 import com.icecream.kwklasplus.core.lock.IosAppLockCredentialCodec
 import com.icecream.kwklasplus.core.lock.IosAppLockSecretStore
 import com.icecream.kwklasplus.core.lock.IosAppLockStore
 import com.icecream.kwklasplus.core.media.MediaMetadataRepository
+import com.icecream.kwklasplus.core.profile.IdCardQrRepository
 import com.icecream.kwklasplus.core.network.KlasSessionHttpClient
 import com.icecream.kwklasplus.core.network.KlasSessionLeaseHttpGateway
 import com.icecream.kwklasplus.core.network.KlasUserAgent
@@ -46,6 +52,7 @@ class IosSharedDependencies(
 ) {
     private val httpClient by lazy { createIosKlasHttpClient() }
     private val longRunningClient by lazy { createIosKlasHttpClient(timeoutMillis = 30_000) }
+    private val libraryClient by lazy { createIosKlasHttpClient(timeoutMillis = 10_000) }
 
     val authRepository: KlasAuthRepository by lazy { KlasAuthRepository(httpClient) }
 
@@ -72,6 +79,29 @@ class IosSharedDependencies(
 
     val mediaMetadataRepository: MediaMetadataRepository by lazy {
         MediaMetadataRepository(httpClient)
+    }
+
+    val idCardQrRepository: IdCardQrRepository by lazy {
+        IdCardQrRepository(httpClient)
+    }
+
+    val libraryGateway: LibraryGateway by lazy { LibraryHttpGateway(libraryClient) }
+
+    val librarySessionCache: IosLibrarySessionCache by lazy {
+        IosLibrarySessionCache(
+            secrets = IosKeychainLibraryAccountSecrets(iosKeychainStore),
+            defaults = defaults,
+            clock = clock,
+        )
+    }
+
+    val libraryService: IosLibraryService by lazy {
+        IosLibraryService(
+            gateway = libraryGateway,
+            defaults = defaults,
+            secureStore = secureStore,
+            cache = librarySessionCache,
+        )
     }
 
     val preferencesStore: PreferencesStore by lazy {
@@ -151,6 +181,8 @@ class IosSharedDependencies(
         defaults.removeObjectForKey(LegacyPreferenceKeys.APP_THEME)
         defaults.removeObjectForKey(LegacyPreferenceKeys.YEAR_HAKGI)
         defaults.removeObjectForKey(LegacyPreferenceKeys.YEAR_HAKGI_LIST)
+        defaults.removeObjectForKey(LegacyPreferenceKeys.LIBRARY_STD_NUMBER)
+        defaults.removeObjectForKey(LegacyPreferenceKeys.LIBRARY_PHONE)
         defaults.synchronize()
     }
 

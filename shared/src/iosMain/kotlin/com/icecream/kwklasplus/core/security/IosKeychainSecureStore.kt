@@ -48,11 +48,13 @@ class IosKeychainSecureStore(
 ) : SecureStore {
     override suspend fun read(key: SecureKey): SecretValue? = readNow(key)
 
-    fun readNow(key: SecureKey): SecretValue? {
+    fun readNow(key: SecureKey): SecretValue? = readAccount(key.account)
+
+    fun readAccount(account: String): SecretValue? {
         val query = mutableDictionary(capacity = 5) {
             addCf(kSecClass, kSecClassGenericPassword)
             addBridged(kSecAttrService, service)
-            addBridged(kSecAttrAccount, key.account)
+            addBridged(kSecAttrAccount, account)
             addCf(kSecReturnData, kCFBooleanTrue)
             addCf(kSecMatchLimit, kSecMatchLimitOne)
         }
@@ -68,55 +70,59 @@ class IosKeychainSecureStore(
                     SecretValue.of(text)
                 }
                 errSecItemNotFound -> null
-                else -> error("Keychain read failed for ${key.name}: status=$status")
+                else -> error("Keychain read failed for $account: status=$status")
             }
         }
     }
 
     override suspend fun write(key: SecureKey, value: SecretValue) = writeNow(key, value)
 
-    fun writeNow(key: SecureKey, value: SecretValue) {
+    fun writeNow(key: SecureKey, value: SecretValue) = writeAccount(key.account, value)
+
+    fun writeAccount(account: String, value: SecretValue) {
         val data = NSString.create(string = value.reveal())
             .dataUsingEncoding(NSUTF8StringEncoding)
-            ?: error("Keychain write encoding failed for ${key.name}")
+            ?: error("Keychain write encoding failed for $account")
         val attributes = mutableDictionary(capacity = 5) {
             addCf(kSecClass, kSecClassGenericPassword)
             addBridged(kSecAttrService, service)
-            addBridged(kSecAttrAccount, key.account)
+            addBridged(kSecAttrAccount, account)
             addBridged(kSecValueData, data)
             addCf(kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)
         }
         val addStatus = SecItemAdd(attributes, null)
         if (addStatus == errSecSuccess) return
         check(addStatus == errSecDuplicateItem) {
-            "Keychain write failed for ${key.name}: status=$addStatus"
+            "Keychain write failed for $account: status=$addStatus"
         }
 
-        val query = baseQuery(key)
+        val query = baseQuery(account)
         val update = mutableDictionary(capacity = 2) {
             addBridged(kSecValueData, data)
             addCf(kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)
         }
         val updateStatus = SecItemUpdate(query, update)
         check(updateStatus == errSecSuccess) {
-            "Keychain update failed for ${key.name}: status=$updateStatus"
+            "Keychain update failed for $account: status=$updateStatus"
         }
     }
 
     override suspend fun remove(key: SecureKey) = removeNow(key)
 
-    fun removeNow(key: SecureKey) {
-        val status = SecItemDelete(baseQuery(key))
+    fun removeNow(key: SecureKey) = removeAccount(key.account)
+
+    fun removeAccount(account: String) {
+        val status = SecItemDelete(baseQuery(account))
         check(status == errSecSuccess || status == errSecItemNotFound) {
-            "Keychain remove failed for ${key.name}: status=$status"
+            "Keychain remove failed for $account: status=$status"
         }
     }
 
-    private fun baseQuery(key: SecureKey): CFDictionaryRef =
+    private fun baseQuery(account: String): CFDictionaryRef =
         mutableDictionary(capacity = 3) {
             addCf(kSecClass, kSecClassGenericPassword)
             addBridged(kSecAttrService, service)
-            addBridged(kSecAttrAccount, key.account)
+            addBridged(kSecAttrAccount, account)
         }
 
     private val SecureKey.account: String
