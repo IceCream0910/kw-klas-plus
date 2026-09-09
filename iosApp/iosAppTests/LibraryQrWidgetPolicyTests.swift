@@ -1,4 +1,5 @@
 import Foundation
+import Shared
 import XCTest
 @testable import kw_klas_plus
 
@@ -58,5 +59,52 @@ final class LibraryQrWidgetPolicyTests: XCTestCase {
             LibraryQrFetchErrorPolicy.action(isWidgetEntry: true),
             .toastThenRestoreLock
         )
+    }
+
+    @MainActor
+    func testResignActiveRestoresBrightnessWhenQrPresented() async {
+        let suite = "com.icecream.kwklasplus.test.libraryqr.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let keychain = IosKeychainSecureStore(service: suite)
+        let authRuntime = IosAuthRuntime.companion.createForTests(defaults: defaults, secureStore: keychain)
+        let lockController = AppLockController(store: authRuntime.dependencies.appLockStore)
+        let controller = LibraryQrController(
+            service: authRuntime.dependencies.libraryService,
+            appLock: lockController
+        )
+
+        await withCheckedContinuation { continuation in
+            authRuntime.dependencies.libraryService.saveCredentials(
+                studentNumber: "2026000001",
+                phoneNumber: "01012345678",
+                password: "password",
+                onDone: { continuation.resume() }
+            )
+        }
+
+        controller.presentQrFromApp()
+        XCTAssertEqual(controller.presentedSheet, .qr(isWidgetEntry: false))
+        XCTAssertNotNil(controller.originalBrightness)
+
+        controller.handleAppWillResignActive()
+        XCTAssertNil(controller.originalBrightness)
+    }
+
+    @MainActor
+    func testResignActiveDoesNothingWhenQrNotPresented() {
+        let suite = "com.icecream.kwklasplus.test.libraryqr.nosheet.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let keychain = IosKeychainSecureStore(service: suite)
+        let authRuntime = IosAuthRuntime.companion.createForTests(defaults: defaults, secureStore: keychain)
+        let lockController = AppLockController(store: authRuntime.dependencies.appLockStore)
+        let controller = LibraryQrController(
+            service: authRuntime.dependencies.libraryService,
+            appLock: lockController
+        )
+
+        controller.handleAppWillResignActive()
+        XCTAssertNil(controller.originalBrightness)
     }
 }

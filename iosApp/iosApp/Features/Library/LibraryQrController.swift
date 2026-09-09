@@ -38,7 +38,8 @@ final class LibraryQrController: ObservableObject {
     private let appLock: AppLockController
     private let colorScheme: () -> ColorScheme?
     private let widgetInstalled: (@escaping (Bool) -> Void) -> Void
-    private var originalBrightness: CGFloat?
+    private(set) var originalBrightness: CGFloat?
+    private var resignActiveObserver: NSObjectProtocol?
     private var refreshTask: Task<Void, Never>?
     private var fetchGeneration = 0
     private var isRetry = false
@@ -61,6 +62,26 @@ final class LibraryQrController: ObservableObject {
                 DispatchQueue.main.async { completion(installed) }
             }
         }
+        self.resignActiveObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.willResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.handleAppWillResignActive()
+            }
+        }
+    }
+
+    deinit {
+        if let resignActiveObserver {
+            NotificationCenter.default.removeObserver(resignActiveObserver)
+        }
+    }
+
+    func handleAppWillResignActive() {
+        guard case .qr = presentedSheet else { return }
+        restoreBrightness()
     }
 
     func handleOpenURL(_ url: URL) -> Bool {
