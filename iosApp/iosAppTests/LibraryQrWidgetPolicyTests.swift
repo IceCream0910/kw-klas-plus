@@ -48,4 +48,15 @@ final class LibraryQrWidgetPolicyTests: XCTestCase {
         XCTAssertFalse(LibraryQrSettingsUiState(studentNumber: "2026000001", password: "password", phone: "").canSave)
         XCTAssertTrue(LibraryQrSettingsUiState(studentNumber: "2026000001", password: "password", phone: "010").canSave)
     }
+
+    func testFetchErrorShowsSheetAlertInAppAndToastThenLockForWidget() {
+        XCTAssertEqual(
+            LibraryQrFetchErrorPolicy.action(isWidgetEntry: false),
+            .showSheetAlert
+        )
+        XCTAssertEqual(
+            LibraryQrFetchErrorPolicy.action(isWidgetEntry: true),
+            .toastThenRestoreLock
+        )
+    }
 }

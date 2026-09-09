@@ -11,14 +11,6 @@ struct LibraryQrHostModifier: ViewModifier {
                     .preferredColorScheme(colorScheme)
             }
             .alert(
-                controller.errorTitle,
-                isPresented: $controller.errorAlertPresented
-            ) {
-                Button("확인") { controller.dismissErrorAlert() }
-            } message: {
-                Text(controller.errorMessage)
-            }
-            .alert(
                 "위젯 추가",
                 isPresented: $controller.addWidgetAlertPresented
             ) {
@@ -40,6 +32,14 @@ struct LibraryQrHostModifier: ViewModifier {
             )
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
+            .alert(
+                controller.errorTitle,
+                isPresented: $controller.errorAlertPresented
+            ) {
+                Button("확인") { controller.dismissErrorAlert() }
+            } message: {
+                Text(controller.errorMessage)
+            }
         case .settings:
             LibraryQrSettingsSheet(
                 state: $controller.settingsState,

@@ -103,10 +103,19 @@ struct StartupRootView: View {
     private var lockCoverMode: Binding<AppLockController.Mode?> {
         Binding(
             get: {
-                guard isSessionAuthenticated, !libraryQr.isQrBypassActive else { return nil }
-                return appLock.mode
+                AppLockCoverPolicy.coverMode(
+                    isSessionAuthenticated: isSessionAuthenticated,
+                    isQrBypassActive: libraryQr.isQrBypassActive,
+                    mode: appLock.mode
+                )
             },
-            set: { appLock.mode = $0 }
+            set: { proposed in
+                appLock.mode = AppLockCoverPolicy.assignedMode(
+                    isQrBypassActive: libraryQr.isQrBypassActive,
+                    current: appLock.mode,
+                    proposed: proposed
+                )
+            }
         )
     }
 

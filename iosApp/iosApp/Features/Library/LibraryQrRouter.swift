@@ -24,3 +24,14 @@ enum LibraryQrRouter {
         return .showUnconfiguredNotice
     }
 }
+
+enum LibraryQrFetchErrorAction: Equatable {
+    case showSheetAlert
+    case toastThenRestoreLock
+}
+
+enum LibraryQrFetchErrorPolicy {
+    static func action(isWidgetEntry: Bool) -> LibraryQrFetchErrorAction {
+        isWidgetEntry ? .toastThenRestoreLock : .showSheetAlert
+    }
+}

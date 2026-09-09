@@ -357,6 +357,28 @@ final class AppLockController: ObservableObject {
     }
 }
 
+enum AppLockCoverPolicy {
+    static func coverMode(
+        isSessionAuthenticated: Bool,
+        isQrBypassActive: Bool,
+        mode: AppLockController.Mode?
+    ) -> AppLockController.Mode? {
+        guard isSessionAuthenticated, !isQrBypassActive else { return nil }
+        return mode
+    }
+
+    static func assignedMode(
+        isQrBypassActive: Bool,
+        current: AppLockController.Mode?,
+        proposed: AppLockController.Mode?
+    ) -> AppLockController.Mode? {
+        if isQrBypassActive, proposed == nil {
+            return current
+        }
+        return proposed
+    }
+}
+
 enum LockScreenMetrics {
     static let pinLength = 6
 

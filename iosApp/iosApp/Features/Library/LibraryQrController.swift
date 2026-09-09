@@ -147,7 +147,8 @@ final class LibraryQrController: ObservableObject {
 
     func dismissErrorAlert() {
         errorAlertPresented = false
-        dismissQr(restoreLock: true)
+        suppressDismissCleanup = true
+        dismissQr(restoreLock: false)
     }
 
     func onSheetDismissed() {
@@ -203,9 +204,10 @@ final class LibraryQrController: ObservableObject {
         fetchGeneration += 1
         restoreBrightness()
         qrState = LibraryQrUiState(isWidgetEntry: qrState.isWidgetEntry)
+        errorAlertPresented = false
+        isQrBypassActive = false
+        appLock.isLibraryQrExempt = false
         if restoreLock {
-            isQrBypassActive = false
-            appLock.isLibraryQrExempt = false
             appLock.requestUnlockIfNeeded()
         }
         if case .qr = presentedSheet {
@@ -266,7 +268,22 @@ final class LibraryQrController: ObservableObject {
         }
         qrState.loading = false
         qrState.image = nil
-        errorAlertPresented = true
+        switch LibraryQrFetchErrorPolicy.action(isWidgetEntry: qrState.isWidgetEntry) {
+        case .showSheetAlert:
+            errorAlertPresented = true
+        case .toastThenRestoreLock:
+            presentWidgetFetchError()
+        }
+    }
+
+    private func presentWidgetFetchError() {
+        suppressDismissCleanup = true
+        dismissQr(restoreLock: false)
+        Task { @MainActor in
+            await Task.yield()
+            ToastBanner.show(errorMessage)
+            appLock.requestUnlockIfNeeded()
+        }
     }
 
     private func startTimer() {

@@ -281,6 +281,33 @@ final class AppLockControllerTests: XCTestCase {
         XCTAssertFalse(env.store.isUnlocked)
     }
 
+    func testQrBypassHidesUnlockCoverWithoutClearingMode() {
+        XCTAssertEqual(
+            AppLockCoverPolicy.coverMode(
+                isSessionAuthenticated: true,
+                isQrBypassActive: true,
+                mode: .unlock
+            ),
+            nil
+        )
+        XCTAssertEqual(
+            AppLockCoverPolicy.assignedMode(
+                isQrBypassActive: true,
+                current: .unlock,
+                proposed: nil
+            ),
+            .unlock
+        )
+        XCTAssertEqual(
+            AppLockCoverPolicy.coverMode(
+                isSessionAuthenticated: true,
+                isQrBypassActive: false,
+                mode: .unlock
+            ),
+            .unlock
+        )
+    }
+
     func testPresentUnlockCompletesWhenAlreadyUnlocked() {
         let env = LockTestEnvironment()
         defer { env.tearDown() }
