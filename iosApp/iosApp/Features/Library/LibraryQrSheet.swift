@@ -8,12 +8,14 @@ struct LibraryQrUiState: Equatable {
     var secondsRemaining = 30
     var isWidgetEntry = false
     var canAddWidget = false
+    var isError = false
+    var errorMessage = ""
 }
 
 struct LibraryQrSheet: View {
     let state: LibraryQrUiState
     var onRefresh: () -> Void
-    var onSettings: () -> Void
+    var onResetSettings: () -> Void
     var onAddWidget: () -> Void
 
     var body: some View {
@@ -29,34 +31,46 @@ struct LibraryQrSheet: View {
                     .accessibilityLabel("QR 코드 새로고침, \(state.secondsRemaining)초 남음")
                     .accessibilityIdentifier("library_qr_refresh")
                     Spacer()
-                    if !state.isWidgetEntry {
-                        Button("설정", action: onSettings)
+                }
+                if state.isError {
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 40))
+                            .foregroundStyle(.orange)
+                        Text(state.errorMessage.isEmpty ? "모바일 학생증 정보를 가져올 수 없습니다.\n모든 정보가 정확하게 입력되었는지 확인해주세요." : state.errorMessage)
+                            .font(.body)
+                            .foregroundStyle(KlasTheme.onSurface)
+                            .multilineTextAlignment(.center)
+                        Button("출입증 재설정", action: onResetSettings)
                             .buttonStyle(.bordered)
                     }
-                }
-                Text(state.name)
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(KlasTheme.onSurface)
-                    .multilineTextAlignment(.center)
-                Text(state.details)
-                    .font(.body)
-                    .foregroundStyle(KlasTheme.onSurfaceVariant)
-                    .multilineTextAlignment(.center)
-                Group {
-                    if state.loading {
-                        ProgressView()
-                            .accessibilityIdentifier("library_qr_loading")
-                    } else if let image = state.image {
-                        Image(uiImage: image)
-                            .interpolation(.none)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 220, height: 220)
-                            .accessibilityLabel("중앙도서관 출입증 QR")
-                            .accessibilityIdentifier("library_qr_image")
-                    } else {
-                        Text("QR 코드를 표시할 수 없습니다.")
-                            .foregroundStyle(.red)
+                    .padding(.vertical, 24)
+                    .accessibilityIdentifier("library_qr_error_view")
+                } else {
+                    Text(state.name)
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(KlasTheme.onSurface)
+                        .multilineTextAlignment(.center)
+                    Text(state.details)
+                        .font(.body)
+                        .foregroundStyle(KlasTheme.onSurfaceVariant)
+                        .multilineTextAlignment(.center)
+                    Group {
+                        if state.loading {
+                            ProgressView()
+                                .accessibilityIdentifier("library_qr_loading")
+                        } else if let image = state.image {
+                            Image(uiImage: image)
+                                .interpolation(.none)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 220, height: 220)
+                                .accessibilityLabel("중앙도서관 출입증 QR")
+                                .accessibilityIdentifier("library_qr_image")
+                        } else {
+                            Text("QR 코드를 표시할 수 없습니다.")
+                                .foregroundStyle(.red)
+                        }
                     }
                 }
                 Text("중앙도서관 이용 시 사용 가능합니다.\n공식 앱이 아니므로 이외 용도 사용 시 거절당할 수 있습니다.")

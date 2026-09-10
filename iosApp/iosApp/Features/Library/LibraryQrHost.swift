@@ -27,19 +27,11 @@ struct LibraryQrHostModifier: ViewModifier {
             LibraryQrSheet(
                 state: controller.qrState,
                 onRefresh: controller.refreshQr,
-                onSettings: controller.presentSettingsFromQr,
+                onResetSettings: controller.presentSettingsFromQrError,
                 onAddWidget: { controller.addWidgetAlertPresented = true }
             )
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
-            .alert(
-                controller.errorTitle,
-                isPresented: $controller.errorAlertPresented
-            ) {
-                Button("확인") { controller.dismissErrorAlert() }
-            } message: {
-                Text(controller.errorMessage)
-            }
         case .settings:
             LibraryQrSettingsSheet(
                 state: $controller.settingsState,

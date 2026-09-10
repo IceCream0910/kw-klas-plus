@@ -25,37 +25,43 @@ final class LibraryQrController: ObservableObject {
     @Published var presentedSheet: LibraryQrPresentedSheet?
     @Published var qrState = LibraryQrUiState()
     @Published var settingsState = LibraryQrSettingsUiState(studentNumber: "", password: "", phone: "")
-    @Published var errorAlertPresented = false
     @Published var addWidgetAlertPresented = false
     @Published var isQrBypassActive = false
 
-    let errorTitle = "오류"
     let errorMessage = "모바일 학생증 정보를 가져올 수 없습니다.\n모바일 학생증 설정에서 입력한 정보가 올바른지 확인한 후 다시 시도해주세요."
     let setupNoticeMessage = "먼저 앱에서 모바일 학생증 설정을 완료해주세요."
     let addWidgetMessage = "홈 화면을 길게 누른 뒤 위젯 추가에서 광운대학교+ 도서관 출입증을 선택해주세요."
 
     private let service: IosLibraryService
     private let appLock: AppLockController
+    private let isSessionAuthenticated: () -> Bool
     private let colorScheme: () -> ColorScheme?
     private let widgetInstalled: (@escaping (Bool) -> Void) -> Void
+    private let fetchQrData: (@escaping (LibraryQrResult) -> Void) -> Void
     private(set) var originalBrightness: CGFloat?
     private var resignActiveObserver: NSObjectProtocol?
     private var refreshTask: Task<Void, Never>?
     private var fetchGeneration = 0
     private var isRetry = false
     private var refreshWebAfterSettings = false
-    private var suppressDismissCleanup = false
     var onWebIdCardRefreshNeeded: (() -> Void)?
+    var isTimerRunning: Bool { refreshTask != nil }
 
     init(
         service: IosLibraryService,
         appLock: AppLockController,
+        isSessionAuthenticated: @escaping () -> Bool = { true },
         colorScheme: @escaping () -> ColorScheme? = { nil },
-        widgetInstalled: ((@escaping (Bool) -> Void) -> Void)? = nil
+        widgetInstalled: ((@escaping (Bool) -> Void) -> Void)? = nil,
+        fetchQrData: ((@escaping (LibraryQrResult) -> Void) -> Void)? = nil
     ) {
         self.service = service
         self.appLock = appLock
+        self.isSessionAuthenticated = isSessionAuthenticated
         self.colorScheme = colorScheme
+        self.fetchQrData = fetchQrData ?? { [service] completion in
+            service.getLibraryQrData(onResult: completion)
+        }
         self.widgetInstalled = widgetInstalled ?? { completion in
             WidgetCenter.shared.getCurrentConfigurations { result in
                 let installed = (try? result.get().contains { $0.kind == LibraryQrController.widgetKind }) ?? false
@@ -92,12 +98,20 @@ final class LibraryQrController: ObservableObject {
         case .openQrDirectly:
             presentWidgetQr()
             return true
-        case .showUnconfiguredNotice:
-            presentUnconfiguredWidgetNotice()
+        case .routeToSettings:
+            if isSessionAuthenticated() {
+                presentWidgetSettings()
+            } else {
+                presentLoggedOutWidgetNotice()
+            }
             return true
         case nil:
             return false
         }
+    }
+
+    private func presentLoggedOutWidgetNotice() {
+        ToastBanner.show(setupNoticeMessage)
     }
 
     func presentQrFromApp() {
@@ -133,20 +147,15 @@ final class LibraryQrController: ObservableObject {
             ToastBanner.show("QR 코드를 새로고침할 수 없습니다. 설정을 확인해주세요.")
             return
         }
+        refreshTask?.cancel()
+        refreshTask = nil
         loadQr(resetRetry: true)
-        startTimer()
-    }
-
-    func presentSettingsFromQr() {
-        refreshWebAfterSettings = false
-        presentSettings()
     }
 
     func saveSettings() {
         guard settingsState.canSave else { return }
         let refreshWeb = refreshWebAfterSettings
         refreshWebAfterSettings = false
-        suppressDismissCleanup = !refreshWeb
         service.saveCredentials(
             studentNumber: settingsState.studentNumber,
             phoneNumber: settingsState.phone,
@@ -156,6 +165,7 @@ final class LibraryQrController: ObservableObject {
             guard let self else { return }
             self.settingsState.password = ""
             if refreshWeb {
+                self.presentedSheet = nil
                 self.onWebIdCardRefreshNeeded?()
             } else {
                 Task { @MainActor in
@@ -163,30 +173,26 @@ final class LibraryQrController: ObservableObject {
                 }
             }
         }
-        presentedSheet = nil
-    }
-
-    func dismissErrorAlert() {
-        errorAlertPresented = false
-        suppressDismissCleanup = true
-        dismissQr(restoreLock: false)
     }
 
     func onSheetDismissed() {
         guard presentedSheet == nil else { return }
         settingsState.password = ""
-        if suppressDismissCleanup {
-            suppressDismissCleanup = false
-            return
-        }
         refreshWebAfterSettings = false
         dismissQr(restoreLock: true)
     }
 
-    private func presentUnconfiguredWidgetNotice() {
-        Task { @MainActor in
-            await Task.yield()
-            ToastBanner.show(setupNoticeMessage)
+    private func presentWidgetSettings() {
+        appLock.presentUnlock { [weak self] success in
+            guard success, let self else { return }
+            self.qrState.isWidgetEntry = false
+            self.refreshWebAfterSettings = false
+            self.presentSettings()
+            // 바텀시트가 올라오면서 토스트가 가려지는 문제를 방지하기 위해 시트가 뜬 직후 시트 위에 노출
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 600_000_000)
+                ToastBanner.show(self.setupNoticeMessage)
+            }
         }
     }
 
@@ -207,7 +213,6 @@ final class LibraryQrController: ObservableObject {
             self.qrState.canAddWidget = !self.qrState.isWidgetEntry && !installed
         }
         loadQr(resetRetry: true)
-        startTimer()
     }
 
     private func presentSettings() {
@@ -225,7 +230,6 @@ final class LibraryQrController: ObservableObject {
         fetchGeneration += 1
         restoreBrightness()
         qrState = LibraryQrUiState(isWidgetEntry: qrState.isWidgetEntry)
-        errorAlertPresented = false
         isQrBypassActive = false
         appLock.isLibraryQrExempt = false
         if restoreLock {
@@ -241,8 +245,10 @@ final class LibraryQrController: ObservableObject {
         fetchGeneration += 1
         let generation = fetchGeneration
         qrState.loading = true
+        qrState.isError = false
+        qrState.errorMessage = ""
         qrState.image = nil
-        service.getLibraryQrData { [weak self] result in
+        fetchQrData { [weak self] result in
             self?.handleQrResult(result, generation: generation)
         }
     }
@@ -274,8 +280,11 @@ final class LibraryQrController: ObservableObject {
         qrState.details = "광운대학교 \(userCode.trimmingCharacters(in: .whitespacesAndNewlines))\n\(department) \(patternName)"
         qrState.image = LibraryQrImageRenderer.image(from: qrValue, darkMode: dark)
         qrState.loading = false
+        qrState.isError = false
         if qrState.image == nil {
             retryOrShowError()
+        } else {
+            startTimer()
         }
     }
 
@@ -287,23 +296,31 @@ final class LibraryQrController: ObservableObject {
             }
             return
         }
+        refreshTask?.cancel()
+        refreshTask = nil
         qrState.loading = false
         qrState.image = nil
-        switch LibraryQrFetchErrorPolicy.action(isWidgetEntry: qrState.isWidgetEntry) {
-        case .showSheetAlert:
-            errorAlertPresented = true
-        case .toastThenRestoreLock:
-            presentWidgetFetchError()
+        qrState.isError = true
+        qrState.errorMessage = errorMessage
+        if qrState.isWidgetEntry {
+            ToastBanner.show("모바일 학생증 정보를 가져올 수 없습니다.")
         }
     }
 
-    private func presentWidgetFetchError() {
-        suppressDismissCleanup = true
-        dismissQr(restoreLock: false)
-        Task { @MainActor in
-            await Task.yield()
-            ToastBanner.show(errorMessage)
-            appLock.requestUnlockIfNeeded()
+    func presentSettingsFromQrError() {
+        if qrState.isWidgetEntry {
+            dismissQr(restoreLock: false)
+            appLock.presentUnlock { [weak self] success in
+                guard success, let self else { return }
+                self.qrState.isWidgetEntry = false
+                self.refreshWebAfterSettings = false
+                self.presentSettings()
+            }
+        } else {
+            restoreBrightness()
+            qrState.isWidgetEntry = false
+            refreshWebAfterSettings = false
+            presentSettings()
         }
     }
 

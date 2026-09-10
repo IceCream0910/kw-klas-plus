@@ -16,6 +16,7 @@ struct StartupRootView: View {
             wrappedValue: LibraryQrController(
                 service: auth.authRuntime.dependencies.libraryService,
                 appLock: lock,
+                isSessionAuthenticated: { auth.phase == .authenticated },
                 colorScheme: {
                     switch auth.authRuntime.dependencies.stringPreference(key: "appTheme") {
                     case "dark": return .dark
