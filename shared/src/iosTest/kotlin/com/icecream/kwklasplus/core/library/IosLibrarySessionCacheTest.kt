@@ -110,6 +110,34 @@ class IosLibraryServiceClearTest {
         assertNull(secureStore.read(SecureKey.LIBRARY_PASSWORD))
         assertTrue(service.settingsStudentNumber().isEmpty() || service.settingsStudentNumber() == defaults.stringForKey(LegacyPreferenceKeys.KW_ID).orEmpty())
     }
+
+    @Test
+    fun saveCredentialsClearsPreviousIdentitySessionCache() = runSuspendTest {
+        val secrets = InMemoryLibraryAccountSecrets()
+        val secureStore = InMemorySecureStore()
+        val cache = IosLibrarySessionCache(secrets, defaults, Clock { 1_000L })
+        val service = IosLibraryService(
+            gateway = RejectingLibraryGateway(),
+            defaults = defaults,
+            secureStore = secureStore,
+            cache = cache,
+        )
+        val oldCredentials = LibraryCredentials("2020123456", "01012345678", SecretValue.of("old-pass"))
+        val oldIdentity = LibraryCacheIdentity.from(oldCredentials)
+        service.saveCredentials("2020123456", "01012345678", "old-pass")
+        cache.writeSecret(oldIdentity, SecretValue.of("old-secret"))
+        cache.writeAuthKey(oldIdentity, SecretValue.of("old-auth"))
+
+        assertEquals("old-secret", cache.readSecret(oldIdentity)?.reveal())
+        assertEquals("old-auth", cache.readAuthKey(oldIdentity)?.reveal())
+
+        service.saveCredentials("2020123456", "01099998888", "new-pass")
+
+        assertNull(cache.readSecret(oldIdentity))
+        assertNull(cache.readAuthKey(oldIdentity))
+        assertNull(secrets.readAccount("secret_${oldIdentity.realId}_${oldIdentity.userInfoHash}"))
+        assertNull(secrets.readAccount("authKey_${oldIdentity.realId}_${oldIdentity.userInfoHash}"))
+    }
 }
 
 private class InMemoryLibraryAccountSecrets : LibraryAccountSecretStore {

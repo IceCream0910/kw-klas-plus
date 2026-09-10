@@ -55,6 +55,14 @@ class IosLibraryService(
 
     fun settingsPassword(): String = passwordNow().orEmpty()
 
+    suspend fun saveCredentials(
+        studentNumber: String,
+        phoneNumber: String,
+        password: String,
+    ) {
+        persistCredentials(studentNumber, phoneNumber, password)
+    }
+
     fun saveCredentials(
         studentNumber: String,
         phoneNumber: String,
@@ -62,7 +70,7 @@ class IosLibraryService(
         onDone: () -> Unit,
     ) {
         scope.launch {
-            persistCredentials(studentNumber, phoneNumber, password)
+            saveCredentials(studentNumber, phoneNumber, password)
             onDone()
         }
     }
@@ -94,6 +102,7 @@ class IosLibraryService(
         phoneNumber: String,
         password: String,
     ) {
+        clearSessionCache()
         defaults.setObject(studentNumber, LegacyPreferenceKeys.LIBRARY_STD_NUMBER)
         defaults.setObject(phoneNumber, LegacyPreferenceKeys.LIBRARY_PHONE)
         defaults.synchronize()
