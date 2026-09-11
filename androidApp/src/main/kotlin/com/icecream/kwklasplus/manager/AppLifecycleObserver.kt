@@ -18,7 +18,6 @@ class AppLifecycleObserver(
     private val sessionKeepAlive: AndroidSessionKeepAlive,
 ) : DefaultLifecycleObserver, Application.ActivityLifecycleCallbacks {
 
-    private var currentActivity: Activity? = null
     private val policy = AppLockPolicy()
 
     init {
@@ -28,15 +27,16 @@ class AppLifecycleObserver(
     override fun onStart(owner: LifecycleOwner) {
         super.onStart(owner)
         sessionKeepAlive.onForeground()
-        
+    }
+
+    private fun requestUnlockIfNeeded(activity: Activity) {
         val state = AppLockState(AppLockManager.isAppLockEnabled(context), AppLockManager.isUnlocked)
-        val isExemptHost = currentActivity is LockActivity || currentActivity is LibraryQRWidgetActivity
+        val isExemptHost = activity is LockActivity || activity is LibraryQRWidgetActivity
         if (policy.shouldRequestUnlock(state, isExemptHost)) {
-            val intent = Intent(context, LockActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+            activity.startActivity(Intent(activity, LockActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
                 putExtra("MODE", "UNLOCK")
-            }
-            context.startActivity(intent)
+            })
         }
     }
 
@@ -48,10 +48,12 @@ class AppLifecycleObserver(
     }
 
     override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
-    override fun onActivityStarted(activity: Activity) { currentActivity = activity }
-    override fun onActivityResumed(activity: Activity) { currentActivity = activity }
+    override fun onActivityStarted(activity: Activity) {}
+    override fun onActivityResumed(activity: Activity) {
+        requestUnlockIfNeeded(activity)
+    }
     override fun onActivityPaused(activity: Activity) {}
-    override fun onActivityStopped(activity: Activity) { if (currentActivity == activity) currentActivity = null }
+    override fun onActivityStopped(activity: Activity) {}
     override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
     override fun onActivityDestroyed(activity: Activity) {}
 }

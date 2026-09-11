@@ -56,6 +56,10 @@
             android:supportsPictureInPicture="true" />
         <activity
             android:name=".LibraryQRWidgetActivity"
+            android:taskAffinity="${applicationId}.libraryqr"
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true"
+            android:autoRemoveFromRecents="true"
             android:exported="false"
             android:theme="@style/Theme.AppCompat.Transparent.NoActionBar" />
 

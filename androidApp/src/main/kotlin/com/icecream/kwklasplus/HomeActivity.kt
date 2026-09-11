@@ -113,6 +113,38 @@ import kotlin.system.exitProcess
 private const val VIEWPORT_LAYOUT_RETRY_LIMIT = 12
 
 class HomeActivity : AppCompatActivity() {
+    companion object {
+        const val ACTION_OPEN_LIBRARY_SETTINGS = "com.icecream.kwklasplus.OPEN_LIBRARY_SETTINGS"
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.action == ACTION_OPEN_LIBRARY_SETTINGS &&
+            com.icecream.kwklasplus.manager.AppLockManager.isAppLockEnabled(this) &&
+            !com.icecream.kwklasplus.manager.AppLockManager.isUnlocked
+        ) {
+            startActivity(Intent(this, LockActivity::class.java).apply {
+                putExtra("MODE", "UNLOCK")
+                addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+            })
+        }
+    }
+
+    override fun onResumeFragments() {
+        super.onResumeFragments()
+        if (isFinishing || intent.action != ACTION_OPEN_LIBRARY_SETTINGS) return
+        if (com.icecream.kwklasplus.manager.AppLockManager.isAppLockEnabled(this) &&
+            !com.icecream.kwklasplus.manager.AppLockManager.isUnlocked
+        ) return
+        if (supportFragmentManager.findFragmentByTag(LibraryQRSettingsBottomSheetDialog.TAG) == null) {
+            LibraryQRSettingsBottomSheetDialog().show(
+                supportFragmentManager, LibraryQRSettingsBottomSheetDialog.TAG,
+            )
+        }
+        intent.action = null
+    }
+
     private val qrScanLaunchGuard = QrScanLaunchGuard()
     private val qrScanLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -190,7 +222,11 @@ class HomeActivity : AppCompatActivity() {
         if (sessionId == null) {
             showLoginErrorToast()
             finish()
-            startActivity(Intent(this@HomeActivity, MainActivity::class.java))
+            startActivity(Intent(this@HomeActivity, MainActivity::class.java).apply {
+                if (this@HomeActivity.intent.action == ACTION_OPEN_LIBRARY_SETTINGS) {
+                    action = ACTION_OPEN_LIBRARY_SETTINGS
+                }
+            })
             return
         }
 

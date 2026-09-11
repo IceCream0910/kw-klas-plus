@@ -1,13 +1,9 @@
 package com.icecream.kwklasplus.modal
 
-import android.app.PendingIntent
-import android.appwidget.AppWidgetManager
-import android.content.ComponentName
 import android.content.DialogInterface
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
-import android.os.Build
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.view.View
@@ -26,7 +22,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.icecream.kwklasplus.AppPrefs
-import com.icecream.kwklasplus.LibraryQRWidget
+import com.icecream.kwklasplus.HomeActivity
 import com.icecream.kwklasplus.appDependencies
 import com.icecream.kwklasplus.appPreferences
 import com.icecream.kwklasplus.core.library.AndroidLibraryService
@@ -51,10 +47,7 @@ class LibraryQRModal : KlasBottomSheetDialogFragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         libraryService = requireContext().appDependencies.libraryService
-        uiState = LibraryQrUiState(
-            isWidgetEntry = isWidget,
-            canAddWidget = !isWidget && !isWidgetAdded(),
-        )
+        uiState = LibraryQrUiState()
     }
 
     override fun onCreateView(
@@ -72,7 +65,6 @@ class LibraryQRModal : KlasBottomSheetDialogFragment() {
                         state = uiState,
                         onRefreshClick = { lifecycleScope.launch { refreshQrCode() } },
                         onSettingsClick = ::showSettingsDialog,
-                        onAddWidgetClick = ::requestPinWidget,
                     )
                 }
             }
@@ -104,27 +96,15 @@ class LibraryQRModal : KlasBottomSheetDialogFragment() {
         }
     }
 
-    private fun isWidgetAdded(): Boolean {
-        val manager = AppWidgetManager.getInstance(context)
-        val component = context?.let { ComponentName(it, LibraryQRWidget::class.java) }
-        return manager.getAppWidgetIds(component).isNotEmpty()
-    }
-
-    private fun requestPinWidget() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val manager = AppWidgetManager.getInstance(context)
-        if (!manager.isRequestPinAppWidgetSupported) return
-        val provider = context?.let { ComponentName(it, LibraryQRWidget::class.java) } ?: return
-        val callback = PendingIntent.getBroadcast(
-            context,
-            0,
-            Intent(context, LibraryQRWidget::class.java),
-            PendingIntent.FLAG_IMMUTABLE,
-        )
-        manager.requestPinAppWidget(provider, null, callback)
-    }
-
     private fun showSettingsDialog() {
+        if (isWidget) {
+            startActivity(Intent(requireContext(), HomeActivity::class.java).apply {
+                action = HomeActivity.ACTION_OPEN_LIBRARY_SETTINGS
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            })
+            dismiss()
+            return
+        }
         LibraryQRSettingsBottomSheetDialog().apply {
             setOnSaveCompleteListener {
                 lifecycleScope.launch { refreshQrCode() }
@@ -134,6 +114,7 @@ class LibraryQRModal : KlasBottomSheetDialogFragment() {
 
     private fun startCountDownTimer() {
         countDownTimer?.cancel()
+        if (uiState.bitmap == null || uiState.loading) return
         countDownTimer = object : CountDownTimer(REFRESH_INTERVAL, 1000) {
             override fun onTick(millisUntilFinished: Long) {
                 uiState = uiState.copy(secondsRemaining = (millisUntilFinished / 1000).toInt())
@@ -146,6 +127,8 @@ class LibraryQRModal : KlasBottomSheetDialogFragment() {
     }
 
     private suspend fun refreshQrCode() {
+        if (uiState.loading) return
+        countDownTimer?.cancel()
         val account = loadAccount()
         if (account == null) {
             Toast.makeText(
@@ -163,7 +146,7 @@ class LibraryQRModal : KlasBottomSheetDialogFragment() {
 
     private suspend fun refreshQrCodeWithoutCache(account: LibraryAccount) {
         libraryService.clearCache(account.studentNumber, account.phone, account.password)
-        refreshQrCode()
+        displayQr(account)
     }
 
     private suspend fun displayQr(account: LibraryAccount) {
@@ -225,11 +208,12 @@ class LibraryQRModal : KlasBottomSheetDialogFragment() {
             return
         }
         uiState = uiState.copy(loading = false, bitmap = null)
+        countDownTimer?.cancel()
+        if (isWidget) return
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("오류")
             .setMessage(
-                "모바일 학생증 정보를 가져올 수 없습니다.\n" +
-                    "모바일 학생증 설정에서 입력한 정보가 올바른지 확인한 후 다시 시도해주세요.",
+                "도서관 출입증 정보를 가져올 수 없습니다. 설정에서 입력한 정보가 올바른지 확인한 후 다시 시도해주세요.",
             )
             .setPositiveButton("확인", null)
             .show()
