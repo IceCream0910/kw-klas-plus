@@ -41,6 +41,13 @@ object IosWebCallbacks {
     fun receiveDeadline(json: String): WebScript =
         LegacyWebScripts.call(LegacyWebCallback.RECEIVE_DEADLINE, JavaScriptArgument.Text(json))
 
+    fun receiveIdCardQRValue(libraryQR: String, idCardQR: String): WebScript =
+        LegacyWebScripts.call(
+            LegacyWebCallback.RECEIVE_ID_CARD_QR,
+            JavaScriptArgument.Text(libraryQR),
+            JavaScriptArgument.Text(idCardQR),
+        )
+
     fun receiveYearHakgi(value: String): WebScript =
         LegacyWebScripts.call(LegacyWebCallback.RECEIVE_YEAR_SEMESTER, JavaScriptArgument.Text(value))
 

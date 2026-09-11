@@ -19,6 +19,7 @@ final class AppLockController: ObservableObject {
     @Published private(set) var enteredDigits = 0
     @Published private(set) var biometricVisible = false
     @Published var toastMessage: String?
+    var isLibraryQrExempt = false
 
     let store: IosAppLockStore
 
@@ -68,7 +69,7 @@ final class AppLockController: ObservableObject {
         case .active:
             backgroundLockTask?.cancel()
             backgroundLockTask = nil
-            guard !isBiometricPromptActive else { return }
+            guard !isBiometricPromptActive, !isLibraryQrExempt else { return }
             requestUnlockIfNeeded()
         default:
             break
@@ -97,10 +98,24 @@ final class AppLockController: ObservableObject {
     }
 
     func requestUnlockIfNeeded() {
-        let exempt = mode != nil
+        let exempt = mode != nil || isLibraryQrExempt
         if policy.shouldRequestUnlock(state: store.currentState(), isExemptHost: exempt) {
             present(.unlock, disabling: false, completion: nil)
         }
+    }
+
+    func dismissUnlockCover() {
+        guard mode == .unlock else { return }
+        mode = nil
+        didAutoPromptBiometric = false
+    }
+
+    func presentUnlock(completion: @escaping (Bool) -> Void) {
+        if !store.isEnabled() || store.isUnlocked {
+            completion(true)
+            return
+        }
+        present(.unlock, disabling: false, completion: completion)
     }
 
     func presentPasswordSetup(completion: @escaping (Bool) -> Void) {
@@ -293,6 +308,7 @@ final class AppLockController: ObservableObject {
 
     private func authenticateUnlock() async {
         let result = await runBiometricPrompt { await authenticateBiometrics(.unlockApp, nil) }
+        guard mode == .unlock else { return }
         if result is PlatformActionResultSuccess {
             unlockSuccess()
         }
@@ -308,9 +324,11 @@ final class AppLockController: ObservableObject {
 
     private func unlockSuccess() {
         store.isUnlocked = true
-        mode = nil
+        let completion = settingsCompletion
         settingsCompletion = nil
+        mode = nil
         disabling = false
+        completion?(true)
     }
 
     private func finishSettings(success: Bool) {
@@ -336,6 +354,28 @@ final class AppLockController: ObservableObject {
                 toastMessage = nil
             }
         }
+    }
+}
+
+enum AppLockCoverPolicy {
+    static func coverMode(
+        isSessionAuthenticated: Bool,
+        isQrBypassActive: Bool,
+        mode: AppLockController.Mode?
+    ) -> AppLockController.Mode? {
+        guard isSessionAuthenticated, !isQrBypassActive else { return nil }
+        return mode
+    }
+
+    static func assignedMode(
+        isQrBypassActive: Bool,
+        current: AppLockController.Mode?,
+        proposed: AppLockController.Mode?
+    ) -> AppLockController.Mode? {
+        if isQrBypassActive, proposed == nil {
+            return current
+        }
+        return proposed
     }
 }
 

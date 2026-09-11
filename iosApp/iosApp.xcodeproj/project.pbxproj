@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		WDG10008A5ED6EA33B3393BB /* LibraryQRWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = WDG10002A5ED6EA33B3393BB /* LibraryQRWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		A11B0001A5ED6EA33B3393BB /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,22 +25,51 @@
 			remoteGlobalIDString = 5C51A9D6A5ED6EA33B3393BB;
 			remoteInfo = iosApp;
 		};
+		WDG10001A5ED6EA33B3393BB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B3F43505C841AEB9980E56A1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = WDG10006A5ED6EA33B3393BB;
+			remoteInfo = widgetExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		WDG10007A5ED6EA33B3393BB /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				WDG10008A5ED6EA33B3393BB /* LibraryQRWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		A11B0002A5ED6EA33B3393BB /* iosAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A11C0002A5ED6EA33B3393BB /* iosAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A11C000DA5ED6EA33B3393BB /* M6-011.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text.xctestplan; path = "M6-011.xctestplan"; sourceTree = "<group>"; };
 		F6F71C8CC4FEF251D6AD8B93 /* kw-klas-plus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "kw-klas-plus.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		WDG10002A5ED6EA33B3393BB /* LibraryQRWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LibraryQRWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
 		E4152BF54F630DFBF306E791 /* Exceptions for "iosApp" folder in "iosApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				"App/Info.plist",
+				App/Info.plist,
 			);
 			target = 5C51A9D6A5ED6EA33B3393BB /* iosApp */;
+		};
+		WDG10003A5ED6EA33B3393BB /* Exceptions for "widgetExtension" folder in "widgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = WDG10006A5ED6EA33B3393BB /* widgetExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -64,6 +97,14 @@
 			path = Configuration;
 			sourceTree = "<group>";
 		};
+		WDG10004A5ED6EA33B3393BB /* widgetExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				WDG10003A5ED6EA33B3393BB /* Exceptions for "widgetExtension" folder in "widgetExtension" target */,
+			);
+			path = widgetExtension;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -88,6 +129,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		WDG10005A5ED6EA33B3393BB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -95,6 +143,7 @@
 			isa = PBXGroup;
 			children = (
 				F6F71C8CC4FEF251D6AD8B93 /* kw-klas-plus.app */,
+				WDG10002A5ED6EA33B3393BB /* LibraryQRWidget.appex */,
 				A11B0002A5ED6EA33B3393BB /* iosAppTests.xctest */,
 				A11C0002A5ED6EA33B3393BB /* iosAppUITests.xctest */,
 			);
@@ -106,6 +155,7 @@
 			children = (
 				DF52283B59D2B33DAABB1CB8 /* Configuration */,
 				477D2151B5EFFBC8D338B575 /* iosApp */,
+				WDG10004A5ED6EA33B3393BB /* widgetExtension */,
 				A11B0003A5ED6EA33B3393BB /* iosAppTests */,
 				A11C0003A5ED6EA33B3393BB /* iosAppUITests */,
 				A11C000DA5ED6EA33B3393BB /* M6-011.xctestplan */,
@@ -124,10 +174,12 @@
 				595FF6928F7281D79D4786A3 /* Sources */,
 				479CF29EE9696AFFE5113468 /* Frameworks */,
 				425A3D07AE554C1A7147C63D /* Resources */,
+				WDG10007A5ED6EA33B3393BB /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				WDG10009A5ED6EA33B3393BB /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				477D2151B5EFFBC8D338B575 /* iosApp */,
@@ -185,6 +237,28 @@
 			productReference = A11C0002A5ED6EA33B3393BB /* iosAppUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		WDG10006A5ED6EA33B3393BB /* widgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = WDG1000EA5ED6EA33B3393BB /* Build configuration list for PBXNativeTarget "widgetExtension" */;
+			buildPhases = (
+				WDG1000BA5ED6EA33B3393BB /* Sources */,
+				WDG10005A5ED6EA33B3393BB /* Frameworks */,
+				WDG1000AA5ED6EA33B3393BB /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				WDG10004A5ED6EA33B3393BB /* widgetExtension */,
+			);
+			name = widgetExtension;
+			packageProductDependencies = (
+			);
+			productName = LibraryQRWidget;
+			productReference = WDG10002A5ED6EA33B3393BB /* LibraryQRWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -206,6 +280,9 @@
 						CreatedOnToolsVersion = 16.2;
 						TestTargetID = 5C51A9D6A5ED6EA33B3393BB;
 					};
+					WDG10006A5ED6EA33B3393BB = {
+						CreatedOnToolsVersion = 16.2;
+					};
 				};
 			};
 			buildConfigurationList = 5A79A65C47BA6B3977BD2867 /* Build configuration list for PBXProject "iosApp" */;
@@ -223,6 +300,7 @@
 			projectRoot = "";
 			targets = (
 				5C51A9D6A5ED6EA33B3393BB /* iosApp */,
+				WDG10006A5ED6EA33B3393BB /* widgetExtension */,
 				A11B0005A5ED6EA33B3393BB /* iosAppTests */,
 				A11C0005A5ED6EA33B3393BB /* iosAppUITests */,
 			);
@@ -245,6 +323,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A11C0007A5ED6EA33B3393BB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		WDG1000AA5ED6EA33B3393BB /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -297,6 +382,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		WDG1000BA5ED6EA33B3393BB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -309,6 +401,11 @@
 			isa = PBXTargetDependency;
 			target = 5C51A9D6A5ED6EA33B3393BB /* iosApp */;
 			targetProxy = A11C0001A5ED6EA33B3393BB /* PBXContainerItemProxy */;
+		};
+		WDG10009A5ED6EA33B3393BB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = WDG10006A5ED6EA33B3393BB /* widgetExtension */;
+			targetProxy = WDG10001A5ED6EA33B3393BB /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -578,6 +675,60 @@
 			};
 			name = Release;
 		};
+		WDG1000CA5ED6EA33B3393BB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 9X4GNZYY6F;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = widgetExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "도서관 출입증";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.icecream.kwklasplus.kw-klas-plus$(TEAM_ID).libraryqr";
+				PRODUCT_NAME = LibraryQRWidget;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		WDG1000DA5ED6EA33B3393BB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 9X4GNZYY6F;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = widgetExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "도서관 출입증";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.icecream.kwklasplus.kw-klas-plus$(TEAM_ID).libraryqr";
+				PRODUCT_NAME = LibraryQRWidget;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -613,6 +764,15 @@
 			buildConfigurations = (
 				B5FF090896BF667469217227 /* Debug */,
 				D7E0DC7D25D75AA652830901 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		WDG1000EA5ED6EA33B3393BB /* Build configuration list for PBXNativeTarget "widgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				WDG1000CA5ED6EA33B3393BB /* Debug */,
+				WDG1000DA5ED6EA33B3393BB /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -4,13 +4,27 @@ import SwiftUI
 struct StartupRootView: View {
     @StateObject private var controller: AuthSessionController
     @StateObject private var appLock: AppLockController
+    @StateObject private var libraryQr: LibraryQrController
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
         let auth = AuthSessionController()
+        let lock = AppLockController(store: auth.authRuntime.dependencies.appLockStore)
         _controller = StateObject(wrappedValue: auth)
-        _appLock = StateObject(
-            wrappedValue: AppLockController(store: auth.authRuntime.dependencies.appLockStore)
+        _appLock = StateObject(wrappedValue: lock)
+        _libraryQr = StateObject(
+            wrappedValue: LibraryQrController(
+                service: auth.authRuntime.dependencies.libraryService,
+                appLock: lock,
+                isSessionAuthenticated: { auth.phase == .authenticated },
+                colorScheme: {
+                    switch auth.authRuntime.dependencies.stringPreference(key: "appTheme") {
+                    case "dark": return .dark
+                    case "light": return .light
+                    default: return nil
+                    }
+                }
+            )
         )
     }
 
@@ -46,25 +60,73 @@ struct StartupRootView: View {
             }
         }
         .environmentObject(appLock)
+        .environmentObject(libraryQr)
+        .libraryQrHost(libraryQr, colorScheme: lockColorScheme)
         .alert(blockedAlertTitle, isPresented: blockedAlertPresented) {
             blockedAlertButtons
         } message: {
             Text(blockedAlertMessage)
         }
         .accessibilityIdentifier(isBlocked ? "auth_alert" : "")
-        .fullScreenCover(item: $appLock.mode) { _ in
+        .fullScreenCover(item: lockCoverMode) { _ in
             LockScreenView(controller: appLock)
                 .preferredColorScheme(lockColorScheme)
         }
         .onAppear {
             controller.setAppActive(scenePhase == .active)
             controller.start()
-            appLock.handleScenePhase(scenePhase)
+            Task { @MainActor in
+                await Task.yield()
+                applyAppLock(for: scenePhase)
+            }
         }
         .onChange(of: scenePhase) { phase in
             controller.setAppActive(phase == .active)
-            appLock.handleScenePhase(phase)
+            libraryQr.handleScenePhase(phase)
+            applyAppLock(for: phase)
         }
+        .onChange(of: controller.phase) { phase in
+            if phase == .authenticated {
+                applyAppLock(for: scenePhase)
+            } else {
+                appLock.dismissUnlockCover()
+            }
+        }
+        .onOpenURL { url in
+            _ = libraryQr.handleOpenURL(url)
+        }
+    }
+
+    private var isSessionAuthenticated: Bool {
+        controller.phase == .authenticated
+    }
+
+    private var lockCoverMode: Binding<AppLockController.Mode?> {
+        Binding(
+            get: {
+                AppLockCoverPolicy.coverMode(
+                    isSessionAuthenticated: isSessionAuthenticated,
+                    isQrBypassActive: libraryQr.isQrBypassActive,
+                    mode: appLock.mode
+                )
+            },
+            set: { proposed in
+                appLock.mode = AppLockCoverPolicy.assignedMode(
+                    isQrBypassActive: libraryQr.isQrBypassActive,
+                    current: appLock.mode,
+                    proposed: proposed
+                )
+            }
+        )
+    }
+
+    private func applyAppLock(for phase: ScenePhase) {
+        if phase == .background {
+            appLock.handleScenePhase(phase)
+            return
+        }
+        guard isSessionAuthenticated, !libraryQr.isQrBypassActive else { return }
+        appLock.handleScenePhase(phase)
     }
 
     private var lockColorScheme: ColorScheme? {

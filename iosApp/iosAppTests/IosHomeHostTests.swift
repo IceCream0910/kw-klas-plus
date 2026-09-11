@@ -451,6 +451,7 @@ final class IosHomeHostTests: XCTestCase {
         XCTAssertTrue(four.contains("\"board-path\""))
     }
 
+    @MainActor
     func testCompletePageLoadInjectsReceiveToken() throws {
         let host = RecordingHomeHost()
         let holder = WebViewHolder.withLegacyBridge(
@@ -467,16 +468,44 @@ final class IosHomeHostTests: XCTestCase {
         </script>
         </body></html>
         """
-        try loadHTML(holder.webView, html, baseURL: URL(string: "https://klasplus.yuntae.in/")!)
-        holder.evaluate(IosWebCallbacks.shared.receiveToken(token: "session-token"))
+        try loadHTML(holder.webView, html, baseURL: URL(string: "https://klasplus.yuntae.in/")!, timeout: 15)
         let expectation = expectation(description: "token")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        holder.evaluate(IosWebCallbacks.shared.receiveToken(token: "session-token")) { _ in
             holder.webView.evaluateJavaScript("window.__token") { result, _ in
                 XCTAssertEqual(result as? String, "session-token")
                 expectation.fulfill()
             }
         }
-        waitForExpectations(timeout: 5)
+        waitForExpectations(timeout: 15)
+    }
+
+    @MainActor
+    func testRequestIdCardQRValueDoesNotShowUnavailableToast() async {
+        let suite = "com.icecream.kwklasplus.test.idcard.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let coordinator = HomeCoordinator(
+            authRuntime: IosAuthRuntime.companion.create(defaults: defaults),
+            onLogout: {}
+        )
+        coordinator.requestIdCardQRValue()
+        try? await Task.sleep(nanoseconds: 150_000_000)
+        XCTAssertNil(coordinator.toastMessage)
+        coordinator.endIdCardModalIfNeeded()
+    }
+
+    func testStudentIdQrURLDetection() {
+        XCTAssertTrue(
+            IdCardQrWebProbe.isStudentIdQrURL(
+                URL(string: "https://klas.kw.ac.kr/path/myidv2_main.php?menu=qid")!
+            )
+        )
+        XCTAssertFalse(
+            IdCardQrWebProbe.isStudentIdQrURL(
+                URL(string: "https://klas.kw.ac.kr/mst/sys/optrn/MyNumberQrStdPage.do")!
+            )
+        )
     }
 
     func testCloseBottomSheetScriptName() {
@@ -557,15 +586,29 @@ final class IosHomeHostTests: XCTestCase {
         )
     }
 
-    private func loadHTML(_ webView: WKWebView, _ html: String, baseURL: URL) throws {
+    private func loadHTML(
+        _ webView: WKWebView,
+        _ html: String,
+        baseURL: URL,
+        timeout: TimeInterval = 15
+    ) throws {
         let expectation = XCTestExpectation(description: "load")
         let waiter = FinishWaiter(expectation: expectation)
+        let originalDelegate = webView.navigationDelegate
         webView.navigationDelegate = waiter
+        defer {
+            webView.navigationDelegate = originalDelegate
+        }
         webView.loadHTMLString(html, baseURL: baseURL)
-        let result = XCTWaiter.wait(for: [expectation], timeout: 5)
-        webView.navigationDelegate = nil
+        let result = withExtendedLifetime(waiter) {
+            XCTWaiter.wait(for: [expectation], timeout: timeout)
+        }
         guard result == .completed else {
-            throw NSError(domain: "IosHomeHostTests", code: 1)
+            throw NSError(
+                domain: "IosHomeHostTests",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "HTML load timed out after \(timeout)s"]
+            )
         }
     }
 }

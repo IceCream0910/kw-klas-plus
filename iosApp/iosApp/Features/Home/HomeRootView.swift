@@ -4,6 +4,7 @@ import SwiftUI
 struct HomeRootView: View {
     @StateObject private var coordinator: HomeCoordinator
     @EnvironmentObject private var appLock: AppLockController
+    @EnvironmentObject private var libraryQr: LibraryQrController
     private let onSessionExpired: () -> Void
 
     init(
@@ -26,7 +27,10 @@ struct HomeRootView: View {
         }
         .preferredColorScheme(coordinator.colorScheme)
         .tint(KlasTheme.primary)
-        .onAppear { coordinator.start() }
+        .onAppear {
+            coordinator.libraryQr = libraryQr
+            coordinator.start()
+        }
         .homeOverlays(coordinator)
     }
 

@@ -340,16 +340,21 @@ private final class BridgeTestHarness {
         self.adapter = adapter
     }
 
-    func loadHTML(_ html: String, baseURL: URL) throws {
+    func loadHTML(_ html: String, baseURL: URL, timeout: TimeInterval = 15) throws {
         let expectation = XCTestExpectation(description: "load html")
         let navigator = NavigationFinishWaiter(expectation: expectation)
+        let previousDelegate = webView.navigationDelegate
         webView.navigationDelegate = navigator
+        defer {
+            webView.navigationDelegate = previousDelegate
+        }
         webView.loadHTMLString(html, baseURL: baseURL)
-        let result = XCTWaiter.wait(for: [expectation], timeout: 5)
-        webView.navigationDelegate = nil
+        let result = withExtendedLifetime(navigator) {
+            XCTWaiter.wait(for: [expectation], timeout: timeout)
+        }
         guard result == .completed else {
             throw NSError(domain: "BridgeTestHarness", code: 2, userInfo: [
-                NSLocalizedDescriptionKey: "HTML load timed out",
+                NSLocalizedDescriptionKey: "HTML load timed out after \(timeout)s",
             ])
         }
     }

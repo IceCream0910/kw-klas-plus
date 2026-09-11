@@ -119,7 +119,7 @@ final class SettingsHostAdapter: SettingsBridgeHost {
     }
 
     func openLibraryQRSettingsModal() {
-        Task { @MainActor in model?.coordinator.presentUnavailable() }
+        Task { @MainActor in model?.coordinator.libraryQr?.presentSettingsFromApp() }
     }
 
     func openExternalLink(url: String) {
