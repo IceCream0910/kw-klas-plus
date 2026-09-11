@@ -23,6 +23,7 @@ class LibraryQRWidgetActivity : AppCompatActivity() {
             return
         }
 
+        if (savedInstanceState != null) return
         val modal = LibraryQRModal.newInstance(true)
         modal.setStyle(DialogFragment.STYLE_NORMAL, R.style.RoundCornerBottomSheetDialogTheme)
         modal.show(supportFragmentManager, LibraryQRModal.TAG)

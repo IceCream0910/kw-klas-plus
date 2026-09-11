@@ -141,7 +141,11 @@ class LoginActivity : AppCompatActivity() {
     private fun openMainActivity() {
         password = ""
         finish()
-        startActivity(Intent(this, MainActivity::class.java))
+        startActivity(Intent(this, MainActivity::class.java).apply {
+                        if (this@LoginActivity.intent.action == HomeActivity.ACTION_OPEN_LIBRARY_SETTINGS) {
+                            action = HomeActivity.ACTION_OPEN_LIBRARY_SETTINGS
+                        }
+                    })
     }
 
     override fun onDestroy() {

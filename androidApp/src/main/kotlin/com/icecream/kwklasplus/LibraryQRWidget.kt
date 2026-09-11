@@ -35,8 +35,10 @@ internal fun updateAppWidget(
     appWidgetId: Int
 ) {
     val views = RemoteViews(context.packageName, R.layout.library_q_r_widget)
-    val intent = Intent(context, LibraryQRWidgetActivity::class.java)
-    val pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+    val intent = Intent(context, LibraryQRWidgetActivity::class.java).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    val pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     views.setOnClickPendingIntent(R.id.widget_qr_code_img, pendingIntent)
 
     appWidgetManager.updateAppWidget(appWidgetId, views)

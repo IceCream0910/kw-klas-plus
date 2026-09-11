@@ -79,14 +79,22 @@ class MainActivity : AppCompatActivity() {
         val credential = runCatching { appDependencies.credentialStore.load() }.getOrNull()
         if (credential == null) {
             finish()
-            startActivity(Intent(this, LoginActivity::class.java))
+            startActivity(Intent(this, LoginActivity::class.java).apply {
+                        if (this@MainActivity.intent.action == HomeActivity.ACTION_OPEN_LIBRARY_SETTINGS) {
+                            action = HomeActivity.ACTION_OPEN_LIBRARY_SETTINGS
+                        }
+                    })
             return
         }
         when (val leaseResult = appDependencies.sessionLeaseManager.maintain()) {
             is SessionLeaseResult.Active -> {
                 appDependencies.sessionKeepAlive.onSessionAvailable(leaseResult.nextCheckAfterMillis)
                 isHomeStarted = true
-                startActivity(Intent(this, HomeActivity::class.java))
+                startActivity(Intent(this, HomeActivity::class.java).apply {
+                        if (this@MainActivity.intent.action == HomeActivity.ACTION_OPEN_LIBRARY_SETTINGS) {
+                            action = HomeActivity.ACTION_OPEN_LIBRARY_SETTINGS
+                        }
+                    })
                 finish()
                 return
             }
@@ -114,7 +122,11 @@ class MainActivity : AppCompatActivity() {
                     isLoginActivityStarted = true
                     isHomeStarted = true
                     appDependencies.sessionKeepAlive.onSessionAvailable()
-                    startActivityWithLock(Intent(this@MainActivity, HomeActivity::class.java))
+                    startActivityWithLock(Intent(this@MainActivity, HomeActivity::class.java).apply {
+                        if (this@MainActivity.intent.action == HomeActivity.ACTION_OPEN_LIBRARY_SETTINGS) {
+                            action = HomeActivity.ACTION_OPEN_LIBRARY_SETTINGS
+                        }
+                    })
                     finish()
                 }
                 is LoginResult.UserActionRequired -> showSecurityActionRequiredDialog()
@@ -186,7 +198,11 @@ class MainActivity : AppCompatActivity() {
             .setMessage(message ?: "학번 또는 비밀번호를 확인한 후 다시 로그인해주세요.")
             .setPositiveButton("확인") { _, _ ->
                 finish()
-                startActivity(Intent(this@MainActivity, LoginActivity::class.java))
+                startActivity(Intent(this@MainActivity, LoginActivity::class.java).apply {
+                        if (this@MainActivity.intent.action == HomeActivity.ACTION_OPEN_LIBRARY_SETTINGS) {
+                            action = HomeActivity.ACTION_OPEN_LIBRARY_SETTINGS
+                        }
+                    })
             }
             .setCancelable(false)
             .create()
