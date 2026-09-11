@@ -30,7 +30,6 @@ struct LibraryQRWidgetView: View {
         Image(colorScheme == .dark ? "QrWidgetDark" : "QrWidgetLight")
             .resizable()
             .scaledToFit()
-            .padding(4)
             .widgetURL(URL(string: "kwklasplus://library-qr"))
             .modifier(LibraryQRWidgetBackground())
     }
@@ -56,6 +55,7 @@ struct LibraryQRWidget: Widget {
         .configurationDisplayName("도서관 출입증")
         .description("중앙도서관 출입증 QR 코드를 홈 화면에서 빠르게 열 수 있어요.")
         .supportedFamilies([.systemSmall])
+        .contentMarginsDisabled()
     }
 }
 

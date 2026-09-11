@@ -28,9 +28,9 @@ final class LibraryQrController: ObservableObject {
     @Published var addWidgetAlertPresented = false
     @Published var isQrBypassActive = false
 
-    let errorMessage = "모바일 학생증 정보를 가져올 수 없습니다.\n모바일 학생증 설정에서 입력한 정보가 올바른지 확인한 후 다시 시도해주세요."
-    let setupNoticeMessage = "먼저 앱에서 모바일 학생증 설정을 완료해주세요."
-    let addWidgetMessage = "홈 화면을 길게 누른 뒤 위젯 추가에서 광운대학교+ 도서관 출입증을 선택해주세요."
+    let errorMessage = "중앙도서관 출입증 정보를 가져올 수 없습니다.\n설정에서 입력한 정보가 올바른지 확인한 후 다시 시도해주세요."
+    let setupNoticeMessage = "먼저 앱에서 중앙도서관 출입증 설정을 완료해주세요."
+    let addWidgetMessage = "홈 화면을 길게 누른 뒤 위젯 추가에서 KLAS+ '중앙도서관 출입증'을 선택해주세요."
 
     private let service: IosLibraryService
     private let appLock: AppLockController
@@ -302,12 +302,9 @@ final class LibraryQrController: ObservableObject {
         qrState.image = nil
         qrState.isError = true
         qrState.errorMessage = errorMessage
-        if qrState.isWidgetEntry {
-            ToastBanner.show("모바일 학생증 정보를 가져올 수 없습니다.")
-        }
     }
 
-    func presentSettingsFromQrError() {
+    func presentSettingsFromQr() {
         if qrState.isWidgetEntry {
             dismissQr(restoreLock: false)
             appLock.presentUnlock { [weak self] success in
@@ -322,6 +319,10 @@ final class LibraryQrController: ObservableObject {
             refreshWebAfterSettings = false
             presentSettings()
         }
+    }
+
+    func presentSettingsFromQrError() {
+        presentSettingsFromQr()
     }
 
     private func startTimer() {

@@ -27,11 +27,16 @@ struct LibraryQrHostModifier: ViewModifier {
             LibraryQrSheet(
                 state: controller.qrState,
                 onRefresh: controller.refreshQr,
-                onResetSettings: controller.presentSettingsFromQrError,
+                onSettings: controller.presentSettingsFromQr,
                 onAddWidget: { controller.addWidgetAlertPresented = true }
             )
-            .presentationDetents([.large])
+            .presentationDetents(
+                controller.qrState.isError
+                    ? [.fraction(0.42)]
+                    : [.fraction(0.68), .large]
+            )
             .presentationDragIndicator(.visible)
+            .animation(.easeInOut, value: controller.qrState.isError)
         case .settings:
             LibraryQrSettingsSheet(
                 state: $controller.settingsState,
