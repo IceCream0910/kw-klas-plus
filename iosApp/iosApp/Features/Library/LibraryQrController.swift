@@ -18,6 +18,12 @@ enum LibraryQrPresentedSheet: Identifiable, Equatable {
     }
 }
 
+enum LibraryQrSettingsSource {
+    case qr
+    case appSettings
+    case home
+}
+
 @MainActor
 final class LibraryQrController: ObservableObject {
     static let widgetKind = "LibraryQRWidget"
@@ -43,7 +49,7 @@ final class LibraryQrController: ObservableObject {
     private var refreshTask: Task<Void, Never>?
     private var fetchGeneration = 0
     private var isRetry = false
-    private var refreshWebAfterSettings = false
+    private var settingsSource: LibraryQrSettingsSource = .qr
     var onWebIdCardRefreshNeeded: (() -> Void)?
     var isTimerRunning: Bool { refreshTask != nil }
 
@@ -120,19 +126,19 @@ final class LibraryQrController: ObservableObject {
             presentQr()
         } else {
             qrState.isWidgetEntry = false
-            refreshWebAfterSettings = false
+            settingsSource = .qr
             presentSettings()
         }
     }
 
     func presentSettingsFromApp() {
         qrState.isWidgetEntry = false
-        refreshWebAfterSettings = false
+        settingsSource = .appSettings
         presentSettings()
     }
 
     func presentSettingsFromHome() {
-        refreshWebAfterSettings = true
+        settingsSource = .home
         presentSettings()
     }
 
@@ -154,8 +160,8 @@ final class LibraryQrController: ObservableObject {
 
     func saveSettings() {
         guard settingsState.canSave else { return }
-        let refreshWeb = refreshWebAfterSettings
-        refreshWebAfterSettings = false
+        let source = settingsSource
+        settingsSource = .qr
         service.saveCredentials(
             studentNumber: settingsState.studentNumber,
             phoneNumber: settingsState.phone,
@@ -164,10 +170,13 @@ final class LibraryQrController: ObservableObject {
             ToastBanner.show("저장되었습니다.")
             guard let self else { return }
             self.settingsState.password = ""
-            if refreshWeb {
+            switch source {
+            case .home:
                 self.presentedSheet = nil
                 self.onWebIdCardRefreshNeeded?()
-            } else {
+            case .appSettings:
+                self.presentedSheet = nil
+            case .qr:
                 Task { @MainActor in
                     self.presentQr()
                 }
@@ -178,7 +187,7 @@ final class LibraryQrController: ObservableObject {
     func onSheetDismissed() {
         guard presentedSheet == nil else { return }
         settingsState.password = ""
-        refreshWebAfterSettings = false
+        settingsSource = .qr
         dismissQr(restoreLock: true)
     }
 
@@ -186,7 +195,7 @@ final class LibraryQrController: ObservableObject {
         appLock.presentUnlock { [weak self] success in
             guard success, let self else { return }
             self.qrState.isWidgetEntry = false
-            self.refreshWebAfterSettings = false
+            self.settingsSource = .qr
             self.presentSettings()
             // 바텀시트가 올라오면서 토스트가 가려지는 문제를 방지하기 위해 시트가 뜬 직후 시트 위에 노출
             Task { @MainActor in
@@ -310,13 +319,13 @@ final class LibraryQrController: ObservableObject {
             appLock.presentUnlock { [weak self] success in
                 guard success, let self else { return }
                 self.qrState.isWidgetEntry = false
-                self.refreshWebAfterSettings = false
+                self.settingsSource = .qr
                 self.presentSettings()
             }
         } else {
             restoreBrightness()
             qrState.isWidgetEntry = false
-            refreshWebAfterSettings = false
+            settingsSource = .qr
             presentSettings()
         }
     }

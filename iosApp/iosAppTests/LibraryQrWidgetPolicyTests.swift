@@ -420,4 +420,34 @@ final class LibraryQrWidgetPolicyTests: XCTestCase {
         XCTAssertNil(controller.originalBrightness)
         XCTAssertFalse(controller.isTimerRunning)
     }
+
+    @MainActor
+    func testSettingsFromAppSettingsDismissesWithoutOpeningQr() async {
+        let suite = "com.icecream.kwklasplus.test.libraryqr.appsettings.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let keychain = IosKeychainSecureStore(service: suite)
+        let authRuntime = IosAuthRuntime.companion.createForTests(defaults: defaults, secureStore: keychain)
+        let lockController = AppLockController(store: authRuntime.dependencies.appLockStore)
+        let controller = LibraryQrController(
+            service: authRuntime.dependencies.libraryService,
+            appLock: lockController
+        )
+
+        // 앱 설정 화면에서 출입증 설정 진입
+        controller.presentSettingsFromApp()
+        XCTAssertEqual(controller.presentedSheet, .settings)
+
+        controller.settingsState = LibraryQrSettingsUiState(
+            studentNumber: "2026000001",
+            password: "test_password",
+            phone: "01012345678"
+        )
+        controller.saveSettings()
+
+        // 저장 후 QR 화면이 열리지 않고 sheet가 닫혀야 함
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertNil(controller.presentedSheet)
+        XCTAssertNil(controller.originalBrightness)
+    }
 }
