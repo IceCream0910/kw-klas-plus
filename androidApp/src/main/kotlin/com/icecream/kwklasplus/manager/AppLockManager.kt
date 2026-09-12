@@ -5,18 +5,18 @@ import com.icecream.kwklasplus.appDependencies
 import com.icecream.kwklasplus.encryptedPreferences
 
 object AppLockManager {
-    private const val K_E = "a_l_e" // isAppLockEnabled
-    private const val K_B = "b_m_e" // isBiometricEnabled
+    private const val APP_LOCK_ENABLED_KEY = "a_l_e"
+    private const val BIOMETRIC_ENABLED_KEY = "b_m_e"
 
     @Volatile
     var isUnlocked: Boolean = false
 
     fun isAppLockEnabled(context: Context): Boolean {
-        return context.encryptedPreferences.getBoolean(K_E, false)
+        return context.encryptedPreferences.getBoolean(APP_LOCK_ENABLED_KEY, false)
     }
 
     fun isBiometricEnabled(context: Context): Boolean {
-        return context.encryptedPreferences.getBoolean(K_B, false)
+        return context.encryptedPreferences.getBoolean(BIOMETRIC_ENABLED_KEY, false)
     }
 
     fun hasPassword(context: Context): Boolean {
@@ -38,16 +38,15 @@ object AppLockManager {
     }
 
     fun setAppLockEnabled(context: Context, enabled: Boolean) {
-        context.encryptedPreferences.edit().putBoolean(K_E, enabled).apply()
+        context.encryptedPreferences.edit().putBoolean(APP_LOCK_ENABLED_KEY, enabled).apply()
         if (!enabled) {
-            // 잠금 비활성화 시 데이터 초기화
             context.appDependencies.appLockSecretStore.clear()
-            context.encryptedPreferences.edit().putBoolean(K_B, false).apply()
+            context.encryptedPreferences.edit().putBoolean(BIOMETRIC_ENABLED_KEY, false).apply()
             isUnlocked = false
         }
     }
 
     fun setBiometricEnabled(context: Context, enabled: Boolean) {
-        context.encryptedPreferences.edit().putBoolean(K_B, enabled).apply()
+        context.encryptedPreferences.edit().putBoolean(BIOMETRIC_ENABLED_KEY, enabled).apply()
     }
 }

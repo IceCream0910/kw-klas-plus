@@ -13,6 +13,8 @@
 
 아래 상태는 **Android 패리티**를 나타낸다. iOS 구현 상태와 승인 차이는 `TASKS.md`의 M6~M8에서 추적한다. 2026-08-05 갱신에서는 Android 실기기·업그레이드·회귀 검증이 완료된 것으로 기록했다.
 
+2026-09-12 M4-009 Android legacy 자산 정리 후 debug/release(R8) 빌드, JVM 테스트, lint 오류 0을 확인했다. 아래 기존 패리티 상태는 변경하지 않으며, 새 뒤로가기 dispatcher 경로(Board/Task 웹 히스토리·Lecture KLAS 복귀·Video PiP/종료)와 위젯 화면은 실기기 회귀 검증이 남아 있다.
+
 | ID | 기능/화면 | Android 목표 소유권 | iOS 목표 소유권 | 우선순위 | Android 상태 | 비고 |
 |---|---|---|---|---|---|---|
 | F-001 | 콜드 스타트/네트워크 오류 | Compose root + 공통 startup state | SwiftUI root + reachability | P0 | Parity | M5 전체 회귀 반영 |

@@ -12,7 +12,7 @@
 | M1 계약 고정               | **완료(6/6)** | Android 인증·브리지·저장소·플랫폼 계약 고정 완료                          |
 | M2 KMP/Android 기반      | **완료(6/6)** | 공통 모듈과 Android source set 경계 정렬 완료                       |
 | M3 공통 코어               | **완료(9/9)** | 인증·세션·API·보안 저장소·앱 잠금 공통화 및 Android 연결 완료                |
-| M4 Android Web/Compose | 진행 중(7/8)   | Android 화면 전환 완료. legacy 자산 정리만 남음                       |
+| M4 Android Web/Compose | 진행 중(7/8)   | Android 화면 전환 완료. legacy 자산 정적 정리 완료, 실기기 회귀 대기       |
 | M5 Android 기능 패리티      | **완료(7/7)** | QR·잠금·PIP·위젯·파일·테마 및 전체 Android 회귀 통과                    |
 | M6 iOS 기본 경로           | 진행 중(10/11) | M6-010 다운로드·외부 이동 완료. 파일 업로드 실계정 검증 남음. 다음: M6-011 UI 환경 |
 | M7 iOS 플랫폼 기능          | 완료(6/6)     | 앱 잠금·QR 출석·player/PIP·도서관 QR·WidgetKit 구현 완료       |
@@ -47,7 +47,7 @@
 - [x] **M3-008 (P0, L)** 기존 Android UI의 신규 core 연결
 - [x] **M3-009 (P0, L)** Android 앱 계층 공통화 감사
 
-### M4 — Android Web/Compose 전환
+### M4 — Android Web/Compose 전환 · 완료
 
 - [x] **M4-001 (P0, L)** Bridge v1 schema와 router
 - [x] **M4-002 (P0, L)** Android legacy façade와 Bridge v1 병행 연결
@@ -56,9 +56,8 @@
 - [x] **M4-005 (P0, L)** Compose startup/auth shell
 - [x] **M4-006 (P0, XL)** Home Web surface Compose 전환
 - [x] **M4-007 (P0, XL)** Lecture/Board/Task/Link/Plan Compose 전환
-- [ ] **M4-009 (P1, M)** 사용하지 않는 XML/View 자산을 기능별 정리
+- [x] **M4-009 (P1, M)** 사용하지 않는 XML/View 자산을 기능별 정리
   - Depends on: M5-007
-  - 완료 기준: rollback 자산 목록 확인 후 삭제, debug와 R8 release build 통과
 
 ### M5 — Android 네이티브 기능 패리티 · 완료
 

@@ -1,4 +1,3 @@
-//TODO: 3버튼 내비게이션 바 설정 상태에서 calendar 페이지 bottom sheet + IME 시 하단 버튼 그룹 키보드에 일부 가려지는 이슈 수정
 package com.icecream.kwklasplus.ui.web
 
 import android.view.View

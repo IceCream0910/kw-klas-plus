@@ -61,13 +61,13 @@ class TaskViewActivity : AppCompatActivity() {
     lateinit var webView: WebView
     private lateinit var swipeLayout: SwipeRefreshLayout
     private var isLoading by mutableStateOf(true)
-    lateinit var onBackPressedCallback: OnBackPressedCallback
+    private lateinit var onBackPressedCallback: OnBackPressedCallback
     private var webSurface: AndroidWebSurface? = null
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        onBackPressedCallback = object: OnBackPressedCallback(false) {
+        onBackPressedCallback = object : OnBackPressedCallback(false) {
             override fun handleOnBackPressed() {
                 when {
                     webView.canGoBack() -> webView.goBack()
@@ -268,15 +268,6 @@ class TaskViewActivity : AppCompatActivity() {
     private fun hideLoading() {
         if (isFinishing || isDestroyed) return
         isLoading = false
-    }
-
-    override fun onBackPressed() {
-        if(webView.canGoBack()){
-            webView.goBack()
-
-        } else {
-            super.onBackPressed()
-        }
     }
 
     override fun onDestroy() {

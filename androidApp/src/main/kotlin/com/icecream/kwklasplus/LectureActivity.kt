@@ -29,7 +29,6 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import com.google.android.material.loadingindicator.LoadingIndicator
 import android.widget.ScrollView
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
@@ -82,6 +81,25 @@ import kotlin.system.exitProcess
 
 
 class LectureActivity : AppCompatActivity() {
+    private val backPressedCallback = object : OnBackPressedCallback(true) {
+        override fun handleOnBackPressed() {
+            if (isShowingKLAS) {
+                if (webView.canGoBack()) {
+                    webView.goBack()
+                } else {
+                    webView.visibility = View.GONE
+                    scrollView.visibility = View.VISIBLE
+                    isShowingKLAS = false
+                    webView.loadUrl(AppUrls.KLAS_LECTURE_HOME)
+                }
+                return
+            }
+
+            isEnabled = false
+            onBackPressedDispatcher.onBackPressed()
+            isEnabled = true
+        }
+    }
     private val qrScanLaunchGuard = QrScanLaunchGuard()
     private val qrScanLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -92,7 +110,6 @@ class LectureActivity : AppCompatActivity() {
     lateinit var webView: WebView
     lateinit var uiWebView: WebView
     lateinit var scrollView: SwipeRefreshLayout
-    lateinit var LctName: TextView
     lateinit var subjID: String
     lateinit var subjName: String
     lateinit var sessionId: String
@@ -108,6 +125,7 @@ class LectureActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        onBackPressedDispatcher.addCallback(this, backPressedCallback)
         lockPortraitOnPhone()
 
         subjID = intent.getStringExtra("subjID").toString()
@@ -389,21 +407,6 @@ class LectureActivity : AppCompatActivity() {
                 startActivity(Intent(this@LectureActivity, MainActivity::class.java))
             }
         builder.show()
-    }
-
-    override fun onBackPressed() {
-        if(isShowingKLAS) {
-            if(webView.canGoBack()) {
-                webView.goBack()
-            } else {
-                webView.visibility = View.GONE
-                scrollView.visibility = View.VISIBLE
-                isShowingKLAS = false
-                webView.loadUrl(AppUrls.KLAS_LECTURE_HOME)
-            }
-        } else {
-            super.onBackPressed()
-        }
     }
 
     override fun onDestroy() {
