@@ -17,6 +17,9 @@ class AcademicWidgetRuntime(private val context: Context) {
     private val store = AndroidAcademicWidgetSnapshotStore(context)
     private val syncMutex = Mutex()
     private val immediateScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val immediateRefreshLock = Any()
+    private val immediateRefreshCallbacks = mutableListOf<() -> Unit>()
+    private var immediateRefreshActive = false
     @Volatile
     var calendarLoading: Boolean = false
         private set
@@ -81,11 +84,22 @@ class AcademicWidgetRuntime(private val context: Context) {
     }
 
     fun refreshCalendarNow(onFinished: () -> Unit = {}) {
+        synchronized(immediateRefreshLock) {
+            immediateRefreshCallbacks += onFinished
+            if (immediateRefreshActive) return
+            immediateRefreshActive = true
+        }
         immediateScope.launch {
             CalendarInitialRefresh().run(
                 refresh = { syncCalendar() },
                 scheduleRetry = { AcademicWidgetScheduler.requestCalendar(context, replacePending = true) },
-                finish = onFinished,
+                finish = {
+                    val callbacks = synchronized(immediateRefreshLock) {
+                        immediateRefreshActive = false
+                        immediateRefreshCallbacks.toList().also { immediateRefreshCallbacks.clear() }
+                    }
+                    callbacks.forEach { runCatching(it) }
+                },
             )
         }
     }

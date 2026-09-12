@@ -1,0 +1,5 @@
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp" android:minHeight="250dp" android:minResizeWidth="250dp" android:minResizeHeight="250dp"
+    android:targetCellWidth="4" android:targetCellHeight="4" android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0" android:initialLayout="@layout/academic_widget" android:previewImage="@drawable/preview_calendar_expanded"
+    android:description="@string/calendar_expanded_widget_description" android:widgetCategory="home_screen" />

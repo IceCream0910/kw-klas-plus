@@ -17,21 +17,24 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 
 enum class AcademicWidgetKind { TIMETABLE, CALENDAR }
+enum class AcademicWidgetVariant { COMPACT, EXPANDED }
+
+data class AcademicWidgetSpec(val kind: AcademicWidgetKind, val variant: AcademicWidgetVariant)
 
 private const val ACTION_REFRESH_CALENDAR_WIDGET = "com.icecream.kwklasplus.widget.REFRESH_CALENDAR"
 
-open class AcademicWidgetProvider(private val kind: AcademicWidgetKind) : AppWidgetProvider() {
+open class AcademicWidgetProvider(private val spec: AcademicWidgetSpec) : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        ids.forEach { AcademicWidgets.render(context, manager, it, kind) }
+        ids.forEach { AcademicWidgets.render(context, manager, it, spec) }
         AcademicWidgetScheduler.schedule(context)
-        if (kind == AcademicWidgetKind.CALENDAR) {
+        if (spec.kind == AcademicWidgetKind.CALENDAR) {
             val pending = goAsync()
             context.appDependencies.academicWidgets.refreshCalendarNow { pending.finish() }
         }
     }
 
     override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, options: Bundle) {
-        AcademicWidgets.render(context, manager, id, kind)
+        AcademicWidgets.render(context, manager, id, spec)
         WidgetDisplayRefresh.schedule(context)
     }
 
@@ -41,7 +44,7 @@ open class AcademicWidgetProvider(private val kind: AcademicWidgetKind) : AppWid
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (kind == AcademicWidgetKind.CALENDAR && intent.action == ACTION_REFRESH_CALENDAR_WIDGET) {
+        if (spec.kind == AcademicWidgetKind.CALENDAR && intent.action == ACTION_REFRESH_CALENDAR_WIDGET) {
             val pending = goAsync()
             context.appDependencies.academicWidgets.refreshCalendarNow { pending.finish() }
             return
@@ -51,13 +54,15 @@ open class AcademicWidgetProvider(private val kind: AcademicWidgetKind) : AppWid
             context.appDependencies.academicWidgets.render()
             AcademicWidgetScheduler.schedule(context)
             AcademicWidgetScheduler.scheduleDate(context)
-            if (kind == AcademicWidgetKind.CALENDAR) context.appDependencies.academicWidgets.requestCalendar()
+            if (spec.kind == AcademicWidgetKind.CALENDAR) context.appDependencies.academicWidgets.requestCalendar()
         }
     }
 }
 
-class TimetableWidget : AcademicWidgetProvider(AcademicWidgetKind.TIMETABLE)
-class CalendarWidget : AcademicWidgetProvider(AcademicWidgetKind.CALENDAR)
+class TimetableWidget : AcademicWidgetProvider(AcademicWidgetSpec(AcademicWidgetKind.TIMETABLE, AcademicWidgetVariant.COMPACT))
+class TimetableExpandedWidget : AcademicWidgetProvider(AcademicWidgetSpec(AcademicWidgetKind.TIMETABLE, AcademicWidgetVariant.EXPANDED))
+class CalendarWidget : AcademicWidgetProvider(AcademicWidgetSpec(AcademicWidgetKind.CALENDAR, AcademicWidgetVariant.COMPACT))
+class CalendarExpandedWidget : AcademicWidgetProvider(AcademicWidgetSpec(AcademicWidgetKind.CALENDAR, AcademicWidgetVariant.EXPANDED))
 
 internal data class WidgetRow(val title: String, val detail: String, val relative: String = "",
     val progress: Int = -1, val colorKey: String = title, val color: TimetableColor? = null)
@@ -68,23 +73,35 @@ internal data class WidgetPresentation(
 )
 
 object AcademicWidgets {
-    private fun provider(kind: AcademicWidgetKind) = when (kind) {
-        AcademicWidgetKind.TIMETABLE -> TimetableWidget::class.java
-        AcademicWidgetKind.CALENDAR -> CalendarWidget::class.java
+    private const val TWO_COLUMN_PORTRAIT_MAX_DP = 170
+    private const val TWO_COLUMN_LANDSCAPE_MAX_DP = 340
+
+    internal fun isTwoColumnsOrLess(context: Context, width: Int): Boolean {
+        val maxWidth = if (context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
+            TWO_COLUMN_LANDSCAPE_MAX_DP else TWO_COLUMN_PORTRAIT_MAX_DP
+        return width < maxWidth
     }
-    private fun ids(context: Context, kind: AcademicWidgetKind) = AppWidgetManager.getInstance(context)
-        .getAppWidgetIds(ComponentName(context, provider(kind)))
-    fun hasCalendar(context: Context) = ids(context, AcademicWidgetKind.CALENDAR).isNotEmpty()
-    fun hasAny(context: Context) = AcademicWidgetKind.entries.any { ids(context, it).isNotEmpty() }
+
+    private val specs = AcademicWidgetKind.entries.flatMap { kind ->
+        AcademicWidgetVariant.entries.map { variant -> AcademicWidgetSpec(kind, variant) }
+    }
+    private fun provider(spec: AcademicWidgetSpec) = when (spec) {
+        AcademicWidgetSpec(AcademicWidgetKind.TIMETABLE, AcademicWidgetVariant.COMPACT) -> TimetableWidget::class.java
+        AcademicWidgetSpec(AcademicWidgetKind.TIMETABLE, AcademicWidgetVariant.EXPANDED) -> TimetableExpandedWidget::class.java
+        AcademicWidgetSpec(AcademicWidgetKind.CALENDAR, AcademicWidgetVariant.COMPACT) -> CalendarWidget::class.java
+        else -> CalendarExpandedWidget::class.java
+    }
+    private fun ids(context: Context, spec: AcademicWidgetSpec) = AppWidgetManager.getInstance(context)
+        .getAppWidgetIds(ComponentName(context, provider(spec)))
+    fun hasCalendar(context: Context) = specs.any { it.kind == AcademicWidgetKind.CALENDAR && ids(context, it).isNotEmpty() }
+    fun hasAny(context: Context) = specs.any { ids(context, it).isNotEmpty() }
 
     fun renderAll(context: Context, compactOnly: Boolean = false) {
         val manager = AppWidgetManager.getInstance(context)
-        AcademicWidgetKind.entries.forEach { kind ->
-            if (compactOnly && kind != AcademicWidgetKind.TIMETABLE) return@forEach
-            ids(context, kind).forEach { id ->
-                if (!compactOnly || !isExpanded(context, manager.getAppWidgetOptions(id))) {
-                    runCatching { render(context, manager, id, kind) }
-                }
+        specs.forEach { spec ->
+            if (compactOnly && spec != AcademicWidgetSpec(AcademicWidgetKind.TIMETABLE, AcademicWidgetVariant.COMPACT)) return@forEach
+            ids(context, spec).forEach { id ->
+                runCatching { render(context, manager, id, spec) }
             }
         }
     }
@@ -147,25 +164,28 @@ object AcademicWidgets {
     private fun time(value: String) = value.split(':').joinToString(":") { it.padStart(2, '0') }
 
     @Suppress("DEPRECATION")
-    fun render(context: Context, manager: AppWidgetManager, id: Int, kind: AcademicWidgetKind) {
+    fun render(context: Context, manager: AppWidgetManager, id: Int, spec: AcademicWidgetSpec) {
         val options = manager.getAppWidgetOptions(id)
-        val presentation = presentation(context, kind)
+        val presentation = presentation(context, spec.kind)
         val size = currentSize(context, options)
-        val views = view(context, id, kind, size.first, size.second, presentation)
+        val views = view(context, id, spec, size.first, size.second, presentation)
 
         manager.updateAppWidget(id, views)
-        if (kind == AcademicWidgetKind.TIMETABLE && AcademicWidgetPolicy.layout(size.first, size.second) == AcademicWidgetLayout.FULL &&
+        if (spec == AcademicWidgetSpec(AcademicWidgetKind.TIMETABLE, AcademicWidgetVariant.EXPANDED) &&
             AcademicWidgetPolicy.weekends(presentation.snapshot?.timetable.orEmpty()).isNotEmpty())
             manager.notifyAppWidgetViewDataChanged(id, R.id.widget_weekend_list)
-        if (AcademicWidgetPolicy.layout(size.first, size.second) != AcademicWidgetLayout.FULL &&
-            (kind == AcademicWidgetKind.CALENDAR || AcademicWidgetPolicy.layout(size.first, size.second) != AcademicWidgetLayout.COMPACT))
+        if (spec.variant == AcademicWidgetVariant.COMPACT &&
+            (spec.kind == AcademicWidgetKind.CALENDAR || !isTwoColumnsOrLess(context, size.first)))
             manager.notifyAppWidgetViewDataChanged(id, R.id.academic_widget_list)
     }
 
     @Suppress("DEPRECATION")
-    internal fun view(context: Context, id: Int, kind: AcademicWidgetKind, width: Int, height: Int,
+    internal fun view(context: Context, id: Int, spec: AcademicWidgetSpec, width: Int, height: Int,
                      data: WidgetPresentation): RemoteViews {
-        val layout = AcademicWidgetPolicy.layout(width, height)
+        val kind = spec.kind
+        val layout = if (spec.variant == AcademicWidgetVariant.EXPANDED) AcademicWidgetLayout.FULL
+            else if (kind == AcademicWidgetKind.TIMETABLE && isTwoColumnsOrLess(context, width))
+                AcademicWidgetLayout.COMPACT else AcademicWidgetLayout.SUMMARY
         if (layout != AcademicWidgetLayout.FULL) return smallView(context, id, kind, width, height, data, layout)
         val views = RemoteViews(context.packageName, R.layout.academic_widget)
         val open = openApp(context, id, kind)
@@ -176,7 +196,7 @@ object AcademicWidgets {
         views.setTextViewText(R.id.academic_widget_status, data.status)
         views.setViewVisibility(R.id.academic_widget_refresh, if (kind == AcademicWidgetKind.CALENDAR) View.VISIBLE else View.GONE)
         if (kind == AcademicWidgetKind.CALENDAR)
-            views.setOnClickPendingIntent(R.id.academic_widget_refresh, refreshCalendar(context, id))
+            views.setOnClickPendingIntent(R.id.academic_widget_refresh, refreshCalendar(context, id, spec))
         views.setTextViewText(R.id.academic_widget_empty, data.empty)
         val full = layout == AcademicWidgetLayout.FULL && data.ready
         views.setViewVisibility(R.id.academic_widget_body, if (full) View.GONE else View.VISIBLE)
@@ -226,22 +246,15 @@ object AcademicWidgets {
             options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 140)
     }
 
-    internal fun isExpanded(context: Context, options: Bundle): Boolean {
-        val (width, height) = currentSize(context, options)
-        return AcademicWidgetPolicy.layout(width, height) == AcademicWidgetLayout.FULL
-    }
-
-    fun hasSmallTimetable(context: Context): Boolean {
-        val manager = AppWidgetManager.getInstance(context)
-        return ids(context, AcademicWidgetKind.TIMETABLE).any { !isExpanded(context, manager.getAppWidgetOptions(it)) }
-    }
+    fun hasSmallTimetable(context: Context): Boolean =
+        ids(context, AcademicWidgetSpec(AcademicWidgetKind.TIMETABLE, AcademicWidgetVariant.COMPACT)).isNotEmpty()
 
     private fun openApp(context: Context, id: Int, kind: AcademicWidgetKind): PendingIntent = PendingIntent.getActivity(context, id,
         Intent(context, WidgetEntryActivity::class.java).setData(android.net.Uri.parse(WidgetDestination.valueOf(kind.name).uri)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
-    private fun refreshCalendar(context: Context, id: Int): PendingIntent = PendingIntent.getBroadcast(context, id,
-        Intent(context, CalendarWidget::class.java).setAction(ACTION_REFRESH_CALENDAR_WIDGET),
+    private fun refreshCalendar(context: Context, id: Int, spec: AcademicWidgetSpec): PendingIntent = PendingIntent.getBroadcast(context, id,
+        Intent(context, provider(spec)).setAction(ACTION_REFRESH_CALENDAR_WIDGET),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
     @Suppress("DEPRECATION")
@@ -285,7 +298,8 @@ object AcademicWidgets {
         views.setTextViewText(R.id.academic_widget_status, data.status)
         views.setViewVisibility(R.id.academic_widget_status, if (calendar && height >= 180) View.VISIBLE else View.GONE)
         views.setViewVisibility(R.id.academic_widget_refresh, if (calendar) View.VISIBLE else View.GONE)
-        if (calendar) views.setOnClickPendingIntent(R.id.academic_widget_refresh, refreshCalendar(context, id))
+        if (calendar) views.setOnClickPendingIntent(R.id.academic_widget_refresh,
+            refreshCalendar(context, id, AcademicWidgetSpec(kind, AcademicWidgetVariant.COMPACT)))
         views.setPendingIntentTemplate(R.id.academic_widget_list, open)
         views.setRemoteAdapter(R.id.academic_widget_list, Intent(context, AcademicWidgetListService::class.java).apply {
             putExtra("kind", kind.name)
@@ -297,7 +311,6 @@ object AcademicWidgets {
         if (width < 170) {
             views.setViewPadding(R.id.academic_widget_root, dp(context, 12), dp(context, 12), dp(context, 12), dp(context, 12))
             views.setTextViewTextSize(R.id.widget_date_header, android.util.TypedValue.COMPLEX_UNIT_SP, 12f)
-            // 좁은 위젯은 날짜를 위에 두어 카드의 제목 너비를 확보한다.
             if (!calendar) {
                 views.setViewVisibility(R.id.widget_date_rail, View.GONE)
                 views.setViewVisibility(R.id.widget_date_header, View.VISIBLE)
