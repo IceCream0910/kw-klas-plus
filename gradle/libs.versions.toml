@@ -2,7 +2,7 @@
 # iosApp/Configuration/Config.xcconfig와 CONTRIBUTING.md 툴체인 표를 기준으로 한다.
 # 동반 정책: iOS/iPadOS deployment target 16.0, Xcode 16.2+
 [versions]
-agp = "9.3.1"
+agp = "9.3.2"
 android-compileSdk = "37"
 android-minSdk = "29"
 android-targetSdk = "37"

@@ -221,6 +221,7 @@ class LockActivity : AppCompatActivity() {
     }
 
     private fun completePasswordUpdate() {
+        AppLockManager.isUnlocked = true
         if (AndroidBiometricAvailability.canAuthenticate(this)) {
             showBiometricPromptForEnabling()
         } else {

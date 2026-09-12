@@ -12,7 +12,7 @@
 | M1 계약 고정               | **완료(6/6)** | Android 인증·브리지·저장소·플랫폼 계약 고정 완료                          |
 | M2 KMP/Android 기반      | **완료(6/6)** | 공통 모듈과 Android source set 경계 정렬 완료                       |
 | M3 공통 코어               | **완료(9/9)** | 인증·세션·API·보안 저장소·앱 잠금 공통화 및 Android 연결 완료                |
-| M4 Android Web/Compose | 진행 중(7/8)   | Android 화면 전환 완료. legacy 자산 정적 정리 완료, 실기기 회귀 대기       |
+| M4 Android Web/Compose | 완료(8/8)     | Android 화면 전환 완료. legacy 자산 정적 정리 완료, 실기기 회귀 대기       |
 | M5 Android 기능 패리티      | **완료(7/7)** | QR·잠금·PIP·위젯·파일·테마 및 전체 Android 회귀 통과                    |
 | M6 iOS 기본 경로           | 진행 중(10/11) | M6-010 다운로드·외부 이동 완료. 파일 업로드 실계정 검증 남음. 다음: M6-011 UI 환경 |
 | M7 iOS 플랫폼 기능          | 완료(6/6)     | 앱 잠금·QR 출석·player/PIP·도서관 QR·WidgetKit 구현 완료       |
@@ -63,6 +63,8 @@
 
 - [x] **M5-001 (P0, L)** QR 출석과 공통 AttendanceRepository
 - [x] **M5-002 (P0, L)** Compose 앱 잠금과 Android 생체인식
+  - 2026-09-12 보완: 로그인 화면의 비밀번호 찾기·학번 찾기·최초 등록 `LinkViewActivity`는 `SESSION_ID` extra가 비어 있을 때만 잠금 예외로 둔다. 세션 extra가 있는 링크는 기존 잠금을 유지한다. 실기기에서 잠금 활성 상태의 로그인 보조 링크와 인증 후 링크를 각각 확인한다.
+  - 2026-09-12 후속: 앱 잠금 PIN·생체인증 설정은 기기 설정으로 취급해 로그아웃 시 보존한다. Android 시작/온보딩/로그인 화면은 자동 잠금을 요청하지 않고, 인증 후 홈과 기존 보호 화면에서 잠금을 적용한다. 브랜치 `fix/android-appLock-policy`, Native `origin/kmp` `aced26e0d9956d58c3c11e182e0372c0029b185c`, 원본 Android 로컬 `legacy-native/main` `76be3b50ba6f3f28ab81c58918542203c6b5933c`, Web 로컬 `legacy-web/main` `e835d37f3a717615d3ecc3f5453f000c4b04b85f`(원본/Web 원격 최신 여부 미조회). `:shared:testAndroidHostTest --tests com.icecream.kwklasplus.core.lock.AppLockPolicyTest :androidApp:testDebugUnitTest :androidApp:assembleDebug --offline` 통과. 로그아웃→로그인 및 백그라운드 복귀는 실기기 확인 대기. 롤백은 이 후속 변경을 되돌려 기존 로그아웃 잠금 해제와 Activity 예외 목록을 복원한다.
 - [x] **M5-003 (P0, XL)** Compose 비디오 플레이어와 Android PIP
   - 2026-09-04 후속: PiP 닫기 즉시 WebView 정리 및 수명주기 fallback, seekbar 탐색 중 좌측 시간 미리보기. 사용자 요청으로 VOD 자동 클릭 제거. 검증과 미완료 실기기 항목: `docs/ANDROID_PLAYER_TRANSITIONS.md`.
   - 2026-09-04 후속 구현: 본인인증 성공 후 선택 강의 viewer를 한 번만 자동 실행. 기존 페이지가 자체 이동하거나 뒤로가기/새 요청이 발생하면 예약 실행 취소.

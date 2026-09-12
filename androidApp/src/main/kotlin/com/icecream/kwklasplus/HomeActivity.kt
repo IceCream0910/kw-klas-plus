@@ -1113,7 +1113,6 @@ class HomeActivity : AppCompatActivity() {
             .setMessage("정말 로그아웃할까요?")
             .setPositiveButton("확인") { _, _ ->
                 lifecycleScope.launch {
-                    com.icecream.kwklasplus.manager.AppLockManager.setAppLockEnabled(this@HomeActivity, false)
                     appDependencies.sessionKeepAlive.onSessionCleared()
                     appDependencies.sessionCoordinator.expire()
                     runCatching {

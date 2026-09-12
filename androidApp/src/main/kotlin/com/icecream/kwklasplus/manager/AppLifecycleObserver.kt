@@ -7,8 +7,12 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
+import com.icecream.kwklasplus.IntentExtras
 import com.icecream.kwklasplus.LibraryQRWidgetActivity
+import com.icecream.kwklasplus.LinkViewActivity
+import com.icecream.kwklasplus.LoginActivity
 import com.icecream.kwklasplus.LockActivity
+import com.icecream.kwklasplus.MainActivity
 import com.icecream.kwklasplus.core.lock.AppLockEvent
 import com.icecream.kwklasplus.core.lock.AppLockPolicy
 import com.icecream.kwklasplus.core.lock.AppLockState
@@ -31,7 +35,13 @@ class AppLifecycleObserver(
 
     private fun requestUnlockIfNeeded(activity: Activity) {
         val state = AppLockState(AppLockManager.isAppLockEnabled(context), AppLockManager.isUnlocked)
-        val isExemptHost = activity is LockActivity || activity is LibraryQRWidgetActivity
+        val isUnauthenticatedLink = activity is LinkViewActivity &&
+            activity.intent.getStringExtra(IntentExtras.SESSION_ID).isNullOrBlank()
+        val isExemptHost = activity is LockActivity ||
+            activity is LibraryQRWidgetActivity ||
+            activity is MainActivity ||
+            activity is LoginActivity ||
+            isUnauthenticatedLink
         if (policy.shouldRequestUnlock(state, isExemptHost)) {
             activity.startActivity(Intent(activity, LockActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
