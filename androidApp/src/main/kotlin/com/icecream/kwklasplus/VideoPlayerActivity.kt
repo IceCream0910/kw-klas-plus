@@ -25,7 +25,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import android.provider.MediaStore.Video
 import android.util.Log
 import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
@@ -34,12 +33,10 @@ import android.webkit.JsResult
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import com.google.android.material.loadingindicator.LoadingIndicator
-import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
@@ -83,6 +80,27 @@ import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
 import kotlinx.coroutines.launch
 
 class VideoPlayerActivity : AppCompatActivity() {
+    private val backPressedCallback = object : OnBackPressedCallback(true) {
+        override fun handleOnBackPressed() {
+            if (playbackGate.isReplacing) return
+            pendingLecture = null
+            certificationContinuation.clear()
+            lectureNavigationRevision += 1
+            when {
+                isViewer && !isInPictureInPictureMode -> startPIP()
+                isViewer -> finishActivity()
+                listWebView.canGoBack() -> listWebView.goBack()
+                KLASWebView.canGoBack() -> KLASWebView.goBack()
+                else -> finishActivity()
+            }
+        }
+
+        private fun finishActivity() {
+            isEnabled = false
+            onBackPressedDispatcher.onBackPressed()
+            isEnabled = true
+        }
+    }
     var isPlaying: Boolean = false
     lateinit var KLASWebView: WebView
     lateinit var VideoWebView: WebView
@@ -153,6 +171,7 @@ class VideoPlayerActivity : AppCompatActivity() {
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        onBackPressedDispatcher.addCallback(this, backPressedCallback)
         val intentFilter = IntentFilter(ACTION_MEDIA_CONTROL).apply {
             addCategory(Intent.CATEGORY_DEFAULT)
         }
@@ -916,28 +935,6 @@ class VideoPlayerActivity : AppCompatActivity() {
         VideoLegacyBridgeCommandHandler(bridgeDelegate),
     ).also { it.install() }
 
-    override fun onBackPressed() {
-        if (playbackGate.isReplacing) return
-        pendingLecture = null
-        certificationContinuation.clear()
-        lectureNavigationRevision += 1
-        if (isViewer) {
-            if (!isInPictureInPictureMode) {
-                startPIP()
-            } else {
-                super.onBackPressed()
-            }
-        } else {
-            if (listWebView.canGoBack()) {
-                listWebView.goBack()
-            } else if (KLASWebView.canGoBack()) {
-                KLASWebView.goBack()
-            } else {
-                super.onBackPressed()
-            }
-        }
-    }
-
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         if (!isPlayerVisible || isInPictureInPictureMode) return
@@ -948,9 +945,6 @@ class VideoPlayerActivity : AppCompatActivity() {
         }
     }
 
-    override fun onPause() {
-        super.onPause()
-    }
 }
 
 class VideoBridgeDelegate(private val videoPlayerActivity: VideoPlayerActivity) {

@@ -12,7 +12,7 @@
 | M1 계약 고정               | **완료(6/6)** | Android 인증·브리지·저장소·플랫폼 계약 고정 완료                          |
 | M2 KMP/Android 기반      | **완료(6/6)** | 공통 모듈과 Android source set 경계 정렬 완료                       |
 | M3 공통 코어               | **완료(9/9)** | 인증·세션·API·보안 저장소·앱 잠금 공통화 및 Android 연결 완료                |
-| M4 Android Web/Compose | 진행 중(7/8)   | Android 화면 전환 완료. legacy 자산 정리만 남음                       |
+| M4 Android Web/Compose | 진행 중(7/8)   | Android 화면 전환 완료. legacy 자산 정적 정리 완료, 실기기 회귀 대기       |
 | M5 Android 기능 패리티      | **완료(7/7)** | QR·잠금·PIP·위젯·파일·테마 및 전체 Android 회귀 통과                    |
 | M6 iOS 기본 경로           | 진행 중(10/11) | M6-010 다운로드·외부 이동 완료. 파일 업로드 실계정 검증 남음. 다음: M6-011 UI 환경 |
 | M7 iOS 플랫폼 기능          | 완료(6/6)     | 앱 잠금·QR 출석·player/PIP·도서관 QR·WidgetKit 구현 완료       |
@@ -59,6 +59,10 @@
 - [ ] **M4-009 (P1, M)** 사용하지 않는 XML/View 자산을 기능별 정리
   - Depends on: M5-007
   - 완료 기준: rollback 자산 목록 확인 후 삭제, debug와 R8 release build 통과
+  - 2026-09-12 구현: Compose 전환 후 참조되지 않는 Activity/모달 layout 20개, menu 2개, 배열 1개, 전용 drawable 23개와 커스텀 View 버튼 3개 제거. 사용자가 승인한 `activity_board.xml`도 포함. 앱 위젯 `RemoteViews` layout, PiP 액션 drawable, 스타일에서 간접 참조하는 위젯 배경은 유지.
+  - 기준: Native 작업 HEAD `35d667327b511e0721d54e1f568c8b69e9b3e897`, 원본 Android 로컬 `origin/main` `76be3b50ba6f3f28ab81c58918542203c6b5933c`, Web 로컬 `origin/main` `7f07ba4ea94833a017b6f888ff5ec1193b83af4d` (원격 최신 여부 미조회).
+  - 검증: `:androidApp:assembleDebug :androidApp:assembleRelease :androidApp:testDebugUnitTest :androidApp:lintDebug --no-daemon`, `:androidApp:compileDebugAndroidTestKotlin --no-daemon` 통과(Windows/JDK 21, lint 오류 0). 뒤로가기 dispatcher 전환은 실기기에서 Board/Task 웹 히스토리, Lecture KLAS 복귀, Video PiP/종료 경로 확인 필요. instrumentation 실행과 실기기 검증 전에는 Android 회귀 완료로 간주하지 않음.
+  - 롤백: 이 작업의 Android 리소스 삭제와 뒤로가기 변경만 되돌리며, 최초에 존재하던 `activity_board.xml`의 사용자 공백 수정은 복원 시 별도 보존한다. `shared`, iOS, 브리지 계약 및 저장 키는 변경하지 않음.
 
 ### M5 — Android 네이티브 기능 패리티 · 완료
 

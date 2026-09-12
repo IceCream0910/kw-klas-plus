@@ -65,14 +65,14 @@ class BoardActivity : AppCompatActivity() {
     private val filePicker = AndroidFilePicker(this)
     lateinit var webView: WebView
     private lateinit var swipeLayout: SwipeRefreshLayout
-    lateinit var onBackPressedCallback: OnBackPressedCallback
+    private lateinit var onBackPressedCallback: OnBackPressedCallback
     private var bridgeMessageAdapter: AndroidBridgeMessageAdapter? = null
     private var webSurface: AndroidWebSurface? = null
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        onBackPressedCallback = object: OnBackPressedCallback(false) {
+        onBackPressedCallback = object : OnBackPressedCallback(false) {
             override fun handleOnBackPressed() {
                 when {
                     webView.canGoBack() -> webView.goBack()
@@ -241,15 +241,6 @@ class BoardActivity : AppCompatActivity() {
                 filePathCallback: ValueCallback<Array<Uri>>,
                 fileChooserParams: FileChooserParams
             ): Boolean = filePicker.showForWeb(filePathCallback, fileChooserParams)
-        }
-    }
-
-    override fun onBackPressed() {
-        if(webView.canGoBack()){
-            webView.goBack()
-
-        } else {
-            super.onBackPressed()
         }
     }
 

@@ -6,15 +6,10 @@ import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.view.HapticFeedbackConstants
 import android.webkit.WebView
-import androidx.activity.enableEdgeToEdge
-import androidx.annotation.IdRes
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.google.android.gms.common.util.DeviceProperties.isTablet
-import com.icecream.kwklasplus.R
 import com.icecream.kwklasplus.core.security.SecretValue
 import com.icecream.kwklasplus.core.bridge.TrustedOriginPolicy
 import com.icecream.kwklasplus.core.bridge.KlasContentOriginPolicy
@@ -66,25 +61,11 @@ fun Context.getLibraryPassword(): String? {
     if (password == null) {
         password = regularPrefs.getString(AppPrefs.LIBRARY_PASSWORD, null)
         if (password != null) {
-            // Migrate
             encryptedPrefs.edit().putString(AppPrefs.LIBRARY_PASSWORD, password).apply()
             regularPrefs.edit().let { it.remove(AppPrefs.LIBRARY_PASSWORD); it.apply() }
         }
     }
     return password
-}
-
-fun AppCompatActivity.applyEdgeToEdgeInsets(
-    @IdRes rootViewId: Int = R.id.main,
-    onInsetsApplied: ((WindowInsetsCompat) -> Unit)? = null
-) {
-    enableEdgeToEdge()
-    ViewCompat.setOnApplyWindowInsetsListener(findViewById(rootViewId)) { view, insets ->
-        val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-        view.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-        onInsetsApplied?.invoke(insets)
-        insets
-    }
 }
 
 fun AppCompatActivity.lockPortraitOnPhone() {
