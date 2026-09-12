@@ -96,6 +96,7 @@ final class WebViewHolder: NSObject, ObservableObject {
         let created = WKWebView(frame: .zero, configuration: configuration)
         created.navigationDelegate = navigationRelay
         created.uiDelegate = uiRelay
+        created.allowsBackForwardNavigationGestures = true
         Self.configureWebScrollView(created.scrollView)
         _webView = created
         return created

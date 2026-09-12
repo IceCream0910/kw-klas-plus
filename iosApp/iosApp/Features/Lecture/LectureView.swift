@@ -218,6 +218,14 @@ final class LectureScreenModel: ObservableObject {
         message.contains(bootstrapLectureErrorMarker)
     }
 
+    var consumesNativeBack: Bool {
+        Self.consumesNativeBack(showingKlas: showingKlas, klasCanGoBack: klasHolder.navigationState.canGoBack)
+    }
+
+    nonisolated static func consumesNativeBack(showingKlas: Bool, klasCanGoBack: Bool) -> Bool {
+        showingKlas && !klasCanGoBack
+    }
+
     func handleBack(dismiss: () -> Void) {
         if showingKlas {
             if !klasHolder.goBack() {
@@ -422,6 +430,10 @@ struct LectureView: View {
             model.handleKlasNavigation(state)
         }
         .accessibilityIdentifier("lecture_view")
+        .interactivePopGesture(
+            consumesNativeBack: model.consumesNativeBack,
+            onConsumeBack: { model.handleBack(dismiss: { dismiss() }) }
+        )
     }
 
     private var hidesWebForOverlay: Bool {

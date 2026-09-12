@@ -25,6 +25,7 @@ struct HomeRootView: View {
                     pushedScreen(destination)
                 }
         }
+        .interactivePopGesture()
         .preferredColorScheme(coordinator.colorScheme)
         .tint(KlasTheme.primary)
         .onAppear {
