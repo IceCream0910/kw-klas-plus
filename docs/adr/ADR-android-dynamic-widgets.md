@@ -15,7 +15,7 @@
 | 공통 표시 계약 | `AcademicWidgetSnapshot`, `AcademicWidgetPolicy`, `WidgetClassPolicy`, `TimetableColorPolicy`, `WidgetDestination` | 계정/학기 스냅샷, 월간 막대·오늘 목록·수업 진행률, 8색 light/dark 배정, 고정 탭 URI |
 | Android 저장 | `AndroidAcademicWidgetSnapshotStore` | `noBackupFilesDir/academic_widget_snapshot_v1.json`에 `AtomicFile` 읽기·쓰기·삭제 |
 | Android 수명주기 | `AcademicWidgetRuntime`, `AcademicWidgetScheduler`, `WidgetDisplayRefresh` | 앱 시작·진입·계정/학기 변경·위젯 추가·날짜 변경·예약 조회·표시 갱신 |
-| Android 표시·진입 | `AcademicWidgets`, `AcademicWidgetDrawing`, `WidgetBitmapCache`, `WidgetEntryActivity` | 크기별 RemoteViews/Canvas, bitmap 캐시, 앱 잠금 후 WebView 탭 진입 |
+| Android 표시·진입 | `AcademicWidgets`, `AcademicWidgetDrawing`, `WidgetBitmapCache`, `WidgetEntryActivity` | 축소·확장 provider별 RemoteViews/Canvas, bitmap 캐시, 앱 잠금 후 WebView 탭 진입 |
 
 ```mermaid
 flowchart LR
@@ -41,9 +41,9 @@ flowchart LR
 
 ## 크기·렌더링·전력
 
-Android 호스트가 제공한 현재 방향의 dp 폭/높이로 단일 위젯 종류의 레이아웃을 선택한다. 높이 `250dp` 이상을 확장형(Nx4 이상에 대응), 그 미만을 축소형(Nx1~Nx3에 대응)으로 취급한다. 축소형 중 폭 `110dp` 미만은 시간표 집중 카드, 그 이상은 날짜/수업 목록 또는 캘린더 agenda이다. 실제 런처 셀 치수는 기기마다 달라 경계와 글자 잘림을 실기기에서 확인해야 한다.
+시간표·캘린더 각각 축소형과 확장형 provider를 분리해 위젯 선택기에 총 네 종류를 노출한다. 기존 `TimetableWidget`·`CalendarWidget` 컴포넌트는 설치된 위젯 ID를 유지하며 축소형으로 동작한다. 축소형 기본 크기는 4×2셀, 확장형은 4×4셀이며 provider에 따라 표시 종류가 고정된다. 축소형 두 종류의 최소 리사이즈 크기는 `129×110dp`로 설정해 일반적인 런처에서 2×2셀 이하로 줄지 않도록 한다. 축소 시간표는 세로 방향 너비 `170dp` 미만, 가로 방향 너비 `340dp` 미만일 때 수업 한 개만 보여주는 집중 카드를 표시하며, 그 이상은 날짜/수업 목록을 표시한다. 런처마다 셀 치수가 달라 정확한 2칸 경계와 글자 잘림은 실기기에서 확인해야 한다. 선택기 미리보기는 샘플 수업·일정을 담은 정적 PNG 네 장을 사용한다. 실제 계정 정보는 미리보기에 포함하지 않는다.
 
-축소형은 TextView·ProgressBar·ListView로 그린다. 현재/다음 수업의 남은 시간과 진행률은 화면이 켜져 있고 표시가 필요한 축소 시간표가 있을 때 분 단위 `TIME_TICK`/비정확 알람으로 갱신한다. 확장형은 이 분 단위 경로에서 제외한다. Canvas는 확장 시간표 그리드와 월간 달력에만 사용한다. 제공 dp 영역에 density를 적용해 bitmap을 만들되 화면 픽셀 예산의 1.2배 이내로 제한한다. 데이터·날짜·크기·테마·해상도별 `LruCache`는 조회 시각/실패 상태만 바뀐 경우 bitmap을 재사용하고, 계정 삭제 시 비운다. 따라서 확장형 재렌더가 매번 rasterize를 유발하지 않는다. 다만 프로세스 재시작·캐시 축출·날짜·데이터·테마·크기 변경에는 다시 그린다.
+축소형은 TextView·ProgressBar·ListView로 그린다. 현재/다음 수업의 남은 시간과 진행률은 화면이 켜져 있고 축소 시간표 provider가 있을 때 분 단위 `TIME_TICK`/비정확 알람으로 갱신한다. 확장형은 이 분 단위 경로에서 제외한다. Canvas는 확장 시간표 그리드와 월간 달력에만 사용한다. 제공 dp 영역에 density를 적용해 bitmap을 만들되 화면 픽셀 예산의 1.2배 이내로 제한한다. 데이터·날짜·크기·테마·해상도별 `LruCache`는 조회 시각/실패 상태만 바뀐 경우 bitmap을 재사용하고, 계정 삭제 시 비운다. 따라서 확장형 재렌더가 매번 rasterize를 유발하지 않는다. 다만 프로세스 재시작·캐시 축출·날짜·데이터·테마·크기 변경에는 다시 그린다.
 
 ## 잠금·진입·실패 정책
 
