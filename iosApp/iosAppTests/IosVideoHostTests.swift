@@ -379,6 +379,28 @@ final class IosVideoHostTests: XCTestCase {
         XCTAssertTrue(dismissed)
     }
 
+    func testConsumesNativeBackWhilePlayerOrKlasOverlayIsVisible() {
+        let coordinator = makeCoordinator()
+        defer { coordinator.dispose() }
+        coordinator.handleBootstrap(Self.readyHomeResult())
+        let model = VideoScreenModel(
+            subjectId: "SUBJ01",
+            yearSemester: "2026,1",
+            sessionToken: coordinator.sessionToken,
+            coordinator: coordinator
+        )
+        XCTAssertFalse(model.consumesNativeBack)
+
+        model.receiveVideoURL("https://vod.kw.ac.kr/player")
+        XCTAssertTrue(model.consumesNativeBack)
+
+        model.handleBack(dismiss: {})
+        XCTAssertFalse(model.consumesNativeBack)
+
+        model.showingKlas = true
+        XCTAssertTrue(model.consumesNativeBack)
+    }
+
     func testConfirmCloseResetsStateAndHidesPlayer() {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }

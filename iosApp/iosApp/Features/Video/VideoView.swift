@@ -387,6 +387,10 @@ final class VideoScreenModel: ObservableObject {
         }
     }
 
+    var consumesNativeBack: Bool {
+        isPlayerVisible || showingKlas
+    }
+
     func handleBack(dismiss: () -> Void) {
         if isInPictureInPicture {
             if isPlayerVisible || showingKlas {
@@ -663,6 +667,10 @@ struct VideoView: View {
         .webJavaScriptAlert(model.videoHolder, enabled: model.isPlayerVisible)
         .webDownloadOverlay(model.listHolder)
         .webDownloadOverlay(model.klasHolder)
+        .interactivePopGesture(
+            consumesNativeBack: model.consumesNativeBack,
+            onConsumeBack: { model.handleBack(dismiss: { dismiss() }) }
+        )
         .onAppear {
             model.videoHolder.webView.alpha = 1
             model.start()
