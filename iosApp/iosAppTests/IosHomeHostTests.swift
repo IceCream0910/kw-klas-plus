@@ -202,6 +202,28 @@ final class IosHomeHostTests: XCTestCase {
     }
 
     @MainActor
+    func testLectureConsumesNativeBackWhenKlasOverlayHasNoHistory() {
+        let coordinator = makeHomeCoordinator()
+        defer { coordinator.dispose() }
+        let model = LectureScreenModel(
+            subjectId: "TEST001",
+            subjectName: "테스트강의",
+            yearSemester: "2026,1",
+            sessionToken: SecretValue.companion.of(value: "session"),
+            coordinator: coordinator
+        )
+        defer {
+            model.uiHolder.dispose()
+            model.klasHolder.dispose()
+        }
+
+        XCTAssertFalse(model.consumesNativeBack)
+        model.showingKlas = true
+        XCTAssertTrue(model.consumesNativeBack)
+        XCTAssertFalse(model.klasHolder.navigationState.canGoBack)
+    }
+
+    @MainActor
     func testOpenLectureWindowExpiryEndsSuppressionWithoutSecondCall() {
         let coordinator = makeHomeCoordinator()
         defer { coordinator.dispose() }
@@ -512,6 +534,32 @@ final class IosHomeHostTests: XCTestCase {
         XCTAssertTrue(
             KlasWebAutomationScripts.shared.closeBottomSheet().reveal().contains("window.closeWebViewBottomSheet")
         )
+    }
+
+    @MainActor
+    func testIdCardModalDisablesBackForwardGesturesAndRestoresOnDismiss() {
+        let suite = "com.icecream.kwklasplus.test.home.modal.gestures.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let runtime = IosAuthRuntime.companion.create(defaults: defaults)
+        let coordinator = HomeCoordinator(authRuntime: runtime, onLogout: {})
+
+        coordinator.handleBootstrap(Self.readyHomeResult())
+
+        guard let homeHolder = coordinator.homeHolder else {
+            XCTFail("homeHolder must be attached")
+            return
+        }
+
+        XCTAssertTrue(homeHolder.webView.allowsBackForwardNavigationGestures)
+
+        coordinator.requestIdCardQRValue()
+        XCTAssertFalse(homeHolder.webView.allowsBackForwardNavigationGestures)
+
+        coordinator.endIdCardModalIfNeeded()
+        XCTAssertTrue(homeHolder.webView.allowsBackForwardNavigationGestures)
     }
 
     @MainActor

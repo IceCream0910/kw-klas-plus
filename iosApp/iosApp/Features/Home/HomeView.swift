@@ -37,6 +37,9 @@ struct HomeView: View {
             coordinator.handleHomeNavigation(state)
         }
         .webDownloadOverlay(holder)
+        .onDisappear {
+            coordinator.endIdCardModalIfNeeded()
+        }
         .accessibilityIdentifier("home_view")
     }
 }

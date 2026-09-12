@@ -38,7 +38,13 @@ enum QrAttendancePhase: Equatable {
 
 @MainActor
 final class HomeCoordinator: ObservableObject {
-    @Published var path = NavigationPath()
+    @Published var path = NavigationPath() {
+        didSet {
+            if !path.isEmpty {
+                endIdCardModalIfNeeded()
+            }
+        }
+    }
     @Published private(set) var bootstrapPhase: HomeBootstrapPhase = .loading
     @Published private(set) var homeHolder: WebViewHolder?
     @Published var isPageLoading = true
@@ -441,6 +447,7 @@ final class HomeCoordinator: ObservableObject {
         isIdCardModalActive = true
         captureIdCardBrightness()
         UIScreen.main.brightness = 1.0
+        homeHolder?.webView.allowsBackForwardNavigationGestures = false
 
         let state = IdCardQrRequestState()
         let notifyWeb: () -> Void = { [weak self] in
@@ -478,6 +485,9 @@ final class HomeCoordinator: ObservableObject {
         idCardProbe?.cancel()
         idCardProbe = nil
         restoreIdCardBrightness()
+        if !isWebBottomSheetOpen {
+            homeHolder?.webView.allowsBackForwardNavigationGestures = true
+        }
     }
 
     private func captureIdCardBrightness() {
@@ -973,13 +983,17 @@ final class HomeBridgeHostAdapter: HomeBridgeHost {
     }
 
     func openWebViewBottomSheet() {
-        Task { @MainActor in coordinator?.isWebBottomSheetOpen = true }
+        Task { @MainActor in
+            coordinator?.isWebBottomSheetOpen = true
+            coordinator?.homeHolder?.webView.allowsBackForwardNavigationGestures = false
+        }
     }
 
     func closeWebViewBottomSheet() {
         Task { @MainActor in
             coordinator?.endIdCardModalIfNeeded()
             coordinator?.isWebBottomSheetOpen = false
+            coordinator?.homeHolder?.webView.allowsBackForwardNavigationGestures = true
         }
     }
 
