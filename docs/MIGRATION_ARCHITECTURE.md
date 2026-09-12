@@ -405,7 +405,7 @@ Android 강의 전환은 프로세스 내 단일 재생 소유자와 확인 창�
 | 세션을 일반 preferences에 저장 | 토큰 노출 위험 | SecureStore로 이전 |
 | deprecated EncryptedSharedPreferences | 장기 유지/백업 문제 | Keystore 기반 신규 store + 데이터 이전 |
 | 앱 잠금 SHA-256 단일 반복 | 오프라인 추측 비용 낮음 | 호환 이전 계획 후 검증된 KDF 검토 |
-| 로그아웃 후 잠금 설정 보존 | 로그인 화면에 PIN이 나타나거나 재로그인 후 보호가 누락될 수 있음 | 인증 전 Activity만 잠금 예외로 두고 홈·백그라운드 복귀 경로를 실기기에서 검증 |
+| 로그아웃 후 잠금 설정 보존 | 로그인 화면·보조 링크에 PIN이 나타나거나 재로그인 후 보호가 누락될 수 있음 | 인증 전 Activity와 세션 extra가 없는 로그인 보조 LinkView만 잠금 예외로 두고 홈·인증된 링크·백그라운드 복귀 경로를 실기기에서 검증 |
 | `allowBackup=true`와 비밀 파일 | 복원 후 키 불일치/비밀 정책 불명확 | backup rules에서 비밀 제외 및 복원 테스트 |
 | 일부 WebView Activity `exported=true` | 검증되지 않은 Intent/URL 주입 | exported 필요성 제거 또는 strict validation |
 | 민감 WebView 화면의 Sentry screenshot | 자격증명/개인정보 캡처 | 화면/필드 masking 및 첨부 정책 검토 |

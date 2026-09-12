@@ -63,6 +63,7 @@
 
 - [x] **M5-001 (P0, L)** QR 출석과 공통 AttendanceRepository
 - [x] **M5-002 (P0, L)** Compose 앱 잠금과 Android 생체인식
+  - 2026-09-12 보완: 로그인 화면의 비밀번호 찾기·학번 찾기·최초 등록 `LinkViewActivity`는 `SESSION_ID` extra가 비어 있을 때만 잠금 예외로 둔다. 세션 extra가 있는 링크는 기존 잠금을 유지한다. 실기기에서 잠금 활성 상태의 로그인 보조 링크와 인증 후 링크를 각각 확인한다.
   - 2026-09-12 후속: 앱 잠금 PIN·생체인증 설정은 기기 설정으로 취급해 로그아웃 시 보존한다. Android 시작/온보딩/로그인 화면은 자동 잠금을 요청하지 않고, 인증 후 홈과 기존 보호 화면에서 잠금을 적용한다. 브랜치 `fix/android-appLock-policy`, Native `origin/kmp` `aced26e0d9956d58c3c11e182e0372c0029b185c`, 원본 Android 로컬 `legacy-native/main` `76be3b50ba6f3f28ab81c58918542203c6b5933c`, Web 로컬 `legacy-web/main` `e835d37f3a717615d3ecc3f5453f000c4b04b85f`(원본/Web 원격 최신 여부 미조회). `:shared:testAndroidHostTest --tests com.icecream.kwklasplus.core.lock.AppLockPolicyTest :androidApp:testDebugUnitTest :androidApp:assembleDebug --offline` 통과. 로그아웃→로그인 및 백그라운드 복귀는 실기기 확인 대기. 롤백은 이 후속 변경을 되돌려 기존 로그아웃 잠금 해제와 Activity 예외 목록을 복원한다.
 - [x] **M5-003 (P0, XL)** Compose 비디오 플레이어와 Android PIP
   - 2026-09-04 후속: PiP 닫기 즉시 WebView 정리 및 수명주기 fallback, seekbar 탐색 중 좌측 시간 미리보기. 사용자 요청으로 VOD 자동 클릭 제거. 검증과 미완료 실기기 항목: `docs/ANDROID_PLAYER_TRANSITIONS.md`.
