@@ -4,11 +4,11 @@
 
 ## 작업 범위
 
-새 작업은 이슈/PR에서 추적해요. 문서를 찾을 때는 다음처럼 나눠 보세요.
+새 작업은 GitHub Issue와 PR에서 추적해요. 문서를 찾을 때는 다음처럼 나눠 보세요.
 
 - **구조와 인증·저장 키·브리지 계약:** [아키텍처](docs/ARCHITECTURE.md).
 - **왜 이렇게 만들었는지:** [ADR 목록](docs/adr/README.md)
-- **KMP 마이그레이션 기록:** [작업표](docs/kmp-migration/kmp_migration_tasks.md)와 [패리티 표](docs/kmp-migration/feature_parity_matrix.md)
+- **KMP 마이그레이션 기록:** [작업표](docs/kmp-migration/kmp_migration_tasks.md)와 [패리티 표](docs/kmp-migration/feature_parity_matrix.md). 새 작업의 백로그로 사용하지 않아요.
 
 기존 동작·설정·서명·버전 코드를 지켜주세요. 웹 화면은 [별도 저장소](https://github.com/IceCream0910/kw-klas-plus-webview)에서 배포하므로 브리지를 바꿀 때는 양쪽 테스트와 구버전 호환 경로가 필요합니다. `commonMain`에는 UI 타입을 넣지 마세요.
 
@@ -34,17 +34,17 @@ Android 빌드와 공통/Android JVM 테스트:
 
 Windows에서는 `.\gradlew.bat`를 쓰세요. iOS는 macOS에서 [`iosApp.xcodeproj`](iosApp/iosApp.xcodeproj)를 열고 `:shared:iosSimulatorArm64Test`와 Xcode 테스트를 실행합니다. 기기 서명에는 [예제 설정](iosApp/Configuration/Config.local.xcconfig.example)을 개인 `Config.local.xcconfig`로 복사해 `TEAM_ID`를 넣으세요. 로컬 설정·서명 키·비밀값은 커밋하지 마세요.
 
-## PR과 검증
+## 작업 절차와 검증
 
-1. 재현 절차와 기대 동작을 적고 Android·iOS·Web 영향을 확인해 주세요. 실패·취소·세션 만료도 테스트합니다.
-2. 작은 단위로 바꾸고 관련 테스트를 실행해 주세요. 실기기·실계정 결과와 아직 확인하지 못한 항목은 구분합니다.
-3. PR에는 변경 이유, 테스트 결과, 호환성·보안 영향과 롤백 방법을 남겨 주세요. 설계가 바뀌면 ADR도 갱신합니다.
+1. 작업할 항목을 [GitHub Issue](https://github.com/IceCream0910/kw-klas-plus/issues)에 먼저 등록해 주세요. 제목은 아래의 커밋 메시지 컨벤션을 따르고, 본문에는 목표나 재현 절차, 기대 동작, Android·iOS·Web 영향 등을 자유롭게 적어 주세요. label은 플랫폼(Android, iOS, Web)으로 구분하여 설정해주세요.
+2. 메인테이너가 이슈를 검토해 [GitHub Project 백로그 보드](https://github.com/users/IceCream0910/projects/5)에 올립니다.
+3. 작업을 마치면 이슈를 연결한 PR을 열어 주세요. 변경 이유, 테스트 결과, 호환성·보안 영향과 롤백 방법을 남기고, 설계가 바뀌었다면 문서도 갱신해야 합니다.
 
-두 플랫폼을 따로 검증할 수 있다면 PR도 나눠 주세요. 코드 주석은 꼭 필요할 때만 한국어로 작성합니다.
+두 플랫폼을 따로 검증할 수 있다면 PR도 나눠 주세요. 코드 주석은 꼭 필요할 경우에 한해 한국어로 작성해주세요.
 
 ## 브랜치와 커밋
 
-PR 기준 브랜치는 이슈/릴리스에서 확인해 주세요. 커밋과 PR 제목은 `type(scope): 한국어 요약` 형식을 권장해요. scope는 `android`, `ios`, `shared`로 구분하며 `docs`와 같이 플랫폼 범위가 불명확한 type에서는 생략해도 좋아요.
+PR 기준 브랜치는 이슈/릴리스에서 확인해 주세요. 이슈 제목·커밋 메시지·PR 제목은 모두 `type(scope): 한국어 요약` 형식을 따라 주세요. scope는 `android`, `ios`, `shared`로 구분하며,  `docs`와 같이 플랫폼 범위가 불명확한 type에서는 생략해도 좋아요.
 
 | type | 사용 시점                | 예시 |
 |---|----------------------|---|
