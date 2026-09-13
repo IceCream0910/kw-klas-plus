@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -30,6 +32,45 @@
         <activity
             android:name=".SettingsActivity"
             android:exported="false" />
+        <service android:name=".widget.AcademicWidgetJobService" android:permission="android.permission.BIND_JOB_SERVICE" android:exported="true" />
+        <service android:name=".widget.AcademicWidgetListService" android:permission="android.permission.BIND_REMOTEVIEWS" android:exported="false" />
+        <receiver android:name=".widget.TimetableWidget" android:exported="false" android:label="@string/timetable_widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/timetable_widget_info" />
+        </receiver>
+        <receiver android:name=".widget.TimetableExpandedWidget" android:exported="false" android:label="@string/timetable_expanded_widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/timetable_expanded_widget_info" />
+        </receiver>
+        <receiver android:name=".widget.CalendarWidget" android:exported="false" android:label="@string/calendar_widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/calendar_widget_info" />
+        </receiver>
+        <receiver android:name=".widget.CalendarExpandedWidget" android:exported="false" android:label="@string/calendar_expanded_widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/calendar_expanded_widget_info" />
+        </receiver>
+        <receiver android:name=".widget.WidgetDisplayReceiver" android:exported="false" />
+        <activity android:name=".widget.WidgetEntryActivity" android:exported="false"
+            android:theme="@style/Theme.KWQRCheckin" />
         <activity
             android:name=".LockActivity"
             android:exported="false"

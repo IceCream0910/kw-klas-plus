@@ -222,11 +222,7 @@ class HomeActivity : AppCompatActivity() {
         if (sessionId == null) {
             showLoginErrorToast()
             finish()
-            startActivity(Intent(this@HomeActivity, MainActivity::class.java).apply {
-                if (this@HomeActivity.intent.action == ACTION_OPEN_LIBRARY_SETTINGS) {
-                    action = ACTION_OPEN_LIBRARY_SETTINGS
-                }
-            })
+            startActivity(com.icecream.kwklasplus.widget.WidgetNavigation.forward(intent, Intent(this@HomeActivity, MainActivity::class.java)))
             return
         }
 
@@ -321,6 +317,12 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        appDependencies.academicWidgets.foreground()
+        if (yearHakgi.isNotBlank()) {
+            appPreferences.getString(AppPrefs.KW_SESSION, null)?.let { token ->
+                lifecycleScope.launch { getTimetableData(token, reportSessionExpiry = false) }
+            }
+        }
         hideLoading()
 
         appUpdateManager.appUpdateInfo.addOnSuccessListener { appUpdateInfo ->
@@ -752,7 +754,7 @@ class HomeActivity : AppCompatActivity() {
                     runOnUiThread {
                         initWebView()
                         webView.postDelayed({
-                            switchToTab("feed")
+                            switchToTab(com.icecream.kwklasplus.core.academic.WidgetDestination.fromUri(intent.dataString)?.tab ?: "feed")
                             loadingDialog.dismiss()
                         }, 100)
                     }
@@ -777,7 +779,7 @@ class HomeActivity : AppCompatActivity() {
         if (sessionId == null) {
             showLoginErrorToast()
             finish()
-            startActivity(Intent(this@HomeActivity, MainActivity::class.java))
+            startActivity(com.icecream.kwklasplus.widget.WidgetNavigation.forward(intent, Intent(this@HomeActivity, MainActivity::class.java)))
             return
         }
 
@@ -814,7 +816,7 @@ class HomeActivity : AppCompatActivity() {
         if (sessionId == null) {
             showLoginErrorToast()
             finish()
-            startActivity(Intent(this@HomeActivity, MainActivity::class.java))
+            startActivity(com.icecream.kwklasplus.widget.WidgetNavigation.forward(intent, Intent(this@HomeActivity, MainActivity::class.java)))
             return
         }
 
@@ -867,8 +869,10 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    private suspend fun getTimetableData(sessionId: String) {
-        val term = AcademicTermKey.parse(yearHakgi) ?: return
+    private suspend fun getTimetableData(sessionId: String, reportSessionExpiry: Boolean = true) {
+        val selectedTerm = yearHakgi
+        val selectedAccount = appPreferences.getString(AppPrefs.KW_ID, null)
+        val term = AcademicTermKey.parse(selectedTerm) ?: return
         when (
             val result = appDependencies.timetableRepository.fetch(
                 session = SecretValue.of(sessionId),
@@ -878,10 +882,12 @@ class HomeActivity : AppCompatActivity() {
             )
         ) {
             is TimetableResult.Success -> {
+                if (selectedTerm != yearHakgi || selectedAccount != appPreferences.getString(AppPrefs.KW_ID, null)) return
                 timetableForWebview = TimetableWebCodec().encode(result.entriesBySubject)
+                appDependencies.academicWidgets.recordTimetable(selectedTerm, result.entriesBySubject.values.flatten())
             }
-            TimetableResult.SessionExpired -> withContext(Dispatchers.Main) {
-                showSessionExpiredDialog()
+            TimetableResult.SessionExpired -> if (reportSessionExpiry) {
+                withContext(Dispatchers.Main) { showSessionExpiredDialog() }
             }
             else -> Unit
         }
@@ -1121,6 +1127,7 @@ class HomeActivity : AppCompatActivity() {
                     appPreferences.edit().clear().apply()
                     encryptedPreferences.edit().remove(AppPrefs.KW_PASSWORD).apply()
                     libraryQrCachePreferences.edit().clear().apply()
+                    appDependencies.academicWidgets.clear()
                     finish()
                     startActivity(Intent(this@HomeActivity, LoginActivity::class.java))
                 }

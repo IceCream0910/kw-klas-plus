@@ -26,6 +26,7 @@ enum class AuthenticatedKlasEndpoint(val url: String) {
     ATTENDANCE_RANDOM_KEY(KlasUrls.KLAS_RANDOM_KEY),
     ACADEMIC_TERM_SUBJECTS(KlasUrls.KLAS_ACADEMIC_TERM_SUBJECTS),
     TIMETABLE(KlasUrls.KLAS_TIMETABLE),
+    CALENDAR("${KlasUrls.KLAS_BASE}/std/ads/admst/MySchdulMonthTableList.do"),
     ONLINE_LECTURE_DEADLINES(KlasUrls.KLAS_ONLINE_LECTURE_DEADLINES),
     TASK_DEADLINES(KlasUrls.KLAS_TASK_DEADLINES),
     TEAM_TASK_DEADLINES(KlasUrls.KLAS_TEAM_TASK_DEADLINES),
@@ -65,8 +66,13 @@ class KlasSessionHttpClient(
         return try {
             val response = client.post(endpoint.url) {
                 contentType(ContentType.Application.Json)
-                header(HttpHeaders.Cookie, "SESSION=${session.reveal()}")
-                header(HttpHeaders.UserAgent, userAgent.legacyHeaderValue())
+                if (endpoint == AuthenticatedKlasEndpoint.CALENDAR) {
+                    header(HttpHeaders.Accept, "application/json, text/plain, */*")
+                    header(HttpHeaders.Cookie, "SESSION=${session.reveal()};")
+                } else {
+                    header(HttpHeaders.Cookie, "SESSION=${session.reveal()}")
+                    header(HttpHeaders.UserAgent, userAgent.legacyHeaderValue())
+                }
                 setBody(body)
             }
             val responseBody = response.bodyAsText()

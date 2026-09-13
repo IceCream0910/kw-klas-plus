@@ -1,0 +1,16 @@
+<resources>
+    <color name="academic_widget_background">#FFFFFF</color>
+    <color name="academic_widget_text">#191A1C</color>
+    <color name="academic_widget_secondary">#62646B</color>
+    <string name="timetable_widget_name">오늘 시간표</string>
+    <string name="timetable_expanded_widget_name">주간 시간표</string>
+    <string name="calendar_widget_name">다가오는 일정</string>
+    <string name="calendar_expanded_widget_name">캘린더</string>
+    <string name="timetable_widget_description">오늘 예정된 수업과 남은 시간을 확인해보세요.</string>
+    <string name="timetable_expanded_widget_description">선택된 학기의 전체 시간표를 확인해보세요.</string>
+    <string name="calendar_widget_description">오늘 등록된 일정이 있는지 확인해보세요.</string>
+    <string name="calendar_expanded_widget_description">이번 달 일정이 표시된 달력을 확인해보세요.</string>
+    <string name="academic_widget_preview_title">KLAS+</string>
+    <string name="academic_widget_preview_empty">앱에서 로그인 후 일정을 확인하세요.</string>
+    <color name="widget_day_accent">#B3353F</color>
+</resources>

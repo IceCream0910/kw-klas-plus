@@ -38,9 +38,31 @@ sealed interface TimetableResult {
 
 class TimetableWebCodec(
     private val json: Json = Json,
+    private val palette: TimetablePalette = TimetableColorPolicy.defaultPalette,
 ) {
-    fun encode(entriesBySubject: Map<String, List<TimetableEntry>>): String =
-        json.encodeToString(entriesBySubject)
+    fun encode(entriesBySubject: Map<String, List<TimetableEntry>>): String {
+        val assignments = TimetableColorPolicy.assign(entriesBySubject.values.flatten().map(TimetableEntry::title), palette)
+        return json.encodeToString(entriesBySubject.mapValues { (_, entries) ->
+            entries.map { TimetableWebEntry.from(it, TimetableColorPolicy.assignedColor(it.title, assignments, palette)) }
+        })
+    }
+}
+
+@Serializable
+private data class TimetableWebEntry(
+    val title: String,
+    val day: Int,
+    val startTime: String,
+    val endTime: String,
+    val info: String,
+    val subj: String,
+    val color: TimetableColor,
+) {
+    companion object {
+        fun from(entry: TimetableEntry, color: TimetableColor) = TimetableWebEntry(
+            entry.title, entry.day, entry.startTime, entry.endTime, entry.info, entry.subj, color,
+        )
+    }
 }
 
 class TimetableRepository(
@@ -85,7 +107,7 @@ class TimetableRepository(
             val row = element as? JsonObject ?: return TimetableResult.MalformedResponse
             if (row.string("wtHasSchedule") == "N") continue
             val period = row.int("wtTime") ?: return TimetableResult.MalformedResponse
-            for (day in 1..6) {
+            for (day in 1..7) {
                 val subjectId = row.string("wtSubj_$day") ?: continue
                 val title = row.string("wtSubjNm_$day") ?: continue
                 val place = row.string("wtLocHname_$day") ?: continue

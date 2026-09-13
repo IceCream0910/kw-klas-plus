@@ -51,6 +51,11 @@ class AndroidSharedDependencies(
     val attendanceRepository: AttendanceRepository get() = network.attendanceRepository
     val academicRepository: AcademicRepository get() = network.academicRepository
     val timetableRepository: TimetableRepository get() = network.timetableRepository
+    val calendarSync by lazy {
+        com.icecream.kwklasplus.core.academic.CalendarSyncUseCase(
+            network.sessionLeaseGateway, httpAuthDriver(), network.calendarRepository, sessionCoordinator,
+        )
+    }
     val deadlineRepository: DeadlineRepository get() = network.deadlineRepository
     val libraryGateway: LibraryGateway get() = network.libraryGateway
     val idCardQrRepository: IdCardQrRepository get() = network.idCardQrRepository

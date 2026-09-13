@@ -1,0 +1,8 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/academic_widget_row"
+    android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingVertical="3dp">
+    <TextView android:id="@+id/widget_calendar_bar" android:layout_width="4dp" android:layout_height="28dp" android:background="@drawable/widget_card_0"/>
+    <TextView android:id="@+id/academic_widget_row_detail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingHorizontal="7dp"
+        android:textColor="@color/academic_widget_secondary" android:textSize="12sp" android:maxLines="1"/>
+    <TextView android:id="@+id/academic_widget_row_title" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+        android:textColor="@color/academic_widget_text" android:textSize="14sp" android:maxLines="2" android:ellipsize="end"/>
+</LinearLayout>

@@ -1,0 +1,4 @@
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/academic_widget_background" />
+    <corners android:radius="18dp" />
+</shape>

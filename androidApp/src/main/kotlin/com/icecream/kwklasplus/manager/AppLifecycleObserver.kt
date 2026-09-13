@@ -16,6 +16,7 @@ import com.icecream.kwklasplus.MainActivity
 import com.icecream.kwklasplus.core.lock.AppLockEvent
 import com.icecream.kwklasplus.core.lock.AppLockPolicy
 import com.icecream.kwklasplus.core.lock.AppLockState
+import com.icecream.kwklasplus.widget.WidgetEntryActivity
 
 class AppLifecycleObserver(
     private val context: Context,
@@ -41,6 +42,7 @@ class AppLifecycleObserver(
             activity is LibraryQRWidgetActivity ||
             activity is MainActivity ||
             activity is LoginActivity ||
+            activity is WidgetEntryActivity ||
             isUnauthenticatedLink
         if (policy.shouldRequestUnlock(state, isExemptHost)) {
             activity.startActivity(Intent(activity, LockActivity::class.java).apply {

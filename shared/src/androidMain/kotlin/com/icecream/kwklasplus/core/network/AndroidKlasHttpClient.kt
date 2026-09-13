@@ -32,6 +32,12 @@ class AndroidCoreNetworkDependencies {
     val timetableRepository: TimetableRepository by lazy {
         TimetableRepository(KlasSessionHttpClient(longRunningClient))
     }
+    val calendarRepository by lazy {
+        com.icecream.kwklasplus.core.academic.CalendarRepository(
+            KlasSessionHttpClient(defaultClient),
+            com.icecream.kwklasplus.core.academic.KlasCalendarEventNormalizer(),
+        )
+    }
     val deadlineRepository: DeadlineRepository by lazy {
         DeadlineRepository(
             transport = KlasSessionHttpClient(longRunningClient),

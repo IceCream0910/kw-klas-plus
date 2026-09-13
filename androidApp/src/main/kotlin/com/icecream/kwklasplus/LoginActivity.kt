@@ -1,5 +1,6 @@
 package com.icecream.kwklasplus
 
+import com.icecream.kwklasplus.widget.WidgetNavigation
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -141,11 +142,7 @@ class LoginActivity : AppCompatActivity() {
     private fun openMainActivity() {
         password = ""
         finish()
-        startActivity(Intent(this, MainActivity::class.java).apply {
-                        if (this@LoginActivity.intent.action == HomeActivity.ACTION_OPEN_LIBRARY_SETTINGS) {
-                            action = HomeActivity.ACTION_OPEN_LIBRARY_SETTINGS
-                        }
-                    })
+        startActivity(WidgetNavigation.forward(intent, Intent(this, MainActivity::class.java)))
     }
 
     override fun onDestroy() {

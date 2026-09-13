@@ -37,6 +37,7 @@ class AttendanceRepositoryTest {
                     AuthenticatedKlasEndpoint.QR_CHECKIN -> error("unexpected endpoint")
                     AuthenticatedKlasEndpoint.ACADEMIC_TERM_SUBJECTS -> error("unexpected endpoint")
                     AuthenticatedKlasEndpoint.TIMETABLE -> error("unexpected endpoint")
+                    AuthenticatedKlasEndpoint.CALENDAR -> error("unexpected endpoint")
                     AuthenticatedKlasEndpoint.ONLINE_LECTURE_DEADLINES -> error("unexpected endpoint")
                     AuthenticatedKlasEndpoint.TASK_DEADLINES -> error("unexpected endpoint")
                     AuthenticatedKlasEndpoint.TEAM_TASK_DEADLINES -> error("unexpected endpoint")
