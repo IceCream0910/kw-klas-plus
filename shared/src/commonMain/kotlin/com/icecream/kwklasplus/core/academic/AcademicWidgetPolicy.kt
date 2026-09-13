@@ -1,17 +1,9 @@
 package com.icecream.kwklasplus.core.academic
 
-enum class AcademicWidgetLayout { COMPACT, SUMMARY, FULL }
-
 data class CalendarAgenda(val date: String, val todayCount: Int, val events: List<CalendarEvent>)
 data class CalendarBar(val event: CalendarEvent, val week: Int, val column: Int, val span: Int, val lane: Int)
 
 object AcademicWidgetPolicy {
-    fun layout(widthDp: Int, heightDp: Int): AcademicWidgetLayout = when {
-        heightDp >= 250 -> AcademicWidgetLayout.FULL
-        widthDp >= 150 -> AcademicWidgetLayout.SUMMARY
-        else -> AcademicWidgetLayout.COMPACT
-    }
-
     fun weekdays(entries: List<TimetableEntry>) = entries.filter { it.day in 0..4 }
 
     fun weekends(entries: List<TimetableEntry>) = entries.filter { it.day in 5..6 }

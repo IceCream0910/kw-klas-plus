@@ -3,24 +3,6 @@ package com.icecream.kwklasplus.core.academic
 import kotlin.test.*
 
 class AcademicWidgetPolicyTest {
-    @Test fun layoutUsesCurrentCompactWidthThreshold() {
-        assertEquals(AcademicWidgetLayout.COMPACT, AcademicWidgetPolicy.layout(70, 70))
-        assertEquals(AcademicWidgetLayout.COMPACT, AcademicWidgetPolicy.layout(140, 70))
-        assertEquals(AcademicWidgetLayout.COMPACT, AcademicWidgetPolicy.layout(140, 140))
-        assertEquals(AcademicWidgetLayout.COMPACT, AcademicWidgetPolicy.layout(110, 110))
-        assertEquals(AcademicWidgetLayout.COMPACT, AcademicWidgetPolicy.layout(149, 140))
-        assertEquals(AcademicWidgetLayout.SUMMARY, AcademicWidgetPolicy.layout(150, 140))
-        assertEquals(AcademicWidgetLayout.SUMMARY, AcademicWidgetPolicy.layout(280, 140))
-        for (width in listOf(110, 180, 250, 320, 600)) {
-            for (height in listOf(40, 110, 180, 249))
-                assertEquals(if (width < 150) AcademicWidgetLayout.COMPACT else AcademicWidgetLayout.SUMMARY,
-                    AcademicWidgetPolicy.layout(width, height))
-            for (height in listOf(250, 320, 600))
-                assertEquals(AcademicWidgetLayout.FULL, AcademicWidgetPolicy.layout(width, height))
-        }
-        assertEquals(AcademicWidgetLayout.SUMMARY, AcademicWidgetPolicy.layout(280, 70))
-    }
-
     @Test fun numericClassTimesAndSundayAreHandled() {
         val entries = listOf("10:30", "9:0", "18:0").map { TimetableEntry(it, 0, it, "19:0", "", it) }
         assertEquals(listOf("9:0", "10:30", "18:0"), AcademicWidgetPolicy.todayClasses(entries, 0).map { it.startTime })
