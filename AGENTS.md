@@ -1,16 +1,12 @@
-# KLAS+ 마이그레이션 작업 규칙
+# KLAS+ KMP 프로젝트 작업 규칙
 
-이 저장소의 최우선 목표는 기존 Android 앱의 모든 동작을 보존하면서 KMP 공통 코어와 플랫폼별 UI 구조로 점진적으로 이전하고, 그 위에 iOS 지원을 추가하는 것이다. Android UI는 Compose, iOS UI는 SwiftUI로 각각 구현한다. 새 구조의 미관이나 코드 정리보다 Android 회귀 방지가 우선한다.
+사용자 지시에 따라 KMP 기반 Android·iOS 앱의 개선·기능 추가·버그 수정을 진행한다. Android UI는 Compose, iOS UI는 SwiftUI이며 기존 Android 사용자 동작·데이터와 양 플랫폼의 보안·브리지 계약을 구조 정리보다 우선한다.
 
 ## 작업 전 필수 확인
 
-1. `TASKS.md`에서 현재 단계와 선행 작업을 확인한다.
-2. `docs/MIGRATION_ARCHITECTURE.md`의 경계와 의존성 규칙을 읽는다.
-3. `docs/FEATURE_PARITY_MATRIX.md`에서 변경 대상 기능과 브리지 계약을 확인한다.
-4. 원본 Android 기준 저장소와 WebView 저장소의 기준 커밋을 기록한다.
-   - Native: <https://github.com/IceCream0910/kw-klas-plus>
-   - Web: <https://github.com/IceCream0910/kw-klas-plus-webview>
-5. 기준 커밋이 문서에 고정되기 전에는 원본의 최신 `main`을 곧바로 구현 기준으로 간주하지 않는다.
+1. `docs/ARCHITECTURE.md`의 모듈·보안 경계를 확인한다.
+2. 계약에 영향을 주면 `docs/ARCHITECTURE.md`의 인증·저장 키·브리지 항목을 코드·계약 테스트와 대조하고 함께 갱신한다. 구현 목표로 표시된 Android SESSION 단일 저장 경로는 아직 완료된 동작으로 간주하지 않는다. `docs/adr/README.md`의 결정도 확인한다. `docs/kmp-migration/feature_parity_matrix.md`는 과거 상태 기록이다.
+3. 변경 대상 기준 커밋과 별도 [WebView 저장소](https://github.com/IceCream0910/kw-klas-plus-webview)의 호환 버전을 PR에 기록한다. 과거 작업 이력은 `docs/kmp-migration/kmp_migration_tasks.md`에 보존한다.
 
 ## 불변 우선순위
 
@@ -18,7 +14,7 @@
 2. 로그인·세션·보안 저장소의 정확성
 3. WebView ↔ Native 브리지 호환성
 4. 회귀 테스트와 롤백 가능성
-5. iOS 기능 확장
+5. 양 플랫폼 기능 개선
 6. 구조 개선과 중복 제거
 
 ## 아키텍처 경계
@@ -43,11 +39,11 @@
 - Android 패키지명 `com.icecream.kwklasplus`, 기존 서명/배포 트랙, 버전 코드의 연속성을 보존한다.
 - 기존 SharedPreferences 키 이름과 의미를 임의로 변경하지 않는다. 변경이 필요하면 읽기-이전-검증-구키 삭제 순서의 명시적 마이그레이션을 작성한다.
 - 기존 `SESSION` 쿠키 이름, 도메인, 네이티브 HTTP의 인증 헤더 동작을 특성 테스트로 먼저 고정한다.
-- JavaScript 브리지의 기존 객체명 `Android`, 메서드명, 인자 순서, 콜백명을 Android 패리티 완료 전에는 삭제하거나 변경하지 않는다.
+- 신 앱은 `KlasNativeBridgeNative` Bridge v1을 사용하며 구 Android용 `Android` fallback은 웹 adapter에만 있다. 기존 메서드명, 인자 순서, 콜백명을 호환 경로 없이 삭제하거나 변경하지 않는다.
 - 오타처럼 보이는 `evaluteKLASScript`도 공개 계약이므로 호환 별칭 없이 수정하지 않는다.
 - 브리지 변경은 최소 한 릴리스 동안 구버전과 신버전을 함께 지원하고, WebView 저장소의 계약 테스트와 함께 배포한다.
 - WebView URL, User-Agent, DOM/localStorage 키, CookieStore 동기화 순서를 동작 계약으로 취급한다.
-- Compose 전환 중에는 View와 Compose의 공존을 허용한다. 한 번에 전체 Activity를 재작성하지 않는다.
+- 실제 사용 중인 Android Widget `RemoteViews` XML은 유지한다. View/Compose 공존 자산을 정리할 때는 사용처와 롤백 경로를 확인한다.
 - iOS 구현 때문에 Android 동작을 공통 최저 수준으로 낮추지 않는다. 공통 의미를 정의하고 플랫폼 능력 차이는 어댑터가 처리한다.
 
 ## 인증 및 보안 규칙
@@ -60,13 +56,13 @@
 - JS 문자열을 직접 이어 붙이지 않는다. 모든 주입 값은 JSON 직렬화 후 전달한다.
 - 외부 URL에는 브리지 객체를 노출하지 않는다. 다운로드 URL, Intent extra, 딥링크는 사용 전에 검증한다.
 - 인증 정보와 브리지 payload를 Sentry breadcrumb, 로그, 화면 캡처에 남기지 않는다.
-- 보안 관련 동작을 바꿀 때는 `docs/MIGRATION_ARCHITECTURE.md`의 위협 항목과 테스트를 함께 갱신한다.
+- 보안 관련 동작을 바꿀 때는 `docs/ARCHITECTURE.md`의 위협 항목과 테스트를 함께 갱신한다.
 
 ## 구현 방식
 
-- 한 작업은 가능한 한 `TASKS.md`의 한 ID에 대응시킨다.
+- 새 작업은 이슈/PR로 추적한다. `docs/kmp-migration/kmp_migration_tasks.md`의 M1~M7 ID는 과거 이력으로 유지한다.
 - 코드 주석은 최소화한다. 코드만으로 의도나 제약을 충분히 표현할 수 없을 때만 작성하며, 꼭 필요한 주석은 한국어로 작성한다.
-- 작업 시작 시 체크박스 아래에 담당/브랜치/기준 커밋을 기록할 수 있다. 완료 시 증거가 되는 테스트 명령이나 수동 검증 결과를 남긴다.
+- PR에 기준 커밋, 테스트 명령/결과, 수동 검증과 미검증 범위를 남긴다.
 - 기능 이동 전 특성 테스트를 추가한다. 테스트 없이 기존 코드를 삭제하지 않는다.
 - 공통 모델은 `org.json.JSONObject`, Android `Bundle`, Swift Dictionary 대신 직렬화 가능한 Kotlin 타입을 사용한다.
 - 시간, 난수, HTTP, 저장소, 외부 URL 실행, 생체인식은 인터페이스로 주입해 공통 테스트에서 대체할 수 있게 한다.
@@ -83,7 +79,7 @@
 - iOS UI/플랫폼: simulator 테스트 + Keychain/생체인식/PIP/Widget이 필요한 실기기 검증
 - 브리지: Native 메서드 스키마 테스트 + Web 저장소의 호출/콜백 계약 테스트
 - 인증: 신규 로그인, 저장 자격증명 로그인, 유효 세션 즉시 진입, 만료 세션 재로그인, CAPTCHA/임시 비밀번호, 로그아웃, 앱 데이터 업그레이드
-- 릴리스: `docs/FEATURE_PARITY_MATRIX.md`의 해당 행을 증거와 함께 갱신
+- 계약·플랫폼 차이 변경: Native·Web 계약 테스트와 관련 ADR을 갱신하고 PR에 검증 증거를 기록
 
 빌드 성공만으로 기능 완료로 간주하지 않는다.
 
@@ -94,6 +90,6 @@
 - Android 기존 동작이 기준 앱과 동일하거나 승인된 차이가 문서화됨
 - 실패/취소/세션 만료 경로 포함 테스트 통과
 - 민감정보 로그 및 불필요한 브리지 노출 없음
-- `TASKS.md` 상태와 기능 패리티 매트릭스 갱신
+- 이슈/PR의 상태와 변경된 계약·ADR 문서 갱신
 - 롤백 방법 또는 구 구현 fallback이 존재
 - 관련 문서와 실제 코드가 일치

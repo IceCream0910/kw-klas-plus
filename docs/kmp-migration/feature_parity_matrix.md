@@ -1,4 +1,7 @@
-# 기능·화면·브리지 패리티 매트릭스
+# KMP 마이그레이션 기능 패리티 기록
+
+> 이 문서는 KMP 마이그레이션 당시의 기능 상태와 계약 기준선을 보존합니다. 현재 릴리스와 다를 수 있어요.
+> 현행 인증·저장 키·브리지 계약은 [ARCHITECTURE.md](../ARCHITECTURE.md)와 코드·계약 테스트를 확인해 주세요.
 
 ## 1. 상태 표기
 
@@ -11,7 +14,7 @@
 
 ## 사용자 기능 패리티
 
-아래 상태는 **Android 패리티**를 나타낸다. iOS 구현 상태와 승인 차이는 `TASKS.md`의 M6~M8에서 추적한다. 2026-08-05 갱신에서는 Android 실기기·업그레이드·회귀 검증이 완료된 것으로 기록했다.
+아래 상태는 기록 당시의 **Android 패리티**를 나타낸다. iOS 구현 이력과 남은 실기기·실계정 검증은 [마이그레이션 작업 기록](kmp_migration_tasks.md)의 M6~M7 및 관련 PR을 참고한다. 2026-08-05 갱신에서는 Android 실기기·업그레이드·회귀 검증이 완료된 것으로 기록했다.
 
 2026-09-12 M4-009 Android legacy 자산 정리 후 debug/release(R8) 빌드, JVM 테스트, lint 오류 0을 확인했다. 아래 기존 패리티 상태는 변경하지 않으며, 새 뒤로가기 dispatcher 경로(Board/Task 웹 히스토리·Lecture KLAS 복귀·Video PiP/종료)와 위젯 화면은 실기기 회귀 검증이 남아 있다.
 
@@ -37,7 +40,7 @@
 | F-018 | PIP | Android native | WK HTML5 PIP | P1 | Parity | iOS는 웹뷰 PIP 및 백그라운드 재생 설정을 완료했습니다. 단, Android PIP와 달리 iOS PIP 창에서는 10초 앞/뒤 이동 버튼이 지원되지 않으며(앱 내 재생 화면에서만 지원), 이는 OS 제약에 따른 정상 차이점으로 인정 |
 | F-019 | QR 출석 | Android scanner port | AVFoundation/VisionKit port | P0 | Parity | iOS: VisionKit `DataScannerViewController`, Home `qrCheckIn`·Lecture `openQRScan`, 성공·실패·취소·중복 실행 (`QrAttendanceTests`). |
 | F-020 | 도서관 QR 조회 | 공통 API + Android UI | 공통 API + iOS UI | P1 | Parity | 캐시·밝기·IME·갱신 포함. iOS M7-006: SwiftUI QR/설정 시트, Keychain session cache(secret 30일/authKey 12시간), 밝기 1.0·30초 갱신·실패 1회 재시도(실패 시 시트 유지 및 출입증 재설정 버튼 제공, 타이머 중단, 시트 닫힘 시 밝기 복원), 로그아웃 시 학번·전화·비밀번호·cache 삭제. 실계정 조회는 실기기 후속 |
-| F-021 | 홈 화면 도서관 위젯 | AppWidgetProvider | WidgetKit extension | P1 | Parity | 잠금·만료·테마 포함. iOS M7-006: WidgetKit `systemSmall` 정적 아이콘 런처, `widgetURL kwklasplus://library-qr`, light/dark 에셋, App Group 없음(ADR-006 Zero Shared PII). 미설정 탭은 안내 알림 후 앱 잠금 해제를 거쳐 설정 시트 오픈(로그아웃 시 Toast 후 시작 화면 유지). 에러 시트 내 재설정 탭 시 잠금 해제 요구. 홈 화면 위젯 추가 버튼은 pin API가 없어 안내 알림만 표시(승인 차이) |
+| F-021 | 홈 화면 도서관 위젯 | AppWidgetProvider | WidgetKit extension | P1 | Parity | 잠금·만료·테마 포함. iOS M7-006: WidgetKit `systemSmall` 정적 아이콘 런처, `widgetURL kwklasplus://library-qr`, light/dark 에셋, App Group 없음([ADR-002](../adr/ADR-002-ios-library-qr-widget.md) Zero Shared PII). 미설정 탭은 안내 알림 후 앱 잠금 해제를 거쳐 설정 시트 오픈(로그아웃 시 Toast 후 시작 화면 유지). 에러 시트 내 재설정 탭 시 잠금 해제 요구. 홈 화면 위젯 추가 버튼은 pin API가 없어 안내 알림만 표시(승인 차이) |
 | F-022 | 앱 잠금 PIN | 공통 policy + Android lifecycle | 공통 policy + iOS scene phase | P0 | Parity | PIN·생체인증 설정은 기기 단위로 로그아웃 후에도 보존. Android 시작/온보딩/로그인 화면과 세션 extra가 없는 로그인 보조 LinkView는 자동 잠금 제외, 인증 후 홈·세션 extra가 있는 링크는 기존 잠금 적용(2026-09-12 빌드·JVM 확인, 로그아웃→로그인·보조 링크 실기기 회귀 대기). iOS PIN SET/CHANGE/VERIFY/UNLOCK, Settings `getAppLockSettings`/`onAppLockSettingChanged`. hash/salt는 Keychain, 플래그는 UserDefaults `a_l_e`/`b_m_e`. 위젯/딥링크 QR 단독 예외는 M7-006에서 연결(설정됨=bypass, 미설정=안내 후 잠금 해제를 거쳐 설정 시트 이동, dismiss 후 잠금 유지). (`IosAppLockStoreTests`, `AppLockControllerTests`) |
 | F-023 | 생체인식 | Android biometric port | LocalAuthentication port | P0 | Parity | `IosBiometrics` 성공·취소·미등록·미지원 매핑, Settings `onBiometricSettingChanged`. Face ID 실기기 검증 남음 |
 | F-024 | 설정/테마/버전 | 공통 Web/Compose + settings | 동일 | P1 | Parity | 재시작 persistence 포함. iOS `KlasTheme` 토큰은 Android `values`/`values-night` light·dark 쌍 |
@@ -49,7 +52,7 @@
 | F-030 | 폰 세로/태블릿 회전 | window size/orientation policy | iOS orientation policy | P1 | Parity | 폰·태블릿·멀티윈도우 포함 |
 | F-031 | 업그레이드 데이터 이전 | 검증형 Android migration | 신규 설치/향후 schema migration | P0 | Parity | credential·SESSION·PIN·cache 포함 |
 | F-032 | 오류 수집/개인정보 마스킹 | 공통 taxonomy + Android Sentry | iOS 관측 도구 | P1 | Implemented | 자동 redaction·iOS 정책은 M8-002 |
-| F-033 | 학사 시간표·캘린더 홈 위젯 | Android provider 4종 + 공통 스냅샷 | WidgetKit 후속 | P1 | Implemented (Android), device check pending | 축소형 수업/일정 목록·실시간 수업 상태, 확장형 평일 그리드/월간 달력, 주말 과목 목록, 수동/정기 일정 갱신, 잠금 진입 및 탭 딥링크. 기존 provider는 축소형으로 유지. 샘플 미리보기 4종, 실기기 런처 검증 대기. `docs/adr/ADR-android-dynamic-widgets.md`, `docs/adr/ADR-ios-widgets.md` |
+| F-033 | 학사 시간표·캘린더 홈 위젯 | Android provider 4종 + 공통 스냅샷 | WidgetKit 후속 | P1 | Implemented (Android), device check pending | 축소형 수업/일정 목록·실시간 수업 상태, 확장형 평일 그리드/월간 달력, 주말 과목 목록, 수동/정기 일정 갱신, 잠금 진입 및 탭 딥링크. 기존 provider는 축소형으로 유지. 샘플 미리보기 4종, 실기기 런처 검증 대기. [ADR-004](../adr/ADR-004-android-academic-widgets.md), [ADR-005 제안](../adr/ADR-005-ios-academic-widgets.md) |
 
 ## 2. Native → Web callback 계약
 
@@ -171,4 +174,4 @@ Web의 `/modal/idCard`, `/modal/agreePolicy`에 남은 `closeModal()`은 Compose
 | A-013 | 앱 foreground, 추가 API 요청 없음 | 서버 만료 구간 접근 | `UpdateSession.do` 후 `/session/info`에서 연장 확인, 홈 상태 유지 |
 | A-014 | 앱 background | lifecycle stop | foreground keep-alive 중단, 복귀 시 서버 상태 즉시 재확인 |
 
-2026-09-04 F17/F18 후속: 사용자 요청으로 VOD 자동 클릭을 제거하고 seekbar 탐색 중 좌측 시간 미리보기를 추가했다. PiP 닫기는 즉시 WebView/소유권 정리하며 정상 복귀·잠금은 구분한다. JVM/JS 검증 및 기기 검증 상태는 `ANDROID_PLAYER_TRANSITIONS.md` 참조. 실제 seekbar 시간 표시·닫기 후 무음·출석 저장은 실기기 검증 대기.
+2026-09-04 F17/F18 후속: 사용자 요청으로 VOD 자동 클릭을 제거하고 seekbar 탐색 중 좌측 시간 미리보기를 추가했다. PiP 닫기는 즉시 WebView/소유권 정리하며 정상 복귀·잠금은 구분한다. 당시 언급된 `ANDROID_PLAYER_TRANSITIONS.md`는 현 저장소에 없으므로 해당 실기기 검증 증거로 사용하지 않는다. 실제 seekbar 시간 표시·닫기 후 무음·출석 저장은 실기기 검증 대기.

@@ -1,8 +1,10 @@
-# ADR-006: iOS 도서관 출입증 QR App Group 및 WidgetKit 공유 정책
+# ADR-002: iOS 도서관 출입증 QR App Group 및 WidgetKit 공유 정책
 
 - 상태: Accepted (M7-005 정책 고정. 구현은 M7-006)
 - 날짜: 2026-09-05
 - 작업: M7-005
+
+> 이 ADR의 선택지 비교와 `M7-006` 계획은 결정 당시 기록이다. 현재 미설정 위젯 탭은 로그인 상태에서 앱 잠금 해제 후 설정 시트로 연결하며, 비로그인에서는 안내 후 시작 화면을 유지한다. 구현·남은 검증은 [마이그레이션 기록](../kmp-migration/kmp_migration_tasks.md)의 M7-006과 [호환성 표](../kmp-migration/feature_parity_matrix.md) F-021/F-022를 참고한다.
 
 ## 결정 요약
 
@@ -31,7 +33,7 @@ iOS 도서관 출입증 위젯은 **Android 기준 앱(`LibraryQRWidget`)과 100
 | **WidgetKit + Deep Link (`widgetURL`) (정적 아이콘 런처)** | 위젯에는 정적 아이콘만 표시, 탭 시 딥링크(`kwklasplus://library-qr`)로 앱 실행 후 즉시 QR 모달 팝업 | **채택** | 1. **Android와 100% 동일 UX**: Android 기준 앱의 `LibraryQRWidget`도 탭 시 투명 액티비티(`LibraryQRWidgetActivity`)로 바텀시트를 띄우는 정적 아이콘 런처 방식임.<br>2. **화면 밝기 최대 구현**: 도서관 게이트 바코드 인식에는 최대 화면 밝기(`screenBrightness = 1.0`)가 필수적이나 위젯 자체에는 밝기 제어 API가 없어 앱 화면 실행이 필수적임.<br>3. **상태 관리 제로화**: 위젯에 개인정보를 올리지 않으므로 타임라인 갱신 예산, 마스킹 동기화, 로그아웃 시 캐시 삭제 등의 복잡성이 원천 제거됨. |
 | **WidgetKit 개인정보 카드 렌더링** | App Group에 스냅샷(이름, 학번, 학과)을 저장하여 위젯 카드에 텍스트 표시 | **기각** | 1. **불필요한 복잡도**: Android 대비 불필요한 개인정보 캐시 동기화, 잠금 시 마스킹 갱신, 로그아웃 후 데이터 제거 등 복잡한 상태 관리 부담 발생.<br>2. **개인정보 노출 위험**: 홈 화면에 학생 신원 정보가 상시 노출될 위험. |
 | **WidgetKit Static Timeline Entry (인-위젯 QR 렌더링)** | App Group을 통해 최근 생성된 QR 이미지를 넘겨받아 위젯 뷰에 직접 그림 | **기각** | 1. **타임라인 갱신 예산 한계**: iOS WidgetKit의 타임라인 갱신 예산(하루 약 40~70회)으로는 30초마다 바뀌는 동적 QR을 실시간 유지 불가.<br>2. **화면 어두움으로 인한 인식 실패**: 기기 화면이 어두우면 게이트 바코드 리더기가 인식하지 못해 스캔 실패율 급증.<br>3. **체감상 상시 만료**: 위젯을 보는 순간 이미 30초가 지나 결국 탭해서 앱을 열어야 하므로 복잡도만 증가함. |
-| **WidgetKit Interactive Widget (iOS 17+ `AppIntent`)** | 위젯 내 버튼을 눌러 앱을 열지 않고 백그라운드에서 새 QR 발급 및 타임라인 갱신 | **기각** | 1. **최소 지원 버전 불일치**: 프로젝트 최소 지원 버전은 iOS 16.0([`ADR-007`](ADR-007-min-platform-versions.md))이므로 iOS 17 전용 인터랙티브 위젯에 의존 불가.<br>2. **밝기 문제 미해결**: 인텐트로 QR을 갱신하더라도 위젯 화면 밝기를 올릴 수 없음. |
+| **WidgetKit Interactive Widget (iOS 17+ `AppIntent`)** | 위젯 내 버튼을 눌러 앱을 열지 않고 백그라운드에서 새 QR 발급 및 타임라인 갱신 | **기각** | 1. **최소 지원 버전 불일치**: 프로젝트 최소 지원 버전은 iOS 16.0([ADR-003](ADR-003-min-platform-versions.md))이므로 iOS 17 전용 인터랙티브 위젯에 의존 불가.<br>2. **밝기 문제 미해결**: 인텐트로 QR을 갱신하더라도 위젯 화면 밝기를 올릴 수 없음. |
 | **Apple Wallet (PassKit - `.pkpass`) / Live Activities** | 애플 지갑에 패스 등록 또는 다이내믹 아일랜드에 출입증 상시 표시 | **기각** | 30초 동적 QR 갱신을 위해 별도 서버 인프라/APNs 푸시가 필요하거나 배터리가 낭비되므로, 5초 내외 단발성 게이트 출입에 맞지 않는 과도한 설계. |
 
 ---
@@ -65,14 +67,14 @@ flowchart TD
 
   subgraph MainApp ["Main iOS App"]
     WURL -->|딥링크 수신| ConfigCheck{"도서관 출입증<br>설정 완료 여부"}
-    
+
     ConfigCheck -->|설정 완료됨| QRSheet["LibraryQRSheet 즉시 팝업<br>(앱 잠금 단독 예외 적용)"]
     QRSheet --> Brightness["화면 밝기 최대 (screenBrightness = 1.0)"]
     QRSheet --> Fetch["LibraryRepository.getQrData() 호출"]
     Fetch --> Keychain["App Isolated Keychain<br>(password, secret, authKey)"]
     Fetch --> Server["도서관 서버 (API)"]
     Server -->|성공| RenderQR["30초 카운트다운 타이머 시작 & QR 렌더링"]
-    
+
     QRSheet -->|시트 닫힘 또는 Background| CleanUp["메모리에서 QR 및 데이터 즉시 파기<br>& 원래 화면 밝기로 복원"]
     CleanUp --> LockCheck{"앱 잠금 활성화<br>상태인가?"}
     LockCheck -->|잠금 켜짐| KeepLocked["기존 앱 잠금 화면 유지<br>(타 화면 접근 원천 차단)"]

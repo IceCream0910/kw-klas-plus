@@ -1,8 +1,8 @@
-# ADR: iOS 학사 시간표·캘린더 WidgetKit 확장 설계
+# ADR-005: iOS 학사 시간표·캘린더 WidgetKit 확장 설계
 
 - 상태: Proposed (설계만 작성, iOS 학사 위젯 미구현)
 - 날짜: 2026-09-12
-- 기준: Android 학사 위젯 [ADR](ADR-android-dynamic-widgets.md), iOS/iPadOS 16.0, 기존 도서관 QR 정적 위젯 [ADR-006](ADR-006-ios-library-qr-widget.md)
+- 기준: Android 학사 위젯 [ADR-004](ADR-004-android-academic-widgets.md), iOS/iPadOS 16.0, 기존 도서관 QR 정적 위젯 [ADR-002](ADR-002-ios-library-qr-widget.md)
 
 ## 목표와 경계
 
