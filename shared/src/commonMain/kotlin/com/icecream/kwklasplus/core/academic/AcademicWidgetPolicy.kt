@@ -8,7 +8,7 @@ data class CalendarBar(val event: CalendarEvent, val week: Int, val column: Int,
 object AcademicWidgetPolicy {
     fun layout(widthDp: Int, heightDp: Int): AcademicWidgetLayout = when {
         heightDp >= 250 -> AcademicWidgetLayout.FULL
-        widthDp >= 110 -> AcademicWidgetLayout.SUMMARY
+        widthDp >= 150 -> AcademicWidgetLayout.SUMMARY
         else -> AcademicWidgetLayout.COMPACT
     }
 

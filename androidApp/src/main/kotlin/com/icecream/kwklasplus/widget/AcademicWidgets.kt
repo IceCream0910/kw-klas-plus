@@ -73,12 +73,13 @@ internal data class WidgetPresentation(
 )
 
 object AcademicWidgets {
-    private const val TWO_COLUMN_PORTRAIT_MAX_DP = 170
+    private const val FALLBACK_SCREEN_WIDTH_DP = 340
     private const val TWO_COLUMN_LANDSCAPE_MAX_DP = 340
 
     internal fun isTwoColumnsOrLess(context: Context, width: Int): Boolean {
         val maxWidth = if (context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
-            TWO_COLUMN_LANDSCAPE_MAX_DP else TWO_COLUMN_PORTRAIT_MAX_DP
+            TWO_COLUMN_LANDSCAPE_MAX_DP else
+            (context.resources.configuration.screenWidthDp.takeIf { it > 0 } ?: FALLBACK_SCREEN_WIDTH_DP) / 2
         return width < maxWidth
     }
 

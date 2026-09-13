@@ -1,5 +1,6 @@
 package com.icecream.kwklasplus.widget
 
+import android.appwidget.AppWidgetManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.content.res.Configuration
@@ -22,9 +23,29 @@ class AcademicWidgetsTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
 
+    @Test fun compactWidgetProvidersAllowTheSingleClassCardWidth() {
+        val providers = AppWidgetManager.getInstance(context).installedProviders
+            .filter { it.provider.packageName == context.packageName &&
+                it.provider.className in setOf(TimetableWidget::class.java.name, CalendarWidget::class.java.name) }
+        assertEquals(2, providers.size)
+        val density = context.resources.displayMetrics.density
+        providers.forEach { provider ->
+            val minWidthDp = provider.minResizeWidth / density
+            val minHeightDp = provider.minResizeHeight / density
+            assertTrue("${provider.provider.className}: $minWidthDp dp", minWidthDp < 170f)
+            assertTrue("${provider.provider.className}: $minWidthDp dp", minWidthDp >= 120f)
+            assertTrue("${provider.provider.className}: $minHeightDp dp", minHeightDp >= 100f)
+        }
+    }
+
     @Test fun compactTimetableUsesSingleClassCardThroughTwoColumns() {
         val portrait = context.createConfigurationContext(Configuration(context.resources.configuration).apply {
             orientation = Configuration.ORIENTATION_PORTRAIT
+            screenWidthDp = 393
+        })
+        val widerPortrait = context.createConfigurationContext(Configuration(context.resources.configuration).apply {
+            orientation = Configuration.ORIENTATION_PORTRAIT
+            screenWidthDp = 412
         })
         val landscape = context.createConfigurationContext(Configuration(context.resources.configuration).apply {
             orientation = Configuration.ORIENTATION_LANDSCAPE
@@ -32,6 +53,8 @@ class AcademicWidgetsTest {
         assertTrue(AcademicWidgets.isTwoColumnsOrLess(portrait, 130))
         assertTrue(AcademicWidgets.isTwoColumnsOrLess(portrait, 160))
         assertFalse(AcademicWidgets.isTwoColumnsOrLess(portrait, 203))
+        assertTrue(AcademicWidgets.isTwoColumnsOrLess(widerPortrait, 196))
+        assertFalse(AcademicWidgets.isTwoColumnsOrLess(widerPortrait, 220))
         assertTrue(AcademicWidgets.isTwoColumnsOrLess(landscape, 269))
         assertFalse(AcademicWidgets.isTwoColumnsOrLess(landscape, 412))
     }

@@ -1,5 +1,5 @@
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="250dp" android:minHeight="110dp" android:minResizeWidth="196dp" android:minResizeHeight="110dp"
+    android:minWidth="250dp" android:minHeight="110dp" android:minResizeWidth="129dp" android:minResizeHeight="110dp"
     android:targetCellWidth="4" android:targetCellHeight="2" android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="0" android:initialLayout="@layout/academic_widget_agenda" android:previewImage="@drawable/preview_timetable_compact"
     android:description="@string/timetable_widget_description" android:widgetCategory="home_screen" />
