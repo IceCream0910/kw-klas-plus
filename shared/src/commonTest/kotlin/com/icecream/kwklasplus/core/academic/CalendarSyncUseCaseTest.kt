@@ -16,14 +16,29 @@ class CalendarSyncUseCaseTest {
     private var fetchCalls = 0
     private val success = KlasAuthenticatedResult.Success(JsonArray(emptyList()))
 
+    private fun coordinator(): SessionCoordinator = SessionCoordinator(
+        object : SessionStore {
+            private var session: Session? = null
+            override suspend fun load() = session
+            override suspend fun save(session: Session) { this.session = session }
+            override suspend fun clear() { session = null }
+        },
+        object : WebCookieStore {
+            override suspend fun setSessionCookie(token: SecretValue) = Unit
+            override suspend fun clearSessionCookie() = Unit
+        }, Clock { 1_000L },
+    )
+
     private fun useCase(info: (SecretValue) -> SessionInfoResult = { active },
                         authResult: WebAuthResult = WebAuthResult.SessionObserved(SecretValue.of("new")),
-                        fetch: (SecretValue) -> KlasAuthenticatedResult = { success }) = CalendarSyncUseCase(
+                        fetch: (SecretValue) -> KlasAuthenticatedResult = { success },
+                        sessionCoordinator: SessionCoordinator = coordinator()) = CalendarSyncUseCase(
         object : SessionLeaseGateway {
             override suspend fun fetchInfo(session: SecretValue, userAgent: KlasUserAgent) = info(session)
             override suspend fun extend(session: SecretValue, userAgent: KlasUserAgent): SessionExtensionResult = error("No foreground lease mutation")
         }, WebAuthDriver { authCalls++; authResult },
         CalendarRepository(KlasAuthenticatedTransport { _, token, _, _ -> fetchCalls++; fetch(token) }, KlasCalendarEventNormalizer()),
+        sessionCoordinator,
     )
 
     private suspend fun sync(case: CalendarSyncUseCase, token: SecretValue? = SecretValue.of("old")) =
@@ -42,6 +57,62 @@ class CalendarSyncUseCaseTest {
         assertIs<CalendarSyncResult.Success>(sync(case))
         assertEquals(listOf("new"), seen)
         assertEquals(1, authCalls)
+    }
+
+    @Test fun reauthenticatedSessionIsStoredInCanonicalSessionAndUsedByNextSync() = runBlocking {
+        var stored: Session? = Session(SecretValue.of("old"), 0L)
+        var cookie: String? = null
+        val sessionCoordinator = SessionCoordinator(
+            object : SessionStore {
+                override suspend fun load() = stored
+                override suspend fun save(session: Session) { stored = session }
+                override suspend fun clear() { stored = null }
+            },
+            object : WebCookieStore {
+                override suspend fun setSessionCookie(token: SecretValue) { cookie = token.reveal() }
+                override suspend fun clearSessionCookie() { cookie = null }
+            }, Clock { 1_000L },
+        )
+        val case = useCase(
+            fetch = {
+                if (it.reveal() == "old") KlasAuthenticatedResult.SessionExpired else {
+                    assertEquals("new", stored?.token?.reveal())
+                    assertEquals("new", cookie)
+                    success
+                }
+            },
+            sessionCoordinator = sessionCoordinator,
+        )
+
+        assertIs<CalendarSyncResult.Success>(sync(case, stored?.token))
+        assertEquals("new", stored?.token?.reveal())
+        assertEquals("new", cookie)
+        assertEquals(1, authCalls)
+
+        assertIs<CalendarSyncResult.Success>(sync(case, stored?.token))
+        assertEquals(1, authCalls)
+        assertEquals(3, fetchCalls)
+    }
+
+    @Test fun failedCanonicalSessionPromotionDoesNotFetchWithTransientToken() = runBlocking {
+        val failingCoordinator = SessionCoordinator(
+            object : SessionStore {
+                override suspend fun load(): Session? = null
+                override suspend fun save(session: Session): Unit = error("storage unavailable")
+                override suspend fun clear() = Unit
+            },
+            object : WebCookieStore {
+                override suspend fun setSessionCookie(token: SecretValue) = Unit
+                override suspend fun clearSessionCookie() = Unit
+            }, Clock { 1_000L },
+        )
+        val case = useCase(
+            fetch = { KlasAuthenticatedResult.SessionExpired },
+            sessionCoordinator = failingCoordinator,
+        )
+        assertEquals(CalendarSyncResult.Retry, sync(case))
+        assertEquals(1, authCalls)
+        assertEquals(1, fetchCalls)
     }
 
     @Test fun apiExpiryBetweenValidationAndFetchRetriesOnlyOnce() = runBlocking {

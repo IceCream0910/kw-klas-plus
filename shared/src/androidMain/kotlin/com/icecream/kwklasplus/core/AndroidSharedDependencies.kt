@@ -53,7 +53,7 @@ class AndroidSharedDependencies(
     val timetableRepository: TimetableRepository get() = network.timetableRepository
     val calendarSync by lazy {
         com.icecream.kwklasplus.core.academic.CalendarSyncUseCase(
-            network.sessionLeaseGateway, httpAuthDriver(), network.calendarRepository,
+            network.sessionLeaseGateway, httpAuthDriver(), network.calendarRepository, sessionCoordinator,
         )
     }
     val deadlineRepository: DeadlineRepository get() = network.deadlineRepository
