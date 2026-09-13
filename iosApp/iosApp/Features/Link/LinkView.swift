@@ -7,7 +7,9 @@ final class LinkScreenModel: ObservableObject {
     let sessionToken: SecretValue?
     weak var coordinator: HomeCoordinator?
     private var host: LinkHostAdapter
-    var isWebBottomSheetOpen = false
+    @Published var isWebBottomSheetOpen = false
+
+    var consumesNativeBack: Bool { isWebBottomSheetOpen }
 
     init(url: String, sessionToken: SecretValue?, coordinator: HomeCoordinator) {
         self.sessionToken = sessionToken
@@ -79,7 +81,10 @@ struct LinkView: View {
     }
 
     var body: some View {
-        PushedWebStack(holder: model.holder) {
+        PushedWebStack(
+            holder: model.holder,
+            consumesNativeBack: model.consumesNativeBack
+        ) {
             model.handleBack(dismiss: { dismiss() })
         }
         .accessibilityIdentifier("link_view")

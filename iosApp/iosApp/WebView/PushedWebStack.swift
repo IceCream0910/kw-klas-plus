@@ -3,6 +3,7 @@ import SwiftUI
 struct PushedWebStack: View {
     @ObservedObject var holder: WebViewHolder
     var showsPageLoading: Bool = true
+    var consumesNativeBack: Bool = false
     var onBack: () -> Void
 
     var body: some View {
@@ -43,6 +44,10 @@ struct PushedWebStack: View {
         }
         .webJavaScriptAlert(holder)
         .webDownloadOverlay(holder)
+        .interactivePopGesture(
+            consumesNativeBack: consumesNativeBack,
+            onConsumeBack: onBack
+        )
     }
 
     private var showsPageLoadingOverlay: Bool {
