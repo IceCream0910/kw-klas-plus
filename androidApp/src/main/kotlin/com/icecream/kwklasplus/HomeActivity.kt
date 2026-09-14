@@ -25,6 +25,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import java.util.concurrent.atomic.AtomicBoolean
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -1052,6 +1053,12 @@ class HomeActivity : AppCompatActivity() {
 
     private suspend fun fetchIdCardQRFromWebView(): String = suspendCancellableCoroutine { continuation ->
         val bgWebView = WebView(this@HomeActivity)
+        val disposed = AtomicBoolean(false)
+        fun disposeBackgroundWebView() {
+            if (disposed.compareAndSet(false, true)) {
+                bgWebView.post { bgWebView.destroyOwnedWebView() }
+            }
+        }
         bgWebView.settings.javaScriptEnabled = true
 
         bgWebView.webViewClient = object : WebViewClient() {
@@ -1102,13 +1109,13 @@ class HomeActivity : AppCompatActivity() {
                     if (continuation.isActive) {
                         continuation.resume(value)
                     }
-                    bgWebView.post { bgWebView.destroy() }
+                    disposeBackgroundWebView()
                 }
             }
         }
 
         continuation.invokeOnCancellation {
-            bgWebView.post { bgWebView.destroy() }
+            disposeBackgroundWebView()
         }
         bgWebView.loadUrl("https://klas.kw.ac.kr/mst/sys/optrn/MyNumberQrStdPage.do")
     }
