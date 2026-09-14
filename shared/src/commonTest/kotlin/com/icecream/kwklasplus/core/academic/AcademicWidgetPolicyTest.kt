@@ -52,5 +52,23 @@ class AcademicWidgetPolicyTest {
         assertNull(AcademicWidgetSnapshotPolicy.forIdentity(previous, "", ""))
     }
 
+    @Test fun calendarSyncAppliesToLatestSnapshotWithoutDroppingTimetable() {
+        val stale = AcademicWidgetSnapshot("account-a", "2026,2")
+        val latest = stale.copy(
+            timetable = listOf(TimetableEntry("자료구조", 0, "9:0", "10:0", "새빛관", "A")),
+            timetableFetchedAt = 10,
+        )
+        val merged = AcademicWidgetSnapshotPolicy.applyCalendar(
+            latest,
+            CalendarSyncResult.Success(listOf(event("event", "2026-09-04", "2026-09-04"))),
+            "2026-09",
+            20,
+        )
+        assertEquals(latest.timetable, merged.timetable)
+        assertEquals(10L, merged.timetableFetchedAt)
+        assertEquals("2026-09", merged.month)
+        assertEquals(1, merged.calendar?.size)
+    }
+
     private fun event(id: String, start: String, end: String) = CalendarEvent(id, id, "${start}T00:00", "${end}T23:59", "", "", "")
 }
