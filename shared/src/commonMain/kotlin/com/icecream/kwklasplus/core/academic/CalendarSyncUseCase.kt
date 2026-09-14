@@ -19,6 +19,7 @@ class CalendarSyncUseCase(
 ) {
     suspend fun sync(credential: StoredCredential?, token: SecretValue?, ua: KlasUserAgent,
                      start: String, end: String): CalendarSyncResult {
+        val sessionCheckpoint = sessionCoordinator.checkpoint()
         if (token != null) {
             when (val result = repository.fetch(token, ua, start, end)) {
                 is CalendarResult.Success -> return CalendarSyncResult.Success(result.events)
@@ -35,12 +36,13 @@ class CalendarSyncUseCase(
             }
             is WebAuthResult.SessionObserved -> when (val info = leases.fetchInfo(login.token, ua)) {
                 is SessionInfoResult.Success -> if (info.info.remainingSeconds > 0) {
-                    when (val session = sessionCoordinator.observe(login.token)) {
+                    when (val session = sessionCoordinator.observeIfCurrent(login.token, sessionCheckpoint)) {
                         is SessionResult.Active -> when (val result = repository.fetch(session.session.token, ua, start, end)) {
                             is CalendarResult.Success -> CalendarSyncResult.Success(result.events)
                             CalendarResult.SessionExpired -> CalendarSyncResult.NeedsLogin
                             else -> CalendarSyncResult.Retry
                         }
+                        SessionResult.Expired -> CalendarSyncResult.NeedsLogin
                         else -> CalendarSyncResult.Retry
                     }
                 } else CalendarSyncResult.NeedsLogin

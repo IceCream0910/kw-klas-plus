@@ -37,7 +37,7 @@ flowchart LR
 | 저장된 자격증명으로 로그인 | 양 플랫폼이 공통 `KlasHttpAuthDriver`의 `LoginSecurity` → `LoginCaptcha` → `LoginConfirm` 순서를 사용해요. CAPTCHA·임시 비밀번호·추가 인증은 사용자 조치로 분리합니다. |
 | 저장 SESSION으로 시작하거나 새 SESSION을 관찰함 | 서버 유효성을 확인하고 `SessionCoordinator`가 세션 저장소·WebView cookie·관찰 시각을 맞춥니다. Cookie 이름은 `SESSION`, 도메인은 `.kw.ac.kr`, 경로는 `/`이며 `Secure; HttpOnly`입니다. |
 | 서버가 세션 만료를 명시함 | 세션과 cookie를 지운 뒤 재인증 경로로 돌아갑니다. 네트워크 오류·timeout·서버 오류만으로는 비밀을 지우지 않아요. |
-| 로그아웃·계정 변경 | 세션·cookie·계정 자격증명을 정책대로 정리하되 기기 잠금 설정은 유지합니다. |
+| 로그아웃·계정 변경 | 세션·cookie·계정 자격증명을 정책대로 정리하되 기기 잠금 설정은 유지합니다. 로그아웃 전 시작한 위젯 재인증은 완료되어도 세션·cookie를 다시 만들지 못합니다. |
 
 정확한 상태 전이는 [`AuthStateMachine`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/auth/AuthStateMachine.kt), HTTP 순서는 [`KlasHttpAuthDriver`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/auth/KlasHttpAuthDriver.kt), 저장소·cookie 동기화는 [`SessionCoordinator`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/session/SessionCoordinator.kt)가 기준입니다.
 

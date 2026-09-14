@@ -1,6 +1,8 @@
 package com.icecream.kwklasplus.core.session
 
 import com.icecream.kwklasplus.core.security.SecretValue
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class SessionCoordinator(
     private val sessionStore: SessionStore,
@@ -8,6 +10,12 @@ class SessionCoordinator(
     private val clock: Clock,
     private val policy: SessionPolicy = SessionPolicy(),
 ) {
+    private val mutationMutex = Mutex()
+    private var generation = 0L
+    private var backgroundReauthenticationAllowed = true
+
+    suspend fun checkpoint(): Long = mutationMutex.withLock { generation }
+
     suspend fun restore(): SessionResult {
         val stored = try {
             sessionStore.load()
@@ -27,7 +35,18 @@ class SessionCoordinator(
         }
     }
 
-    suspend fun observe(token: SecretValue): SessionResult {
+    suspend fun observe(token: SecretValue): SessionResult = mutationMutex.withLock {
+        observeLocked(token)
+    }
+
+    suspend fun observeIfCurrent(token: SecretValue, checkpoint: Long): SessionResult =
+        mutationMutex.withLock {
+            if (checkpoint != generation || !backgroundReauthenticationAllowed) {
+                SessionResult.Expired
+            } else observeLocked(token)
+        }
+
+    private suspend fun observeLocked(token: SecretValue): SessionResult {
         val previous = try {
             sessionStore.load()
         } catch (cause: Throwable) {
@@ -38,6 +57,8 @@ class SessionCoordinator(
         return try {
             sessionStore.save(next)
             cookieStore.setSessionCookie(token)
+            generation++
+            backgroundReauthenticationAllowed = true
             SessionResult.Active(next)
         } catch (cause: Throwable) {
             restorePrevious(previous)
@@ -45,12 +66,16 @@ class SessionCoordinator(
         }
     }
 
-    suspend fun expire(): SessionResult = try {
-        sessionStore.clear()
-        cookieStore.clearSessionCookie()
-        SessionResult.Expired
-    } catch (cause: Throwable) {
-        SessionResult.Failed(cause)
+    suspend fun expire(): SessionResult = mutationMutex.withLock {
+        generation++
+        backgroundReauthenticationAllowed = false
+        try {
+            sessionStore.clear()
+            cookieStore.clearSessionCookie()
+            SessionResult.Expired
+        } catch (cause: Throwable) {
+            SessionResult.Failed(cause)
+        }
     }
 
     private suspend fun clearExpired(): SessionResult = try {
