@@ -7,6 +7,7 @@ import com.icecream.kwklasplus.core.academic.AcademicTermSelector
 import com.icecream.kwklasplus.core.academic.AcademicTermsResult
 import com.icecream.kwklasplus.core.academic.DeadlinesResult
 import com.icecream.kwklasplus.core.academic.DeadlinesWebCodec
+import com.icecream.kwklasplus.core.academic.IosAcademicWidgets
 import com.icecream.kwklasplus.core.academic.TimetableResult
 import com.icecream.kwklasplus.core.academic.TimetableWebCodec
 import com.icecream.kwklasplus.core.legacy.LegacyPreferenceKeys
@@ -38,6 +39,7 @@ sealed interface HomeBootstrapResult {
 
 class IosHomeRuntime(
     private val dependencies: IosSharedDependencies,
+    private val academicWidgets: IosAcademicWidgets? = null,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
 ) {
     fun bootstrapHome(userAgent: String, onResult: (HomeBootstrapResult) -> Unit) {
@@ -75,8 +77,16 @@ class IosHomeRuntime(
 
     fun yearHakgiButtonText(value: String): String = AcademicTermDisplay.buttonText(value)
 
+    fun onForeground(userAgent: String) {
+        scope.launch {
+            academicWidgets?.refreshIdentity()
+            academicWidgets?.syncCalendar(userAgent)
+        }
+    }
+
     fun logout(onDone: () -> Unit) {
         scope.launch {
+            academicWidgets?.clear()
             runCatching { dependencies.sessionCoordinator.expire() }
             runCatching { dependencies.credentialStore.clear() }
             runCatching { dependencies.libraryService.clearAll() }
@@ -110,6 +120,7 @@ class IosHomeRuntime(
                 val yearHakgi = selection.term.value
                 dependencies.writeStringPreference(LegacyPreferenceKeys.YEAR_HAKGI_LIST, joined)
                 dependencies.writeStringPreference(LegacyPreferenceKeys.YEAR_HAKGI, yearHakgi)
+                academicWidgets?.refreshIdentity()
                 val promptChange = !savedList.isNullOrBlank() && joined != savedList
                 val (timetableJson, deadlineJson) = coroutineScope {
                     val timetable = async { fetchTimetable(session, agent, yearHakgi) }
@@ -121,6 +132,7 @@ class IosHomeRuntime(
                 if (timetableJson == SESSION_EXPIRED || deadlineJson == SESSION_EXPIRED) {
                     return HomeBootstrapResult.SessionExpired
                 }
+                scope.launch { academicWidgets?.syncCalendar(userAgent) }
                 HomeBootstrapResult.Ready(
                     sessionToken = session,
                     yearHakgi = yearHakgi,
@@ -149,7 +161,10 @@ class IosHomeRuntime(
                 term.semester,
             )
         ) {
-            is TimetableResult.Success -> TimetableWebCodec().encode(result.entriesBySubject)
+            is TimetableResult.Success -> {
+                academicWidgets?.recordTimetable(yearHakgi, result.entriesBySubject.values.flatten())
+                TimetableWebCodec().encode(result.entriesBySubject)
+            }
             TimetableResult.SessionExpired -> SESSION_EXPIRED
             else -> ""
         }
@@ -178,5 +193,10 @@ class IosHomeRuntime(
 
         fun create(dependencies: IosSharedDependencies): IosHomeRuntime =
             IosHomeRuntime(dependencies)
+
+        fun create(
+            dependencies: IosSharedDependencies,
+            academicWidgets: IosAcademicWidgets,
+        ): IosHomeRuntime = IosHomeRuntime(dependencies, academicWidgets)
     }
 }

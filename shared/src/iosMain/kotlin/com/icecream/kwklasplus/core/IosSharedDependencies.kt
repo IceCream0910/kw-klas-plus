@@ -1,8 +1,11 @@
 package com.icecream.kwklasplus.core
 
 import com.icecream.kwklasplus.core.academic.AcademicRepository
+import com.icecream.kwklasplus.core.academic.CalendarRepository
+import com.icecream.kwklasplus.core.academic.CalendarSyncUseCase
 import com.icecream.kwklasplus.core.academic.DeadlineRepository
 import com.icecream.kwklasplus.core.academic.IosDeadlineDateParsers
+import com.icecream.kwklasplus.core.academic.KlasCalendarEventNormalizer
 import com.icecream.kwklasplus.core.academic.TimetableRepository
 import com.icecream.kwklasplus.core.attendance.AttendanceRepository
 import com.icecream.kwklasplus.core.auth.CredentialStore
@@ -66,6 +69,10 @@ class IosSharedDependencies(
 
     val timetableRepository: TimetableRepository by lazy {
         TimetableRepository(KlasSessionHttpClient(longRunningClient))
+    }
+
+    val calendarRepository: CalendarRepository by lazy {
+        CalendarRepository(KlasSessionHttpClient(httpClient), KlasCalendarEventNormalizer())
     }
 
     val deadlineRepository: DeadlineRepository by lazy {
@@ -165,6 +172,13 @@ class IosSharedDependencies(
 
     fun httpAuthDriver(tokenEncryptor: LoginTokenEncryptor): WebAuthDriver =
         IosHttpAuthDriver(tokenEncryptor)
+
+    fun calendarSync(tokenEncryptor: LoginTokenEncryptor) = CalendarSyncUseCase(
+        sessionLeaseGateway,
+        httpAuthDriver(tokenEncryptor),
+        calendarRepository,
+        sessionCoordinator,
+    )
 
     fun loginUseCase(webAuthDriver: WebAuthDriver) = LoginUseCase(
         prepareCredentialUseCase,

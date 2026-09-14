@@ -63,5 +63,7 @@ struct LibraryQRWidget: Widget {
 struct LibraryQRWidgetBundle: WidgetBundle {
     var body: some Widget {
         LibraryQRWidget()
+        AcademicCalendarWidget()
+        AcademicTimetableWidget()
     }
 }
