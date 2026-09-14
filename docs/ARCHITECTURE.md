@@ -53,7 +53,7 @@ flowchart LR
 | 도서관 | `library_stdNumber`, `library_phone`, `library_password`, `library_secure_prefs/secret_*`, `library_secure_prefs/authKey_*` |
 | 앱 잠금 | `a_l_e`, `b_m_e`, `p_w_h`, `p_w_s` |
 
-`kwPWD`·SESSION 토큰·도서관 비밀번호/키·잠금 hash/salt는 비밀로, `kwSESSION_timestamp`와 일반 설정은 분리해 저장합니다. 기존 legacy Android 버전의 일반 sharedPreference에 저장된 `kwSESSION` 값은 업그레이드 때 한 번 읽어 보안 저장소에 기록·검증한 뒤 삭제합니다. 이후 Activity도 공통 세션 API를 통해 토큰을 읽어야 해요. 이전 실패·재시작·로그아웃 테스트를 함께 남겨 주세요. 기존 키 이름은 [`LegacyPreferenceKeys`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/legacy/LegacyContracts.kt)에 있습니다.
+`kwPWD`·SESSION 토큰·도서관 비밀번호/키·잠금 hash/salt는 비밀로, `kwSESSION_timestamp`와 일반 설정은 분리해 저장합니다. 기존 Android 버전의 일반 sharedPreference에 저장된 `kwSESSION` 값은 공통 세션 API가 업그레이드 때 한 번 읽어 보안 저장소에 기록하고 재조회로 검증한 뒤 삭제합니다. 이때 `kwSESSION_timestamp`는 보안 세션에서도 쓰므로 유지합니다. 이전·검증에 실패하면 원문을 남겨 다음 시작에서 재시도하고, 보안 저장소 읽기에 실패하면 평문 fallback을 사용하지 않습니다. 새 세션은 일반 preferences에 미러링하지 않으며 `HomeActivity`의 네 읽기 경로도 공통 세션 API를 사용합니다. 로그아웃은 보안 세션과 잔존 `kwSESSION`을 모두 지웁니다. 롤백 시 구버전 앱이 새로 발급된 세션을 일반 preferences에서 읽을 수 없으므로 재로그인이 필요할 수 있습니다. 기존 키 이름은 [`LegacyPreferenceKeys`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/legacy/LegacyContracts.kt)에 있습니다.
 
 ## WebView·Native 브리지
 

@@ -38,35 +38,38 @@ class SecureSessionStoreTest {
     }
 
     @Test
-    fun fallsBackToLegacyAndBackfillsPrimary() = runSessionStoreTest {
+    fun migratesLegacyOnceAndRestoresAfterRestart() = runSessionStoreTest {
         val session = Session(SecretValue.of("legacy"), 2000L)
         val primary = FakeSessionStore()
-        val legacy = FakeSessionStore(session)
-        val store = MirroringSessionStore(primary, legacy)
+        val legacy = FakeLegacySource(session)
+        val store = MigratingSessionStore(primary, legacy)
 
         assertEquals(session, store.load())
         assertEquals(session, primary.session)
+        assertNull(legacy.session)
+        assertEquals(session, MigratingSessionStore(primary, legacy).load())
     }
 
     @Test
-    fun primaryReadFailurePreservesLegacyFallback() = runSessionStoreTest {
+    fun primaryReadFailureDoesNotUsePlaintextFallback() = runSessionStoreTest {
         val session = Session(SecretValue.of("legacy"), 2000L)
         val primary = FakeSessionStore(failLoad = true)
-        val legacy = FakeSessionStore(session)
+        val legacy = FakeLegacySource(session)
 
-        assertEquals(session, MirroringSessionStore(primary, legacy).load())
+        assertTrue(runCatching { MigratingSessionStore(primary, legacy).load() }.isFailure)
+        assertEquals(session, legacy.session)
     }
 
     @Test
-    fun saveAndClearKeepLegacyReaderCompatible() = runSessionStoreTest {
+    fun saveDoesNotMirrorAndClearRemovesLegacyToken() = runSessionStoreTest {
         val primary = FakeSessionStore()
-        val legacy = FakeSessionStore()
-        val store = MirroringSessionStore(primary, legacy)
+        val legacy = FakeLegacySource(Session(SecretValue.of("old"), 1L))
+        val store = MigratingSessionStore(primary, legacy)
         val session = Session(SecretValue.of("new"), 3000L)
 
         store.save(session)
         assertEquals(session, primary.session)
-        assertEquals(session, legacy.session)
+        assertNull(legacy.session)
 
         store.clear()
         assertNull(primary.session)
@@ -76,11 +79,39 @@ class SecureSessionStoreTest {
     @Test
     fun clearAttemptsBothStoresWhenPrimaryFails() = runSessionStoreTest {
         val primary = FakeSessionStore(failClear = true)
-        val legacy = FakeSessionStore(Session(SecretValue.of("legacy"), 1L))
-        val result = runCatching { MirroringSessionStore(primary, legacy).clear() }
+        val legacy = FakeLegacySource(Session(SecretValue.of("legacy"), 1L))
+        val result = runCatching { MigratingSessionStore(primary, legacy).clear() }
 
         assertTrue(result.isFailure)
         assertNull(legacy.session)
+    }
+
+    @Test
+    fun failedMigrationRetainsLegacyForRetry() = runSessionStoreTest {
+        val session = Session(SecretValue.of("legacy"), 2000L)
+        val primary = FakeSessionStore(failSave = true)
+        val legacy = FakeLegacySource(session)
+        assertTrue(runCatching { MigratingSessionStore(primary, legacy).load() }.isFailure)
+        assertEquals(session, legacy.session)
+        primary.failSave = false
+        assertEquals(session, MigratingSessionStore(primary, legacy).load())
+        assertNull(legacy.session)
+    }
+
+    @Test
+    fun failedVerificationRetainsLegacyForRetry() = runSessionStoreTest {
+        val session = Session(SecretValue.of("legacy"), 2000L)
+        val primary = FakeSessionStore(hideLoad = true)
+        val legacy = FakeLegacySource(session)
+        assertTrue(runCatching { MigratingSessionStore(primary, legacy).load() }.isFailure)
+        assertEquals(session, legacy.session)
+        primary.hideLoad = false
+        assertEquals(session, MigratingSessionStore(primary, legacy).load())
+    }
+
+    private class FakeLegacySource(var session: Session? = null) : LegacySessionSource {
+        override suspend fun load() = session
+        override suspend fun removeToken() { session = null }
     }
 
     private class FakeSecureStore(
@@ -109,12 +140,15 @@ class SecureSessionStoreTest {
         var session: Session? = null,
         private val failLoad: Boolean = false,
         private val failClear: Boolean = false,
+        var failSave: Boolean = false,
+        var hideLoad: Boolean = false,
     ) : SessionStore {
         override suspend fun load(): Session? {
             if (failLoad) error("load failed")
-            return session
+            return if (hideLoad) null else session
         }
         override suspend fun save(session: Session) {
+            if (failSave) error("save failed")
             this.session = session
         }
         override suspend fun clear() {

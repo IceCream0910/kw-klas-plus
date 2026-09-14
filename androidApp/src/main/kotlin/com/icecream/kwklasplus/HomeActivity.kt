@@ -88,6 +88,7 @@ import com.icecream.kwklasplus.core.profile.IdCardQrRequest
 import com.icecream.kwklasplus.core.profile.IdCardQrResult
 import com.icecream.kwklasplus.core.library.LibraryQrResult
 import com.icecream.kwklasplus.core.security.SecretValue
+import com.icecream.kwklasplus.core.session.SessionResult
 import com.icecream.kwklasplus.core.web.JavaScriptArgument
 import com.icecream.kwklasplus.core.web.KlasWebAutomationScripts
 import com.icecream.kwklasplus.core.web.LegacyWebCallback
@@ -133,6 +134,11 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onResumeFragments() {
         super.onResumeFragments()
+        showLibrarySettingsIfRequested()
+    }
+
+    private fun showLibrarySettingsIfRequested() {
+        if (!::webView.isInitialized) return
         if (isFinishing || intent.action != ACTION_OPEN_LIBRARY_SETTINGS) return
         if (com.icecream.kwklasplus.manager.AppLockManager.isAppLockEnabled(this) &&
             !com.icecream.kwklasplus.manager.AppLockManager.isUnlocked
@@ -177,6 +183,7 @@ class HomeActivity : AppCompatActivity() {
     private var calendarBottomSheetImeCoordinator: CalendarBottomSheetImeCoordinator? = null
 
     private lateinit var appUpdateManager: AppUpdateManager
+    private var appUpdateSnackbar: Snackbar? = null
     private val MY_REQUEST_CODE = 1001
 
     private val installStateUpdatedListener = InstallStateUpdatedListener { state ->
@@ -216,16 +223,15 @@ class HomeActivity : AppCompatActivity() {
 
         lockPortraitOnPhone()
 
-        val sharedPreferences = appPreferences
-        val sessionId = sharedPreferences.getString(AppPrefs.KW_SESSION, null)
-        sessionIdForOtherClass = sessionId ?: ""
-        if (sessionId == null) {
-            showLoginErrorToast()
-            finish()
-            startActivity(com.icecream.kwklasplus.widget.WidgetNavigation.forward(intent, Intent(this@HomeActivity, MainActivity::class.java)))
-            return
+        appUpdateManager = AppUpdateManagerFactory.create(this)
+        lifecycleScope.launch {
+            val sessionId = restoreSessionId() ?: return@launch
+            sessionIdForOtherClass = sessionId
+            startHome(sessionId)
         }
+    }
 
+    private fun startHome(sessionId: String) {
         webView = WebView(this)
         webViewContainer = FrameLayout(this).apply {
             addView(
@@ -261,16 +267,31 @@ class HomeActivity : AppCompatActivity() {
         }
         initSubjectList(sessionId)
         initLoadingDialog()
+        showLibrarySettingsIfRequested()
 
         // Play In-app Update
-        appUpdateManager = AppUpdateManagerFactory.create(this)
         appUpdateManager.registerListener(installStateUpdatedListener)
         checkForUpdates()
     }
 
+    private suspend fun restoreSessionId(): String? =
+        when (val result = appDependencies.sessionCoordinator.restore()) {
+            is SessionResult.Active -> result.session.token.reveal()
+            else -> {
+                showLoginErrorToast()
+                finish()
+                startActivity(com.icecream.kwklasplus.widget.WidgetNavigation.forward(intent, Intent(this@HomeActivity, MainActivity::class.java)))
+                null
+            }
+        }
+
     private fun checkForUpdates() {
         val appUpdateInfoTask = appUpdateManager.appUpdateInfo
         appUpdateInfoTask.addOnSuccessListener { appUpdateInfo ->
+            if (appUpdateInfo.installStatus() == InstallStatus.DOWNLOADED) {
+                popupSnackbarForCompleteUpdate()
+                return@addOnSuccessListener
+            }
             if (appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
                 && appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)
             ) {
@@ -285,6 +306,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun popupSnackbarForCompleteUpdate() {
+        if (appUpdateSnackbar?.isShown == true) return
         val snackbar = Snackbar.make(
             main ?: webView,
             "업데이트 다운로드가 완료되었습니다.",
@@ -293,6 +315,7 @@ class HomeActivity : AppCompatActivity() {
         snackbar.setAction("설치") {
             appUpdateManager.completeUpdate()
         }
+        appUpdateSnackbar = snackbar
         snackbar.show()
     }
 
@@ -319,14 +342,16 @@ class HomeActivity : AppCompatActivity() {
         super.onResume()
         appDependencies.academicWidgets.foreground()
         if (yearHakgi.isNotBlank()) {
-            appPreferences.getString(AppPrefs.KW_SESSION, null)?.let { token ->
-                lifecycleScope.launch { getTimetableData(token, reportSessionExpiry = false) }
+            lifecycleScope.launch {
+                val token = (appDependencies.sessionCoordinator.restore() as? SessionResult.Active)
+                    ?.session?.token?.reveal()
+                if (token != null) getTimetableData(token, reportSessionExpiry = false)
             }
         }
-        hideLoading()
+        if (::loadingDialog.isInitialized) hideLoading()
 
         appUpdateManager.appUpdateInfo.addOnSuccessListener { appUpdateInfo ->
-            if (appUpdateInfo.installStatus() == InstallStatus.DOWNLOADED) {
+            if (appUpdateInfo.installStatus() == InstallStatus.DOWNLOADED && ::webView.isInitialized) {
                 popupSnackbarForCompleteUpdate()
             }
         }
@@ -774,15 +799,14 @@ class HomeActivity : AppCompatActivity() {
 
     private fun reloadData() {
         showLoading()
-        val sharedPreferences = appPreferences
-        val sessionId = sharedPreferences.getString(AppPrefs.KW_SESSION, null)
-        if (sessionId == null) {
-            showLoginErrorToast()
-            finish()
-            startActivity(com.icecream.kwklasplus.widget.WidgetNavigation.forward(intent, Intent(this@HomeActivity, MainActivity::class.java)))
-            return
+        lifecycleScope.launch {
+            val sessionId = restoreSessionId() ?: return@launch
+            sessionIdForOtherClass = sessionId
+            reloadDataWithSession(sessionId)
         }
+    }
 
+    private fun reloadDataWithSession(sessionId: String) {
         fetchSubjectList(sessionId) { terms ->
             val selectedSubjList = resolveSelectedSubjects(terms)
             if (selectedSubjList == null) {
@@ -811,15 +835,14 @@ class HomeActivity : AppCompatActivity() {
         val root = main ?: webView
         runOnUiThread { root.performHapticFeedback(HapticFeedbackConstants.TOGGLE_ON) }
         showLoading()
-        val sharedPreferences = appPreferences
-        val sessionId = sharedPreferences.getString(AppPrefs.KW_SESSION, null)
-        if (sessionId == null) {
-            showLoginErrorToast()
-            finish()
-            startActivity(com.icecream.kwklasplus.widget.WidgetNavigation.forward(intent, Intent(this@HomeActivity, MainActivity::class.java)))
-            return
+        lifecycleScope.launch {
+            val sessionId = restoreSessionId() ?: return@launch
+            sessionIdForOtherClass = sessionId
+            reloadWithSession(sessionId)
         }
+    }
 
+    private fun reloadWithSession(sessionId: String) {
         fetchSubjectList(sessionId) { terms ->
             val selectedSubjList = resolveSelectedSubjects(terms)
             if (selectedSubjList == null) {

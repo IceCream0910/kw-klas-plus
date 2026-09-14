@@ -30,7 +30,7 @@ class AndroidLegacySecretSourceTest {
             androidLoginCredentialMigrations.map(SecretMigration::target),
         )
         assertEquals(
-            setOf(SecureKey.SESSION_TOKEN, SecureKey.APP_LOCK_HASH, SecureKey.APP_LOCK_SALT),
+            setOf(SecureKey.APP_LOCK_HASH, SecureKey.APP_LOCK_SALT),
             androidFixedSecretMigrations.drop(androidLoginCredentialMigrations.size)
                 .map(SecretMigration::target)
                 .toSet(),
