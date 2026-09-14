@@ -30,7 +30,7 @@ import com.icecream.kwklasplus.core.session.AndroidPreferencesSessionStore
 import com.icecream.kwklasplus.core.session.AndroidPreferencesSessionTimestampStore
 import com.icecream.kwklasplus.core.session.AndroidWebCookieStore
 import com.icecream.kwklasplus.core.session.Clock
-import com.icecream.kwklasplus.core.session.MirroringSessionStore
+import com.icecream.kwklasplus.core.session.MigratingSessionStore
 import com.icecream.kwklasplus.core.session.SecureSessionStore
 import com.icecream.kwklasplus.core.session.SessionCoordinator
 import com.icecream.kwklasplus.core.session.SessionLeaseManager
@@ -107,7 +107,7 @@ class AndroidSharedDependencies(
             secureStore,
             AndroidPreferencesSessionTimestampStore(preferences),
         )
-        val compatibleStore = MirroringSessionStore(
+        val compatibleStore = MigratingSessionStore(
             primary,
             AndroidPreferencesSessionStore(preferences),
         )

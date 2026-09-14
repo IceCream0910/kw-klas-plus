@@ -8,7 +8,7 @@ import com.icecream.kwklasplus.core.security.SecretValue
 
 class AndroidPreferencesSessionStore(
     private val preferences: SharedPreferences,
-) : SessionStore {
+) : LegacySessionSource {
     override suspend fun load(): Session? {
         val token = preferences.getString(LegacyPreferenceKeys.KW_SESSION, null)
             ?.takeIf(String::isNotBlank)
@@ -19,20 +19,11 @@ class AndroidPreferencesSessionStore(
         return Session(SecretValue.of(token), timestamp)
     }
 
-    override suspend fun save(session: Session) {
-        check(
-            preferences.edit()
-                .putString(LegacyPreferenceKeys.KW_SESSION, session.token.reveal())
-                .putString(LegacyPreferenceKeys.KW_SESSION_TIMESTAMP, session.observedAtEpochMillis.toString())
-                .commit(),
-        )
-    }
-
-    override suspend fun clear() {
+    override suspend fun removeToken() {
+        if (!preferences.contains(LegacyPreferenceKeys.KW_SESSION)) return
         check(
             preferences.edit()
                 .remove(LegacyPreferenceKeys.KW_SESSION)
-                .remove(LegacyPreferenceKeys.KW_SESSION_TIMESTAMP)
                 .commit(),
         )
     }

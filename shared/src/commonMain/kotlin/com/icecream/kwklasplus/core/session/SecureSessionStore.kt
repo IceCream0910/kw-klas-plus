@@ -43,32 +43,37 @@ class SecureSessionStore(
     }
 }
 
-class MirroringSessionStore(
+interface LegacySessionSource {
+    suspend fun load(): Session?
+    suspend fun removeToken()
+}
+
+class MigratingSessionStore(
     private val primary: SessionStore,
-    private val legacy: SessionStore,
+    private val legacy: LegacySessionSource,
 ) : SessionStore {
     override suspend fun load(): Session? {
-        runCatching { primary.load() }.getOrNull()?.let { return it }
+        primary.load()?.let {
+            legacy.removeToken()
+            return it
+        }
         val legacySession = legacy.load() ?: return null
-        runCatching { primary.save(legacySession) }
+        primary.save(legacySession)
+        check(primary.load() == legacySession)
+        legacy.removeToken()
         return legacySession
     }
 
     override suspend fun save(session: Session) {
         primary.save(session)
-        try {
-            legacy.save(session)
-        } catch (cause: Throwable) {
-            runCatching { primary.clear() }
-            throw cause
-        }
+        legacy.removeToken()
     }
 
     override suspend fun clear() {
         var failure: Throwable? = null
         runCatching { primary.clear() }
             .onFailure { failure = it }
-        runCatching { legacy.clear() }
+        runCatching { legacy.removeToken() }
             .onFailure { if (failure == null) failure = it }
         failure?.let { throw it }
     }

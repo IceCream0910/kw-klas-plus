@@ -16,10 +16,6 @@ val androidLoginCredentialMigrations = listOf(
 
 val androidFixedSecretMigrations = androidLoginCredentialMigrations + listOf(
     SecretMigration(
-        LegacySecretRef(LegacyStoreId.PREFERENCES, LegacyPreferenceKeys.KW_SESSION),
-        SecureKey.SESSION_TOKEN,
-    ),
-    SecretMigration(
         LegacySecretRef(LegacyStoreId.PREFERENCES, "p_w_h"),
         SecureKey.APP_LOCK_HASH,
     ),
