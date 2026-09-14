@@ -5,6 +5,7 @@ struct StartupRootView: View {
     @StateObject private var controller: AuthSessionController
     @StateObject private var appLock: AppLockController
     @StateObject private var libraryQr: LibraryQrController
+    @StateObject private var academicWidgets = AcademicWidgetOpenController()
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -57,6 +58,7 @@ struct StartupRootView: View {
                     onLogout: { controller.handleHomeLogout() },
                     onSessionExpired: { controller.handleHomeSessionExpired() }
                 )
+                .environmentObject(academicWidgets)
             }
         }
         .environmentObject(appLock)
@@ -88,11 +90,22 @@ struct StartupRootView: View {
         .onChange(of: controller.phase) { phase in
             if phase == .authenticated {
                 applyAppLock(for: scenePhase)
+                academicWidgets.consumeIfPossible(
+                    isAuthenticated: true,
+                    appLock: appLock
+                )
             } else {
                 appLock.dismissUnlockCover()
             }
         }
         .onOpenURL { url in
+            if academicWidgets.handleOpenURL(
+                url,
+                isAuthenticated: isSessionAuthenticated,
+                appLock: appLock
+            ) {
+                return
+            }
             _ = libraryQr.handleOpenURL(url)
         }
     }
