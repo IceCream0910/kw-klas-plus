@@ -2,7 +2,6 @@ package com.icecream.kwklasplus.manager
 
 import android.content.Context
 import com.icecream.kwklasplus.appDependencies
-import com.icecream.kwklasplus.encryptedPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -14,11 +13,11 @@ object AppLockManager {
     var isUnlocked: Boolean = false
 
     fun isAppLockEnabled(context: Context): Boolean {
-        return context.encryptedPreferences.getBoolean(APP_LOCK_ENABLED_KEY, false)
+        return context.appDependencies.appLockPreferences.getBoolean(APP_LOCK_ENABLED_KEY, false)
     }
 
     fun isBiometricEnabled(context: Context): Boolean {
-        return context.encryptedPreferences.getBoolean(BIOMETRIC_ENABLED_KEY, false)
+        return context.appDependencies.appLockPreferences.getBoolean(BIOMETRIC_ENABLED_KEY, false)
     }
 
     suspend fun hasPassword(context: Context): Boolean = withContext(Dispatchers.IO) {
@@ -40,15 +39,15 @@ object AppLockManager {
     }
 
     suspend fun setAppLockEnabled(context: Context, enabled: Boolean) = withContext(Dispatchers.IO) {
-        context.encryptedPreferences.edit().putBoolean(APP_LOCK_ENABLED_KEY, enabled).apply()
+        context.appDependencies.appLockPreferences.edit().putBoolean(APP_LOCK_ENABLED_KEY, enabled).apply()
         if (!enabled) {
             context.appDependencies.appLockSecretStore.clear()
-            context.encryptedPreferences.edit().putBoolean(BIOMETRIC_ENABLED_KEY, false).apply()
+            context.appDependencies.appLockPreferences.edit().putBoolean(BIOMETRIC_ENABLED_KEY, false).apply()
             isUnlocked = false
         }
     }
 
     suspend fun setBiometricEnabled(context: Context, enabled: Boolean) = withContext(Dispatchers.IO) {
-        context.encryptedPreferences.edit().putBoolean(BIOMETRIC_ENABLED_KEY, enabled).apply()
+        context.appDependencies.appLockPreferences.edit().putBoolean(BIOMETRIC_ENABLED_KEY, enabled).apply()
     }
 }
