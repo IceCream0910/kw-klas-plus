@@ -183,6 +183,7 @@ class HomeActivity : AppCompatActivity() {
     private var calendarBottomSheetImeCoordinator: CalendarBottomSheetImeCoordinator? = null
 
     private lateinit var appUpdateManager: AppUpdateManager
+    private var appUpdateSnackbar: Snackbar? = null
     private val MY_REQUEST_CODE = 1001
 
     private val installStateUpdatedListener = InstallStateUpdatedListener { state ->
@@ -223,7 +224,6 @@ class HomeActivity : AppCompatActivity() {
         lockPortraitOnPhone()
 
         appUpdateManager = AppUpdateManagerFactory.create(this)
-        appUpdateManager.registerListener(installStateUpdatedListener)
         lifecycleScope.launch {
             val sessionId = restoreSessionId() ?: return@launch
             sessionIdForOtherClass = sessionId
@@ -270,6 +270,7 @@ class HomeActivity : AppCompatActivity() {
         showLibrarySettingsIfRequested()
 
         // Play In-app Update
+        appUpdateManager.registerListener(installStateUpdatedListener)
         checkForUpdates()
     }
 
@@ -287,6 +288,10 @@ class HomeActivity : AppCompatActivity() {
     private fun checkForUpdates() {
         val appUpdateInfoTask = appUpdateManager.appUpdateInfo
         appUpdateInfoTask.addOnSuccessListener { appUpdateInfo ->
+            if (appUpdateInfo.installStatus() == InstallStatus.DOWNLOADED) {
+                popupSnackbarForCompleteUpdate()
+                return@addOnSuccessListener
+            }
             if (appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
                 && appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)
             ) {
@@ -301,6 +306,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun popupSnackbarForCompleteUpdate() {
+        if (appUpdateSnackbar?.isShown == true) return
         val snackbar = Snackbar.make(
             main ?: webView,
             "업데이트 다운로드가 완료되었습니다.",
@@ -309,6 +315,7 @@ class HomeActivity : AppCompatActivity() {
         snackbar.setAction("설치") {
             appUpdateManager.completeUpdate()
         }
+        appUpdateSnackbar = snackbar
         snackbar.show()
     }
 
