@@ -3,6 +3,8 @@ package com.icecream.kwklasplus.manager
 import android.content.Context
 import com.icecream.kwklasplus.appDependencies
 import com.icecream.kwklasplus.encryptedPreferences
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 object AppLockManager {
     private const val APP_LOCK_ENABLED_KEY = "a_l_e"
@@ -19,25 +21,25 @@ object AppLockManager {
         return context.encryptedPreferences.getBoolean(BIOMETRIC_ENABLED_KEY, false)
     }
 
-    fun hasPassword(context: Context): Boolean {
-        return context.appDependencies.appLockSecretStore.readHash() != null
+    suspend fun hasPassword(context: Context): Boolean = withContext(Dispatchers.IO) {
+        context.appDependencies.appLockSecretStore.readHash() != null
     }
 
-    fun verifyPassword(context: Context, input: String): Boolean {
+    suspend fun verifyPassword(context: Context, input: String): Boolean = withContext(Dispatchers.IO) {
         val secrets = context.appDependencies.appLockSecretStore
-        val savedHash = secrets.readHash() ?: return false
-        val savedSalt = secrets.readSalt() ?: return false
-        return context.appDependencies.appLockCredentialCodec.verify(input, savedHash, savedSalt)
+        val savedHash = secrets.readHash() ?: return@withContext false
+        val savedSalt = secrets.readSalt() ?: return@withContext false
+        context.appDependencies.appLockCredentialCodec.verify(input, savedHash, savedSalt)
     }
 
-    fun savePassword(context: Context, password: String) {
+    suspend fun savePassword(context: Context, password: String) = withContext(Dispatchers.IO) {
         val codec = context.appDependencies.appLockCredentialCodec
         val salt = codec.generateSalt()
         val hash = codec.hash(password, salt)
         context.appDependencies.appLockSecretStore.write(hash, salt)
     }
 
-    fun setAppLockEnabled(context: Context, enabled: Boolean) {
+    suspend fun setAppLockEnabled(context: Context, enabled: Boolean) = withContext(Dispatchers.IO) {
         context.encryptedPreferences.edit().putBoolean(APP_LOCK_ENABLED_KEY, enabled).apply()
         if (!enabled) {
             context.appDependencies.appLockSecretStore.clear()
@@ -46,7 +48,7 @@ object AppLockManager {
         }
     }
 
-    fun setBiometricEnabled(context: Context, enabled: Boolean) {
+    suspend fun setBiometricEnabled(context: Context, enabled: Boolean) = withContext(Dispatchers.IO) {
         context.encryptedPreferences.edit().putBoolean(BIOMETRIC_ENABLED_KEY, enabled).apply()
     }
 }

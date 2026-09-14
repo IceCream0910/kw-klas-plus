@@ -53,6 +53,7 @@ class SettingsActivity : AppCompatActivity() {
     var savedYearHakgi: String = ""
     lateinit var savedYearHakgiList: Array<String>
     var isDisablingProcess = false
+    private var hasPasswordCache = false
     private var bridgeMessageAdapter: AndroidBridgeMessageAdapter? = null
     private var webSurface: AndroidWebSurface? = null
 
@@ -67,12 +68,19 @@ class SettingsActivity : AppCompatActivity() {
             )
             Toast.makeText(this, "인증이 취소되었습니다.", Toast.LENGTH_SHORT).show()
         } else {
-            if (isDisablingProcess) {
-                AppLockManager.setAppLockEnabled(this, false)
-                Toast.makeText(this, "앱 잠금이 비활성화되고 비밀번호가 초기화되었습니다.", Toast.LENGTH_SHORT).show()
+            val disabling = isDisablingProcess
+            lifecycleScope.launch {
+                try {
+                    if (disabling) {
+                        AppLockManager.setAppLockEnabled(this@SettingsActivity, false)
+                        Toast.makeText(this@SettingsActivity, "앱 잠금이 비활성화되고 비밀번호가 초기화되었습니다.", Toast.LENGTH_SHORT).show()
+                    }
+                    hasPasswordCache = AppLockManager.hasPassword(this@SettingsActivity)
+                    webView.executeWebScript(LegacyWebScripts.appLockSettingChanged(currentAppLockSettings()))
+                } catch (_: Exception) {
+                    Toast.makeText(this@SettingsActivity, "앱 잠금 설정을 변경하지 못했어요.", Toast.LENGTH_SHORT).show()
+                }
             }
-
-            webView.executeWebScript(LegacyWebScripts.appLockSettingChanged(currentAppLockSettings()))
         }
         isDisablingProcess = false
     }
@@ -167,7 +175,15 @@ class SettingsActivity : AppCompatActivity() {
         }
         webView.webViewClient = AndroidWebSurfaceClient(requireNotNull(webSurface))
 
-        webView.loadUrl(AppUrls.SETTINGS)
+        lifecycleScope.launch {
+            try {
+                hasPasswordCache = AppLockManager.hasPassword(this@SettingsActivity)
+                webView.loadUrl(AppUrls.SETTINGS)
+            } catch (_: Exception) {
+                Toast.makeText(this@SettingsActivity, "앱 잠금 설정을 불러오지 못했어요.", Toast.LENGTH_SHORT).show()
+                finish()
+            }
+        }
     }
 
 
@@ -208,7 +224,7 @@ class SettingsActivity : AppCompatActivity() {
     fun currentAppLockSettings(): AppLockSettings = AppLockSettings(
         enabled = AppLockManager.isAppLockEnabled(this),
         biometricEnabled = AppLockManager.isBiometricEnabled(this),
-        hasPassword = AppLockManager.hasPassword(this),
+        hasPassword = hasPasswordCache,
     )
     override fun onDestroy() {
         webSurface?.dispose()
@@ -301,11 +317,17 @@ class SettingsBridgeDelegate(private val activity: SettingsActivity) {
 
     fun setAppLockPassword() {
         activity.runOnUiThread {
-            val mode = if (AppLockManager.hasPassword(activity)) "CHANGE" else "SET"
-            val intent = Intent(activity, LockActivity::class.java).apply {
-                putExtra("MODE", mode)
+            activity.lifecycleScope.launch {
+                try {
+                    val mode = if (AppLockManager.hasPassword(activity)) "CHANGE" else "SET"
+                    val intent = Intent(activity, LockActivity::class.java).apply {
+                        putExtra("MODE", mode)
+                    }
+                    activity.lockSetupLauncher.launch(intent)
+                } catch (_: Exception) {
+                    Toast.makeText(activity, "앱 잠금 정보를 확인하지 못했어요.", Toast.LENGTH_SHORT).show()
+                }
             }
-            activity.lockSetupLauncher.launch(intent)
         }
     }
 
@@ -335,9 +357,11 @@ class SettingsBridgeDelegate(private val activity: SettingsActivity) {
                     }
                 }
             } else {
-                AppLockManager.setBiometricEnabled(activity, false)
-                Toast.makeText(activity, "생체인증이 비활성화되었습니다.", Toast.LENGTH_SHORT).show()
-                activity.notifyBiometricSettingChanged(false)
+                activity.lifecycleScope.launch {
+                    AppLockManager.setBiometricEnabled(activity, false)
+                    Toast.makeText(activity, "생체인증이 비활성화되었습니다.", Toast.LENGTH_SHORT).show()
+                    activity.notifyBiometricSettingChanged(false)
+                }
             }
         }
     }

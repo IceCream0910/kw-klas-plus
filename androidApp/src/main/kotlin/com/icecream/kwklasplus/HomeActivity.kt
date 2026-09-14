@@ -1147,9 +1147,11 @@ class HomeActivity : AppCompatActivity() {
                     runCatching {
                         appDependencies.secureStore.remove(SecureKey.ENCRYPTED_KLAS_PASSWORD)
                     }
-                    appPreferences.edit().clear().apply()
-                    encryptedPreferences.edit().remove(AppPrefs.KW_PASSWORD).apply()
-                    libraryQrCachePreferences.edit().clear().apply()
+                    withContext(Dispatchers.IO) {
+                        appPreferences.edit().clear().apply()
+                        encryptedPreferences.edit().remove(AppPrefs.KW_PASSWORD).apply()
+                        libraryQrCachePreferences.edit().clear().apply()
+                    }
                     appDependencies.academicWidgets.clear()
                     finish()
                     startActivity(Intent(this@HomeActivity, LoginActivity::class.java))
