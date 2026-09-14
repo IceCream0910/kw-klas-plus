@@ -1,21 +1,20 @@
-# KLAS+ KMP 마이그레이션 작업 현황
+# KMP 마이그레이션 작업 기록
 
-- 기준일: 2026-09-08
-- 현재 단계: **Android 마이그레이션 완료, iOS 기본 제품 경로(M6) 진행 중**
-- Android 상태: KMP 공통 코어, Compose UI, WebView 브리지, 네이티브 기능의 P0/P1 패리티 완료
-- iOS 상태: 툴체인·framework·WKWebView navigation/cookie·Native bridge·인증/세션·화면별 제품 경로·다운로드/외부 이동·온라인 강의 player·PIP·도서관 QR·WidgetKit 완료. 파일 업로드는 실계정 검증 남음. 다음: M6-011 UI 환경
+> KMP 전환 프로젝트는 종료되었습니다. 아래 구현 후 검증 대기 항목까지 완료됐다는 뜻은 아닙니다.
+> 이 문서는 새 기능의 백로그로 사용하지 마세요. 현행 구조는 [아키텍처](../ARCHITECTURE.md), 당시 호환 기준선은 [패리티 기록](feature_parity_matrix.md)을 참고하세요.
+> 아래에서 언급한 `ANDROID_PLAYER_TRANSITIONS.md`는 현재 저장소에 없어 검증 증거로 사용할 수 없습니다.
 
 ## 개요
 
-| Milestone              | 상태          | 결과 / 다음 게이트                                              |
-| ---------------------- |-------------| -------------------------------------------------------- |
-| M1 계약 고정               | **완료(6/6)** | Android 인증·브리지·저장소·플랫폼 계약 고정 완료                          |
-| M2 KMP/Android 기반      | **완료(6/6)** | 공통 모듈과 Android source set 경계 정렬 완료                       |
-| M3 공통 코어               | **완료(9/9)** | 인증·세션·API·보안 저장소·앱 잠금 공통화 및 Android 연결 완료                |
-| M4 Android Web/Compose | 완료(8/8)     | Android 화면 전환 완료. legacy 자산 정적 정리 완료, 실기기 회귀 대기       |
-| M5 Android 기능 패리티      | **완료(7/7)** | QR·잠금·PIP·위젯·파일·테마 및 전체 Android 회귀 통과                    |
-| M6 iOS 기본 경로           | 진행 중(10/11) | M6-010 다운로드·외부 이동 완료. 파일 업로드 실계정 검증 남음. 다음: M6-011 UI 환경 |
-| M7 iOS 플랫폼 기능          | 완료(6/6)     | 앱 잠금·QR 출석·player/PIP·도서관 QR·WidgetKit 구현 완료       |
+| Milestone              | 상태         | 결과 / 다음 게이트                                       |
+| ---------------------- |------------|---------------------------------------------------|
+| M1 계약 고정               | 완료(6/6)    | Android 인증·브리지·저장소·플랫폼 계약 고정 완료                   |
+| M2 KMP/Android 기반      | 완료(6/6)    | 공통 모듈과 Android source set 경계 정렬 완료                |
+| M3 공통 코어               | 완료(9/9)    | 인증·세션·API·보안 저장소·앱 잠금 공통화 및 Android 연결 완료         |
+| M4 Android Web/Compose | 완료(8/8)    | Android 화면 전환 완료. legacy 자산 정적 정리 완료   |
+| M5 Android 기능 패리티      | 완료(7/7)    | QR·잠금·PIP·위젯·파일·테마 및 전체 Android 회귀 통과             |
+| M6 iOS 기본 경로           | 완료(11/11) | iOS 빌드 환경 구축 및 WKWebView, Bridge 연동 등 기본 경로 구현 완료 |
+| M7 iOS 플랫폼 기능          | 완료(6/6)    | 앱 잠금·QR 출석·player/PIP·도서관 QR·WidgetKit 구현 완료      |
 
 ### M1 — 기존 계약 고정
 
@@ -84,7 +83,7 @@
 
 - [x] **M6-001 (P0, M)** iOS 툴체인과 최소 지원 환경 고정
   - 브랜치: `m6-001-002/ios-toolchain-framework`
-  - 정책: iOS/iPadOS 16.0, ADR-007, `Config.xcconfig` / CONTRIBUTING 툴체인 표
+  - 정책: iOS/iPadOS 16.0, [ADR-003](../adr/ADR-003-min-platform-versions.md), `Config.xcconfig` / CONTRIBUTING 툴체인 표
   - 완료 기준: macOS에서 Xcode·Kotlin·Gradle 조합, iOS/iPadOS 최소 버전, device/simulator 빌드 경로 확인
   - 검증:
     - Xcode `iosApp` Simulator 빌드·실행
@@ -138,11 +137,11 @@
   - 완료 기준: F-007~F-016 P0 경로에서 `KlasNativeBridge.*` 호출과 Native → Web callback이 Android와 동일한 결과를 생성
   - 검증: 앱 Web + 신 iOS 조합의 탭·back·게시판·강의·과제 링크·학기 선택·modal 회귀
   - 후속: 홈 공지 `openPage(www.kw.ac.kr)`는 Link holder 인앱 http(s) 모드로 Safari 대신 WKWebView 로드. `IosFilePortsTests` in-app web, `IosHomeHostTests` `testUniversityNoticeOpenPagePushesInAppLink`
-- [ ] **M6-010 (P1, L)** WKWebView 다운로드·파일 선택·외부 이동
+- [x] **M6-010 (P1, L)** WKWebView 다운로드·파일 선택·외부 이동
   - Depends on: M6-009
   - 작업: WKDownload/URLSession, document/photo picker, share sheet, `UIApplication.open`을 공통 요청·URL 정책에 연결
   - 완료 기준: cookie가 필요한 다운로드, MIME·파일명, 단일/다중 선택, 취소, mailto/tel/https와 악성 scheme 거부
-  - 남은 일: 파일 업로드(`UIDocumentPicker`)는 계약 테스트만 통과. 실계정 KLAS 업로드 경로 검증 후 완료 처리
+  - 남은 일: 파일 업로드(`UIDocumentPicker`)는 계약 테스트만 통과. 실계정 KLAS 업로드 경로 검증 필요
 - [x] **M6-011 (P1, M)** WKWebView 컨테이너의 iOS UI 환경 대응
   - Depends on: M6-009
   - 작업: SwiftUI theme, safe area, 키보드·viewport, iPhone/iPad 회전과 Dynamic Type/VoiceOver focus 처리
@@ -161,11 +160,11 @@
 - [x] **M7-002 (P0, L)** QR 출석 스캐너
   - Depends on: M6-009
   - 구현: Home `qrCheckIn` / Lecture `openQRScan` → `AttendanceRepository` + VisionKit `DataScannerViewController`
-  - 검증: `iosAppTests/QrAttendanceTests`. 
+  - 검증: `iosAppTests/QrAttendanceTests`.
   - 남은일: 실기기로 카메라가 뜨는 것까지는 검증했으나, 실제 강의 QR은 테스트해보지 못함.
 - [x] **M7-003 (P0, M)** iOS 온라인 강의 player·PIP 방식 결정
   - Depends on: M6-009
-  - 정책: `[docs/adr/ADR-005-ios-player-pip.md](docs/adr/ADR-005-ios-player-pip.md)`
+  - 정책: [ADR-001](../adr/ADR-001-ios-player-pip.md)
   - 결정: WKWebView 세 holder. PIP는 `allowsPictureInPictureMediaPlayback`. `AVPlayer`는 쓰지 않는다.
   - 완료 기준: 선택 방식, 미지원/DRM·cookie 제약, fallback, PIP 복귀 상태 복원 방식을 ADR로 확정
 - [x] **M7-004 (P0, XL)** SwiftUI 온라인 강의 player와 PIP 구현
@@ -176,7 +175,7 @@
   - 구현: `VideoBridgeHost` + 세 `WebViewHolder`(list/KLAS/video) + SwiftUI overlay. PIP는 WK HTML5 `allowsPictureInPictureMediaPlayback`.
 - [x] **M7-005 (P1, M)** 도서관 QR App Group·WidgetKit 공유 정책 확정
   - Depends on: M6-008
-  - 정책: `[docs/adr/ADR-006-ios-library-qr-widget.md](docs/adr/ADR-006-ios-library-qr-widget.md)`
+  - 정책: [ADR-002](../adr/ADR-002-ios-library-qr-widget.md)
   - 결정: Android 원본과 동일한 정적 아이콘 WidgetKit Launcher 방식(`widgetURL: kwklasplus://library-qr`), 개인정보 App Group 미저장(Zero Shared PII), 도서관 자격증명/세션키는 메인 앱 Keychain 격리, 도서관 QR 시트 단독 앱 잠금 예외 허용(F-022 패리티), 시트 닫힘 시 메모리 파기 및 전체 앱 잠금 유지, 미설정 위젯 탭은 안내 알림만 표시하고 종료.
   - 검증: `iosAppTests/LibraryQrWidgetPolicyTests` (딥링크 규격, QR 단독 잠금 예외 라우팅, 미설정 시 안내만 표시).
 - [x] **M7-006 (P1, XL)** SwiftUI 도서관 출입증 QR 화면과 WidgetKit 구현

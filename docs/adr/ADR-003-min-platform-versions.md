@@ -1,4 +1,4 @@
-# ADR-007: min Android/iOS 버전과 태블릿/회전 정책
+# ADR-003: min Android/iOS 버전과 태블릿/회전 정책
 
 - 상태: Accepted (M6-001 정책 고정 분량)
 - 날짜: 2026-08-05
@@ -7,10 +7,10 @@
 
 | 플랫폼 | 최소 OS | 기기 | 비고 |
 |---|---|---|---|
-| Android | API 29 (minSdk) | 폰·태블릿 | compileSdk/targetSdk 37. 반응형 기준은 `docs/MIGRATION_ARCHITECTURE.md` §6.3 |
+| Android | API 29 (minSdk) | 폰·태블릿 | compileSdk/targetSdk 37. 반응형 기준은 [아키텍처의 플랫폼 기능 항목](../ARCHITECTURE.md#플랫폼-기능과-adr) 참고 |
 | iOS / iPadOS | 16.0 | iPhone·iPad (`TARGETED_DEVICE_FAMILY = 1,2`) | `iosApp/Configuration/Config.xcconfig`의 `IPHONEOS_DEPLOYMENT_TARGET` |
 
-태블릿·회전·safe area의 UI 세부 패리티는 Android는 기존 정책, iOS는 M6-011에서 구현한다. 이 ADR은 최소 OS와 지원 기기 범위만 고정한다.
+태블릿·회전·safe area의 UI 세부 정책은 플랫폼별 구현이 소유한다. 이 ADR은 최소 OS와 지원 기기 범위만 고정한다.
 
 ## 근거
 

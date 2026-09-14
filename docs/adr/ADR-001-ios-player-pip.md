@@ -1,8 +1,10 @@
-# ADR-005: iOS 온라인 강의 player·PIP 방식
+# ADR-001: iOS 온라인 강의 player·PIP 방식
 
 - 상태: Accepted (M7-003 정책 고정. 실계정 재생·PIP·DRM은 M7-004 실기기 검증)
 - 날짜: 2026-08-30
 - 작업: M7-003
+
+> 이 ADR은 방식 선택 당시의 결정·검증 계획이다. 아래 `M7-004 범위`와 현재형 구현 예측은 당시 이력이며, 실제 구현·남은 실기기 검증은 [마이그레이션 작업 기록](../kmp-migration/kmp_migration_tasks.md)의 M7-004를 참고한다.
 
 ## 결정
 
@@ -23,7 +25,7 @@
 
 ## 근거
 
-Android `[VideoPlayerActivity](../../androidApp/src/main/kotlin/com/icecream/kwklasplus/VideoPlayerActivity.kt)`는 ExoPlayer가 아니다. 목록·KLAS viewer·Brightcove 세 WebView와 Compose overlay, Activity PIP다. iOS에서만 AVPlayer로 낮추면 진도 인증·seek limit·cookie가 Android와 어긋난다.
+Android [VideoPlayerActivity](../../androidApp/src/main/kotlin/com/icecream/kwklasplus/VideoPlayerActivity.kt)는 ExoPlayer가 아니다. 목록·KLAS viewer·Brightcove 세 WebView와 Compose overlay, Activity PIP다. iOS에서만 AVPlayer로 낮추면 진도 인증·seek limit·cookie가 Android와 어긋난다.
 
 `AVPictureInPictureController`는 `AVPlayerLayer` 또는 동등한 샘플 버퍼 레이어가 필요하다. WKWebView 내부 HTML5 플레이어를 공개 API로 감쌀 수 없다. iOS에서 Android Activity PIP에 대응하는 것은 WebKit의 `allowsPictureInPictureMediaPlayback`(기본값 `true`)이다.
 
@@ -56,7 +58,7 @@ WKWebView HTML5를 고른 이유:
 
 ## Android 계약 → iOS 구조
 
-진입: Lecture `openOnlineLecture` / Task `OnlineCntntsStdPage.do` → `[AppRoute.Video](../../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/navigation/AppRoute.kt)``(subjectId, yearSemester, session)`.
+진입: Lecture `openOnlineLecture` / Task `OnlineCntntsStdPage.do` → [AppRoute.Video](../../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/navigation/AppRoute.kt) (`subjectId`, `yearSemester`, `session`).
 
 ```mermaid
 flowchart LR
@@ -79,7 +81,7 @@ flowchart LR
 
 iOS에 아직 없는 것(M7-004): `VideoBridgeHost`, `IosVideoLegacyBridgeCommandHandler`, `HomeDestination.video`, holder media/PIP 플래그, Video 화면의 `KlasContentOriginPolicy` 네비게이션 허용, `UIBackgroundModes=audio`.
 
-현재 `[WebViewHolder.handleDecidePolicy](../../iosApp/iosApp/WebViewHolder.swift)`는 앱 origin만 인앱으로 두고, `KlasContentOriginPolicy`는 Link `allowsInAppWeb`일 때만 쓴다. Video holder가 `vod.kw.ac.kr`을 로드하면 지금 구현은 Safari로 보낸다. M7-004는 Video surface 전용으로 content host를 허용하고, Link처럼 이후 임의 https를 열어 두지 않는다.
+결정 당시 [WebViewHolder.handleDecidePolicy](../../iosApp/iosApp/WebView/WebViewHolder.swift)는 앱 origin만 인앱으로 두고, `KlasContentOriginPolicy`는 Link `allowsInAppWeb`일 때만 사용했다. Video surface의 content host 허용과 임의 https 차단은 M7-004 구현 범위로 기록했다.
 
 
 | Android 계약                                         | 의미                                                                 | iOS 매핑                                                       |

@@ -1,13 +1,13 @@
-# ADR: Android 학사 시간표·캘린더 홈 화면 위젯
+# ADR-004: Android 학사 시간표·캘린더 홈 화면 위젯
 
 - 상태: 구현 기준 기록, 실기기 검증 대기
 - 날짜: 2026-09-12
 - 기준: `feat/android-dynamic-widget`의 `ae39263`·`1b34224` (상위 `origin/kmp` `38ea33a`)
-- 범위: 학사 시간표·일정 위젯. iOS 도서관 QR 정적 위젯의 별도 정책은 [ADR-006](ADR-006-ios-library-qr-widget.md)에 기록되어 있다.
+- 범위: 학사 시간표·일정 위젯. iOS 도서관 QR 정적 위젯의 별도 정책은 [ADR-002](ADR-002-ios-library-qr-widget.md)에 기록되어 있다.
 
 ## 결정과 소유권
 
-학사 데이터 조회·정규화·표시 정책·직렬화 계약은 `shared/commonMain`에 두고, Android 저장소 구현은 `shared/androidMain`, 홈 화면 진입점·스케줄러·RemoteViews·Canvas·앱 잠금 연결은 `androidApp/widget`에 둔다. 같은 공통 모델과 정책을 나중에 iOS WidgetKit에 재사용하되 Android의 `Context`, `AppWidgetManager`, `Activity`는 공통 코어에 노출하지 않는다. iOS 방향은 [ADR-ios-widgets](ADR-ios-widgets.md)에 별도 기록한다.
+학사 데이터 조회·정규화·표시 정책·직렬화 계약은 `shared/commonMain`에 두고, Android 저장소 구현은 `shared/androidMain`, 홈 화면 진입점·스케줄러·RemoteViews·Canvas·앱 잠금 연결은 `androidApp/widget`에 둔다. 같은 공통 모델과 정책을 나중에 iOS WidgetKit에 재사용하되 Android의 `Context`, `AppWidgetManager`, `Activity`는 공통 코어에 노출하지 않는다. iOS 방향은 [ADR-005](ADR-005-ios-academic-widgets.md)에 별도 기록한다.
 
 | 층 | 구현 | 책임 |
 |---|---|---|

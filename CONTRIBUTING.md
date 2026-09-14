@@ -1,318 +1,57 @@
-# KLAS+ 기여자 가이드
+# KLAS+ 기여 가이드
 
-KLAS+에 관심을 가져주셔서 감사합니다.
+버그나 기능 제안은 [이슈](https://github.com/IceCream0910/kw-klas-plus/issues)에 남겨 주세요. 본인 계정의 세션 등 개인정보가 포함된 로그나 보안 취약점은 [이메일](mailto:hey@yuntae.in)로 보내주세요.
 
-이 저장소는 기존 Android 전용 앱을 다음 구조로 1차 마이그레이션한 코드베이스입니다.
+## 작업 범위
 
-- 비즈니스 로직과 데이터 처리는 Kotlin Multiplatform `shared` 모듈에서 공유
-- Android UI는 Jetpack Compose로 구현
-- iOS UI는 SwiftUI로 별도 구현
-- 주요 콘텐츠는 Android `WebView`와 향후 iOS `WKWebView`에서 렌더링
-- QR 출석, 앱 잠금, 생체인식, PIP, 위젯 등 OS 기능은 플랫폼별로 구현
+새 작업은 GitHub Issue와 PR에서 추적해요. 문서를 찾을 때는 다음처럼 나눠 보세요.
 
-현재 Android 마이그레이션과 Compose 전환은 1차 완료 상태이며 세부 회귀 검증과 구조 개선이 계속 진행 중입니다. iOS 앱은 초기 골격만 존재하며 본격적인 기능 구현 전입니다. 작업 상태는 [TASKS.md](./TASKS.md)와 [기능 패리티 매트릭스](./docs/FEATURE_PARITY_MATRIX.md)를 기준으로 판단해 주세요.
+- **구조와 인증·저장 키·브리지 계약:** [아키텍처](docs/ARCHITECTURE.md).
+- **왜 이렇게 만들었는지:** [ADR 목록](docs/adr/README.md)
+- **KMP 마이그레이션 기록:** [작업표](docs/kmp-migration/kmp_migration_tasks.md)와 [패리티 표](docs/kmp-migration/feature_parity_matrix.md). 새 작업의 백로그로 사용하지 않아요.
 
-## 시작하기 전에
+기존 동작·설정·서명·버전 코드를 지켜주세요. 웹 화면은 [별도 저장소](https://github.com/IceCream0910/kw-klas-plus-webview)에서 배포하므로 브리지를 바꿀 때는 양쪽 테스트와 구버전 호환 경로가 필요합니다. `commonMain`에는 UI 타입을 넣지 마세요.
 
-기능을 수정하기 전 다음 문서를 확인합니다.
-
-1. [AGENTS.md](./AGENTS.md): 저장소의 호환성·보안·코딩 규칙
-2. [TASKS.md](./TASKS.md): 현재 단계, 선행 작업과 완료 조건
-3. [마이그레이션 아키텍처](./docs/MIGRATION_ARCHITECTURE.md): 계층 경계와 장기 설계
-4. [기능 패리티 매트릭스](./docs/FEATURE_PARITY_MATRIX.md): 화면, 브리지, 저장 키 계약
-
-## 프로젝트 구조
-
-```text
-kw-klas-plus/
-├── androidApp/                  Android 애플리케이션
-│   └── src/
-│       ├── main/
-│       │   ├── kotlin/
-│       │   │   └── com/icecream/kwklasplus/
-│       │   │       ├── feature/    화면별 Compose UI
-│       │   │       ├── ui/         테마, 공용 UI, WebView host
-│       │   │       ├── platform/   Activity/WebView 결합 플랫폼 구현
-│       │   │       ├── manager/    Android 시스템 기능 연결
-│       │   │       ├── modal/      Compose 기반 modal host
-│       │   │       └── *Activity   화면 진입점과 lifecycle 연결
-│       │   ├── res/                Manifest, 위젯 및 Android 리소스
-│       │   └── AndroidManifest.xml
-│       ├── test/                Android JVM 테스트
-│       └── androidTest/         Compose/UI/플랫폼 계측 테스트
-├── shared/                      단일 KMP 공통 코어
-│   └── src/
-│       ├── commonMain/          플랫폼 중립 Kotlin 로직
-│       ├── commonTest/          공통 단위·계약 테스트
-│       ├── androidMain/         Android용 공통 API 구현
-│       ├── androidHostTest/     Android source set host 테스트
-│       └── iosMain/             iOS용 공통 API 구현
-├── iosApp/                      SwiftUI 애플리케이션과 Xcode 프로젝트
-├── docs/                        아키텍처, ADR, 패리티 및 검증 문서
-├── gradle/libs.versions.toml    공통 버전 카탈로그
-├── TASKS.md                     마이그레이션 백로그
-└── AGENTS.md                    저장소 작업 규칙
-```
-
-### `shared/commonMain`
-
-두 플랫폼에서 동일해야 하는 의미와 정책을 둡니다.
-
-- Ktor 기반 API 요청과 응답 파싱
-- 직렬화 가능한 DTO, 도메인 모델과 결과 타입
-- 인증·세션·학기·시간표·출석·도서관·미디어 repository
-- use case와 플랫폼 중립 상태
-- navigation route와 URL 정책
-- 브리지 command/event 모델, 검증기와 JSON codec
-- `SecureStore`, `QRScanner`, `FileTransfer` 같은 플랫폼 port
-
-이 source set에서는 Android, AndroidX, Compose, UIKit 및 기타 플랫폼 타입을 사용할 수 없습니다. `Context`, `Activity`, `WebView`, `Intent`, `UIViewController`, `WKWebView`도 공개 API에 노출하지 않습니다.
-
-### `shared/androidMain`
-
-UI나 Activity lifecycle을 몰라도 되는 Android 구현을 둡니다.
-
-- Ktor OkHttp 엔진
-- Android Keystore 기반 보안 저장소
-- SharedPreferences 및 세션 저장 adapter
-- Android 전용 암호화·캐시 호환 구현
-- 공통 repository와 use case를 조립하는 `AndroidSharedDependencies`
-
-`androidApp` 클래스나 앱 리소스를 역으로 참조하면 안 됩니다.
-
-### `shared/iosMain`
-
-공통 API에 필요한 iOS 구현을 둡니다. 현재는 Darwin HTTP 엔진을 중심으로 구성되어 있으며 Keychain, 저장소 및 기타 작은 OS adapter가 이후 추가될 예정입니다.
-
-SwiftUI 화면, `WKWebView` lifecycle, WidgetKit과 AVKit 연결은 이 source set이 아니라 `iosApp`이 소유합니다.
-
-### `androidApp`
-
-Android 화면과 앱 lifecycle에 결합된 코드를 둡니다.
-
-- Compose 화면, 테마와 반응형 레이아웃
-- Activity 진입점과 route 연결
-- WebView 생성·보존·폐기 및 bridge adapter
-- Activity Result 기반 QR scanner와 파일 선택
-- 생체인식 prompt, PIP, DownloadManager와 AppWidget
-
-새 네트워크 요청, JSON/XML 파싱 또는 재사용 가능한 정책을 `androidApp`에 직접 추가하지 마세요. 먼저 `shared/commonMain`으로 옮길 수 있는지 검토합니다.
-
-### `iosApp`
-
-SwiftUI 화면과 iOS 앱 lifecycle을 소유합니다. 장기적으로 다음 구현이 이곳에 위치합니다.
-
-- SwiftUI 화면과 navigation
-- `WKWebView` host와 bridge shim
-- LocalAuthentication, AVKit, 파일 선택과 외부 이동
-- WidgetKit extension과 entitlements
-
-## 의존성 방향
-
-```text
-androidApp ─┐
-            ├──> shared/commonMain
-iosApp ─────┘          ▲
-                      │
-          shared/androidMain 또는 shared/iosMain
-```
-
-플랫폼 앱은 `shared`를 사용하지만 `shared`는 플랫폼 앱을 참조하지 않습니다. UI 타입은 플랫폼 앱 경계를 넘지 않습니다.
-
-새 코드의 위치가 모호할 때는 다음 기준을 사용합니다.
-
-| 코드의 성격 | 위치 |
-|---|---|
-| API, DTO, parser, 정책, use case, 상태 모델 | `shared/commonMain` |
-| 플랫폼에 따라 구현이 다르지만 UI lifecycle과 무관한 adapter | `shared/androidMain`, `shared/iosMain` |
-| Activity, WebView, Compose 또는 Android 리소스에 결합 | `androidApp` |
-| SwiftUI, WKWebView, UIKit 또는 iOS extension에 결합 | `iosApp` |
-| 플랫폼 기능의 공통 의미 | `commonMain` port/result 모델 |
-| 실제 OS API 호출 | 해당 플랫폼 구현 |
-
-복잡한 플랫폼 기능을 무조건 `expect`/`actual` 클래스로 만들지 않습니다. 공통 인터페이스와 생성자 주입을 우선하며, 작은 플랫폼 값이나 factory에만 `expect`/`actual`을 검토합니다.
-
-## 주요 실행 흐름
-
-일반적인 기능 요청은 다음 방향으로 흐릅니다.
-
-```text
-Compose/SwiftUI
-  → 플랫폼 진입점 또는 adapter
-  → shared use case/repository
-  → 공통 port
-  → androidMain/iosMain 또는 플랫폼 앱 구현
-  → typed result/state
-  → 플랫폼 UI
-```
-
-WebView 기능에서는 웹이 브리지 command를 보내고, 플랫폼 adapter가 origin과 payload를 검증한 뒤 공통 router 또는 use case로 전달합니다. 결과는 직렬화된 command/event나 기존 호환 callback을 통해 웹으로 돌아갑니다.
-
-## WebView 브리지 변경
-
-WebView 브리지는 앱과 별도로 배포되는 웹 코드와의 공개 계약입니다.
-
-- 기존 객체명 `Android`, 메서드명, 인자 순서와 callback을 임의로 변경하지 않습니다.
-- `evaluteKLASScript`처럼 오타로 보이는 이름도 호환 계약입니다.
-- 브리지는 허용된 HTTPS origin과 top-level frame에서만 활성화합니다.
-- URL, 인자 타입, 길이와 payload 크기를 검증합니다.
-- JavaScript 문자열을 직접 결합하지 않고 공통 `WebScript` 또는 JSON codec을 사용합니다.
-- 새 프로토콜 도입 시 기존 방식과 최소 한 릴리스 동안 함께 동작해야 합니다.
-
-## 인증, 저장소와 개인정보
-
-다음 값은 비밀 데이터입니다.
-
-- 서버가 반환한 암호화 비밀번호
-- KLAS `SESSION`
-- 도서관 비밀번호, secret와 auth key
-- 앱 잠금 hash와 salt
-
-비밀 값은 로그, 테스트 fixture, 분석 이벤트, screenshot 또는 crash 첨부에 포함하지 않습니다. 평문 비밀번호는 암호화 API 호출에 필요한 시간 동안만 메모리에 유지합니다.
-
-기존 SharedPreferences 키와 저장 형식은 사용자 데이터 호환 계약입니다. 키나 형식을 바꿀 때는 구 데이터 읽기, 신규 저장소 기록, 검증, 구 데이터 삭제 순서의 명시적인 migration과 실패 테스트가 필요합니다.
-
-## UI 기여
-
-Android 네이티브 UI는 Compose로 구현합니다.
-
-- compact: 600dp 미만
-- medium: 600dp 이상 840dp 미만
-- expanded: 840dp 이상
-
-고정 기기 모델이나 픽셀 크기로 분기하지 말고 `ui/layout`의 공통 크기 정책을 사용합니다. safe drawing inset, IME, 스크롤, 최소 터치 영역과 접근성을 함께 확인합니다.
-
-WebView 자체의 웹 콘텐츠를 Compose로 재작성하지 않습니다. Compose는 WebView host, 로딩·오류·modal과 네이티브 제어 UI를 담당합니다.
-
-Android 홈 화면 위젯은 `RemoteViews` 제약으로 XML 레이아웃을 계속 사용합니다. 새로운 일반 앱 화면에 View/XML 레이아웃을 추가하지 마세요.
-
-iOS UI는 Compose Multiplatform UI가 아니라 SwiftUI로 구현합니다. 공통화 대상은 UI가 아니라 상태, 정책, use case와 repository입니다.
+인증·저장 키·브리지 계약을 바꾸면 아키텍처 문서도 실제 구현과 함께 갱신해 주세요.
 
 ## 개발 환경
 
-툴체인 조합은 아래 표를 한 단위로 맞춥니다. Gradle 쪽 숫자의 출처는 [gradle/libs.versions.toml](./gradle/libs.versions.toml)과 [gradle/wrapper/gradle-wrapper.properties](./gradle/wrapper/gradle-wrapper.properties)이고, iOS 최소 OS는 [iosApp/Configuration/Config.xcconfig](./iosApp/Configuration/Config.xcconfig)입니다. 정책 근거는 [ADR-007](./docs/adr/ADR-007-min-platform-versions.md)를 봅니다.
+버전은 [카탈로그](gradle/libs.versions.toml), [Gradle wrapper](gradle/wrapper/gradle-wrapper.properties), [iOS 설정](iosApp/Configuration/Config.xcconfig)을 기준으로 재확인해 주세요.
 
-| 항목 | 값                                      |
-|---|----------------------------------------|
-| JDK | 21                                     |
-| Gradle Wrapper | 9.5.0                                  |
-| Kotlin | 2.4.0                                  |
-| AGP | 9.3.2                                  |
-| Ktor | 3.5.0                                  |
-| Android minSdk | 29                                     |
-| Android compileSdk / targetSdk | 37                                     |
-| iOS / iPadOS deployment target | 16.0                                   |
-| Xcode | 16.2 이상 (프로젝트 `CreatedOnToolsVersion`) |
-| iOS 작업 OS | macOS 필수                               |
+| 항목 | 기준                                |
+|---|-----------------------------------|
+| JDK / Gradle | 21 / 9.6.1                        |
+| Kotlin / AGP / Ktor | 2.4.0 / 9.3.2 / 3.5.0             |
+| Android | minSdk 29, compileSdk/targetSdk 37 |
+| iOS/iPadOS | 16.0 이상, macOS와 Xcode 필요          |
 
-`local.properties`, 서명 키, 인증정보, Xcode 사용자별 데이터, `iosApp/Configuration/Config.local.xcconfig`는 커밋하지 않습니다.
+Android 빌드와 공통/Android JVM 테스트:
 
-### iOS 로컬 서명
-
-1. [Config.local.xcconfig.example](./iosApp/Configuration/Config.local.xcconfig.example)를 `iosApp/Configuration/Config.local.xcconfig`로 복사합니다.
-2. `TEAM_ID`에 Apple Developer Team ID만 넣습니다. 이 파일은 gitignore됩니다.
-3. 커밋되는 `Config.xcconfig`의 `TEAM_ID`는 비워 둡니다. `Info.plist`에는 Team ID·인증서를 넣지 않습니다.
-4. Simulator 빌드는 Team ID 없이도 가능합니다. 실기기 빌드만 로컬 서명이 필요합니다.
-
-Android 빌드:
-
-```shell
+```sh
 ./gradlew :androidApp:assembleDebug
+./gradlew :shared:testAndroidHostTest :androidApp:testDebugUnitTest
 ```
 
-Windows PowerShell:
+Windows에서는 `.\gradlew.bat`를 쓰세요. iOS는 macOS에서 [`iosApp.xcodeproj`](iosApp/iosApp.xcodeproj)를 열고 `:shared:iosSimulatorArm64Test`와 Xcode 테스트를 실행합니다. 기기 서명에는 [예제 설정](iosApp/Configuration/Config.local.xcconfig.example)을 개인 `Config.local.xcconfig`로 복사해 `TEAM_ID`를 넣으세요. 로컬 설정·서명 키·비밀값은 커밋하지 마세요.
 
-```powershell
-.\gradlew.bat :androidApp:assembleDebug
-```
+## 작업 절차와 검증
 
-iOS 앱은 macOS에서 `iosApp/iosApp.xcodeproj`를 열어 실행합니다. Windows에서는 iOS framework와 simulator 테스트를 실행할 수 없습니다.
+1. 작업할 항목을 [GitHub Issue](https://github.com/IceCream0910/kw-klas-plus/issues)에 먼저 등록해 주세요. 제목은 아래의 커밋 메시지 컨벤션을 따르고, 본문에는 목표나 재현 절차, 기대 동작, Android·iOS·Web 영향 등을 자유롭게 적어 주세요. label은 플랫폼(Android, iOS, Web)으로 구분하여 설정해주세요.
+2. 메인테이너가 이슈를 검토해 [GitHub Project 백로그 보드](https://github.com/users/IceCream0910/projects/5)에 올립니다.
+3. 작업을 마치면 이슈를 연결한 PR을 열어 주세요. 변경 이유, 테스트 결과, 호환성·보안 영향과 롤백 방법을 남기고, 설계가 바뀌었다면 문서도 갱신해야 합니다.
 
-## 테스트
+두 플랫폼을 따로 검증할 수 있다면 PR도 나눠 주세요. 코드 주석은 꼭 필요할 경우에 한해 한국어로 작성해주세요.
 
-변경한 계층에 맞는 테스트를 함께 작성합니다.
+## 브랜치와 커밋
 
-공통 로직과 source-set 경계:
+PR 기준 브랜치는 이슈/릴리스에서 확인해 주세요. 이슈 제목·커밋 메시지·PR 제목은 모두 `type(scope): 한국어 요약` 형식을 따라 주세요. scope는 `android`, `ios`, `shared`로 구분하며,  `docs`와 같이 플랫폼 범위가 불명확한 type에서는 생략해도 좋아요.
 
-```shell
-./gradlew :shared:testAndroidHostTest :shared:check
-```
-
-Android JVM 테스트와 컴파일:
-
-```shell
-./gradlew :androidApp:testDebugUnitTest :androidApp:compileDebugKotlin
-```
-
-Android 계측 테스트 소스 검증:
-
-```shell
-./gradlew :androidApp:compileDebugAndroidTestKotlin
-```
-
-연결된 emulator 또는 기기의 계측 테스트:
-
-```shell
-./gradlew :androidApp:connectedDebugAndroidTest
-```
-
-릴리스와 R8 검증:
-
-```shell
-./gradlew :androidApp:assembleRelease
-```
-
-macOS의 iOS 공통 테스트:
-
-```shell
-./gradlew :shared:iosSimulatorArm64Test
-```
-
-## 기여 절차
-
-1. 이슈와 `TASKS.md`에서 작업 범위와 선행 조건을 확인합니다.
-2. 변경 대상 기능의 패리티 행과 기존 테스트를 확인합니다.
-3. 기존 동작을 설명하는 테스트를 먼저 추가하거나 기존 테스트가 계약을 충분히 고정하는지 확인합니다.
-4. 가장 작은 기능 단위로 구현합니다.
-5. 관련 자동 테스트와 필요한 실기기 검증을 수행합니다.
-6. 동작이나 구조가 바뀌면 `TASKS.md`와 관련 문서를 갱신합니다.
-7. PR에 변경 이유, 검증 결과, 호환성 영향과 rollback 방법을 적습니다.
-
-코드 주석은 최소화합니다. 코드만으로 제약을 표현할 수 없을 때만 한국어로 작성합니다.
-
-### 브랜치와 커밋 메시지
-
-KMP 출시 전에는 `kmp`를 작업 기준 브랜치로 사용합니다. `main`은 기존 Android 버전의 유지보수용으로 두고, 새 KMP 작업은 `kmp`에서 짧은 작업 브랜치를 만들어 PR의 base도 `kmp`로 설정합니다. KMP 출시 후 기준 브랜치 전환은 별도 계획과 검증에 따라 진행합니다.
-
-커밋 메시지와 PR 제목은 `type(scope): 변경 내용` 형식을 사용합니다. 변경 내용은 기존 저장소 스타일에 맞춰 간결한 한국어로 작성합니다.
-
-| 변경 범위 | 형식 | 예시 |
-|---|---|---|
-| Android 앱·플랫폼 구현 | `feat(android): ...`, `fix(android): ...`, `refactor(android): ...` | `refactor(android): 미사용 화면 자산 정리` |
-| iOS 앱·플랫폼 구현 | `feat(ios): ...`, `fix(ios): ...`, `refactor(ios): ...` | `fix(ios): PiP 복귀 상태 유지` |
-| KMP 공통 계약·정책 | `feat(shared): ...`, `fix(shared): ...`, `refactor(shared): ...` | `feat(shared): 시간표 색상 정책 추가` |
-| CI·빌드 파이프라인 | `ci: ...` | `ci: Android 테스트 경로 보강` |
-| 문서만 변경 | `docs: ...` | `docs: 기여 절차 갱신` |
-
-scope는 코드 소유권을 나타냅니다. Android·iOS 구현이 독립적으로 리뷰·병합 가능하면 플랫폼별 PR로 나누고, 공통 계약이 의미 있게 바뀌면 `shared` 변경을 먼저 분리합니다. 단일 기능의 작은 공통 확장은 해당 플랫폼 PR에 포함할 수 있지만 Android 동작에 미치는 영향도 검증합니다. 커밋과 PR은 플랫폼 자체보다 독립적으로 검증 가능한 변경 단위를 기준으로 나눕니다.
-
-## PR 체크리스트
-
-- [ ] 코드가 올바른 KMP source set 또는 플랫폼 앱에 위치한다.
-- [ ] `shared/commonMain`에 플랫폼 API나 UI 타입이 없다.
-- [ ] Android의 기존 사용자 동작과 저장 데이터 호환성을 확인했다.
-- [ ] 인증정보, 세션과 개인정보가 로그나 fixture에 포함되지 않는다.
-- [ ] 브리지 이름·인자·callback 또는 저장 키를 무단 변경하지 않았다.
-- [ ] 성공뿐 아니라 실패, 취소, 세션 만료 경로를 테스트했다.
-- [ ] 변경 범위에 맞는 Gradle 테스트와 빌드를 실행했다.
-- [ ] 플랫폼 기능은 필요한 실기기 시나리오를 확인했다.
-- [ ] 관련 `TASKS.md`, 패리티 매트릭스와 ADR을 갱신했다.
-- [ ] rollback 또는 구 구현과의 호환 경로를 설명했다.
-
-## 현재 전환 상태에서 주의할 점
-
-- Activity 클래스는 Compose 화면의 진입점과 WebView lifecycle host로 여전히 사용됩니다. Activity가 남아 있다는 이유만으로 View UI가 남아 있다고 판단하지 마세요.
-- 일부 미사용 XML은 실기기 패리티 완료 전 rollback 자산으로 보존되어 있습니다. 참조 여부와 패리티 상태를 확인하지 않고 일괄 삭제하지 않습니다.
-- AppWidget의 `RemoteViews` 레이아웃 XML은 현재도 실제 사용 중입니다.
-- 기존 JavaScript bridge façade와 신규 typed bridge 경로가 호환을 위해 공존합니다.
-- `iosApp`은 아직 Android와 기능 패리티 상태가 아닙니다.
+| type | 사용 시점                | 예시 |
+|---|----------------------|---|
+| `feat` | 사용자 기능 추가            | `feat(android): 시간표 필터 추가` |
+| `fix` | 버그/이슈 수정             | `fix(ios): 세션 만료 후 로그인 화면 복귀` |
+| `refactor` | 동작 변화 없는 코드 구조 개선    | `refactor(shared): 세션 상태 분리` |
+| `chore` | 다른 유형에 속하지 않는 유지보수 작업 | `chore: 미사용 개발 설정 정리` |
+| `test` | 테스트 추가·수정            | `test(shared): 쿠키 만료 경계 추가` |
+| `docs` | 문서 변경                | `docs: 기여 가이드 갱신` |
+| `ci` | CI 워크플로              | `ci: iOS 테스트 작업 보강` |
