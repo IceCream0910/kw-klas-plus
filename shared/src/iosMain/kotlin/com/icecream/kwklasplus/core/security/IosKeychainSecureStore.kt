@@ -11,6 +11,7 @@ import kotlinx.cinterop.value
 import platform.CoreFoundation.CFDictionaryAddValue
 import platform.CoreFoundation.CFDictionaryCreateMutable
 import platform.CoreFoundation.CFDictionaryRef
+import platform.CoreFoundation.CFRelease
 import platform.CoreFoundation.CFTypeRef
 import platform.CoreFoundation.CFTypeRefVar
 import platform.CoreFoundation.kCFAllocatorDefault
@@ -82,19 +83,23 @@ class IosKeychainSecureStore private constructor(
             addCf(kSecReturnData, kCFBooleanTrue)
             addCf(kSecMatchLimit, kSecMatchLimitOne)
         }
-        return memScoped {
-            val result = alloc<CFTypeRefVar>()
-            val status = SecItemCopyMatching(query, result.ptr)
-            when {
-                status == errSecSuccess -> {
-                    val data = CFBridgingRelease(result.value) as? NSData ?: return null
-                    val text = NSString.create(data = data, encoding = NSUTF8StringEncoding)?.toString()
-                        ?.takeIf { it.isNotBlank() }
-                        ?: return null
-                    SecretValue.of(text)
+        return try {
+            memScoped {
+                val result = alloc<CFTypeRefVar>()
+                val status = SecItemCopyMatching(query, result.ptr)
+                when {
+                    status == errSecSuccess -> {
+                        val data = CFBridgingRelease(result.value) as? NSData ?: return null
+                        val text = NSString.create(data = data, encoding = NSUTF8StringEncoding)?.toString()
+                            ?.takeIf { it.isNotBlank() }
+                            ?: return null
+                        SecretValue.of(text)
+                    }
+                    else -> null
                 }
-                else -> null
             }
+        } finally {
+            CFRelease(query)
         }
     }
 
@@ -124,15 +129,27 @@ class IosKeychainSecureStore private constructor(
             addBridged(kSecValueData, data)
             addCf(kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)
         }
-        val addStatus = SecItemAdd(attributes, null)
+        val addStatus = try {
+            SecItemAdd(attributes, null)
+        } finally {
+            CFRelease(attributes)
+        }
         if (addStatus == errSecSuccess) return errSecSuccess
         if (addStatus != errSecDuplicateItem) return addStatus
         val query = baseQuery(account, itemGroup)
-        val update = mutableDictionary(capacity = 2) {
-            addBridged(kSecValueData, data)
-            addCf(kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)
+        return try {
+            val update = mutableDictionary(capacity = 2) {
+                addBridged(kSecValueData, data)
+                addCf(kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)
+            }
+            try {
+                SecItemUpdate(query, update)
+            } finally {
+                CFRelease(update)
+            }
+        } finally {
+            CFRelease(query)
         }
-        return SecItemUpdate(query, update)
     }
 
     override suspend fun remove(key: SecureKey) = removeNow(key)
@@ -144,7 +161,12 @@ class IosKeychainSecureStore private constructor(
     fun removeAccount(account: String) = removeAccount(account, accessGroup = null)
 
     fun removeAccount(account: String, accessGroup: String?) {
-        val status = SecItemDelete(baseQuery(account, accessGroup))
+        val query = baseQuery(account, accessGroup)
+        val status = try {
+            SecItemDelete(query)
+        } finally {
+            CFRelease(query)
+        }
         if (status == errSecSuccess || status == errSecItemNotFound) return
         throw IosKeychainStoreException(status, "Keychain remove failed for $account: status=$status")
     }
@@ -233,28 +255,36 @@ private fun bundleSeedPrefix(): String? {
         addCf(kSecReturnAttributes, kCFBooleanTrue)
         addCf(kSecMatchLimit, kSecMatchLimitOne)
     }
-    return memScoped {
-        val result = alloc<CFTypeRefVar>()
-        var status = SecItemCopyMatching(query, result.ptr)
-        if (status == errSecItemNotFound) {
-            val attributes = mutableDictionary(capacity = 4) {
-                addCf(kSecClass, kSecClassGenericPassword)
-                addBridged(kSecAttrAccount, "bundleSeedID")
-                addBridged(kSecAttrService, "com.icecream.kwklasplus.bundle-seed")
-                addCf(kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)
+    return try {
+        memScoped {
+            val result = alloc<CFTypeRefVar>()
+            var status = SecItemCopyMatching(query, result.ptr)
+            if (status == errSecItemNotFound) {
+                val attributes = mutableDictionary(capacity = 4) {
+                    addCf(kSecClass, kSecClassGenericPassword)
+                    addBridged(kSecAttrAccount, "bundleSeedID")
+                    addBridged(kSecAttrService, "com.icecream.kwklasplus.bundle-seed")
+                    addCf(kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)
+                }
+                status = try {
+                    SecItemAdd(attributes, null)
+                } finally {
+                    CFRelease(attributes)
+                }
+                if (status == errSecSuccess) {
+                    status = SecItemCopyMatching(query, result.ptr)
+                }
             }
-            status = SecItemAdd(attributes, result.ptr)
-            if (status == errSecSuccess) {
-                status = SecItemCopyMatching(query, result.ptr)
-            }
+            if (status != errSecSuccess) return@memScoped null
+            val attrs = CFBridgingRelease(result.value) as? NSDictionary ?: return@memScoped null
+            val group = attrs.objectForKey("agrp") as? String
+                ?: attrs.objectForKey(kSecAttrAccessGroup) as? String
+                ?: return@memScoped null
+            val team = group.substringBefore('.', missingDelimiterValue = "")
+            if (team.isBlank()) null else "$team."
         }
-        if (status != errSecSuccess) return@memScoped null
-        val attrs = CFBridgingRelease(result.value) as? NSDictionary ?: return@memScoped null
-        val group = attrs.objectForKey("agrp") as? String
-            ?: attrs.objectForKey(kSecAttrAccessGroup) as? String
-            ?: return@memScoped null
-        val team = group.substringBefore('.', missingDelimiterValue = "")
-        if (team.isBlank()) null else "$team."
+    } finally {
+        CFRelease(query)
     }
 }
 
@@ -269,8 +299,14 @@ private inline fun mutableDictionary(
         kCFTypeDictionaryKeyCallBacks.ptr,
         kCFTypeDictionaryValueCallBacks.ptr,
     )
-    MutableCFDictionary(requireNotNull(dictionary)).builder()
-    return dictionary
+    val created = requireNotNull(dictionary)
+    try {
+        MutableCFDictionary(created).builder()
+        return created
+    } catch (cause: Throwable) {
+        CFRelease(created)
+        throw cause
+    }
 }
 
 @OptIn(ExperimentalForeignApi::class)
@@ -280,7 +316,12 @@ private class MutableCFDictionary(private val dictionary: CFDictionaryRef) {
     }
 
     fun addBridged(key: CFTypeRef?, value: Any?) {
-        CFDictionaryAddValue(dictionary, key, CFBridgingRetain(value))
+        val retained = requireNotNull(CFBridgingRetain(value))
+        try {
+            CFDictionaryAddValue(dictionary, key, retained)
+        } finally {
+            CFRelease(retained)
+        }
     }
 
     fun addAccessGroup(accessGroup: String?) {
