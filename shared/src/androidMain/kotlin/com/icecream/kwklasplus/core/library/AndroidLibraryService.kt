@@ -4,6 +4,8 @@ import android.content.SharedPreferences
 import com.icecream.kwklasplus.core.security.SecretValue
 import com.icecream.kwklasplus.core.session.Clock
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class AndroidLibraryService(
     gateway: LibraryGateway,
@@ -25,21 +27,24 @@ class AndroidLibraryService(
         studentNumber: String,
         phoneNumber: String,
         password: String,
-    ): LibraryQrResult = try {
-        repository.getQrData(
-            LibraryCredentials(studentNumber, phoneNumber, SecretValue.of(password)),
-        )
-    } catch (cause: CancellationException) {
-        throw cause
-    } catch (_: Exception) {
-        LibraryQrResult.InvalidResponse
+    ): LibraryQrResult = withContext(Dispatchers.IO) {
+        try {
+            repository.getQrData(
+                LibraryCredentials(studentNumber, phoneNumber, SecretValue.of(password)),
+            )
+        } catch (cause: CancellationException) {
+            throw cause
+        } catch (_: Exception) {
+            LibraryQrResult.InvalidResponse
+        }
     }
 
-    suspend fun clearCache(studentNumber: String, phoneNumber: String, password: String) {
-        repository.clear(
-            LibraryCredentials(studentNumber, phoneNumber, SecretValue.of(password)),
-        )
-    }
+    suspend fun clearCache(studentNumber: String, phoneNumber: String, password: String) =
+        withContext(Dispatchers.IO) {
+            repository.clear(
+                LibraryCredentials(studentNumber, phoneNumber, SecretValue.of(password)),
+            )
+        }
 }
 
 internal class AndroidLibrarySessionCache(

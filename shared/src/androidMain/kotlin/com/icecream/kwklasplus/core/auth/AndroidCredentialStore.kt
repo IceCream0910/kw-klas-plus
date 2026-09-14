@@ -7,6 +7,8 @@ import com.icecream.kwklasplus.core.migration.SecureStoreMigrator
 import com.icecream.kwklasplus.core.migration.androidLoginCredentialMigrations
 import com.icecream.kwklasplus.core.platform.SecureKey
 import com.icecream.kwklasplus.core.platform.SecureStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class AndroidCredentialStore(
     private val preferences: SharedPreferences,
@@ -14,19 +16,21 @@ class AndroidCredentialStore(
     private val migrator: SecureStoreMigrator,
     private val legacySource: LegacySecretSource,
 ) : CredentialStore {
-    override suspend fun load(): StoredCredential? {
+    override suspend fun load(): StoredCredential? = withContext(Dispatchers.IO) {
         migrator.migrate(androidLoginCredentialMigrations)
         val accountId = preferences.getString(LegacyPreferenceKeys.KW_ID, null)
             ?.takeIf(String::isNotBlank)
-            ?: return null
-        val password = secureStore.read(SecureKey.ENCRYPTED_KLAS_PASSWORD) ?: return null
-        return StoredCredential(accountId, password)
+            ?: return@withContext null
+        val password = secureStore.read(SecureKey.ENCRYPTED_KLAS_PASSWORD) ?: return@withContext null
+        StoredCredential(accountId, password)
     }
 
     override suspend fun loadAccountId(): String? =
-        preferences.getString(LegacyPreferenceKeys.KW_ID, null)?.takeIf(String::isNotBlank)
+        withContext(Dispatchers.IO) {
+            preferences.getString(LegacyPreferenceKeys.KW_ID, null)?.takeIf(String::isNotBlank)
+        }
 
-    override suspend fun save(credential: StoredCredential) {
+    override suspend fun save(credential: StoredCredential) = withContext(Dispatchers.IO) {
         val previousPassword = secureStore.read(SecureKey.ENCRYPTED_KLAS_PASSWORD)
         val previousAccountId = preferences.getString(LegacyPreferenceKeys.KW_ID, null)
         try {
@@ -63,7 +67,7 @@ class AndroidCredentialStore(
         }
     }
 
-    override suspend fun clearPassword() {
+    override suspend fun clearPassword() = withContext(Dispatchers.IO) {
         var failure: Throwable? = null
         runCatching { secureStore.remove(SecureKey.ENCRYPTED_KLAS_PASSWORD) }
             .onFailure { failure = it }
@@ -75,9 +79,10 @@ class AndroidCredentialStore(
                 .onFailure { if (failure == null) failure = it }
         }
         failure?.let { throw it }
+        Unit
     }
 
-    override suspend fun clear() {
+    override suspend fun clear() = withContext(Dispatchers.IO) {
         var failure: Throwable? = null
         runCatching { secureStore.remove(SecureKey.ENCRYPTED_KLAS_PASSWORD) }
             .onFailure { failure = it }
@@ -89,5 +94,6 @@ class AndroidCredentialStore(
             if (failure == null) failure = IllegalStateException("credential preferences clear failed")
         }
         failure?.let { throw it }
+        Unit
     }
 }

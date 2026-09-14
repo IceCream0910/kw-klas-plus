@@ -7,18 +7,20 @@ import java.security.KeyFactory
 import java.security.spec.X509EncodedKeySpec
 import java.util.Base64
 import javax.crypto.Cipher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class AndroidHttpAuthDriver(
     private val timeoutMillis: Long = DEFAULT_TIMEOUT_MILLIS,
 ) : WebAuthDriver {
-    override suspend fun authenticate(credential: StoredCredential): WebAuthResult {
+    override suspend fun authenticate(credential: StoredCredential): WebAuthResult = withContext(Dispatchers.IO) {
         val cookies = AcceptAllCookiesStorage()
         val client = createKlasHttpClient(
             engine = OkHttp.create(),
             timeoutMillis = timeoutMillis,
             cookieStorage = cookies,
         )
-        return try {
+        try {
             KlasHttpAuthDriver(client, cookies, AndroidRsaLoginTokenEncryptor)
                 .authenticate(credential)
         } finally {
