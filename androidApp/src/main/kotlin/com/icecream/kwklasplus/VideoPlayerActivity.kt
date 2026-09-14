@@ -599,10 +599,7 @@ class VideoPlayerActivity : AppCompatActivity() {
         bridgeMessageAdapters.forEach(AndroidBridgeMessageAdapter::dispose)
         bridgeMessageAdapters.clear()
         listOf(listWebView, KLASWebView, VideoWebView).forEach { view ->
-            view.stopLoading()
-            (view.parent as? android.view.ViewGroup)?.removeView(view)
-            view.removeAllViews()
-            view.destroy()
+            view.destroyOwnedWebView()
         }
     }
 

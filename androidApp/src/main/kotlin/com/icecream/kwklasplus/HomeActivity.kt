@@ -372,6 +372,7 @@ class HomeActivity : AppCompatActivity() {
         bridgeMessageAdapter = null
         webSurface?.dispose()
         webSurface = null
+        if (::webView.isInitialized) webView.destroyOwnedWebView()
         super.onDestroy()
         if (::appUpdateManager.isInitialized) {
             appUpdateManager.unregisterListener(installStateUpdatedListener)

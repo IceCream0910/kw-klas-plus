@@ -415,6 +415,8 @@ class LectureActivity : AppCompatActivity() {
         webSurfaces.clear()
         bridgeMessageAdapters.forEach(AndroidBridgeMessageAdapter::dispose)
         bridgeMessageAdapters.clear()
+        if (::uiWebView.isInitialized) uiWebView.destroyOwnedWebView()
+        if (::webView.isInitialized) webView.destroyOwnedWebView()
         super.onDestroy()
         if(::loadingDialog.isInitialized) {
             loadingDialog.dismiss()
