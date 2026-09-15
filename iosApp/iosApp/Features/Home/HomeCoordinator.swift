@@ -110,6 +110,7 @@ final class HomeCoordinator: ObservableObject {
     private var idCardOriginalBrightness: CGFloat?
     private var resignActiveObserver: NSObjectProtocol?
     private weak var settingsWebHolder: WebViewHolder?
+    private var pendingWidgetTab: String?
 
     var colorScheme: ColorScheme? {
         switch theme {
@@ -132,7 +133,14 @@ final class HomeCoordinator: ObservableObject {
         checkIn: ((QrAttendancePayload, SecretValue, SecretValue) async -> QrCheckInResult)? = nil
     ) {
         let dependencies = authRuntime.dependencies
-        self.homeRuntime = IosHomeRuntime.companion.create(dependencies: dependencies)
+        self.homeRuntime = IosHomeRuntime.companion.create(
+            dependencies: dependencies,
+            academicWidgets: IosAcademicWidgets.companion.create(
+                dependencies: dependencies,
+                tokenEncryptor: IosRsaLoginTokenEncryptor(),
+                reloader: IosAcademicWidgetReloader()
+            )
+        )
         self.mediaMetadataRepository = dependencies.mediaMetadataRepository
         self.libraryService = dependencies.libraryService
         self.idCardQrRepository = dependencies.idCardQrRepository
@@ -180,6 +188,20 @@ final class HomeCoordinator: ObservableObject {
             homeHolder?.evaluate(IosWebCallbacks.shared.setLocalStorage(key: "currentYearHakgi", value: yearHakgi))
         }
         _ = haptics.performLegacy(contractName: "CLOCK_TICK")
+    }
+
+    func openWidgetTab(_ tab: String) {
+        if bootstrapPhase != .ready {
+            pendingWidgetTab = tab
+            return
+        }
+        currentTab = ""
+        switchToTab(tab)
+    }
+
+    func onForeground() {
+        guard bootstrapPhase == .ready else { return }
+        homeRuntime.onForeground(userAgent: Self.platformUserAgent())
     }
 
     /// `switchToTab`은 같은 탭이면 return하므로, 학기 변경·로드 실패 재시도는 가드를 비운 뒤 URL을 다시 만든다.
@@ -233,6 +255,15 @@ final class HomeCoordinator: ObservableObject {
                 showToast("시간표를 불러오는데 실패했습니다.")
             } else {
                 holder.evaluate(IosWebCallbacks.shared.receiveTimetable(json: timetableJson))
+            }
+        case "calendar":
+            holder.evaluate(
+                IosWebCallbacks.shared.updateYearHakgiButtonText(
+                    value: homeRuntime.yearHakgiButtonText(value: yearHakgi)
+                )
+            )
+            if let token = sessionToken {
+                holder.evaluate(IosWebCallbacks.shared.setLocalStorage(key: "klasSessionToken", value: token.reveal()))
             }
         default:
             break
@@ -679,7 +710,9 @@ final class HomeCoordinator: ObservableObject {
         if let ready = result as? HomeBootstrapResultReady {
             applyReady(ready)
             attachHomeHolder()
-            switchToTab("feed")
+            let tab = pendingWidgetTab ?? "feed"
+            pendingWidgetTab = nil
+            switchToTab(tab)
             bootstrapPhase = .ready
             if ready.promptYearHakgiChange {
                 presentYearHakgiPicker(isUpdate: true)
@@ -707,7 +740,9 @@ final class HomeCoordinator: ObservableObject {
             if homeHolder == nil {
                 attachHomeHolder()
                 currentTab = ""
-                switchToTab("feed")
+                let tab = pendingWidgetTab ?? "feed"
+                pendingWidgetTab = nil
+                switchToTab(tab)
             } else {
                 reloadCurrentTab()
             }

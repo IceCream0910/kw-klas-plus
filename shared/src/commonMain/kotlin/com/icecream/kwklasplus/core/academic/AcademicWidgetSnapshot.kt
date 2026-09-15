@@ -26,6 +26,22 @@ object AcademicWidgetSnapshotPolicy {
         previous.term != term -> previous.copy(term = term, timetable = null, timetableFetchedAt = 0)
         else -> previous
     }
+
+    fun applyCalendar(
+        current: AcademicWidgetSnapshot,
+        result: CalendarSyncResult,
+        month: String,
+        now: Long,
+    ): AcademicWidgetSnapshot = when (result) {
+        is CalendarSyncResult.Success -> current.copy(
+            month = month,
+            calendar = result.events,
+            calendarFetchedAt = now,
+            calendarStatus = WidgetSyncStatus.READY,
+        )
+        CalendarSyncResult.NeedsLogin -> current.copy(calendarStatus = WidgetSyncStatus.NEEDS_LOGIN)
+        CalendarSyncResult.Retry -> current.copy(calendarStatus = WidgetSyncStatus.RETRY)
+    }
 }
 
 interface AcademicWidgetSnapshotStore {

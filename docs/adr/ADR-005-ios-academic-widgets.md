@@ -1,7 +1,7 @@
 # ADR-005: iOS 학사 시간표·캘린더 WidgetKit 확장 설계
 
-- 상태: Proposed (설계만 작성, iOS 학사 위젯 미구현)
-- 날짜: 2026-09-12
+- 상태: Accepted (구현 완료)
+- 날짜: 2026-09-12 (구현 완료: 2026-09-15)
 - 기준: Android 학사 위젯 [ADR-004](ADR-004-android-academic-widgets.md), iOS/iPadOS 16.0, 기존 도서관 QR 정적 위젯 [ADR-002](ADR-002-ios-library-qr-widget.md)
 
 ## 목표와 경계
@@ -29,9 +29,9 @@ SESSION 쿠키, 저장 자격증명, 암호화 비밀번호, 앱 잠금 PIN/Keyc
 
 ## 표시와 시간 정책
 
-두 종류의 WidgetKit `StaticConfiguration`을 기존 `LibraryQRWidgetBundle`에 추가한다. `systemSmall`은 오늘 수업/일정 집중 카드, `systemMedium`은 날짜와 목록, `systemLarge`는 평일 시간표 그리드+주말 과목명 목록 또는 월간 캘린더+일정 막대로 구성한다. iPad/홈 화면 family는 지원 OS에서 실제 제공 여부를 확인하고 별도 레이아웃으로 대응한다. Android의 dp 250 경계를 iOS family에 그대로 적용하지 않고, 각 family의 `WidgetFamily`/실제 가용 영역과 Dynamic Type에 맞춰 잘림·빈 상태를 설계한다.
+두 종류의 WidgetKit `StaticConfiguration`을 `KlasWidgetBundle`에 등록한다. 캘린더 위젯은 `systemSmall`/`systemMedium`(오늘/다가오는 일정 아젠다)과 `systemLarge`/`systemExtraLarge`(월간 캘린더+일정 막대)를 제공한다. 반면 시간표 위젯은 WidgetKit의 갱신 예산 제약(하루 약 40~70회)으로 인해 분 단위 갱신이 필요한 수업별 진행률/남은 시간 계산 로직을 안정적으로 보장할 수 없으므로, 축소형 진행률 위젯을 제외하고 전체 시간표를 보여주는 확장형 레이아웃(`systemLarge`/`systemExtraLarge`: 평일 그리드+주말 과목 목록) 1개로 제한한다([이슈 #40](https://github.com/IceCream0910/kw-klas-plus/issues/40)). iPad/홈 화면 family는 지원 OS에서 실제 제공 여부를 확인하고 별도 레이아웃으로 대응한다. Android의 dp 250 경계를 iOS family에 그대로 적용하지 않고, 각 family의 `WidgetFamily`/실제 가용 영역과 Dynamic Type에 맞춰 잘림·빈 상태를 설계한다.
 
-시간표는 학기 데이터가 바뀌거나 앱이 foreground에 들어와 조회에 성공했을 때 스냅샷을 다시 기록한다. 수업 상태/요일 전환은 미리 계산한 시작·종료·자정 시점 timeline entry로 표현한다. 축소형 남은 시간은 WidgetKit의 시스템 제공 상대 시간 표기(`Text(date, style: .relative)` 등)를 검토하되 분 단위 `reloadTimelines` 호출이나 연속 progress 애니메이션을 보장하는 것으로 설계하지 않는다. 진행률은 timeline entry 시점의 값으로 표시하고 수업 경계에서 재계산한다. Android와 완전히 같은 실시간성을 요구한다면 WidgetKit 갱신 예산·저전력 모드에서 달성 가능한 정도를 실기기로 먼저 확인해야 한다.
+시간표는 학기 데이터가 바뀌거나 앱이 foreground에 들어와 조회에 성공했을 때 스냅샷을 다시 기록한다. 수업 상태/요일 전환은 분 단위 reload 대신 미리 계산한 시작·종료·자정 시점 timeline entry로만 표현한다. 분 단위 `reloadTimelines` 호출이나 연속 progress 애니메이션은 WidgetKit 예산 정책상 보장되지 않으므로 배제하며, Android와 같은 실시간 진행률 표시는 플랫폼 승인 차이로 둔다.
 
 캘린더는 메인 앱에서 현재 월 1일~말일을 공통 `CalendarRepository`/`CalendarSyncUseCase` 의미에 맞게 조회한 뒤 App Group에 기록한다. 앱 진입·일정 수정/추가 후 복귀·월 변경·백그라운드 refresh 기회에 동기화를 요청한다. `BGAppRefreshTask` 등록 및 `earliestBeginDate`는 OS에 대한 요청이며 1시간 간격이나 위젯 추가 즉시 네트워크 조회를 보장하지 않는다. 위젯 추가 직후에는 기존 공유 스냅샷을 즉시 표시하고, 데이터가 없으면 `앱을 열어 일정 가져오기` 상태와 딥링크를 제공한다. 최초 추가 시 앱을 열지 않고 반드시 최신 API 결과가 필요하다면 확장의 인증 권한과 background 실행 정책을 다시 결정해야 한다. 조회 실패에는 마지막 성공 데이터를 보존하고 조회 시각·갱신 지연/로그인 필요를 구분한다.
 
@@ -39,7 +39,7 @@ iOS 16의 홈 위젯은 앱 실행 없이 독립적인 즉시 새로고침 버�
 
 ## 진입·잠금·실패
 
-학사 위젯 탭 URL은 도서관 QR의 `kwklasplus://library-qr`와 분리한 고정 경로 `kwklasplus://widget/timetable`, `kwklasplus://widget/calendar`를 후보로 삼고 정확한 scheme/host/path만 allowlist한다. 현재 Android의 `klasplus://widget/...`와 scheme이 다르므로 두 플랫폼의 외부 URL 계약은 구현 전에 정규화하거나 명시적 플랫폼 매핑을 정한다. 임의 URL, 쿼리, 외부 host를 WebView에 전달하지 않는다. `StartupRootView.onOpenURL`은 현재 도서관 QR만 처리하므로 학사 목적지 라우팅을 추가하고, 로그인/잠금 완료 뒤 `HomeCoordinator`의 timetable/calendar 탭을 연다. 도서관 QR의 단독 잠금 예외를 학사 위젯에 재사용하지 않는다. 인증 취소·세션 만료에는 보호된 화면을 열지 않는다.
+학사 위젯 탭 URL은 도서관 QR의 `kwklasplus://library-qr`와 분리한 고정 경로 `kwklasplus://widget/timetable`, `kwklasplus://widget/calendar`로 확정하고 정확한 scheme/host/path만 allowlist한다. Android의 `klasplus://widget/...`와 scheme이 다르므로 공통 `WidgetDestination`에서 명시적인 플랫폼 URI 매핑을 고정했다. 임의 URL, 쿼리, 외부 host를 WebView에 전달하지 않는다. `StartupRootView.onOpenURL`에 학사 목적지 라우팅을 추가하여 로그인/잠금 완료 뒤 `HomeCoordinator`의 timetable/calendar 탭을 연다. 도서관 QR의 단독 잠금 예외를 학사 위젯에 재사용하지 않는다. 인증 취소·세션 만료에는 보호된 화면을 열지 않는다.
 
 스냅샷 누락·손상·미로그인·학기 불일치·현재 월 불일치를 별도의 placeholder로 처리한다. 네트워크 문제는 마지막 정상 데이터와 갱신 시각을 유지하되 전 계정의 데이터는 절대 재표시하지 않는다. 캘린더와 시간표의 WidgetKind를 분리하면 하나의 데이터 실패가 다른 위젯의 표시를 막지 않는다.
 

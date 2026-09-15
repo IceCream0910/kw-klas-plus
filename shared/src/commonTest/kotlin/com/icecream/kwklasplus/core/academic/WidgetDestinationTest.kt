@@ -6,8 +6,11 @@ class WidgetDestinationTest {
     @Test fun onlyFixedWidgetDestinationsAreAccepted() {
         assertEquals("timetable", WidgetDestination.fromUri("klasplus://widget/timetable")?.tab)
         assertEquals("calendar", WidgetDestination.fromUri("klasplus://widget/calendar")?.tab)
+        assertEquals("timetable", WidgetDestination.fromUri("kwklasplus://widget/timetable")?.tab)
+        assertEquals("calendar", WidgetDestination.fromUri("kwklasplus://widget/calendar")?.tab)
         for (uri in listOf(null, "https://example.com/calendar", "klasplus://widget/menu",
-            "klasplus://widget/calendar?url=https://example.com", "klasplus://other/calendar"))
+            "klasplus://widget/calendar?url=https://example.com", "klasplus://other/calendar",
+            "kwklasplus://timetable", "kwklasplus://widget/timetable?x=1"))
             assertNull(WidgetDestination.fromUri(uri))
     }
 
