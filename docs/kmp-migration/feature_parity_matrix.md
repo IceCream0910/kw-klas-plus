@@ -52,7 +52,7 @@
 | F-030 | 폰 세로/태블릿 회전 | window size/orientation policy | iOS orientation policy | P1 | Parity | 폰·태블릿·멀티윈도우 포함 |
 | F-031 | 업그레이드 데이터 이전 | 검증형 Android migration | 신규 설치/향후 schema migration | P0 | Parity | credential·SESSION·PIN·cache 포함 |
 | F-032 | 오류 수집/개인정보 마스킹 | 공통 taxonomy + Android Sentry | iOS 관측 도구 | P1 | Implemented | 자동 redaction·iOS 정책은 M8-002 |
-| F-033 | 학사 시간표·캘린더 홈 위젯 | Android provider 4종 + 공통 스냅샷 | WidgetKit 후속 | P1 | Implemented (Android), device check pending | 축소형 수업/일정 목록·실시간 수업 상태, 확장형 평일 그리드/월간 달력, 주말 과목 목록, 수동/정기 일정 갱신, 잠금 진입 및 탭 딥링크. 기존 provider는 축소형으로 유지. 샘플 미리보기 4종, 실기기 런처 검증 대기. [ADR-004](../adr/ADR-004-android-academic-widgets.md), [ADR-005 제안](../adr/ADR-005-ios-academic-widgets.md) |
+| F-033 | 학사 시간표·캘린더 홈 위젯 | Android provider 4종 + 공통 스냅샷 | WidgetKit 캘린더 S/M/L + 주간 시간표 Large | P1 | Implemented (Android 실기기 검증 대기) | Android: 축소형 수업/일정 목록·실시간 수업 상태, 확장형 평일 그리드/월간 달력, 주말 과목 목록, 수동/정기 일정 갱신, 잠금 진입 및 탭 딥링크. 기존 provider는 축소형으로 유지. 샘플 미리보기 4종, 실기기 런처 검증 대기. iOS: 캘린더 agenda/monthBars, 시간표 Large 그리드만. 승인 차이: 최초 추가 시 확장 네트워크 없음(`앱을 열어 가져오기`), 축소형 남은 시간/진행률 없음, WidgetKit 갱신 예산, 로그아웃 직후 timeline 잔상, scheme `kwklasplus`↔`klasplus` 매핑. 도서관 QR `systemSmall` 유지. [ADR-004](../adr/ADR-004-android-academic-widgets.md), [ADR-005](../adr/ADR-005-ios-academic-widgets.md) |
 
 ## 2. Native → Web callback 계약
 

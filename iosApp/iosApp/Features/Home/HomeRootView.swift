@@ -5,6 +5,8 @@ struct HomeRootView: View {
     @StateObject private var coordinator: HomeCoordinator
     @EnvironmentObject private var appLock: AppLockController
     @EnvironmentObject private var libraryQr: LibraryQrController
+    @EnvironmentObject private var academicWidgets: AcademicWidgetOpenController
+    @Environment(\.scenePhase) private var scenePhase
     private let onSessionExpired: () -> Void
 
     init(
@@ -30,7 +32,15 @@ struct HomeRootView: View {
         .tint(KlasTheme.primary)
         .onAppear {
             coordinator.libraryQr = libraryQr
+            academicWidgets.attach { coordinator.openWidgetTab($0) }
             coordinator.start()
+            academicWidgets.consumeIfPossible(isAuthenticated: true, appLock: appLock)
+            coordinator.onForeground()
+        }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active {
+                coordinator.onForeground()
+            }
         }
         .homeOverlays(coordinator)
     }
