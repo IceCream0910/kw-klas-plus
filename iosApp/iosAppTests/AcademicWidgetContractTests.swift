@@ -11,6 +11,7 @@ final class AcademicWidgetContractTests: XCTestCase {
     func testAllowlistAcceptsOnlyWidgetHostAndPath() {
         XCTAssertEqual(AcademicWidgetRouter.tab(from: AcademicWidgetRouter.timetableURL), "timetable")
         XCTAssertEqual(AcademicWidgetRouter.tab(from: AcademicWidgetRouter.calendarURL), "calendar")
+        XCTAssertEqual(AcademicWidgetRouter.calendarURL.absoluteString, "kwklasplus://widget/calendar")
         XCTAssertNil(AcademicWidgetRouter.tab(from: URL(string: "kwklasplus://widget/timetable?x=1")!))
         XCTAssertNil(AcademicWidgetRouter.tab(from: URL(string: "kwklasplus://widget/calendar#frag")!))
         XCTAssertNil(AcademicWidgetRouter.tab(from: URL(string: "kwklasplus://library-qr")!))

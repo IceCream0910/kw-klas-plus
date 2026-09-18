@@ -1,5 +1,6 @@
 import SwiftUI
 import WidgetKit
+import AppIntents
 
 struct AcademicWidgetEntry: TimelineEntry {
     let date: Date
@@ -198,11 +199,33 @@ struct AcademicCalendarWidgetView: View {
                 .foregroundStyle(AcademicWidgetPalette.secondary(colorScheme))
                 .lineLimit(1)
             Spacer()
-            Image(systemName: "arrow.clockwise")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(AcademicWidgetPalette.secondary(colorScheme))
+            refreshControl
         }
-        .frame(height: 18)
+        .frame(height: 24)
+    }
+
+    @ViewBuilder
+    private var refreshControl: some View {
+        if #available(iOS 17.0, *) {
+            Button(intent: AcademicCalendarRefreshIntent()) {
+                refreshIcon
+            }
+            .buttonStyle(.plain)
+            .invalidatableContent()
+            .accessibilityLabel("새로고침")
+        } else {
+            Link(destination: AcademicWidgetURL.calendar) {
+                refreshIcon
+            }
+            .accessibilityLabel("앱에서 새로고침")
+        }
+    }
+
+    private var refreshIcon: some View {
+        Image(systemName: "arrow.clockwise")
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(AcademicWidgetPalette.secondary(colorScheme))
+            .frame(width: 24, height: 24)
     }
 }
 
