@@ -13,15 +13,11 @@ class IosUserDefaultsSessionTimestampStore(
 
     override suspend fun write(value: Long) {
         defaults.setObject(value.toString(), LegacyPreferenceKeys.KW_SESSION_TIMESTAMP)
-        check(defaults.synchronize()) {
-            "Failed to write ${LegacyPreferenceKeys.KW_SESSION_TIMESTAMP}"
-        }
+        defaults.synchronize()
     }
 
     override suspend fun clear() {
         defaults.removeObjectForKey(LegacyPreferenceKeys.KW_SESSION_TIMESTAMP)
-        check(defaults.synchronize()) {
-            "Failed to clear ${LegacyPreferenceKeys.KW_SESSION_TIMESTAMP}"
-        }
+        defaults.synchronize()
     }
 }
