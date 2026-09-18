@@ -79,6 +79,9 @@ class IosHomeRuntime(
 
     fun onForeground(userAgent: String) {
         scope.launch {
+            if (dependencies.academicWidgetFlags.cookieSyncNeeded()) {
+                runCatching { dependencies.sessionCoordinator.restore() }
+            }
             academicWidgets?.refreshIdentity()
             academicWidgets?.syncCalendar(userAgent)
         }
@@ -189,7 +192,7 @@ class IosHomeRuntime(
         fun createDefault(): IosHomeRuntime = IosHomeRuntime(IosSharedDependencies())
 
         fun create(defaults: NSUserDefaults): IosHomeRuntime =
-            IosHomeRuntime(IosSharedDependencies(defaults = defaults))
+            IosHomeRuntime(IosSharedDependencies.create(defaults = defaults))
 
         fun create(dependencies: IosSharedDependencies): IosHomeRuntime =
             IosHomeRuntime(dependencies)
