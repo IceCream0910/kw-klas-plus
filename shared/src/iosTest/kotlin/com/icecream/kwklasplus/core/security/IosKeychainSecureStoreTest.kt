@@ -33,4 +33,21 @@ class IosKeychainSecureStoreTest {
             IosKeychainSecureStore.ACADEMIC_SHARED_KEYS,
         )
     }
+
+    @Test
+    fun accessGroupRoutesSharedKeysToAcademicSessionAndOthersToPrivate() {
+        val academic = "TEAM.com.icecream.kwklasplus.academic-session"
+        val privateGroup = "TEAM.com.icecream.kwklasplus.app"
+        val store = IosKeychainSecureStore.withAccessGroups(
+            academicSessionGroup = academic,
+            privateAccessGroup = privateGroup,
+        )
+
+        assertEquals(academic, store.accessGroupFor(SecureKey.SESSION_TOKEN))
+        assertEquals(academic, store.accessGroupFor(SecureKey.ENCRYPTED_KLAS_PASSWORD))
+        for (key in SecureKey.entries) {
+            if (key in IosKeychainSecureStore.ACADEMIC_SHARED_KEYS) continue
+            assertEquals(privateGroup, store.accessGroupFor(key), key.name)
+        }
+    }
 }

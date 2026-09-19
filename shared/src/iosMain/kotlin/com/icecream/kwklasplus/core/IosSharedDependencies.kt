@@ -142,8 +142,9 @@ class IosSharedDependencies(
     }
 
     private val iosKeychainStore: IosKeychainSecureStore by lazy {
-        (secureStoreOverride as? IosKeychainSecureStore) ?: IosKeychainSecureStore.withAcademicSessionGroup(
-            accessGroup = IosKeychainSecureStore.resolvedAcademicSessionGroup(),
+        (secureStoreOverride as? IosKeychainSecureStore) ?: IosKeychainSecureStore.withAccessGroups(
+            academicSessionGroup = IosKeychainSecureStore.resolvedAcademicSessionGroup(),
+            privateAccessGroup = IosKeychainSecureStore.resolvedPrivateAccessGroup(),
         )
     }
 

@@ -19,6 +19,7 @@ import platform.CoreFoundation.kCFTypeDictionaryKeyCallBacks
 import platform.CoreFoundation.kCFTypeDictionaryValueCallBacks
 import platform.Foundation.CFBridgingRelease
 import platform.Foundation.CFBridgingRetain
+import platform.Foundation.NSBundle
 import platform.Foundation.NSData
 import platform.Foundation.NSString
 import platform.Foundation.create
@@ -48,9 +49,14 @@ import platform.Foundation.NSDictionary
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 class IosKeychainSecureStore private constructor(
     private val service: String,
-    private val accessGroup: String?,
+    private val academicSessionGroup: String?,
+    private val privateAccessGroup: String?,
 ) : SecureStore {
-    constructor(service: String = DEFAULT_SERVICE) : this(service, accessGroup = null)
+    constructor(service: String = DEFAULT_SERVICE) : this(
+        service,
+        academicSessionGroup = null,
+        privateAccessGroup = null,
+    )
     override suspend fun read(key: SecureKey): SecretValue? = readNow(key)
 
     fun readNow(key: SecureKey): SecretValue? = readAccount(accountName(key), groupFor(key))
@@ -126,8 +132,10 @@ class IosKeychainSecureStore private constructor(
         SecItemDelete(baseQuery(account, accessGroup))
     }
 
-    private fun groupFor(key: SecureKey): String? =
-        accessGroup.takeIf { key in ACADEMIC_SHARED_KEYS }
+    fun accessGroupFor(key: SecureKey): String? =
+        if (key in ACADEMIC_SHARED_KEYS) academicSessionGroup else privateAccessGroup
+
+    private fun groupFor(key: SecureKey): String? = accessGroupFor(key)
 
     private fun baseQuery(account: String, accessGroup: String?): CFDictionaryRef =
         mutableDictionary(capacity = 4) {
@@ -138,10 +146,21 @@ class IosKeychainSecureStore private constructor(
         }
 
     companion object {
+        fun withAccessGroups(
+            service: String = DEFAULT_SERVICE,
+            academicSessionGroup: String?,
+            privateAccessGroup: String?,
+        ): IosKeychainSecureStore = IosKeychainSecureStore(
+            service,
+            academicSessionGroup,
+            privateAccessGroup,
+        )
+
         fun withAcademicSessionGroup(
             service: String = DEFAULT_SERVICE,
             accessGroup: String?,
-        ): IosKeychainSecureStore = IosKeychainSecureStore(service, accessGroup)
+            privateAccessGroup: String? = null,
+        ): IosKeychainSecureStore = withAccessGroups(service, accessGroup, privateAccessGroup)
 
         const val DEFAULT_SERVICE = "com.icecream.kwklasplus.secure"
         const val ACADEMIC_SESSION_GROUP_SUFFIX = "com.icecream.kwklasplus.academic-session"
@@ -152,6 +171,13 @@ class IosKeychainSecureStore private constructor(
         fun resolvedAcademicSessionGroup(): String? {
             val prefix = bundleSeedPrefix() ?: return null
             val group = "$prefix$ACADEMIC_SESSION_GROUP_SUFFIX"
+            return group.takeIf { accessGroupIsWritable(group) }
+        }
+
+        fun resolvedPrivateAccessGroup(): String? {
+            val prefix = bundleSeedPrefix() ?: return null
+            val bundleId = NSBundle.mainBundle.bundleIdentifier?.takeIf { it.isNotBlank() } ?: return null
+            val group = "$prefix$bundleId"
             return group.takeIf { accessGroupIsWritable(group) }
         }
 
