@@ -37,7 +37,7 @@ class KlasSessionLeaseHttpGateway(
             response.status.value == 401 || response.status.value == 403 ->
                 SessionInfoResult.SessionExpired
             !response.status.isSuccess() -> SessionInfoResult.HttpFailure(response.status.value)
-            body.isLoginHtml() -> SessionInfoResult.SessionExpired
+            body.isKlasLoginHtml() -> SessionInfoResult.SessionExpired
             else -> parseInfo(body)
         }
     } catch (_: HttpRequestTimeoutException) {
@@ -64,7 +64,7 @@ class KlasSessionLeaseHttpGateway(
             response.status.value == 401 || response.status.value == 403 ->
                 SessionExtensionResult.SessionExpired
             !response.status.isSuccess() -> SessionExtensionResult.HttpFailure(response.status.value)
-            body.isLoginHtml() -> SessionExtensionResult.SessionExpired
+            body.isKlasLoginHtml() -> SessionExtensionResult.SessionExpired
             body.isBlank() -> SessionExtensionResult.MalformedResponse
             json.parseToJsonElement(body) is JsonObject -> SessionExtensionResult.Success
             else -> SessionExtensionResult.MalformedResponse
@@ -109,10 +109,6 @@ class KlasSessionLeaseHttpGateway(
             onFailure = { SessionInfoResult.MalformedResponse },
         )
     }
-
-    private fun String.isLoginHtml(): Boolean =
-        contains("<!DOCTYPE html", ignoreCase = true) ||
-            contains("<html", ignoreCase = true)
 
     private companion object {
         const val X_REQUESTED_WITH = "X-Requested-With"

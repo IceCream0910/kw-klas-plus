@@ -139,7 +139,6 @@ class IosAcademicWidgetSessionContractTest {
         val second = kotlinx.coroutines.CompletableDeferred<Unit>()
         val refresh = IosAcademicWidgetCalendarRefresh(
             widgets = widgets,
-            gate = CalendarWidgetRefreshGate(1_000),
             scope = this,
         )
         refresh.refresh("test") { first.complete(Unit) }

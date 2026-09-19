@@ -11,7 +11,6 @@ import kotlinx.coroutines.sync.withLock
 
 class IosAcademicWidgetCalendarRefresh(
     private val widgets: IosAcademicWidgets,
-    private val gate: CalendarWidgetRefreshGate = CalendarWidgetRefreshGate(),
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
     private val mutex = Mutex()
@@ -31,11 +30,7 @@ class IosAcademicWidgetCalendarRefresh(
             }
             if (!start) return@launch
             try {
-                gate.run(
-                    refresh = { widgets.syncCalendar(userAgent) },
-                    onTimeoutOrRetry = {},
-                    finish = {},
-                )
+                widgets.syncCalendar(userAgent)
             } finally {
                 val callbacks = mutex.withLock {
                     inFlight = false
