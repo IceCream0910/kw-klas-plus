@@ -27,7 +27,7 @@ flowchart LR
 
 로그인 순서와 오류 결과는 공통 `KlasHttpAuthDriver`가 다루고, HTTP/RSA 실행은 플랫폼 adapter가 맡습니다. `SessionLeaseManager`는 서버 `/session/info`로 세션 만료와 연장을 판단해요. 명시적으로 만료됐을 때만 SESSION을 지우고, 일시적인 네트워크·서버 오류라면 보존한 뒤 재시도합니다. 저장소와 WebView cookie의 동기화 순서는 `SessionCoordinator`가 맡습니다.
 
-암호화 비밀번호, SESSION, 도서관 키, 앱 잠금 hash/salt는 비밀로 다뤄주세요. Android 비밀은 Keystore 보호 저장소에, iOS 비밀은 Keychain에 둡니다. SESSION 원문은 일반 preferences에 새로 기록하지 않고 보안 저장소와 WebView cookie만 동기화합니다. 비밀 저장 파일은 백업·기기 이전에서 제외해요. 평문 비밀번호는 저장하거나 로그에 남기지 마세요. 앱 잠금(PIN·생체인식) 설정은 기기 설정이므로 로그아웃 후에도 유지합니다.
+암호화 비밀번호, SESSION, 도서관 키, 앱 잠금 hash/salt는 비밀로 다뤄주세요. Android 비밀은 Keystore 보호 저장소에, iOS 비밀은 Keychain에 둡니다. SESSION 원문은 일반 preferences에 새로 기록하지 않고 보안 저장소와 WebView cookie만 동기화합니다. iOS 17 캘린더 위젯 새로고침은 App Group 파일이 아니라 Keychain Access Group `$(AppIdentifierPrefix)com.icecream.kwklasplus.academic-session`에서 `SESSION_TOKEN`과 서버 암호화 KLAS 비밀번호만 메인 앱과 공유합니다. 각 타깃 `keychain-access-groups`의 첫 항목은 해당 타깃 App ID이고, 공유 키만 academic-session을 `kSecAttrAccessGroup`에 명시합니다. 앱 잠금 hash/salt와 도서관 비밀은 앱 App ID 그룹에 남기고, 확장은 WKWebView cookie를 만들지 않습니다. 확장 재인증 뒤에는 App Group의 cookie 동기화 필요 표시를 메인 앱이 `SessionCoordinator.restore()`로 소비합니다. 비밀 저장 파일은 백업·기기 이전에서 제외해요. 평문 비밀번호는 저장하거나 로그에 남기지 마세요. 앱 잠금(PIN·생체인식) 설정은 기기 설정이므로 로그아웃 후에도 유지합니다.
 
 ### 인증과 세션에서 지킬 동작
 
@@ -102,6 +102,6 @@ QR 출석, 앱 잠금, PIP, 위젯, 파일·외부 URL은 공통 요청/결과�
 |---|---|
 | 강의 재생·PIP | Android는 Activity PIP, iOS는 WKWebView HTML5 PIP를 사용합니다. iOS PIP 창의 ±10초 조작은 Android와 같지 않아요. [ADR-001](adr/ADR-001-ios-player-pip.md) |
 | 도서관 QR 위젯 | Android·iOS 모두 정적 아이콘에서 앱의 QR 화면을 엽니다. iOS 위젯에는 개인정보를 공유하지 않아요. [ADR-002](adr/ADR-002-ios-library-qr-widget.md) |
-| 학사 시간표·캘린더 위젯 | Android 구현은 [ADR-004](adr/ADR-004-android-academic-widgets.md)를 따릅니다. iOS WidgetKit 확장은 [ADR-005](adr/ADR-005-ios-academic-widgets.md)를 따릅니다. |
+| 학사 시간표·캘린더 위젯 | Android 구현은 [ADR-004](adr/ADR-004-android-academic-widgets.md)를 따릅니다. iOS WidgetKit 표시·딥링크는 [ADR-005](adr/ADR-005-ios-academic-widgets.md), iOS 17 캘린더 새로고침은 [ADR-006](adr/ADR-006-ios-widget-interactive-refresh.md)를 따릅니다. iOS 캘린더 새로고침은 SESSION 원문을 App Group에 두지 않고 Keychain Access Group의 SESSION·암호화 비밀번호만 확장과 공유합니다. |
 
 Android 네이티브 화면은 compact(<600dp), medium(600~839dp), expanded(≥840dp)로 나눕니다. WebView 내부 레이아웃은 웹 앱이 맡아요. iOS에서는 safe area·키보드·Dynamic Type·회전 때문에 WKWebView holder를 새로 만들지 않도록 주의해 주세요.

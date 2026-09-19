@@ -97,8 +97,32 @@ class KlasSessionHttpClientTest {
         )
         assertEquals(
             KlasAuthenticatedResult.SessionExpired,
+            result(HttpStatusCode.OK, "<html><body>login</body></html>"),
+        )
+        assertEquals(
+            KlasAuthenticatedResult.SessionExpired,
             result(HttpStatusCode.Unauthorized, "unauthorized"),
         )
+    }
+
+    @Test
+    fun calendarLoginHtmlWithoutDoctypeIsExpiredSession() = runBlocking {
+        val client = createKlasHttpClient(
+            MockEngine {
+                respond("<html><head><title>KLAS</title></head></html>", HttpStatusCode.OK)
+            },
+        )
+        val result = KlasSessionHttpClient(client).postJson(
+            AuthenticatedKlasEndpoint.CALENDAR,
+            SecretValue.of("expired-session"),
+            KlasUserAgent.fromPlatform("UA"),
+            buildJsonObject {
+                put("start", "2026-09-01")
+                put("end", "2026-09-30")
+            },
+        )
+        assertEquals(KlasAuthenticatedResult.SessionExpired, result)
+        client.close()
     }
 
     @Test

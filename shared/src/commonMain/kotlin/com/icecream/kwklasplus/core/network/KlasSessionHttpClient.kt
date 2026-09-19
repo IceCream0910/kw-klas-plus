@@ -82,7 +82,7 @@ class KlasSessionHttpClient(
                 !response.status.isSuccess() ->
                     KlasAuthenticatedResult.HttpFailure(response.status.value)
                 responseBody.isBlank() -> KlasAuthenticatedResult.EmptyResponse
-                responseBody.contains("<!DOCTYPE html>", ignoreCase = true) ->
+                responseBody.isKlasLoginHtml() ->
                     KlasAuthenticatedResult.SessionExpired
                 else -> json.parseToJsonElement(responseBody).let { parsed ->
                     if (parsed is JsonObject || parsed is JsonArray) {

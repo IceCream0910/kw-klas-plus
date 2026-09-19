@@ -4,11 +4,14 @@ import com.icecream.kwklasplus.core.IosSharedDependencies
 import com.icecream.kwklasplus.core.auth.LoginTokenEncryptor
 import com.icecream.kwklasplus.core.legacy.LegacyPreferenceKeys
 import com.icecream.kwklasplus.core.network.KlasUserAgent
+import com.icecream.kwklasplus.core.platform.SecureKey
 import com.icecream.kwklasplus.core.session.SessionResult
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.convert
 import kotlinx.cinterop.usePinned
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import platform.CoreCrypto.CC_SHA256
 import platform.CoreCrypto.CC_SHA256_DIGEST_LENGTH
 import platform.Foundation.NSCalendar
@@ -36,26 +39,16 @@ class IosAcademicWidgets(
     private val credential: suspend () -> com.icecream.kwklasplus.core.auth.StoredCredential?,
     private val session: suspend () -> com.icecream.kwklasplus.core.security.SecretValue?,
     private val reloader: AcademicWidgetTimelineReloader?,
+    private val flags: IosAcademicWidgetSharedFlags? = null,
 ) {
+    private val syncMutex = Mutex()
+
     fun snapshot(): AcademicWidgetSnapshot? {
         val owner = owner()
         val term = identityTerm()
         val display = store.read() ?: return null
         if (owner.isBlank() || display.owner != owner || display.term != term) return null
-        return AcademicWidgetSnapshot(
-            owner = display.owner,
-            term = display.term,
-            timetable = display.classes?.map {
-                TimetableEntry(it.title, it.day, it.startTime, it.endTime, it.info, "")
-            },
-            timetableFetchedAt = display.timetableFetchedAt,
-            month = display.month,
-            calendar = display.events?.map {
-                CalendarEvent(it.id, it.title, it.start, it.end, "", it.color, "")
-            },
-            calendarFetchedAt = display.calendarFetchedAt,
-            calendarStatus = display.calendarStatus,
-        )
+        return snapshotFrom(display)
     }
 
     fun recordTimetable(term: String, entries: List<TimetableEntry>) {
@@ -69,12 +62,13 @@ class IosAcademicWidgets(
         persist(previous.copy(timetable = sorted, timetableFetchedAt = currentMillis()))
     }
 
-    suspend fun syncCalendar(userAgent: String) {
+    suspend fun syncCalendar(userAgent: String): Boolean = syncMutex.withLock {
         refreshIdentity()
         val owner = owner()
         val term = identityTerm()
-        val sync = calendarSync ?: return
-        if (owner.isBlank()) return
+        val startedRevision = flags?.revision()
+        val sync = calendarSync ?: return false
+        if (owner.isBlank()) return false
         val range = currentMonthRange()
         val month = range.first.take(7)
         val result = runCatching {
@@ -86,31 +80,31 @@ class IosAcademicWidgets(
                 range.second,
             )
         }.getOrElse {
+            if (!sameIdentity(owner, term, startedRevision, allowOwnSessionBump = true)) return false
             persistCalendar(owner, term, CalendarSyncResult.Retry, month)
-            return
+            return true
+        }
+        if (!sameIdentity(
+                owner,
+                term,
+                startedRevision,
+                allowOwnSessionBump = result is CalendarSyncResult.Success || result is CalendarSyncResult.Retry,
+            )
+        ) {
+            return false
         }
         persistCalendar(owner, term, result, month)
+        result is CalendarSyncResult.Retry
     }
 
     fun refreshIdentity() {
+        flags?.writeIdentity(
+            preferences(LegacyPreferenceKeys.KW_ID),
+            preferences(LegacyPreferenceKeys.YEAR_HAKGI),
+        )
         val owner = owner()
         val term = identityTerm()
-        val previous = store.read()?.let { display ->
-            AcademicWidgetSnapshot(
-                owner = display.owner,
-                term = display.term,
-                timetable = display.classes?.map {
-                    TimetableEntry(it.title, it.day, it.startTime, it.endTime, it.info, "")
-                },
-                timetableFetchedAt = display.timetableFetchedAt,
-                month = display.month,
-                calendar = display.events?.map {
-                    CalendarEvent(it.id, it.title, it.start, it.end, "", it.color, "")
-                },
-                calendarFetchedAt = display.calendarFetchedAt,
-                calendarStatus = display.calendarStatus,
-            )
-        }
+        val previous = store.read()?.let(::snapshotFrom)
         val updated = AcademicWidgetSnapshotPolicy.forIdentity(previous, owner, term)
         if (updated == null) {
             if (previous != null) clear()
@@ -121,7 +115,21 @@ class IosAcademicWidgets(
 
     fun clear() {
         store.clear()
+        flags?.writeIdentity(null, null)
+        flags?.clearCookieSyncNeeded()
         reloader?.reload()
+    }
+
+    private fun sameIdentity(
+        owner: String,
+        term: String,
+        startedRevision: Long?,
+        allowOwnSessionBump: Boolean,
+    ): Boolean {
+        if (owner() != owner || identityTerm() != term) return false
+        val current = flags?.revision() ?: return true
+        if (startedRevision == null || current == startedRevision) return true
+        return allowOwnSessionBump && current == startedRevision + 1L
     }
 
     private fun persistCalendar(
@@ -138,6 +146,21 @@ class IosAcademicWidgets(
         store.write(AcademicWidgetDisplayFactory.from(snapshot))
         reloader?.reload()
     }
+
+    private fun snapshotFrom(display: AcademicWidgetDisplay) = AcademicWidgetSnapshot(
+        owner = display.owner,
+        term = display.term,
+        timetable = display.classes?.map {
+            TimetableEntry(it.title, it.day, it.startTime, it.endTime, it.info, "")
+        },
+        timetableFetchedAt = display.timetableFetchedAt,
+        month = display.month,
+        calendar = display.events?.map {
+            CalendarEvent(it.id, it.title, it.start, it.end, "", it.color, "")
+        },
+        calendarFetchedAt = display.calendarFetchedAt,
+        calendarStatus = display.calendarStatus,
+    )
 
     private fun owner(): String {
         val account = preferences(LegacyPreferenceKeys.KW_ID).orEmpty()
@@ -192,12 +215,17 @@ class IosAcademicWidgets(
             calendarSync = tokenEncryptor?.let { dependencies.calendarSync(it) },
             credential = { runCatching { dependencies.credentialStore.load() }.getOrNull() },
             session = {
-                when (val restored = dependencies.sessionCoordinator.restore()) {
-                    is SessionResult.Active -> restored.session.token
-                    else -> null
+                if (dependencies.widgetExtension) {
+                    runCatching { dependencies.secureStore.read(SecureKey.SESSION_TOKEN) }.getOrNull()
+                } else {
+                    when (val restored = dependencies.sessionCoordinator.restore()) {
+                        is SessionResult.Active -> restored.session.token
+                        else -> null
+                    }
                 }
             },
             reloader = reloader,
+            flags = dependencies.academicWidgetFlags,
         )
     }
 }

@@ -25,14 +25,12 @@ class IosCredentialStore(
         val previousAccountId = defaults.stringForKey(LegacyPreferenceKeys.KW_ID)
         try {
             secureStore.write(SecureKey.ENCRYPTED_KLAS_PASSWORD, credential.encryptedPassword)
-            check(
-                secureStore.read(SecureKey.ENCRYPTED_KLAS_PASSWORD) == credential.encryptedPassword,
-            )
+            if (secureStore.read(SecureKey.ENCRYPTED_KLAS_PASSWORD) != credential.encryptedPassword) {
+                error("encrypted password verify failed")
+            }
             defaults.setObject(credential.accountId, LegacyPreferenceKeys.KW_ID)
             defaults.removeObjectForKey(LegacyPreferenceKeys.KW_PASSWORD)
-            check(defaults.synchronize()) {
-                "Failed to persist ${LegacyPreferenceKeys.KW_ID}"
-            }
+            defaults.synchronize()
         } catch (cause: Throwable) {
             runCatching {
                 if (previousPassword == null) {

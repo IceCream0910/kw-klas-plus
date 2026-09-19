@@ -16,6 +16,12 @@ import com.icecream.kwklasplus.core.auth.LoginTokenEncryptor
 import com.icecream.kwklasplus.core.auth.LoginUseCase
 import com.icecream.kwklasplus.core.auth.PrepareCredentialUseCase
 import com.icecream.kwklasplus.core.auth.WebAuthDriver
+import com.icecream.kwklasplus.core.academic.IosAcademicWidgetDisplayStore
+import com.icecream.kwklasplus.core.academic.IosAcademicWidgetSharedFlags
+import com.icecream.kwklasplus.core.academic.IosCookieSyncingWebCookieStore
+import com.icecream.kwklasplus.core.academic.IosMirroredSessionTimestampStore
+import com.icecream.kwklasplus.core.academic.IosNoOpWebCookieStore
+import com.icecream.kwklasplus.core.academic.IosRevisingSessionStore
 import com.icecream.kwklasplus.core.legacy.LegacyPreferenceKeys
 import com.icecream.kwklasplus.core.library.IosKeychainLibraryAccountSecrets
 import com.icecream.kwklasplus.core.library.IosLibraryService
@@ -52,6 +58,8 @@ class IosSharedDependencies(
     },
     secureStoreOverride: SecureStore? = null,
     cookieStoreOverride: IosWebCookieStore? = null,
+    sharedDefaults: NSUserDefaults? = null,
+    val widgetExtension: Boolean = false,
 ) {
     private val httpClient by lazy { createIosKlasHttpClient() }
     private val longRunningClient by lazy { createIosKlasHttpClient(timeoutMillis = 30_000) }
@@ -123,8 +131,21 @@ class IosSharedDependencies(
         defaults.synchronize()
     }
 
+    val academicWidgetFlags by lazy {
+        IosAcademicWidgetSharedFlags(
+            when {
+                sharedDefaults != null -> sharedDefaults
+                widgetExtension -> defaults
+                else -> NSUserDefaults(suiteName = IosAcademicWidgetDisplayStore.APP_GROUP)
+            }
+        )
+    }
+
     private val iosKeychainStore: IosKeychainSecureStore by lazy {
-        (secureStoreOverride as? IosKeychainSecureStore) ?: IosKeychainSecureStore()
+        (secureStoreOverride as? IosKeychainSecureStore) ?: IosKeychainSecureStore.withAccessGroups(
+            academicSessionGroup = IosKeychainSecureStore.resolvedAcademicSessionGroup(),
+            privateAccessGroup = IosKeychainSecureStore.resolvedPrivateAccessGroup(),
+        )
     }
 
     val secureStore: SecureStore by lazy {
@@ -148,18 +169,37 @@ class IosSharedDependencies(
     }
 
     val webCookieStore: IosWebCookieStore by lazy {
+        check(!widgetExtension) { "WK cookie store is not available in the widget extension" }
         cookieStoreOverride ?: IosWebCookieStore()
     }
 
     val sessionCoordinator by lazy {
-        SessionCoordinator(
-            SecureSessionStore(
-                secureStore,
+        val timestampStore = if (widgetExtension) {
+            object : com.icecream.kwklasplus.core.session.SessionTimestampStore {
+                override suspend fun read(): Long? = academicWidgetFlags.timestamp()
+                override suspend fun write(value: Long) = academicWidgetFlags.writeTimestamp(value)
+                override suspend fun clear() = academicWidgetFlags.clearTimestamp()
+            }
+        } else {
+            IosMirroredSessionTimestampStore(
                 IosUserDefaultsSessionTimestampStore(defaults),
-            ),
-            webCookieStore,
-            clock,
+                academicWidgetFlags,
+            )
+        }
+        val primary = IosRevisingSessionStore(
+            SecureSessionStore(secureStore, timestampStore),
+            academicWidgetFlags,
+            markCookieSync = widgetExtension,
         )
+        val cookies = when {
+            widgetExtension -> IosNoOpWebCookieStore()
+            cookieStoreOverride != null -> IosCookieSyncingWebCookieStore(
+                cookieStoreOverride,
+                academicWidgetFlags,
+            )
+            else -> IosCookieSyncingWebCookieStore(IosWebCookieStore(), academicWidgetFlags)
+        }
+        SessionCoordinator(primary, cookies, clock)
     }
 
     private val sessionLeaseGateway by lazy { KlasSessionLeaseHttpGateway(httpClient) }
@@ -198,6 +238,8 @@ class IosSharedDependencies(
         defaults.removeObjectForKey(LegacyPreferenceKeys.LIBRARY_STD_NUMBER)
         defaults.removeObjectForKey(LegacyPreferenceKeys.LIBRARY_PHONE)
         defaults.synchronize()
+        academicWidgetFlags.writeIdentity(null, null)
+        academicWidgetFlags.clearCookieSyncNeeded()
     }
 
     companion object {
@@ -209,6 +251,18 @@ class IosSharedDependencies(
             defaults = defaults,
             secureStoreOverride = secureStore,
             cookieStoreOverride = cookieStore,
+            sharedDefaults = defaults,
         )
+
+        fun createForWidgetExtension(): IosSharedDependencies {
+            val shared = requireNotNull(
+                NSUserDefaults(suiteName = com.icecream.kwklasplus.core.academic.IosAcademicWidgetDisplayStore.APP_GROUP),
+            )
+            return IosSharedDependencies(
+                defaults = shared,
+                cookieStoreOverride = null,
+                widgetExtension = true,
+            )
+        }
     }
 }
