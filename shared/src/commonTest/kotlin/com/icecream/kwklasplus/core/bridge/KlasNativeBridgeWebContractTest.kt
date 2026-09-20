@@ -52,6 +52,7 @@ class KlasNativeBridgeWebContractTest {
             "setAppLockEnabled",
             "setAppLockPassword",
             "setBiometricEnabled",
+            "syncCalendar",
         )
     }
 }

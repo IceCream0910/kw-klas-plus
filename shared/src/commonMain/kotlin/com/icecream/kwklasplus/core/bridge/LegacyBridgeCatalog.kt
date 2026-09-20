@@ -20,6 +20,7 @@ object LegacyBridgeCatalog {
             method("openLectureActivity", string, string),
             method("qrCheckIn", string, string),
             method("openDateTimePicker", nullableString, boolean),
+            method("syncCalendar"),
             method("openWebViewBottomSheet"),
             method("closeWebViewBottomSheet"),
             method("openOptionsMenu"),
