@@ -11,6 +11,7 @@ interface HomeBridgeHost {
     fun openLectureActivity(subj: String, subjName: String)
     fun qrCheckIn(subjId: String, subjName: String)
     fun openDateTimePicker(currentDateTime: String?, isStart: Boolean)
+    fun syncCalendar()
     fun openWebViewBottomSheet()
     fun closeWebViewBottomSheet()
     fun openOptionsMenu()

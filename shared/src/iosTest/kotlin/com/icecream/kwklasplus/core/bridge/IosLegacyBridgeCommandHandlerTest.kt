@@ -20,6 +20,15 @@ class IosLegacyBridgeCommandHandlerTest {
     }
 
     @Test
+    fun homeSyncCalendarReachesHost() = runSuspendTest {
+        val host = RecordingHomeHost()
+        val handler = IosHomeLegacyBridgeCommandHandler(host)
+        val result = handler.handle(command(BridgeMethodId.HOME_SYNC_CALENDAR))
+        assertTrue(result is BridgeHandlerResult.Success)
+        assertEquals(1, host.syncCalendarCount)
+    }
+
+    @Test
     fun homeUnavailableCommandsStillSucceed() = runSuspendTest {
         val host = RecordingHomeHost()
         val handler = IosHomeLegacyBridgeCommandHandler(host)
@@ -125,6 +134,7 @@ private class RecordingHomeHost : HomeBridgeHost {
     val lectures = mutableListOf<Pair<String, String>>()
     var completeCount = 0
     var unavailableCount = 0
+    var syncCalendarCount = 0
 
     override fun changeTab(tab: String) {
         tabs += tab
@@ -154,6 +164,9 @@ private class RecordingHomeHost : HomeBridgeHost {
     }
 
     override fun openDateTimePicker(currentDateTime: String?, isStart: Boolean) = Unit
+    override fun syncCalendar() {
+        syncCalendarCount += 1
+    }
     override fun openWebViewBottomSheet() = Unit
     override fun closeWebViewBottomSheet() = Unit
     override fun openOptionsMenu() = Unit

@@ -25,6 +25,7 @@ class IosHomeLegacyBridgeCommandHandler(
                 command.nullableText(0),
                 command.boolean(1),
             )
+            BridgeMethodId.HOME_SYNC_CALENDAR -> host.syncCalendar()
             BridgeMethodId.HOME_OPEN_WEB_VIEW_BOTTOM_SHEET -> host.openWebViewBottomSheet()
             BridgeMethodId.HOME_CLOSE_WEB_VIEW_BOTTOM_SHEET -> host.closeWebViewBottomSheet()
             BridgeMethodId.HOME_OPEN_OPTIONS_MENU -> host.openOptionsMenu()
