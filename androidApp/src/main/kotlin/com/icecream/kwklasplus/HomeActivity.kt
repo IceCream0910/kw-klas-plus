@@ -1317,6 +1317,12 @@ class HomeBridgeDelegate(private val homeActivity: HomeActivity) {
         homeActivity.showDatePicker(calendar, isStart)
     }
 
+    fun syncCalendar() {
+        homeActivity.runOnUiThread {
+            homeActivity.appDependencies.academicWidgets.refreshCalendarNow()
+        }
+    }
+
     fun openWebViewBottomSheet() {
         homeActivity.runOnUiThread {
             homeActivity.isOpenWebViewBottomSheet = true
