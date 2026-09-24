@@ -69,11 +69,11 @@ flowchart LR
 
 ### Web → Native 메서드
 
-현재 카탈로그는 7개 surface, 57개 명령입니다. 아래 이름은 공개 계약이므로 오타처럼 보이는 `evaluteKLASScript`도 바꾸지 마세요. 정확한 인자 개수·타입은 [`LegacyBridgeCatalog`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/LegacyBridgeCatalog.kt), typed 대응은 [`BridgeMethodId`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/BridgeMethodId.kt)가 기준입니다.
+현재 카탈로그는 7개 surface, 58개 명령입니다. 아래 이름은 공개 계약이므로 오타처럼 보이는 `evaluteKLASScript`도 바꾸지 마세요. 정확한 인자 개수·타입은 [`LegacyBridgeCatalog`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/LegacyBridgeCatalog.kt), typed 대응은 [`BridgeMethodId`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/BridgeMethodId.kt)가 기준입니다.
 
 | Surface | 메서드 |
 |---|---|
-| Home | `changeTab`, `evaluate`, `openPage`, `openExternalPage`, `completePageLoad`, `openLibraryQR`, `openLibraryQRSettingsModal`, `openLectureActivity`, `qrCheckIn`, `openDateTimePicker`, `openWebViewBottomSheet`, `closeWebViewBottomSheet`, `openOptionsMenu`, `openYearHakgiBottomSheet`, `reload`, `performHapticFeedback`, `requestIdCardQRValue` |
+| Home | `changeTab`, `evaluate`, `openPage`, `openExternalPage`, `completePageLoad`, `openLibraryQR`, `openLibraryQRSettingsModal`, `openLectureActivity`, `qrCheckIn`, `openDateTimePicker`, `syncCalendar`, `openWebViewBottomSheet`, `closeWebViewBottomSheet`, `openOptionsMenu`, `openYearHakgiBottomSheet`, `reload`, `performHapticFeedback`, `requestIdCardQRValue` |
 | Lecture | `completePageLoad`, `openPage`, `getBoardPath`, `openBoardList`, `openBoardView`, `openExternalLink`, `evaluteKLASScript`, `openOnlineLecture`, `openLecturePlan`, `openQRScan` |
 | Board | `openPage`, `openExternalLink`, `completePageLoad` |
 | Lecture plan | `completePageLoad`, `openPage`, `openExternalPage` |

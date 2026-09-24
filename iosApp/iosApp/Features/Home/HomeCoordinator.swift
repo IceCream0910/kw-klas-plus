@@ -1017,6 +1017,12 @@ final class HomeBridgeHostAdapter: HomeBridgeHost {
         Task { @MainActor in coordinator?.openDateTimePicker(currentDateTime: currentDateTime, isStart: isStart) }
     }
 
+    func syncCalendar() {
+        Task { @MainActor in
+            coordinator?.homeRuntime.requestCalendarSync(userAgent: HomeCoordinator.platformUserAgent())
+        }
+    }
+
     func openWebViewBottomSheet() {
         Task { @MainActor in
             coordinator?.isWebBottomSheetOpen = true

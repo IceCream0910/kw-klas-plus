@@ -33,6 +33,7 @@ class HomeLegacyBridgeCommandHandler(
                 command.nullableText(0),
                 command.boolean(1),
             )
+            BridgeMethodId.HOME_SYNC_CALENDAR -> delegate.syncCalendar()
             BridgeMethodId.HOME_OPEN_WEB_VIEW_BOTTOM_SHEET -> delegate.openWebViewBottomSheet()
             BridgeMethodId.HOME_CLOSE_WEB_VIEW_BOTTOM_SHEET -> delegate.closeWebViewBottomSheet()
             BridgeMethodId.HOME_OPEN_OPTIONS_MENU -> delegate.openOptionsMenu()

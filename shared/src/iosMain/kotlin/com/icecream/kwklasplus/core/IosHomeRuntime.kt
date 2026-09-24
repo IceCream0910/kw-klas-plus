@@ -87,6 +87,10 @@ class IosHomeRuntime(
         }
     }
 
+    fun requestCalendarSync(userAgent: String) {
+        scope.launch { academicWidgets?.syncCalendar(userAgent) }
+    }
+
     fun logout(onDone: () -> Unit) {
         scope.launch {
             academicWidgets?.clear()

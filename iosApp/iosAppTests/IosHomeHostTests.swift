@@ -688,6 +688,7 @@ private final class RecordingHomeHost: HomeBridgeHost {
     func openLectureActivity(subj: String, subjName: String) {}
     func qrCheckIn(subjId: String, subjName: String) {}
     func openDateTimePicker(currentDateTime: String?, isStart: Bool) {}
+    func syncCalendar() {}
     func openWebViewBottomSheet() {}
     func closeWebViewBottomSheet() {}
     func openOptionsMenu() {}

@@ -18,6 +18,7 @@ enum class BridgeMethodId(
     HOME_OPEN_LECTURE_ACTIVITY(BridgeSurface.HOME, "openLectureActivity"),
     HOME_QR_CHECK_IN(BridgeSurface.HOME, "qrCheckIn"),
     HOME_OPEN_DATE_TIME_PICKER(BridgeSurface.HOME, "openDateTimePicker"),
+    HOME_SYNC_CALENDAR(BridgeSurface.HOME, "syncCalendar"),
     HOME_OPEN_WEB_VIEW_BOTTOM_SHEET(BridgeSurface.HOME, "openWebViewBottomSheet"),
     HOME_CLOSE_WEB_VIEW_BOTTOM_SHEET(BridgeSurface.HOME, "closeWebViewBottomSheet"),
     HOME_OPEN_OPTIONS_MENU(BridgeSurface.HOME, "openOptionsMenu"),

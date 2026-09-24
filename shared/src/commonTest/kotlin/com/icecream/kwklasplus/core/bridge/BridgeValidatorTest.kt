@@ -39,8 +39,8 @@ class BridgeValidatorTest {
 
     @Test
     fun catalogCapturesEveryLegacyMethodSignature() {
-        assertEquals(57, LegacyBridgeCatalog.methods.values.sumOf { it.size })
-        assertEquals(57, BridgeMethodId.entries.size)
+        assertEquals(58, LegacyBridgeCatalog.methods.values.sumOf { it.size })
+        assertEquals(58, BridgeMethodId.entries.size)
         assertTrue(LegacyBridgeCatalog.methods.all { (surface, methods) ->
             methods.all { BridgeMethodId.from(surface, it.name) != null }
         })
