@@ -16,6 +16,7 @@ import platform.Foundation.stringWithContentsOfFile
 class IosAcademicWidgetDisplayStore(
     private val fileManager: NSFileManager = NSFileManager.defaultManager,
     private val defaults: NSUserDefaults? = NSUserDefaults(suiteName = APP_GROUP),
+    private val containerPath: String? = null,
 ) {
     fun read(): AcademicWidgetDisplay? {
         val marker = defaults?.stringForKey(OWNER_KEY).orEmpty()
@@ -52,8 +53,9 @@ class IosAcademicWidgetDisplayStore(
 
     @OptIn(ExperimentalForeignApi::class)
     private fun filePath(): String? {
-        val root = fileManager.containerURLForSecurityApplicationGroupIdentifier(APP_GROUP)
-            ?.path ?: return null
+        val root = containerPath
+            ?: fileManager.containerURLForSecurityApplicationGroupIdentifier(APP_GROUP)?.path
+            ?: return null
         return "$root/$DISPLAY_FILE"
     }
 

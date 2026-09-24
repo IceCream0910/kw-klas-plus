@@ -35,7 +35,7 @@ SESSION 쿠키, 저장 자격증명, 암호화 비밀번호, 앱 잠금 PIN/Keyc
 
 캘린더는 메인 앱에서 현재 월 1일~말일을 공통 `CalendarRepository`/`CalendarSyncUseCase` 의미에 맞게 조회한 뒤 App Group에 기록한다. 앱 진입·일정 수정/추가 후 복귀·월 변경·백그라운드 refresh 기회에 동기화를 요청한다. `BGAppRefreshTask` 등록 및 `earliestBeginDate`는 OS에 대한 요청이며 1시간 간격이나 위젯 추가 즉시 네트워크 조회를 보장하지 않는다. 위젯 추가 직후에는 기존 공유 스냅샷을 즉시 표시하고, 데이터가 없으면 `앱을 열어 일정 가져오기` 상태와 딥링크를 제공한다. 최초 추가 시 앱을 열지 않고 반드시 최신 API 결과가 필요하다면 확장의 인증 권한과 background 실행 정책을 다시 결정해야 한다. 조회 실패에는 마지막 성공 데이터를 보존하고 조회 시각·갱신 지연/로그인 필요를 구분한다.
 
-iOS 16의 홈 위젯은 앱 실행 없이 독립적인 즉시 새로고침 버튼을 지원하지 않는다. 버튼 모양의 URL 탭은 앱을 열어 동기화한 뒤 reload를 요청하는 동작으로 명시한다. iOS 17+ `AppIntent` interactive refresh는 최소 OS 16 경로와 분리해 후속 기능으로 검토한다. 시스템 테마의 light/dark 색상 쌍은 공통 8색 배정을 사용하고, 캘린더 막대·주말 중립색·빈 학기·오늘 일정 없음은 공통 표시 정책을 따른다. SwiftUI 네이티브 View를 우선 사용해 Canvas bitmap rasterize와 메모리 비용을 피한다.
+iOS 16의 홈 위젯은 앱 실행 없이 독립적인 즉시 새로고침 버튼을 지원하지 않는다. 버튼 모양의 URL 탭은 앱을 열어 동기화한 뒤 reload를 요청하는 동작으로 명시한다. iOS 17+ 캘린더 `AppIntent` 새로고침은 [ADR-006](ADR-006-ios-widget-interactive-refresh.md)이 인증 경계와 세션 동기화를 정의한다. 시스템 테마의 light/dark 색상 쌍은 공통 8색 배정을 사용하고, 캘린더 막대·주말 중립색·빈 학기·오늘 일정 없음은 공통 표시 정책을 따른다. SwiftUI 네이티브 View를 우선 사용해 Canvas bitmap rasterize와 메모리 비용을 피한다.
 
 ## 진입·잠금·실패
 

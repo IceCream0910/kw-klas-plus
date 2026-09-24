@@ -133,6 +133,11 @@ class CalendarSyncUseCaseTest {
         assertEquals(0, authCalls)
     }
 
+    @Test fun malformedCalendarResponseDoesNotLogin() = runBlocking {
+        assertEquals(CalendarSyncResult.Retry, sync(useCase(fetch = { KlasAuthenticatedResult.MalformedResponse })))
+        assertEquals(0, authCalls)
+    }
+
     @Test fun storedSessionCanFetchWithoutStoredPassword() = runBlocking {
         assertIs<CalendarSyncResult.Success>(useCase().sync(null, SecretValue.of("old"),
             KlasUserAgent.fromPlatform("test"), "2026-09-01", "2026-09-30"))

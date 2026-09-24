@@ -15,14 +15,10 @@ class IosAppLockSecretStore(
         val previousHash = secureStore.readNow(SecureKey.APP_LOCK_HASH)
         val previousSalt = secureStore.readNow(SecureKey.APP_LOCK_SALT)
         secureStore.writeNow(SecureKey.APP_LOCK_HASH, SecretValue.of(hash))
-        try {
-            secureStore.writeNow(SecureKey.APP_LOCK_SALT, SecretValue.of(salt))
-            check(readHash() == hash && readSalt() == salt)
-        } catch (cause: Throwable) {
-            restore(SecureKey.APP_LOCK_HASH, previousHash)
-            restore(SecureKey.APP_LOCK_SALT, previousSalt)
-            throw cause
-        }
+        secureStore.writeNow(SecureKey.APP_LOCK_SALT, SecretValue.of(salt))
+        if (readHash() == hash && readSalt() == salt) return
+        restore(SecureKey.APP_LOCK_HASH, previousHash)
+        restore(SecureKey.APP_LOCK_SALT, previousSalt)
     }
 
     fun clear() {
