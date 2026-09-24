@@ -46,20 +46,30 @@ import platform.Security.kSecReturnData
 import platform.Security.kSecValueData
 import platform.Foundation.NSDictionary
 
+class IosKeychainStoreException(
+    val status: Int? = null,
+    override val message: String,
+) : IllegalStateException(message)
+
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 class IosKeychainSecureStore private constructor(
     private val service: String,
     private val academicSessionGroup: String?,
     private val privateAccessGroup: String?,
+    private val requireSharedAccessGroup: Boolean,
 ) : SecureStore {
     constructor(service: String = DEFAULT_SERVICE) : this(
         service,
         academicSessionGroup = null,
         privateAccessGroup = null,
+        requireSharedAccessGroup = false,
     )
     override suspend fun read(key: SecureKey): SecretValue? = readNow(key)
 
-    fun readNow(key: SecureKey): SecretValue? = readAccount(accountName(key), groupFor(key))
+    fun readNow(key: SecureKey): SecretValue? {
+        if (!canUseSharedGroup(key)) return null
+        return readAccount(accountName(key), groupFor(key))
+    }
 
     fun readAccount(account: String): SecretValue? = readAccount(account, accessGroup = null)
 
@@ -90,18 +100,22 @@ class IosKeychainSecureStore private constructor(
 
     override suspend fun write(key: SecureKey, value: SecretValue) = writeNow(key, value)
 
-    fun writeNow(key: SecureKey, value: SecretValue) = writeAccount(accountName(key), value, groupFor(key))
+    fun writeNow(key: SecureKey, value: SecretValue) {
+        writeAccount(accountName(key), value, groupForWrite(key))
+    }
 
     fun writeAccount(account: String, value: SecretValue) = writeAccount(account, value, accessGroup = null)
 
     fun writeAccount(account: String, value: SecretValue, accessGroup: String?) {
-        if (writeAccountOnce(account, value, accessGroup)) return
+        val status = writeAccountOnce(account, value, accessGroup)
+        if (status == errSecSuccess) return
+        throw IosKeychainStoreException(status, "Keychain write failed for $account: status=$status")
     }
 
-    private fun writeAccountOnce(account: String, value: SecretValue, itemGroup: String?): Boolean {
+    private fun writeAccountOnce(account: String, value: SecretValue, itemGroup: String?): Int {
         val data = NSString.create(string = value.reveal())
             .dataUsingEncoding(NSUTF8StringEncoding)
-            ?: return false
+            ?: return ERR_SEC_PARAM
         val attributes = mutableDictionary(capacity = 6) {
             addCf(kSecClass, kSecClassGenericPassword)
             addBridged(kSecAttrService, service)
@@ -111,31 +125,46 @@ class IosKeychainSecureStore private constructor(
             addCf(kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)
         }
         val addStatus = SecItemAdd(attributes, null)
-        if (addStatus == errSecSuccess) return true
-        if (isUnavailableStatus(addStatus)) return false
-        if (addStatus != errSecDuplicateItem) return false
+        if (addStatus == errSecSuccess) return errSecSuccess
+        if (addStatus != errSecDuplicateItem) return addStatus
         val query = baseQuery(account, itemGroup)
         val update = mutableDictionary(capacity = 2) {
             addBridged(kSecValueData, data)
             addCf(kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)
         }
-        return SecItemUpdate(query, update) == errSecSuccess
+        return SecItemUpdate(query, update)
     }
 
     override suspend fun remove(key: SecureKey) = removeNow(key)
 
-    fun removeNow(key: SecureKey) = removeAccount(accountName(key), groupFor(key))
+    fun removeNow(key: SecureKey) {
+        removeAccount(accountName(key), groupForWrite(key))
+    }
 
     fun removeAccount(account: String) = removeAccount(account, accessGroup = null)
 
     fun removeAccount(account: String, accessGroup: String?) {
-        SecItemDelete(baseQuery(account, accessGroup))
+        val status = SecItemDelete(baseQuery(account, accessGroup))
+        if (status == errSecSuccess || status == errSecItemNotFound) return
+        throw IosKeychainStoreException(status, "Keychain remove failed for $account: status=$status")
     }
 
     fun accessGroupFor(key: SecureKey): String? =
         if (key in ACADEMIC_SHARED_KEYS) academicSessionGroup else privateAccessGroup
 
+    private fun canUseSharedGroup(key: SecureKey): Boolean =
+        key !in ACADEMIC_SHARED_KEYS || !requireSharedAccessGroup || !academicSessionGroup.isNullOrBlank()
+
     private fun groupFor(key: SecureKey): String? = accessGroupFor(key)
+
+    private fun groupForWrite(key: SecureKey): String? {
+        if (key in ACADEMIC_SHARED_KEYS && requireSharedAccessGroup && academicSessionGroup.isNullOrBlank()) {
+            throw IosKeychainStoreException(
+                message = "academic session Keychain group is unavailable",
+            )
+        }
+        return groupFor(key)
+    }
 
     private fun baseQuery(account: String, accessGroup: String?): CFDictionaryRef =
         mutableDictionary(capacity = 4) {
@@ -154,6 +183,7 @@ class IosKeychainSecureStore private constructor(
             service,
             academicSessionGroup,
             privateAccessGroup,
+            requireSharedAccessGroup = true,
         )
 
         fun withAcademicSessionGroup(
@@ -183,20 +213,11 @@ class IosKeychainSecureStore private constructor(
 
         private fun accessGroupIsWritable(group: String): Boolean {
             val probe = IosKeychainSecureStore(service = "com.icecream.kwklasplus.academic-session.probe")
-            if (!probe.writeAccountOnce("probe", SecretValue.of("1"), group)) return false
-            probe.removeAccount("probe", group)
-            return true
+            if (probe.writeAccountOnce("probe", SecretValue.of("1"), group) != errSecSuccess) return false
+            return runCatching { probe.removeAccount("probe", group) }.isSuccess
         }
 
-        private const val ERR_SEC_INTERACTION_NOT_ALLOWED: Int = -25308
-        private const val ERR_SEC_MISSING_ENTITLEMENT: Int = -34018
-        private const val ERR_SEC_NOT_AVAILABLE: Int = -25291
-
-        fun isUnavailableStatus(status: Int): Boolean =
-            status == errSecItemNotFound ||
-                status == ERR_SEC_INTERACTION_NOT_ALLOWED ||
-                status == ERR_SEC_MISSING_ENTITLEMENT ||
-                status == ERR_SEC_NOT_AVAILABLE
+        private const val ERR_SEC_PARAM: Int = -50
     }
 }
 

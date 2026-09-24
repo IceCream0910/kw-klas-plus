@@ -19,7 +19,7 @@ Android 캘린더 위젯 새로고침은 앱과 같은 UID에서 `CalendarSyncUs
 3. SESSION 원문은 App Group 파일·UserDefaults에 두지 않는다. 앱과 캘린더 새로고침만 `Keychain Access Group` `$(AppIdentifierPrefix)com.icecream.kwklasplus.academic-session`에서 `SESSION_TOKEN`과 서버 암호화 KLAS 비밀번호를 읽는다. 재인증용 학번(`kwID`)·학기·세션 관찰 timestamp는 비밀이 아니므로 App Group UserDefaults에 미러링한다.
 4. 앱·위젯 `keychain-access-groups`의 첫 항목은 각 타깃의 `$(AppIdentifierPrefix)$(PRODUCT_BUNDLE_IDENTIFIER)`다. `kSecAttrAccessGroup`을 생략하면 Apple이 이 첫 그룹을 쓰므로, 공유 그룹만 넣으면 앱 잠금·도서관 비밀이 위젯이 읽는 그룹에 들어간다. 앱 잠금 hash/salt와 도서관 비밀번호·세션 키는 타깃 App ID 그룹을 `kSecAttrAccessGroup`에 명시해 저장한다. 위젯 entitlement에는 앱 번들 ID 그룹을 넣지 않는다.
 5. 확장에는 `WKWebsiteDataStore`를 쓰지 않는다. 재인증으로 SESSION이 바뀌면 App Group에 `cookie 동기화 필요` 표시만 남기고, 메인 앱이 `SessionCoordinator.restore()`로 WebView cookie를 맞춘 뒤 표시를 지운다.
-6. SESSION과 암호화 비밀번호는 처음부터 Keychain Access Group에만 둔다. iOS 앱이 미출시이므로 앱 전용 Keychain에서 공유 그룹으로의 이전을 두지 않는다. 학번·학기·timestamp는 로그인·세션 저장 때 App Group에 기록하고 로그아웃 때 지운다.
+6. SESSION과 암호화 비밀번호는 처음부터 공유 Keychain Access Group에만 둔다. 공유 그룹 probe가 실패하면 기본(타깃 App ID) 그룹에 넣지 않고 해당 키의 저장·삭제를 실패한다. iOS 앱이 미출시이므로 앱 전용 Keychain에서 공유 그룹으로의 이전을 두지 않는다. 학번·학기·timestamp는 로그인·세션 저장 때 App Group에 기록하고 로그아웃 때 지운다.
 7. 구앱으로 롤백하면 공유 Keychain SESSION을 읽지 못하므로 재로그인이 필요할 수 있다.
 
 ## 세션 동기화 계약
@@ -39,7 +39,7 @@ Android 캘린더 위젯 새로고침은 앱과 같은 UID에서 `CalendarSyncUs
 - 확장 프로세스가 SESSION과 암호화 비밀번호를 읽을 수 있다. 평문 비밀번호는 재인증 API 호출 순간에만 메모리에 둔다.
 - 앱 잠금·도서관 비밀은 앱 App ID 그룹에 명시 저장한다. 위젯 entitlement에는 그 그룹이 없어 확장이 읽지 못한다.
 - 홈 화면 위젯은 학사 일정(개인정보)을 계속 표시한다. 인증 비밀은 표시 JSON에 넣지 않는다.
-- 기기 잠금 전(`AfterFirstUnlockThisDeviceOnly`) Keychain을 못 읽으면 새로고침은 `RETRY`이고 크래시하지 않는다.
+- 기기 잠금 전(`AfterFirstUnlockThisDeviceOnly`) Keychain을 못 읽거나 공유 그룹에 쓰지 못하면 새로고침은 `RETRY`이고 크래시하지 않는다. SESSION·암호화 비밀번호는 기본 Keychain 그룹으로 내리지 않는다.
 - 로그아웃은 공유 Keychain 항목, App Group 미러, 표시 스냅샷, cookie 동기화 표시를 모두 지운다.
 
 ## 대안
