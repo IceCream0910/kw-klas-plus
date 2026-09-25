@@ -21,35 +21,42 @@ class LoginScreenTest {
 
     @Test
     fun agreementEnablesLoginForCompleteCredentials() {
-        val webView = WebView(ApplicationProvider.getApplicationContext())
+        lateinit var webView: WebView
+        composeRule.runOnUiThread {
+            webView = WebView(ApplicationProvider.getApplicationContext())
+        }
         var agreementAccepted by mutableStateOf(false)
 
-        composeRule.setContent {
-            KlasPlusTheme {
-                LoginScreen(
-                    state = LoginUiState(
-                        onboardingVisible = false,
-                        studentId = "2026000001",
-                        password = "secret",
-                        agreementAccepted = agreementAccepted,
-                    ),
-                    onboardingWebView = webView,
-                    onStartClick = {},
-                    onStudentIdChange = {},
-                    onPasswordChange = {},
-                    onAgreementChange = { agreementAccepted = it },
-                    onAgreementDetailsClick = {},
-                    onFindIdClick = {},
-                    onFindPasswordClick = {},
-                    onRegisterClick = {},
-                    onLoginClick = {},
-                )
+        try {
+            composeRule.setContent {
+                KlasPlusTheme {
+                    LoginScreen(
+                        state = LoginUiState(
+                            onboardingVisible = false,
+                            studentId = "2026000001",
+                            password = "secret",
+                            agreementAccepted = agreementAccepted,
+                        ),
+                        onboardingWebView = webView,
+                        onStartClick = {},
+                        onStudentIdChange = {},
+                        onPasswordChange = {},
+                        onAgreementChange = { agreementAccepted = it },
+                        onAgreementDetailsClick = {},
+                        onFindIdClick = {},
+                        onFindPasswordClick = {},
+                        onRegisterClick = {},
+                        onLoginClick = {},
+                    )
+                }
             }
-        }
 
-        composeRule.onNodeWithTag("login_password").assertIsDisplayed()
-        composeRule.onNodeWithTag("login_submit").assertIsNotEnabled()
-        composeRule.onNodeWithTag("login_agreement_label").performClick()
-        composeRule.onNodeWithTag("login_submit").assertIsEnabled()
+            composeRule.onNodeWithTag("login_password").assertIsDisplayed()
+            composeRule.onNodeWithTag("login_submit").assertIsNotEnabled()
+            composeRule.onNodeWithTag("login_agreement_label").performClick()
+            composeRule.onNodeWithTag("login_submit").assertIsEnabled()
+        } finally {
+            composeRule.runOnUiThread { webView.destroy() }
+        }
     }
 }

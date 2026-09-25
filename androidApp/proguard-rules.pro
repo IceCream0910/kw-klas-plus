@@ -26,7 +26,6 @@
 -keepattributes SourceFile, LineNumberTable, Annotation
 -keep class io.sentry.** { *; }
 -dontwarn io.sentry.**
--keep class com.icecream.kwklasplus.** { *; }
 -keep public class * extends androidx.fragment.app.Fragment {
     public <init>();
 }

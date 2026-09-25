@@ -9,6 +9,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.assertion.ViewAssertions.doesNotExist
+import androidx.test.espresso.matcher.RootMatchers.isDialog
 import androidx.test.espresso.matcher.ViewMatchers.withText
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -64,13 +65,13 @@ class VideoPlayerTransitionTest {
                 activity.hasPlaybackSession = true
                 activity.withSinglePlayback { replaced = true }
             }
-            onView(withText("취소")).perform(click())
+            onView(withText("취소")).inRoot(isDialog()).perform(click())
             scenario.onActivity { activity ->
                 assertFalse(replaced)
                 assertTrue(activity.ownsPlayback())
                 activity.withSinglePlayback { replaced = true; stopped.countDown() }
             }
-            onView(withText("종료하고 재생")).perform(click())
+            onView(withText("종료하고 재생")).inRoot(isDialog()).perform(click())
             assertTrue(stopped.await(5, TimeUnit.SECONDS))
             scenario.onActivity { activity ->
                 assertTrue(replaced)
