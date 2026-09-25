@@ -3,6 +3,7 @@ package com.icecream.kwklasplus
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.view.View
 import androidx.fragment.app.FragmentActivity
 import com.icecream.kwklasplus.core.AndroidSharedDependencies
@@ -18,10 +19,11 @@ import com.icecream.kwklasplus.platform.qr.AndroidQrScanner
 
 class AndroidAppDependencies(context: Context) {
     private val applicationContext = context.applicationContext
+    internal val appLockPreferences: SharedPreferences = applicationContext.encryptedPreferences
     private val shared = AndroidSharedDependencies(
         context = applicationContext,
         preferences = applicationContext.appPreferences,
-        encryptedPreferences = applicationContext.encryptedPreferences,
+        encryptedPreferences = appLockPreferences,
         libraryCachePreferences = applicationContext.libraryQrCachePreferences,
         libraryEncryptedPreferences = applicationContext.libraryEncryptedCachePreferences,
     )

@@ -9,16 +9,14 @@ import com.icecream.kwklasplus.core.platform.SecureKey
 import com.icecream.kwklasplus.core.platform.SecureStore
 import com.icecream.kwklasplus.core.security.SecretValue
 import com.icecream.kwklasplus.core.testing.InMemorySharedPreferences
-import kotlin.coroutines.Continuation
-import kotlin.coroutines.EmptyCoroutineContext
-import kotlin.coroutines.startCoroutine
+import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class AndroidCredentialStoreTest {
     @Test
-    fun clearPasswordPreservesAccountIdAndRemovesLegacyFallbacks() = runCredentialStoreTest {
+    fun clearPasswordPreservesAccountIdAndRemovesLegacyFallbacks() = runBlocking {
         val preferences = InMemorySharedPreferences().apply {
             edit()
                 .putString(LegacyPreferenceKeys.KW_ID, "2020123456")
@@ -71,15 +69,4 @@ class AndroidCredentialStoreTest {
             values.remove(reference)
         }
     }
-}
-
-private fun <T> runCredentialStoreTest(block: suspend () -> T): T {
-    var outcome: Result<T>? = null
-    block.startCoroutine(object : Continuation<T> {
-        override val context = EmptyCoroutineContext
-        override fun resumeWith(result: Result<T>) {
-            outcome = result
-        }
-    })
-    return requireNotNull(outcome).getOrThrow()
 }

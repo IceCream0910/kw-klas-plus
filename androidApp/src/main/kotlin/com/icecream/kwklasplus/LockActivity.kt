@@ -13,11 +13,14 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.icecream.kwklasplus.feature.lock.LockScreen
 import com.icecream.kwklasplus.feature.lock.LockScreenUiState
 import com.icecream.kwklasplus.manager.AppLockManager
 import com.icecream.kwklasplus.platform.biometric.AndroidBiometricAvailability
 import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 class LockActivity : AppCompatActivity() {
     enum class Mode {
@@ -28,6 +31,7 @@ class LockActivity : AppCompatActivity() {
     private val inputBuffer = StringBuilder()
     private var oldPasswordForChange: String? = null
     private var firstNewPasswordForSet: String? = null
+    private var checkingPassword = false
     private var title by mutableStateOf("")
     private var description by mutableStateOf("")
     private var enteredDigits by mutableIntStateOf(0)
@@ -89,6 +93,7 @@ class LockActivity : AppCompatActivity() {
     }
 
     private fun onNumberClick(value: String) {
+        if (checkingPassword) return
         if (inputBuffer.length >= LockScreenUiState.PIN_LENGTH) return
         inputBuffer.append(value)
         enteredDigits = inputBuffer.length
@@ -98,6 +103,7 @@ class LockActivity : AppCompatActivity() {
     }
 
     private fun onDeleteClick() {
+        if (checkingPassword) return
         if (inputBuffer.isEmpty()) return
         inputBuffer.deleteCharAt(inputBuffer.lastIndex)
         enteredDigits = inputBuffer.length
@@ -147,16 +153,29 @@ class LockActivity : AppCompatActivity() {
     }
 
     private fun checkPassword() {
+        if (checkingPassword) return
         val input = inputBuffer.toString()
-        when (mode) {
-            Mode.UNLOCK -> verifyUnlock(input)
-            Mode.SET -> setPassword(input)
-            Mode.CHANGE -> changePassword(input)
-            Mode.VERIFY -> verifyExistingPassword(input)
+        checkingPassword = true
+        lifecycleScope.launch {
+            try {
+                when (mode) {
+                    Mode.UNLOCK -> verifyUnlock(input)
+                    Mode.SET -> setPassword(input)
+                    Mode.CHANGE -> changePassword(input)
+                    Mode.VERIFY -> verifyExistingPassword(input)
+                }
+            } catch (cause: CancellationException) {
+                throw cause
+            } catch (_: Exception) {
+                showToast("앱 잠금 정보를 확인하지 못했어요. 다시 시도해 주세요.")
+                clearInput()
+            } finally {
+                checkingPassword = false
+            }
         }
     }
 
-    private fun verifyUnlock(input: String) {
+    private suspend fun verifyUnlock(input: String) {
         if (AppLockManager.verifyPassword(this, input)) {
             unlockSuccess()
         } else {
@@ -165,7 +184,7 @@ class LockActivity : AppCompatActivity() {
         }
     }
 
-    private fun setPassword(input: String) {
+    private suspend fun setPassword(input: String) {
         if (firstNewPasswordForSet == null) {
             firstNewPasswordForSet = input
             updateModeUi()
@@ -183,7 +202,7 @@ class LockActivity : AppCompatActivity() {
         completePasswordUpdate()
     }
 
-    private fun changePassword(input: String) {
+    private suspend fun changePassword(input: String) {
         if (oldPasswordForChange == null) {
             if (AppLockManager.verifyPassword(this, input)) {
                 oldPasswordForChange = input
@@ -210,7 +229,7 @@ class LockActivity : AppCompatActivity() {
         completePasswordUpdate()
     }
 
-    private fun verifyExistingPassword(input: String) {
+    private suspend fun verifyExistingPassword(input: String) {
         if (AppLockManager.verifyPassword(this, input)) {
             setResult(Activity.RESULT_OK)
             finish()
@@ -265,10 +284,12 @@ class LockActivity : AppCompatActivity() {
                     result: BiometricPrompt.AuthenticationResult,
                 ) {
                     super.onAuthenticationSucceeded(result)
-                    AppLockManager.setBiometricEnabled(this@LockActivity, true)
-                    showToast("생체인증이 활성화되었습니다.")
-                    setResult(Activity.RESULT_OK)
-                    finish()
+                    lifecycleScope.launch {
+                        AppLockManager.setBiometricEnabled(this@LockActivity, true)
+                        showToast("생체인증이 활성화되었습니다.")
+                        setResult(Activity.RESULT_OK)
+                        finish()
+                    }
                 }
 
                 override fun onAuthenticationError(

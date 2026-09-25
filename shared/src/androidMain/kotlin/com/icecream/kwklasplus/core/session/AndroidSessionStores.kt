@@ -5,22 +5,24 @@ import android.webkit.CookieManager
 import com.icecream.kwklasplus.core.legacy.KlasUrls
 import com.icecream.kwklasplus.core.legacy.LegacyPreferenceKeys
 import com.icecream.kwklasplus.core.security.SecretValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class AndroidPreferencesSessionStore(
     private val preferences: SharedPreferences,
 ) : LegacySessionSource {
-    override suspend fun load(): Session? {
+    override suspend fun load(): Session? = withContext(Dispatchers.IO) {
         val token = preferences.getString(LegacyPreferenceKeys.KW_SESSION, null)
             ?.takeIf(String::isNotBlank)
-            ?: return null
+            ?: return@withContext null
         val timestamp = preferences.getString(LegacyPreferenceKeys.KW_SESSION_TIMESTAMP, null)
             ?.toLongOrNull()
-            ?: return null
-        return Session(SecretValue.of(token), timestamp)
+            ?: return@withContext null
+        Session(SecretValue.of(token), timestamp)
     }
 
-    override suspend fun removeToken() {
-        if (!preferences.contains(LegacyPreferenceKeys.KW_SESSION)) return
+    override suspend fun removeToken() = withContext(Dispatchers.IO) {
+        if (!preferences.contains(LegacyPreferenceKeys.KW_SESSION)) return@withContext
         check(
             preferences.edit()
                 .remove(LegacyPreferenceKeys.KW_SESSION)
@@ -33,9 +35,11 @@ class AndroidPreferencesSessionTimestampStore(
     private val preferences: SharedPreferences,
 ) : SessionTimestampStore {
     override suspend fun read(): Long? =
-        preferences.getString(LegacyPreferenceKeys.KW_SESSION_TIMESTAMP, null)?.toLongOrNull()
+        withContext(Dispatchers.IO) {
+            preferences.getString(LegacyPreferenceKeys.KW_SESSION_TIMESTAMP, null)?.toLongOrNull()
+        }
 
-    override suspend fun write(value: Long) {
+    override suspend fun write(value: Long) = withContext(Dispatchers.IO) {
         check(
             preferences.edit()
                 .putString(LegacyPreferenceKeys.KW_SESSION_TIMESTAMP, value.toString())
@@ -43,7 +47,7 @@ class AndroidPreferencesSessionTimestampStore(
         )
     }
 
-    override suspend fun clear() {
+    override suspend fun clear() = withContext(Dispatchers.IO) {
         check(preferences.edit().remove(LegacyPreferenceKeys.KW_SESSION_TIMESTAMP).commit())
     }
 }
@@ -51,11 +55,11 @@ class AndroidPreferencesSessionTimestampStore(
 class AndroidWebCookieStore(
     private val cookieManager: CookieManager = CookieManager.getInstance(),
 ) : WebCookieStore {
-    override suspend fun setSessionCookie(token: SecretValue) {
+    override suspend fun setSessionCookie(token: SecretValue) = withContext(Dispatchers.IO) {
         setSessionCookieNow(token)
     }
 
-    override suspend fun clearSessionCookie() {
+    override suspend fun clearSessionCookie() = withContext(Dispatchers.IO) {
         cookieManager.setCookie(KlasUrls.KLAS_BASE, EXPIRED_SESSION_COOKIE)
         cookieManager.flush()
     }

@@ -14,28 +14,38 @@ import java.security.MessageDigest
 import java.time.YearMonth
 
 class AcademicWidgetRuntime(private val context: Context) {
-    private val store = AndroidAcademicWidgetSnapshotStore(context)
+    private val persistence = AcademicWidgetSnapshotPersistence(AndroidAcademicWidgetSnapshotStore(context))
     private val syncMutex = Mutex()
     private val immediateScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val initialized = CompletableDeferred<Unit>()
     private val immediateRefreshLock = Any()
     private val immediateRefreshCallbacks = mutableListOf<() -> Unit>()
     private var immediateRefreshActive = false
     @Volatile
     var calendarLoading: Boolean = false
         private set
-    private var generation = 0L
+    @Volatile private var generation = 0L
+    @Volatile private var snapshotCache: AcademicWidgetSnapshot? = null
     private var identity = identity()
     private val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == null || key == AppPrefs.KW_ID || key == AppPrefs.YEAR_HAKGI) {
-            refreshIdentity()
+            immediateScope.launch {
+                initialized.await()
+                refreshIdentity()
+            }
         }
     }
 
     fun start() {
         context.appPreferences.registerOnSharedPreferenceChangeListener(listener)
         WidgetDisplayRefresh.start(context)
-        refreshIdentity()
-        render()
+        immediateScope.launch {
+            val loaded = persistence.read()
+            snapshotCache = loaded
+            initialized.complete(Unit)
+            refreshIdentity()
+            render()
+        }
         AcademicWidgetScheduler.schedule(context)
     }
 
@@ -46,14 +56,15 @@ class AcademicWidgetRuntime(private val context: Context) {
         return owner to context.appPreferences.getString(AppPrefs.YEAR_HAKGI, "").orEmpty()
     }
 
-    private fun refreshIdentity() {
+    private suspend fun refreshIdentity() {
         val next = identity()
         var changed = next != identity
         if (next != identity) { generation++; identity = next }
-        val old = store.read()
+        val old = snapshotCache
         val updated = AcademicWidgetSnapshotPolicy.forIdentity(old, next.first, next.second)
         if (updated == null) {
-            store.clear()
+            snapshotCache = null
+            persistence.clear()
             WidgetBitmapCache.clear()
             changed = changed || old != null
         } else if (old != updated) {
@@ -65,12 +76,13 @@ class AcademicWidgetRuntime(private val context: Context) {
 
     fun snapshot(): AcademicWidgetSnapshot? {
         val key = identity()
-        return store.read()?.takeIf { key.first.isNotBlank() && it.owner == key.first && it.term == key.second }
+        return snapshotCache?.takeIf { key.first.isNotBlank() && it.owner == key.first && it.term == key.second }
     }
 
-    fun recordTimetable(term: String, entries: List<TimetableEntry>) {
+    suspend fun recordTimetable(term: String, entries: List<TimetableEntry>) = withContext(Dispatchers.Main.immediate) {
+        initialized.await()
         refreshIdentity()
-        if (identity.first.isBlank() || identity.second != term) return
+        if (identity.first.isBlank() || identity.second != term) return@withContext
         val old = snapshot() ?: AcademicWidgetSnapshot(identity.first, term)
         val sorted = entries.distinct().sortedWith(compareBy({ it.day }, { AcademicWidgetPolicy.minutes(it.startTime) }, { it.subj }))
         val saved = persist(old.copy(timetable = sorted, timetableFetchedAt = System.currentTimeMillis()))
@@ -109,6 +121,7 @@ class AcademicWidgetRuntime(private val context: Context) {
     }
 
     suspend fun syncCalendar(): Boolean = withContext(Dispatchers.Main.immediate) {
+        initialized.await()
         syncMutex.withLock {
             if (!AcademicWidgets.hasCalendar(context)) return@withLock false
             refreshIdentity()
@@ -150,20 +163,32 @@ class AcademicWidgetRuntime(private val context: Context) {
         }
     }
 
-    private fun markStatus(status: WidgetSyncStatus) {
+    private suspend fun markStatus(status: WidgetSyncStatus) {
         val old = snapshot() ?: AcademicWidgetSnapshot(identity.first, identity.second)
         persist(old.copy(calendarStatus = status))
         render()
     }
 
-    fun clear() {
+    suspend fun clear() = withContext(Dispatchers.Main.immediate) {
+        initialized.await()
         generation++
-        store.clear()
+        snapshotCache = null
+        persistence.clear()
         WidgetBitmapCache.clear()
         render()
     }
 
-    private fun persist(snapshot: AcademicWidgetSnapshot): Boolean = runCatching { store.write(snapshot) }.isSuccess
+    private suspend fun persist(snapshot: AcademicWidgetSnapshot): Boolean {
+        val version = generation
+        val saved = runCatching {
+            persistence.writeIf(snapshot) {
+                val current = identity()
+                version == generation && snapshot.owner == current.first && snapshot.term == current.second
+            }
+        }.getOrDefault(false)
+        if (saved && version == generation) snapshotCache = snapshot
+        return saved
+    }
 
     fun render() {
         AcademicWidgets.renderAll(context)

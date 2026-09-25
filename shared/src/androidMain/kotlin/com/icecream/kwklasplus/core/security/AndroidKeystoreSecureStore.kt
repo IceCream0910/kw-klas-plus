@@ -11,6 +11,8 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class AndroidKeystoreSecureStore(
     context: Context,
@@ -21,7 +23,7 @@ class AndroidKeystoreSecureStore(
         Context.MODE_PRIVATE,
     )
 
-    override suspend fun read(key: SecureKey): SecretValue? = readNow(key)
+    override suspend fun read(key: SecureKey): SecretValue? = withContext(Dispatchers.IO) { readNow(key) }
 
     fun readNow(key: SecureKey): SecretValue? {
         val encoded = preferences.getString(key.storageKey, null) ?: return null
@@ -39,7 +41,9 @@ class AndroidKeystoreSecureStore(
         return SecretValue.of(plaintext.decodeToString())
     }
 
-    override suspend fun write(key: SecureKey, value: SecretValue) = writeNow(key, value)
+    override suspend fun write(key: SecureKey, value: SecretValue) = withContext(Dispatchers.IO) {
+        writeNow(key, value)
+    }
 
     fun writeNow(key: SecureKey, value: SecretValue) {
         val cipher = Cipher.getInstance(TRANSFORMATION)
@@ -54,7 +58,7 @@ class AndroidKeystoreSecureStore(
         check(preferences.edit().putString(key.storageKey, encoded).commit())
     }
 
-    override suspend fun remove(key: SecureKey) = removeNow(key)
+    override suspend fun remove(key: SecureKey) = withContext(Dispatchers.IO) { removeNow(key) }
 
     fun removeNow(key: SecureKey) {
         check(preferences.edit().remove(key.storageKey).commit())
