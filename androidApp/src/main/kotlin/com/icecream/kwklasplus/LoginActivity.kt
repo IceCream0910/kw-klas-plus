@@ -147,8 +147,7 @@ class LoginActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         password = ""
-        onboardingWebView.stopLoading()
-        onboardingWebView.destroy()
+        if (::onboardingWebView.isInitialized) onboardingWebView.destroyOwnedWebView()
         super.onDestroy()
     }
 

@@ -67,6 +67,22 @@ class SessionCoordinatorTest {
     }
 
     @Test
+    fun backgroundReauthenticationStaysBlockedAfterLogoutUntilForegroundLogin() = runSuspend {
+        val store = FakeSessionStore(Session(token, 500L))
+        val cookies = FakeCookieStore(token)
+        val coordinator = SessionCoordinator(store, cookies, Clock { 1_000L })
+
+        assertEquals(SessionResult.Expired, coordinator.expire())
+        val afterLogout = coordinator.checkpoint()
+        assertEquals(SessionResult.Expired, coordinator.observeIfCurrent(token, afterLogout))
+        assertNull(store.session)
+        assertNull(cookies.token)
+
+        assertIs<SessionResult.Active>(coordinator.observe(token))
+        assertEquals(token, store.session?.token)
+    }
+
+    @Test
     fun secretNeverAppearsInStringRepresentation() {
         assertEquals("[REDACTED]", token.toString())
         assertEquals("[REDACTED]", Session(token, 1L).token.toString())

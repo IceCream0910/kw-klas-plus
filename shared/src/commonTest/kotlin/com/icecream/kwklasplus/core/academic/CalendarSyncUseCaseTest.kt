@@ -5,6 +5,8 @@ import com.icecream.kwklasplus.core.network.*
 import com.icecream.kwklasplus.core.security.SecretValue
 import com.icecream.kwklasplus.core.session.*
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonArray
 import kotlin.test.*
@@ -32,11 +34,12 @@ class CalendarSyncUseCaseTest {
     private fun useCase(info: (SecretValue) -> SessionInfoResult = { active },
                         authResult: WebAuthResult = WebAuthResult.SessionObserved(SecretValue.of("new")),
                         fetch: (SecretValue) -> KlasAuthenticatedResult = { success },
-                        sessionCoordinator: SessionCoordinator = coordinator()) = CalendarSyncUseCase(
+                        sessionCoordinator: SessionCoordinator = coordinator(),
+                        authDriver: WebAuthDriver = WebAuthDriver { authCalls++; authResult }) = CalendarSyncUseCase(
         object : SessionLeaseGateway {
             override suspend fun fetchInfo(session: SecretValue, userAgent: KlasUserAgent) = info(session)
             override suspend fun extend(session: SecretValue, userAgent: KlasUserAgent): SessionExtensionResult = error("No foreground lease mutation")
-        }, WebAuthDriver { authCalls++; authResult },
+        }, authDriver,
         CalendarRepository(KlasAuthenticatedTransport { _, token, _, _ -> fetchCalls++; fetch(token) }, KlasCalendarEventNormalizer()),
         sessionCoordinator,
     )
@@ -113,6 +116,42 @@ class CalendarSyncUseCaseTest {
         assertEquals(CalendarSyncResult.Retry, sync(case))
         assertEquals(1, authCalls)
         assertEquals(1, fetchCalls)
+    }
+
+    @Test fun logoutDuringWidgetReauthenticationCannotRestoreSessionOrCookie() = runBlocking {
+        var stored: Session? = Session(SecretValue.of("old"), 0L)
+        var cookie: SecretValue? = stored?.token
+        val sessionCoordinator = SessionCoordinator(
+            object : SessionStore {
+                override suspend fun load() = stored
+                override suspend fun save(session: Session) { stored = session }
+                override suspend fun clear() { stored = null }
+            },
+            object : WebCookieStore {
+                override suspend fun setSessionCookie(token: SecretValue) { cookie = token }
+                override suspend fun clearSessionCookie() { cookie = null }
+            }, Clock { 1_000L },
+        )
+        val authStarted = CompletableDeferred<Unit>()
+        val completeAuth = CompletableDeferred<Unit>()
+        val case = useCase(
+            sessionCoordinator = sessionCoordinator,
+            authDriver = WebAuthDriver {
+                authStarted.complete(Unit)
+                completeAuth.await()
+                WebAuthResult.SessionObserved(SecretValue.of("new"))
+            },
+        )
+
+        val sync = async { sync(case, null) }
+        authStarted.await()
+        assertEquals(SessionResult.Expired, sessionCoordinator.expire())
+        completeAuth.complete(Unit)
+
+        assertEquals(CalendarSyncResult.NeedsLogin, sync.await())
+        assertNull(stored)
+        assertNull(cookie)
+        assertEquals(0, fetchCalls)
     }
 
     @Test fun apiExpiryBetweenValidationAndFetchRetriesOnlyOnce() = runBlocking {

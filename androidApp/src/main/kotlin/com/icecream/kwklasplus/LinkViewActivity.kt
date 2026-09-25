@@ -248,6 +248,7 @@ class LinkViewActivity : AppCompatActivity() {
         webSurface = null
         bridgeMessageAdapter?.dispose()
         bridgeMessageAdapter = null
+        if (::webView.isInitialized) webView.destroyOwnedWebView()
         super.onDestroy()
     }
 }

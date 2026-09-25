@@ -273,6 +273,7 @@ class TaskViewActivity : AppCompatActivity() {
     override fun onDestroy() {
         webSurface?.dispose()
         webSurface = null
+        if (::webView.isInitialized) webView.destroyOwnedWebView()
         super.onDestroy()
     }
 
