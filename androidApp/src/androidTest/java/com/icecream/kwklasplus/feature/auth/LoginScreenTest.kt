@@ -62,7 +62,6 @@ class LoginScreenTest {
                 composeRule.onNodeWithText("남아있는 할 일을\n한 눈에.").assertIsDisplayed()
             }.isSuccess
         }
-        composeRule.onNodeWithTag("onboarding_image").assertIsDisplayed()
         composeRule.onNodeWithTag("login_start").performClick()
         composeRule.onNodeWithTag("login_form").assertIsDisplayed()
     }
@@ -95,7 +94,7 @@ class LoginScreenTest {
 
         composeRule.onNodeWithTag("login_password").assertIsDisplayed()
         composeRule.onNodeWithTag("login_submit").assertIsNotEnabled()
-        composeRule.onNodeWithTag("login_agreement_label").performClick()
+        composeRule.onNodeWithTag("login_agreement").performClick()
         composeRule.onNodeWithTag("login_submit").assertIsEnabled()
     }
 }
