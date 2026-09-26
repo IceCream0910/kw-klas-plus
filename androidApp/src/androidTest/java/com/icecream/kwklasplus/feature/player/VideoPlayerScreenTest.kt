@@ -7,6 +7,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
 import org.junit.Assert.assertTrue
@@ -75,5 +76,27 @@ class VideoPlayerScreenTest {
         composeRule.onNodeWithTag("video_web_container").assertIsDisplayed()
         composeRule.onNodeWithTag("video_play_pause").performClick()
         assertTrue(clicked)
+    }
+
+    @Test
+    fun muteIconReflectsPlayerState() {
+        val muted = mutableStateOf(false)
+        composeRule.setContent {
+            val context = LocalContext.current
+            val container = remember { FrameLayout(context) }
+            KlasPlusTheme {
+                VideoPlayerScreen(
+                    webContainer = container,
+                    state = VideoPlayerUiState(isMuted = muted.value),
+                    onSeek = {}, onPlayPauseClick = {}, onBackwardClick = {},
+                    onForwardClick = {}, onMuteClick = { muted.value = !muted.value },
+                    onFullscreenClick = {}, onPictureInPictureClick = {},
+                    onSpeedClick = {}, onCloseClick = {}, onLectureTimeClick = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription("음소거").performClick()
+        composeRule.onNodeWithContentDescription("소리 켜기").assertExists()
     }
 }

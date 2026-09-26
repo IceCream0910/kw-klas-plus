@@ -252,7 +252,7 @@ object PlayerWebScripts {
             "window.__klasPlusPlayerStateInterval=setInterval(function(){\$('#content-metadata').remove();" +
             "var player=(window.bcPlayController&&bcPlayController.getPlayController)?bcPlayController.getPlayController():null;" +
             "var v=document.querySelector('video');" +
-            "var isMuted=v?v.muted:(player?player._isMuted===true:false);" +
+            "var isMuted=player&&typeof player._isMuted==='boolean'?player._isMuted:(v?v.muted:false);" +
             "var isPlaying=player&&player._isPlaying!==undefined?player._isPlaying:(v?!v.paused:false);" +
             "var currTime=player&&player._currTime!==undefined?player._currTime:(v?v.currentTime:0);" +
             "var duration=player&&player._duration!==undefined?player._duration:(v?v.duration:0);" +
