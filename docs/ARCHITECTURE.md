@@ -41,6 +41,14 @@ iOS 시뮬레이터에서 인증을 검증할 때는 앱의 Keychain Access Grou
 | 서버가 세션 만료를 명시함 | 세션과 cookie를 지운 뒤 재인증 경로로 돌아갑니다. 네트워크 오류·timeout·서버 오류만으로는 비밀을 지우지 않아요. |
 | 로그아웃·계정 변경 | 세션·cookie·계정 자격증명을 정책대로 정리하되 기기 잠금 설정은 유지합니다. 로그아웃 전 시작한 위젯 재인증은 완료되어도 세션·cookie를 다시 만들지 못합니다. |
 
+신규 수동 로그인은 학번 → 비밀번호 → 공통 HTTP KLAS 인증 → 선택적 중앙도서관 출입증 → 개인정보 처리방침·이용약관 동의 → 완료 순서로 진행합니다. 인증 실패는 비밀번호 단계로 돌아가며, 인증 성공 후에는 설정이 완료되기 전까지 홈을 열지 않습니다. Android 일반 설정 키 `login_funnel_status`는 `not_started`, `authenticating`, `setup`, `complete` 중 하나로 저장합니다. 앱 프로세스 시작 시 이 키가 없는 기존 설치는 `kwID` 계정 식별자가 있으면 한 번만 `complete`로, 없으면 `not_started`로 이전합니다. 이전 기록에 실패해 키가 여전히 없더라도 홈과 QR 위젯은 차단합니다. `complete`만 홈·위젯을 허용하고, `authenticating` 또는 `setup` 상태에서 앱이 재시작되면 남은 퍼널을 표시합니다. 실제 KLAS 인증·세션 관찰은 기존 `LoginUseCase`와 `SessionCoordinator`를 사용합니다. 자세한 결정과 이용약관 URL은 [ADR-009](adr/ADR-009-login-funnel.md)를 따릅니다.
+
+출입증 전화번호는 기존 `library_phone` 값이 있으면 재사용합니다. Android는 새 번호를 직접 입력하며 전화번호 읽기 권한을 요청하지 않습니다. iOS는 회선 번호를 직접 읽는 공개 API가 없어 전화번호 자동 완성과 직접 입력을 사용합니다. 사용자가 출입증 저장을 선택할 때에만 기존 `library_phone` 키에 기록합니다.
+
+전화번호 입력창은 숫자 이외의 문자를 즉시 제거합니다. 기존 저장값에 하이픈이 포함돼 있어도 공통 `LibraryHttpGateway`가 `tel_no` 요청 값을 숫자로 정규화하므로 도서관 서버에는 하이픈을 전송하지 않습니다.
+
+위협: 신규 설치에서 온보딩을 시작하지 않은 상태, 자격증명 저장과 인증 사이, 또는 인증과 동의 사이에 앱이 종료되면 준비 중 상태의 자격증명·세션만으로 홈에 진입해서는 안 됩니다. 양 플랫폼은 `login_funnel_status`를 인증 시작 전에 기록하고 완료 시에만 `complete`로 바꿉니다. iOS는 상태 기록과 재조회가 성공해야 다음 단계로 이동하며, 실패하면 홈 진입을 차단합니다. 상태가 없는 기존 iOS 설치는 유효한 세션을 확인한 뒤 `complete` 기록에 성공해야 홈으로 이동합니다. 이 상태에는 비밀을 저장하지 않으며, 비밀번호는 플랫폼 보안 저장소에만 남깁니다. Android는 `complete` 이외 상태에서 학사 위젯 데이터를 표시·갱신하지 않고, 도서관 QR 위젯과 `HomeActivity` 진입을 퍼널로 돌려보냅니다. Android `LoginFunnelStatusTest`·`LoginFunnelMigrationTest`·`AcademicWidgetsTest`와 iOS 인증 컨트롤러 테스트에서 재시작·위젯 경로를 검증합니다.
+
 정확한 상태 전이는 [`AuthStateMachine`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/auth/AuthStateMachine.kt), HTTP 순서는 [`KlasHttpAuthDriver`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/auth/KlasHttpAuthDriver.kt), 저장소·cookie 동기화는 [`SessionCoordinator`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/session/SessionCoordinator.kt)가 기준입니다.
 
 ### 보존할 저장 키
@@ -54,6 +62,7 @@ iOS 시뮬레이터에서 인증을 검증할 때는 앱의 Keychain Access Grou
 | 일반 설정 | `appTheme`, `yearHakgi`, `yearHakgiList` |
 | 도서관 | `library_stdNumber`, `library_phone`, `library_password`, `library_secure_prefs/secret_*`, `library_secure_prefs/authKey_*` |
 | 앱 잠금 | `a_l_e`, `b_m_e`, `p_w_h`, `p_w_s` |
+| 신규 로그인 퍼널 | `login_funnel_status`(일반 설정) |
 
 `kwPWD`·SESSION 토큰·도서관 비밀번호/키·잠금 hash/salt는 비밀로, `kwSESSION_timestamp`와 일반 설정은 분리해 저장합니다. 기존 Android 버전의 일반 sharedPreference에 저장된 `kwSESSION` 값은 공통 세션 API가 업그레이드 때 한 번 읽어 보안 저장소에 기록하고 재조회로 검증한 뒤 삭제합니다. 이때 `kwSESSION_timestamp`는 보안 세션에서도 쓰므로 유지합니다. 이전·검증에 실패하면 원문을 남겨 다음 시작에서 재시도하고, 보안 저장소 읽기에 실패하면 평문 fallback을 사용하지 않습니다. 새 세션은 일반 preferences에 미러링하지 않으며 `HomeActivity`의 네 읽기 경로도 공통 세션 API를 사용합니다. 로그아웃은 보안 세션과 잔존 `kwSESSION`을 모두 지웁니다. 롤백 시 구버전 앱이 새로 발급된 세션을 일반 preferences에서 읽을 수 없으므로 재로그인이 필요할 수 있습니다. 기존 키 이름은 [`LegacyPreferenceKeys`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/legacy/LegacyContracts.kt)에 있습니다.
 
@@ -111,3 +120,7 @@ QR 출석, 앱 잠금, PIP, 위젯, 파일·외부 URL은 공통 요청/결과�
 | 학사 시간표·캘린더 위젯 | Android 구현은 [ADR-004](adr/ADR-004-android-academic-widgets.md)를 따릅니다. iOS WidgetKit 표시·딥링크는 [ADR-005](adr/ADR-005-ios-academic-widgets.md), iOS 17 캘린더 새로고침은 [ADR-006](adr/ADR-006-ios-widget-interactive-refresh.md)를 따릅니다. iOS 캘린더 새로고침은 SESSION 원문을 App Group에 두지 않고 Keychain Access Group의 SESSION·암호화 비밀번호만 확장과 공유합니다. |
 
 Android 네이티브 화면은 compact(<600dp), medium(600~839dp), expanded(≥840dp)로 나눕니다. WebView 내부 레이아웃은 웹 앱이 맡아요. iOS에서는 safe area·키보드·Dynamic Type·회전 때문에 WKWebView holder를 새로 만들지 않도록 주의해 주세요.
+
+## 최초 온보딩
+
+저장된 계정이 없는 신규 설치의 온보딩은 Android Compose와 iOS SwiftUI에서 로컬 데이터로 바로 그립니다. 두 플랫폼은 Android의 다섯 페이지 문구와 순서를 사용합니다. 이미지는 문구 바로 위에 하단 정렬하고, 각 페이지를 5초마다 자동으로 넘깁니다. 두 플랫폼은 할 일·메뉴·캘린더·AI 페이지에 라이트/다크 이미지를 사용하며 첫 페이지는 기존 더미 이미지를 유지합니다. 가로 스와이프로 페이지를 이동하고 모든 페이지의 우측 `로그인` 버튼은 기존 로그인 양식으로 이동합니다. 기존 웹 온보딩 파일과 WebView 브리지 계약은 변경하지 않습니다. 이 전환의 기준 Native 커밋은 `3c3590110910ff77be8a2e9ff0c739e53cbb674b`입니다. 되돌릴 때에는 이 변경을 되돌려 각 플랫폼의 이전 WebView 온보딩 경로를 복원할 수 있습니다. [ADR-008](adr/ADR-008-native-onboarding.md)을 따릅니다.

@@ -5,10 +5,16 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import androidx.fragment.app.DialogFragment
 import com.icecream.kwklasplus.modal.LibraryQRModal
+import com.icecream.kwklasplus.feature.auth.LoginFunnelStatus
 
 class LibraryQRWidgetActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (LoginFunnelStatus.blocksHome(appPreferences.getString(LoginFunnelStatus.KEY, null))) {
+            startActivity(Intent(this, LoginActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+            finish()
+            return
+        }
         
         val sharedPreferences = appPreferences
         val stdNumber = sharedPreferences.getString(AppPrefs.LIBRARY_STD_NUMBER, null)

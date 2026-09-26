@@ -39,7 +39,7 @@ class LibraryQRSettingsBottomSheetDialog : KlasBottomSheetDialogFragment() {
         studentNumber = preferences.getString(AppPrefs.LIBRARY_STD_NUMBER, "")
             ?.takeIf(String::isNotEmpty)
             ?: preferences.getString(AppPrefs.KW_ID, "").orEmpty()
-        phone = preferences.getString(AppPrefs.LIBRARY_PHONE, "").orEmpty()
+        phone = preferences.getString(AppPrefs.LIBRARY_PHONE, "").orEmpty().filter { it in '0'..'9' }
         password = requireActivity().getLibraryPassword().orEmpty()
     }
 
@@ -57,7 +57,7 @@ class LibraryQRSettingsBottomSheetDialog : KlasBottomSheetDialogFragment() {
                         if (value.all(Char::isDigit)) studentNumber = value
                     },
                     onPasswordChange = { password = it },
-                    onPhoneChange = { phone = it },
+                    onPhoneChange = { value -> phone = value.filter { it in '0'..'9' } },
                     onSaveClick = ::save,
                 )
             }
