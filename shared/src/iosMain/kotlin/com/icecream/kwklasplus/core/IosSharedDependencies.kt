@@ -131,6 +131,11 @@ class IosSharedDependencies(
         defaults.synchronize()
     }
 
+    fun writeStringPreferenceVerified(key: String, value: String): Boolean {
+        defaults.setObject(value, key)
+        return defaults.synchronize() && defaults.stringForKey(key) == value
+    }
+
     val academicWidgetFlags by lazy {
         IosAcademicWidgetSharedFlags(
             when {

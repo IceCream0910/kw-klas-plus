@@ -47,7 +47,7 @@ iOS 시뮬레이터에서 인증을 검증할 때는 앱의 Keychain Access Grou
 
 전화번호 입력창은 숫자 이외의 문자를 즉시 제거합니다. 기존 저장값에 하이픈이 포함돼 있어도 공통 `LibraryHttpGateway`가 `tel_no` 요청 값을 숫자로 정규화하므로 도서관 서버에는 하이픈을 전송하지 않습니다.
 
-위협: 신규 설치에서 온보딩을 시작하지 않은 상태, 자격증명 저장과 인증 사이, 또는 인증과 동의 사이에 앱이 종료되면 준비 중 상태의 자격증명·세션만으로 홈에 진입해서는 안 됩니다. 양 플랫폼은 `login_funnel_status`를 인증 시작 전에 기록하고 완료 시에만 `complete`로 바꿉니다. 이 상태에는 비밀을 저장하지 않으며, 비밀번호는 플랫폼 보안 저장소에만 남깁니다. Android는 `complete` 이외 상태에서 학사 위젯 데이터를 표시·갱신하지 않고, 도서관 QR 위젯과 `HomeActivity` 진입을 퍼널로 돌려보냅니다. Android `LoginFunnelStatusTest`·`LoginFunnelMigrationTest`·`AcademicWidgetsTest`와 iOS 인증 컨트롤러 테스트에서 재시작·위젯 경로를 검증합니다.
+위협: 신규 설치에서 온보딩을 시작하지 않은 상태, 자격증명 저장과 인증 사이, 또는 인증과 동의 사이에 앱이 종료되면 준비 중 상태의 자격증명·세션만으로 홈에 진입해서는 안 됩니다. 양 플랫폼은 `login_funnel_status`를 인증 시작 전에 기록하고 완료 시에만 `complete`로 바꿉니다. iOS는 상태 기록과 재조회가 성공해야 다음 단계로 이동하며, 실패하면 홈 진입을 차단합니다. 상태가 없는 기존 iOS 설치는 유효한 세션을 확인한 뒤 `complete` 기록에 성공해야 홈으로 이동합니다. 이 상태에는 비밀을 저장하지 않으며, 비밀번호는 플랫폼 보안 저장소에만 남깁니다. Android는 `complete` 이외 상태에서 학사 위젯 데이터를 표시·갱신하지 않고, 도서관 QR 위젯과 `HomeActivity` 진입을 퍼널로 돌려보냅니다. Android `LoginFunnelStatusTest`·`LoginFunnelMigrationTest`·`AcademicWidgetsTest`와 iOS 인증 컨트롤러 테스트에서 재시작·위젯 경로를 검증합니다.
 
 정확한 상태 전이는 [`AuthStateMachine`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/auth/AuthStateMachine.kt), HTTP 순서는 [`KlasHttpAuthDriver`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/auth/KlasHttpAuthDriver.kt), 저장소·cookie 동기화는 [`SessionCoordinator`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/session/SessionCoordinator.kt)가 기준입니다.
 

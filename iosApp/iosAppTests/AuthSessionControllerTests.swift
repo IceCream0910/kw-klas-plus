@@ -62,6 +62,93 @@ final class AuthSessionControllerTests: XCTestCase {
         XCTAssertEqual(controller.phase, .checkingNetwork)
     }
 
+    func testFailedAuthenticatingStatusWriteKeepsLoginBeforeCredentialPreparation() {
+        let store = FakeFunnelStatusStore(rejectedValues: ["authenticating"])
+        let controller = makeController(
+            networkPath: FakeNetworkPathChecker(satisfied: true),
+            funnelStatusStore: store
+        )
+        controller.loginState.studentId = "2020123456"
+        controller.loginState.password = "secret"
+        controller.loginState.step = .password
+
+        controller.submitLogin()
+
+        XCTAssertEqual(controller.phase, .checkingNetwork)
+        XCTAssertEqual(controller.loginState.step, .password)
+        XCTAssertEqual(controller.loginState.password, "secret")
+        XCTAssertNotNil(controller.loginState.error)
+        XCTAssertNil(store.read())
+    }
+
+    func testFailedSetupStatusWriteBlocksHome() {
+        let store = FakeFunnelStatusStore(value: "authenticating", rejectedValues: ["setup"])
+        let controller = makeController(
+            networkPath: FakeNetworkPathChecker(satisfied: true),
+            funnelStatusStore: store
+        )
+
+        controller.enterAuthenticated(initialDelayMillis: 0)
+
+        XCTAssertEqual(controller.phase, .blocked(.storageFailure))
+        XCTAssertEqual(store.read(), "authenticating")
+    }
+
+    func testFailedCompleteStatusWriteKeepsSetupScreen() {
+        let store = FakeFunnelStatusStore(value: "authenticating", rejectedValues: ["complete"])
+        let controller = makeController(
+            networkPath: FakeNetworkPathChecker(satisfied: true),
+            funnelStatusStore: store
+        )
+        controller.enterAuthenticated(initialDelayMillis: 0)
+        XCTAssertEqual(controller.phase, .setup)
+        controller.loginState.step = .complete
+        controller.loginState.privacyAccepted = true
+        controller.loginState.termsAccepted = true
+
+        controller.finishFunnel()
+
+        XCTAssertEqual(controller.phase, .setup)
+        XCTAssertEqual(store.read(), "setup")
+        XCTAssertNotNil(controller.toastMessage)
+    }
+
+    func testFailedLegacyMigrationStatusWriteBlocksHome() {
+        let store = FakeFunnelStatusStore(rejectedValues: ["complete"])
+        let controller = makeController(
+            networkPath: FakeNetworkPathChecker(satisfied: true),
+            funnelStatusStore: store
+        )
+
+        controller.enterAuthenticated(initialDelayMillis: 0)
+
+        XCTAssertEqual(controller.phase, .blocked(.storageFailure))
+    }
+
+    func testPersistedStatusAdvancesFromAuthenticationThroughCompletion() {
+        let suite = "com.icecream.kwklasplus.test.auth.status.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set("authenticating", forKey: "login_funnel_status")
+        let controller = AuthSessionController(
+            authRuntime: IosAuthRuntime.companion.create(defaults: defaults),
+            networkPath: FakeNetworkPathChecker(satisfied: true)
+        )
+
+        controller.enterAuthenticated(initialDelayMillis: 0)
+        XCTAssertEqual(controller.phase, .setup)
+        XCTAssertEqual(defaults.string(forKey: "login_funnel_status"), "setup")
+
+        controller.loginState.step = .complete
+        controller.loginState.privacyAccepted = true
+        controller.loginState.termsAccepted = true
+        controller.finishFunnel()
+
+        XCTAssertEqual(controller.phase, .authenticated)
+        XCTAssertEqual(defaults.string(forKey: "login_funnel_status"), "complete")
+    }
+
     func testStartReturnsImmediatelyWhileNetworkProbeIsInFlight() {
         let checker = FakeNetworkPathChecker(satisfied: false, delayNanos: 200_000_000)
         let controller = makeController(networkPath: checker)
@@ -156,13 +243,17 @@ final class AuthSessionControllerTests: XCTestCase {
         defaults.removePersistentDomain(forName: suite)
     }
 
-    private func makeController(networkPath: NetworkPathChecking) -> AuthSessionController {
+    private func makeController(
+        networkPath: NetworkPathChecking,
+        funnelStatusStore: FunnelStatusStoring? = nil
+    ) -> AuthSessionController {
         let suite = "com.icecream.kwklasplus.test.auth.network.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defaults.removePersistentDomain(forName: suite)
         return AuthSessionController(
             authRuntime: IosAuthRuntime.companion.create(defaults: defaults),
-            networkPath: networkPath
+            networkPath: networkPath,
+            funnelStatusStore: funnelStatusStore
         )
     }
 
@@ -178,6 +269,24 @@ final class AuthSessionControllerTests: XCTestCase {
             try? await Task.sleep(nanoseconds: 20_000_000)
         }
         XCTAssertTrue(predicate(), "waitUntil timed out", file: file, line: line)
+    }
+}
+
+private final class FakeFunnelStatusStore: FunnelStatusStoring {
+    private var value: String?
+    private let rejectedValues: Set<String>
+
+    init(value: String? = nil, rejectedValues: Set<String> = []) {
+        self.value = value
+        self.rejectedValues = rejectedValues
+    }
+
+    func read() -> String? { value }
+
+    func write(_ value: String) -> Bool {
+        guard !rejectedValues.contains(value) else { return false }
+        self.value = value
+        return read() == value
     }
 }
 

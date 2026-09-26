@@ -34,24 +34,33 @@ final class IosAuthSecurityTests: XCTestCase {
         waitForExpectations(timeout: 5)
     }
 
-    func testSessionTokenIsNotMirroredToUserDefaults() {
+    func testSessionTokenIsNotMirroredToUserDefaults() async {
         let suite = "com.icecream.kwklasplus.test.session.security.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defaults.removePersistentDomain(forName: suite)
 
-        let runtime = IosAuthRuntime.companion.create(defaults: defaults)
-        let expectation = expectation(description: "observe")
+        let keychain = IosKeychainSecureStore(
+            service: "com.icecream.kwklasplus.test.session.keychain.\(UUID().uuidString)"
+        )
+        let runtime = IosAuthRuntime.companion.createForTests(defaults: defaults, secureStore: keychain)
+        let observed = expectation(description: "observe")
         runtime.observeSessionToken(token: "session-for-security") { result in
             XCTAssertTrue(result is SessionResultActive)
-            expectation.fulfill()
+            observed.fulfill()
         }
-        waitForExpectations(timeout: 5)
+        await fulfillment(of: [observed], timeout: 5)
 
         XCTAssertNil(defaults.string(forKey: "kwSESSION"))
         XCTAssertNotNil(defaults.string(forKey: "kwSESSION_timestamp"))
         XCTAssertNil(defaults.string(forKey: "kwPWD"))
         assertUserDefaults(defaults, doesNotContain: "session-for-security")
 
+        let removed = expectation(description: "remove session")
+        keychain.remove(key: SecureKey.sessionToken) { error in
+            XCTAssertNil(error)
+            removed.fulfill()
+        }
+        await fulfillment(of: [removed], timeout: 5)
         defaults.removePersistentDomain(forName: suite)
     }
 

@@ -19,6 +19,22 @@ enum AuthBlockReason: Equatable {
     case securityActionRequired
     case invalidCredentials(String?)
     case loginFailed
+    case storageFailure
+}
+
+protocol FunnelStatusStoring {
+    func read() -> String?
+    func write(_ value: String) -> Bool
+}
+
+private struct UserDefaultsFunnelStatusStore: FunnelStatusStoring {
+    let dependencies: IosSharedDependencies
+    private let key = "login_funnel_status"
+
+    func read() -> String? { dependencies.stringPreference(key: key) }
+    func write(_ value: String) -> Bool {
+        dependencies.writeStringPreferenceVerified(key: key, value: value)
+    }
 }
 
 @MainActor
@@ -38,6 +54,7 @@ final class AuthSessionController: ObservableObject {
 
     let authRuntime: IosAuthRuntime
     private let networkPath: NetworkPathChecking
+    private let funnelStatusStore: FunnelStatusStoring
     private let loginTokenEncryptor = IosRsaLoginTokenEncryptor()
     private let platformUserAgent = HomeCoordinator.platformUserAgent()
     private var startTask: Task<Void, Never>?
@@ -45,14 +62,15 @@ final class AuthSessionController: ObservableObject {
     private var toastTask: Task<Void, Never>?
     private var activeCredential: StoredCredential?
     private var isAppActive = false
-    private let funnelStatusKey = "login_funnel_status"
 
     init(
         authRuntime: IosAuthRuntime = IosAuthRuntime.companion.createDefault(),
-        networkPath: NetworkPathChecking = SystemNetworkPathChecker()
+        networkPath: NetworkPathChecking = SystemNetworkPathChecker(),
+        funnelStatusStore: FunnelStatusStoring? = nil
     ) {
         self.authRuntime = authRuntime
         self.networkPath = networkPath
+        self.funnelStatusStore = funnelStatusStore ?? UserDefaultsFunnelStatusStore(dependencies: authRuntime.dependencies)
     }
 
     func handleHomeLogout() {
@@ -111,7 +129,10 @@ final class AuthSessionController: ObservableObject {
             loginState.error = "학번을 확인해 주세요."
             return
         }
-        authRuntime.dependencies.writeStringPreference(key: funnelStatusKey, value: "authenticating")
+        guard funnelStatusStore.write("authenticating") else {
+            loginState.error = "로그인 상태를 저장하지 못했습니다. 다시 시도해 주세요."
+            return
+        }
         loginState.step = .authenticating
         loginState.error = nil
         let accountId = loginState.studentId
@@ -197,7 +218,10 @@ final class AuthSessionController: ObservableObject {
     func finishFunnel() {
         guard phase == .setup, loginState.step == .complete,
               loginState.privacyAccepted, loginState.termsAccepted else { return }
-        authRuntime.dependencies.writeStringPreference(key: funnelStatusKey, value: "complete")
+        guard funnelStatusStore.write("complete") else {
+            showToast("설정 완료 상태를 저장하지 못했습니다. 다시 시도해 주세요.")
+            return
+        }
         loginState.libraryPassword = ""
         phase = .authenticated
         if isAppActive { startSessionKeepAlive(initialDelayMillis: 0) }
@@ -284,7 +308,7 @@ final class AuthSessionController: ObservableObject {
     }
 
     private func handleLoadedCredential(_ credential: StoredCredential?) {
-        if authRuntime.dependencies.stringPreference(key: funnelStatusKey) == "authenticating" {
+        if funnelStatusStore.read() == "authenticating" {
             loadAccountIdForLogin()
             return
         }
@@ -362,7 +386,7 @@ final class AuthSessionController: ObservableObject {
             enterAuthenticated(initialDelayMillis: 0)
             return
         }
-        if authRuntime.dependencies.stringPreference(key: funnelStatusKey) == "authenticating" {
+        if funnelStatusStore.read() == "authenticating" {
             loginState.step = .password
             loginState.password = ""
             loginState.error = result is LoginResultUserActionRequired
@@ -408,11 +432,16 @@ final class AuthSessionController: ObservableObject {
         }
     }
 
-    private func enterAuthenticated(initialDelayMillis: Int64) {
-        if authRuntime.dependencies.stringPreference(key: funnelStatusKey) == "authenticating" {
-            authRuntime.dependencies.writeStringPreference(key: funnelStatusKey, value: "setup")
+    func enterAuthenticated(initialDelayMillis: Int64) {
+        var status = funnelStatusStore.read()
+        if status == "authenticating" {
+            guard funnelStatusStore.write("setup") else {
+                phase = .blocked(.storageFailure)
+                return
+            }
+            status = funnelStatusStore.read()
         }
-        if authRuntime.dependencies.stringPreference(key: funnelStatusKey) == "setup" {
+        if status == "setup" {
             loginState.step = .library
             loginState.onboardingVisible = false
             loginState.password = ""
@@ -422,6 +451,17 @@ final class AuthSessionController: ObservableObject {
             }
             phase = .setup
             if isAppActive { startSessionKeepAlive(initialDelayMillis: initialDelayMillis) }
+            return
+        }
+        if status == nil {
+            guard funnelStatusStore.write("complete") else {
+                phase = .blocked(.storageFailure)
+                return
+            }
+            status = funnelStatusStore.read()
+        }
+        guard status == "complete" else {
+            phase = .blocked(.storageFailure)
             return
         }
         phase = .authenticated
@@ -456,7 +496,7 @@ final class AuthSessionController: ObservableObject {
                     password: "",
                     agreementAccepted: false
                 )
-                if self.authRuntime.dependencies.stringPreference(key: self.funnelStatusKey) == "authenticating" {
+                if self.funnelStatusStore.read() == "authenticating" {
                     self.loginState.step = .password
                     self.loginState.onboardingVisible = false
                 }

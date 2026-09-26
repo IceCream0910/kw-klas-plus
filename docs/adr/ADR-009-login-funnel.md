@@ -8,7 +8,7 @@
 
 신규 수동 로그인은 학번, 비밀번호, KLAS 인증을 각각 한 단계로 보여줍니다. 인증 실패 시 비밀번호 입력으로 돌아가며, 성공 후에는 도서관 출입증 설정(건너뛰기 가능), 정책 확인, 완료 화면을 거쳐 홈으로 이동합니다. 기존 저장 자격증명으로 자동 로그인하는 설치는 이 퍼널을 다시 거치지 않습니다.
 
-`login_funnel_status`는 일반 설정에 신규 설치 시 `not_started`, 인증 시작 전 `authenticating`, 인증 성공 후 `setup`, 완료 후 `complete`로 기록합니다. 중단 후 재시작하면 `authenticating`은 비밀번호 입력, `setup`은 출입증 단계로 복귀합니다. Android는 앱 시작 시 상태 키가 없는 설치의 `kwID` 계정 식별자를 확인하여 있으면 `complete`, 없으면 `not_started`로 한 번만 이전합니다. 이전 기록에 실패해 상태가 `null`로 남아도 홈 접근은 차단합니다. KLAS 인증과 세션 동기화는 공통 유스케이스를 사용하며 새 브리지 메서드는 없습니다. 되돌릴 때에는 이 변경을 되돌려 기존 수동 로그인 화면과 자동 홈 진입을 복원합니다.
+`login_funnel_status`는 일반 설정에 신규 설치 시 `not_started`, 인증 시작 전 `authenticating`, 인증 성공 후 `setup`, 완료 후 `complete`로 기록합니다. 중단 후 재시작하면 `authenticating`은 비밀번호 입력, `setup`은 출입증 단계로 복귀합니다. Android는 앱 시작 시 상태 키가 없는 설치의 `kwID` 계정 식별자를 확인하여 있으면 `complete`, 없으면 `not_started`로 한 번만 이전합니다. 이전 기록에 실패해 상태가 `null`로 남아도 홈 접근은 차단합니다. iOS는 각 상태 기록의 성공과 재조회를 확인한 뒤 전이하고, 실패 시 홈 진입을 차단합니다. 상태 키가 없는 기존 iOS 설치는 세션 유효성을 확인한 후 `complete`를 기록해 이전합니다. KLAS 인증과 세션 동기화는 공통 유스케이스를 사용하며 새 브리지 메서드는 없습니다. 되돌릴 때에는 이 변경을 되돌려 기존 수동 로그인 화면과 자동 홈 진입을 복원합니다.
 
 Android는 `complete` 이외 상태에서 학사 위젯의 저장 데이터 표시와 갱신을 막습니다. 상태 전환 직후 설치된 위젯을 다시 그려 이전 데이터를 가리고, `complete` 후 갱신을 재개합니다. 도서관 QR 위젯의 Activity·설정 버튼과 직접 `HomeActivity` 진입도 같은 상태 검사로 로그인 퍼널에 돌려보냅니다. `kwID`가 있는 기존 설치는 시작 시 `complete`로 이전하므로 기존 위젯 동작을 유지합니다.
 
@@ -26,4 +26,4 @@ Android 시스템 뒤로가기와 iOS 화면 가장자리 제스처는 이전 �
 
 ## 검증
 
-Android `:androidApp:assembleDebug :androidApp:compileDebugAndroidTestKotlin :androidApp:testDebugUnitTest --offline`와 iOS Simulator 앱 빌드가 통과했습니다. iOS 인증 컨트롤러 테스트에서는 신규 중단 복귀·인증 전 완료 차단 케이스가 통과했으나, 서명 없는 테스트 빌드에서 기존 Keychain 세션 만료 케이스가 실패했고 테스트 실행은 중단했습니다. Android Compose 계측 테스트는 기존 AVD의 설치 버전 코드가 작업 빌드보다 높아 실행하지 않았습니다. 사용자가 최종 동작 테스트를 수동으로 진행합니다. 추가로 KLAS 인증 후 출입증·동의 퍼널을 끝내기 전 학사 위젯이 비어 있는지, 도서관 QR 위젯과 그 설정 버튼이 홈 대신 퍼널을 여는지, 완료 후 위젯 데이터가 다시 갱신되는지 확인합니다. 신규 로그인/실패/중단 후 재시작/출입증 건너뛰기/두 약관 전문 보기·동의/홈 진입 및 도서관 Keychain/Keystore 저장은 수동 검증 대상입니다.
+기준 Native `107c6ff026f319a4d4f5236b5b39f4b18001567d`와 위 WebView 버전에서 브리지 계약은 변경하지 않았습니다. Android 로그인 화면 계측 테스트 2개, `:androidApp:testDebugUnitTest`, `:shared:testAndroidHostTest`, iOS 앱 테스트 180개, `:shared:iosSimulatorArm64Test`가 로컬에서 통과했습니다. 이후 추가한 iOS UserDefaults 상태 전이 테스트도 별도 실행해 통과했습니다. Android 전체 계측 테스트는 로컬 API 37 에뮬레이터에서 19개 통과 후 비디오 전환 테스트 도중 에뮬레이터가 오프라인이 되어 중단됐습니다. CI의 API 35 결과로 전체 통과 여부를 확인해야 합니다. 사용자가 최종 동작 테스트를 수동으로 진행합니다. 추가로 KLAS 인증 후 출입증·동의 퍼널을 끝내기 전 학사 위젯이 비어 있는지, 도서관 QR 위젯과 그 설정 버튼이 홈 대신 퍼널을 여는지, 완료 후 위젯 데이터가 다시 갱신되는지 확인합니다. 신규 로그인/실패/중단 후 재시작/출입증 건너뛰기/두 약관 전문 보기·동의/홈 진입 및 도서관 Keychain/Keystore 저장은 수동 검증 대상입니다.
