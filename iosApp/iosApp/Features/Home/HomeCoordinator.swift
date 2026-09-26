@@ -251,9 +251,12 @@ final class HomeCoordinator: ObservableObject {
 
     func handleHomeNavigation(_ state: WebNavigationState) {
         switch state.loadPhase {
-        case .ready:
+        case .ready(let url):
             if refreshPhase == .loadingPage {
                 refreshPhase = .idle
+            }
+            if isPageLoading && url.hasPrefix("\(KlasUrls.shared.KLAS_PLUS_BASE)/") {
+                injectHomePageLoad()
             }
         case .failed:
             refreshPhase = .idle

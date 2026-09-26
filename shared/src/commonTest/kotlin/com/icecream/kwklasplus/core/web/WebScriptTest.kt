@@ -1,5 +1,6 @@
 package com.icecream.kwklasplus.core.web
 
+import com.icecream.kwklasplus.core.legacy.KlasUrls
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -8,16 +9,20 @@ import kotlin.test.assertTrue
 class WebScriptTest {
     @Test
     fun nativeTabNavigationUsesWebRouterHookWithLegacyUrlFallback() {
+        val base = KlasUrls.KLAS_PLUS_BASE
         val source = NativeHomeTabScripts.navigate(
-            "calendar", "https://klasplus.yuntae.in/calendar?yearHakgi=2026%2C2",
+            "calendar", "$base/calendar?yearHakgi=2026%2C2",
         ).reveal()
         assertTrue(source.contains("window.klasNativeNavigate(\"calendar\")"))
-        assertTrue(source.contains("window.location.assign(\"https://klasplus.yuntae.in/calendar?yearHakgi=2026%2C2\")"))
+        assertTrue(source.contains("window.location.assign(\"$base/calendar?yearHakgi=2026%2C2\")"))
         assertFailsWith<IllegalArgumentException> {
-            NativeHomeTabScripts.navigate("unknown", "https://klasplus.yuntae.in/feed")
+            NativeHomeTabScripts.navigate("unknown", "$base/feed")
         }
         assertFailsWith<IllegalArgumentException> {
-            NativeHomeTabScripts.navigate("feed", "https://klasplus.yuntae.in/profile")
+            NativeHomeTabScripts.navigate("feed", "$base/profile")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            NativeHomeTabScripts.navigate("feed", "https://evil.example/feed")
         }
     }
 

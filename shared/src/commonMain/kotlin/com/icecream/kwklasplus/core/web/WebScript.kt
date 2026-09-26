@@ -1,6 +1,7 @@
 package com.icecream.kwklasplus.core.web
 
 import com.icecream.kwklasplus.core.lock.AppLockSettings
+import com.icecream.kwklasplus.core.legacy.KlasUrls
 
 class WebScript internal constructor(private val source: String) {
     fun reveal(): String = source
@@ -73,7 +74,7 @@ object NativeHomeTabScripts {
             "calendar" -> "/calendar"
             else -> "/profile"
         }
-        val base = "https://klasplus.yuntae.in$path"
+        val base = "${KlasUrls.KLAS_PLUS_BASE}$path"
         require(fallbackUrl == base || fallbackUrl.startsWith("$base?"))
         val encodedTab = JavaScriptEncoder.encodeText(tab)
         val encodedUrl = JavaScriptEncoder.encodeText(fallbackUrl)
