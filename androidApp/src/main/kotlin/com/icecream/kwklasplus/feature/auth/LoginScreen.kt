@@ -113,13 +113,14 @@ fun LoginScreen(
     onRegisterClick: () -> Unit,
     onLoginClick: () -> Unit,
     modifier: Modifier = Modifier,
+    autoAdvanceOnboarding: Boolean = true,
 ) {
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
         if (state.onboardingVisible) {
-            OnboardingContent(onStartClick = onStartClick)
+            OnboardingContent(onStartClick = onStartClick, autoAdvance = autoAdvanceOnboarding)
         } else {
             LoginContent(
                 state = state,
@@ -174,6 +175,7 @@ private fun LoginScreenPreview() {
 @Composable
 private fun OnboardingContent(
     onStartClick: () -> Unit,
+    autoAdvance: Boolean,
 ) {
     val slides = listOf(
         Triple("불편했던 KLAS를\n더 편리하게.", "KLAS+는 모바일에 맞게 학사포털의\n사용자 경험을 다시 설계했어요.", R.drawable.onboarding_placeholder),
@@ -186,7 +188,7 @@ private fun OnboardingContent(
     val scope = rememberCoroutineScope()
     LaunchedEffect(pagerState.settledPage) {
         val page = pagerState.settledPage
-        if (page < slides.lastIndex) {
+        if (autoAdvance && page < slides.lastIndex) {
             delay(5_000)
             pagerState.animateScrollToPage(page + 1)
         }
@@ -213,7 +215,7 @@ private fun OnboardingContent(
         ) {
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier.weight(1f).fillMaxWidth(),
+                modifier = Modifier.weight(1f).fillMaxWidth().testTag("onboarding_pager"),
             ) { page ->
                 BoxWithConstraints(Modifier.fillMaxSize()) {
                     val pageHeight = maxHeight

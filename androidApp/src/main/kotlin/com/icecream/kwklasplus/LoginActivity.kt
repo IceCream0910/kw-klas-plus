@@ -5,17 +5,9 @@ import com.icecream.kwklasplus.widget.AcademicWidgets
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.os.Build
-import android.Manifest
-import android.content.Context
-import android.content.pm.PackageManager
-import android.telephony.SubscriptionManager
-import android.telephony.TelephonyManager
 import androidx.activity.compose.setContent
 import androidx.activity.OnBackPressedCallback
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -46,10 +38,6 @@ class LoginActivity : AppCompatActivity() {
     private var termsAccepted by mutableStateOf(false)
     private var canReturnToOnboarding = false
     private var funnelError by mutableStateOf<String?>(null)
-    private var phonePrefillRequested = false
-    private val phoneNumberPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) prefillPhoneFromDevice()
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -71,7 +59,6 @@ class LoginActivity : AppCompatActivity() {
         libraryPhone = (savedInstanceState?.getString(STATE_LIBRARY_PHONE)
             ?: appPreferences.getString(AppPrefs.LIBRARY_PHONE, "").orEmpty())
             .filter { it in '0'..'9' }
-        phonePrefillRequested = savedInstanceState?.getBoolean(STATE_PHONE_PREFILL_REQUESTED) ?: false
         if (funnelStep == LoginFunnelStep.Library || funnelStep == LoginFunnelStep.Password) {
             onboardingVisible = false
         }
@@ -185,7 +172,6 @@ class LoginActivity : AppCompatActivity() {
                 }
             }
         }
-        if (funnelStep == LoginFunnelStep.Library) maybePrefillLibraryPhone()
     }
 
     private fun submitLogin() {
@@ -229,7 +215,6 @@ class LoginActivity : AppCompatActivity() {
                             AcademicWidgets.renderAll(this@LoginActivity)
                             funnelStep = LoginFunnelStep.Library
                             funnelError = null
-                            maybePrefillLibraryPhone()
                         }
                         is LoginResult.UserActionRequired -> failLogin(
                             "KLAS에서 CAPTCHA 또는 임시 비밀번호 변경이 필요해요. 학교 사이트에서 조치를 마친 뒤 다시 시도해 주세요."
@@ -261,36 +246,6 @@ class LoginActivity : AppCompatActivity() {
         password = ""
         funnelError = message
         funnelStep = LoginFunnelStep.Password
-    }
-
-    private fun maybePrefillLibraryPhone() {
-        if (libraryPhone.isNotBlank() || phonePrefillRequested ||
-            !packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
-        ) return
-        phonePrefillRequested = true
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_NUMBERS) == PackageManager.PERMISSION_GRANTED) {
-            prefillPhoneFromDevice()
-        } else {
-            phoneNumberPermission.launch(Manifest.permission.READ_PHONE_NUMBERS)
-        }
-    }
-
-    private fun prefillPhoneFromDevice() {
-        if (libraryPhone.isNotBlank() ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_NUMBERS) != PackageManager.PERMISSION_GRANTED
-        ) return
-        val number = runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                getSystemService(SubscriptionManager::class.java)
-                    ?.getPhoneNumber(SubscriptionManager.getDefaultSubscriptionId())
-            } else {
-                @Suppress("DEPRECATION")
-                getSystemService(Context.TELEPHONY_SERVICE).let { it as? TelephonyManager }?.line1Number
-            }
-        }.getOrNull().orEmpty()
-        val digits = number.filter { it in '0'..'9' }
-        val normalized = if (digits.startsWith("82") && digits.length > 10) "0${digits.drop(2)}" else digits
-        if (normalized.isNotBlank()) libraryPhone = normalized
     }
 
     private fun continueFunnel() {
@@ -380,7 +335,6 @@ class LoginActivity : AppCompatActivity() {
         outState.putBoolean(STATE_CAN_RETURN_TO_ONBOARDING, canReturnToOnboarding)
         outState.putString(STATE_FUNNEL_STEP, funnelStep.name)
         outState.putString(STATE_LIBRARY_PHONE, libraryPhone)
-        outState.putBoolean(STATE_PHONE_PREFILL_REQUESTED, phonePrefillRequested)
         super.onSaveInstanceState(outState)
     }
 
@@ -392,6 +346,5 @@ class LoginActivity : AppCompatActivity() {
         const val STATE_CAN_RETURN_TO_ONBOARDING = "can_return_to_onboarding"
         const val STATE_FUNNEL_STEP = "funnel_step"
         const val STATE_LIBRARY_PHONE = "library_phone_input"
-        const val STATE_PHONE_PREFILL_REQUESTED = "phone_prefill_requested"
     }
 }

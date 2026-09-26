@@ -40,6 +40,7 @@ class LoginScreenTest {
                     onFindPasswordClick = {},
                     onRegisterClick = {},
                     onLoginClick = {},
+                    autoAdvanceOnboarding = false,
                 )
             }
         }
@@ -55,8 +56,12 @@ class LoginScreenTest {
         val loginTop = composeRule.onNodeWithTag("login_start").getUnclippedBoundsInRoot().top
         assertTrue(loginTop - noteBottom <= 80.dp)
         assertTrue(titleTop - imageBottom <= 32.dp)
-        composeRule.onNodeWithTag("login_onboarding").performTouchInput { swipeLeft() }
-        composeRule.onNodeWithText("남아있는 할 일을\n한 눈에.").assertIsDisplayed()
+        composeRule.onNodeWithTag("onboarding_pager").performTouchInput { swipeLeft() }
+        composeRule.waitUntil(5_000) {
+            runCatching {
+                composeRule.onNodeWithText("남아있는 할 일을\n한 눈에.").assertIsDisplayed()
+            }.isSuccess
+        }
         composeRule.onNodeWithTag("onboarding_image").assertIsDisplayed()
         composeRule.onNodeWithTag("login_start").performClick()
         composeRule.onNodeWithTag("login_form").assertIsDisplayed()

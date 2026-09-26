@@ -41,13 +41,13 @@ iOS 시뮬레이터에서 인증을 검증할 때는 앱의 Keychain Access Grou
 | 서버가 세션 만료를 명시함 | 세션과 cookie를 지운 뒤 재인증 경로로 돌아갑니다. 네트워크 오류·timeout·서버 오류만으로는 비밀을 지우지 않아요. |
 | 로그아웃·계정 변경 | 세션·cookie·계정 자격증명을 정책대로 정리하되 기기 잠금 설정은 유지합니다. 로그아웃 전 시작한 위젯 재인증은 완료되어도 세션·cookie를 다시 만들지 못합니다. |
 
-신규 수동 로그인은 학번 → 비밀번호 → 공통 HTTP KLAS 인증 → 선택적 중앙도서관 출입증 → 개인정보 처리방침·이용약관 동의 → 완료 순서로 진행합니다. 인증 실패는 비밀번호 단계로 돌아가며, 인증 성공 후에는 설정이 완료되기 전까지 홈을 열지 않습니다. 일반 설정 키 `login_funnel_status`는 `authenticating`, `setup`, `complete` 중 하나로 저장합니다. 이 키가 없는 기존 설치는 기존 자동 로그인 경로를 유지하고, `authenticating` 또는 `setup` 상태에서 앱이 재시작되면 홈 대신 남은 퍼널을 표시합니다. 실제 KLAS 인증·세션 관찰은 기존 `LoginUseCase`와 `SessionCoordinator`를 사용합니다. 자세한 결정과 이용약관 URL은 [ADR-009](adr/ADR-009-login-funnel.md)를 따릅니다.
+신규 수동 로그인은 학번 → 비밀번호 → 공통 HTTP KLAS 인증 → 선택적 중앙도서관 출입증 → 개인정보 처리방침·이용약관 동의 → 완료 순서로 진행합니다. 인증 실패는 비밀번호 단계로 돌아가며, 인증 성공 후에는 설정이 완료되기 전까지 홈을 열지 않습니다. Android 일반 설정 키 `login_funnel_status`는 `not_started`, `authenticating`, `setup`, `complete` 중 하나로 저장합니다. 앱 프로세스 시작 시 이 키가 없는 기존 설치는 `kwID` 계정 식별자가 있으면 한 번만 `complete`로, 없으면 `not_started`로 이전합니다. 이전 기록에 실패해 키가 여전히 없더라도 홈과 QR 위젯은 차단합니다. `complete`만 홈·위젯을 허용하고, `authenticating` 또는 `setup` 상태에서 앱이 재시작되면 남은 퍼널을 표시합니다. 실제 KLAS 인증·세션 관찰은 기존 `LoginUseCase`와 `SessionCoordinator`를 사용합니다. 자세한 결정과 이용약관 URL은 [ADR-009](adr/ADR-009-login-funnel.md)를 따릅니다.
 
-출입증 전화번호는 기존 `library_phone` 값이 있으면 재사용합니다. Android는 값이 없을 때 `READ_PHONE_NUMBERS` 권한을 받은 뒤 OS 회선 번호를 조회하고, 번호가 제공되지 않거나 권한이 거부되면 직접 입력을 유지합니다. iOS는 회선 번호를 직접 읽는 공개 API가 없어 전화번호 자동 완성과 직접 입력을 사용합니다. 권한 요청 결과나 조회된 번호는 로그에 남기지 않으며, 사용자가 출입증 저장을 선택할 때에만 기존 `library_phone` 키에 기록합니다.
+출입증 전화번호는 기존 `library_phone` 값이 있으면 재사용합니다. Android는 새 번호를 직접 입력하며 전화번호 읽기 권한을 요청하지 않습니다. iOS는 회선 번호를 직접 읽는 공개 API가 없어 전화번호 자동 완성과 직접 입력을 사용합니다. 사용자가 출입증 저장을 선택할 때에만 기존 `library_phone` 키에 기록합니다.
 
 전화번호 입력창은 숫자 이외의 문자를 즉시 제거합니다. 기존 저장값에 하이픈이 포함돼 있어도 공통 `LibraryHttpGateway`가 `tel_no` 요청 값을 숫자로 정규화하므로 도서관 서버에는 하이픈을 전송하지 않습니다.
 
-위협: 자격증명 저장과 인증 사이, 또는 인증과 동의 사이에 앱이 종료되면 준비 중 상태의 자격증명·세션만으로 홈에 진입해서는 안 됩니다. 양 플랫폼은 `login_funnel_status`를 인증 시작 전에 기록하고 완료 시에만 `complete`로 바꿉니다. 이 상태에는 비밀을 저장하지 않으며, 비밀번호는 플랫폼 보안 저장소에만 남깁니다. Android는 이 상태에서 학사 위젯 데이터를 표시·갱신하지 않고, 도서관 QR 위젯과 `HomeActivity` 진입을 퍼널로 돌려보냅니다. Android `LoginFunnelStatusTest`·`AcademicWidgetsTest`와 iOS 인증 컨트롤러 테스트에서 재시작·위젯 경로를 검증합니다.
+위협: 신규 설치에서 온보딩을 시작하지 않은 상태, 자격증명 저장과 인증 사이, 또는 인증과 동의 사이에 앱이 종료되면 준비 중 상태의 자격증명·세션만으로 홈에 진입해서는 안 됩니다. 양 플랫폼은 `login_funnel_status`를 인증 시작 전에 기록하고 완료 시에만 `complete`로 바꿉니다. 이 상태에는 비밀을 저장하지 않으며, 비밀번호는 플랫폼 보안 저장소에만 남깁니다. Android는 `complete` 이외 상태에서 학사 위젯 데이터를 표시·갱신하지 않고, 도서관 QR 위젯과 `HomeActivity` 진입을 퍼널로 돌려보냅니다. Android `LoginFunnelStatusTest`·`LoginFunnelMigrationTest`·`AcademicWidgetsTest`와 iOS 인증 컨트롤러 테스트에서 재시작·위젯 경로를 검증합니다.
 
 정확한 상태 전이는 [`AuthStateMachine`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/auth/AuthStateMachine.kt), HTTP 순서는 [`KlasHttpAuthDriver`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/auth/KlasHttpAuthDriver.kt), 저장소·cookie 동기화는 [`SessionCoordinator`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/session/SessionCoordinator.kt)가 기준입니다.
 

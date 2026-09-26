@@ -19,8 +19,10 @@ class LoginFunnelStatusTest {
     }
 
     @Test
-    fun existingInstallWithoutStatusKeepsAutomaticLogin() {
-        assertFalse(LoginFunnelStatus.blocksHome(null))
+    fun onlyCompletedFunnelAllowsHome() {
+        assertTrue(LoginFunnelStatus.blocksHome(null))
+        assertTrue(LoginFunnelStatus.blocksHome(LoginFunnelStatus.NOT_STARTED))
+        assertTrue(LoginFunnelStatus.blocksHome("unexpected"))
         assertFalse(LoginFunnelStatus.blocksHome(LoginFunnelStatus.COMPLETE))
     }
 
