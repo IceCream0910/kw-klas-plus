@@ -6,6 +6,8 @@ import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.content.res.Configuration
+import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.drawable.Drawable
 import android.net.Uri
@@ -34,6 +36,7 @@ import android.widget.TextView
 import android.widget.Toast
 import android.window.OnBackInvokedDispatcher
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
@@ -249,7 +252,15 @@ class HomeActivity : AppCompatActivity() {
                 ),
             )
         }
-        enableEdgeToEdge()
+        val darkTheme = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+        enableEdgeToEdge(
+            navigationBarStyle = if (darkTheme) {
+                SystemBarStyle.dark(Color.TRANSPARENT)
+            } else {
+                SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+            },
+        )
+        window.isNavigationBarContrastEnforced = false
         setContent {
             KlasPlusTheme {
                 Box(Modifier.fillMaxSize()) {
@@ -258,6 +269,7 @@ class HomeActivity : AppCompatActivity() {
                         isLoading = isInitialPageLoading,
                         contentTag = "compose_web_view",
                         applyImePadding = false,
+                        drawBehindNavigationBar = true,
                     )
                     if (!isInitialPageLoading && currentTab.isNotEmpty() && !isOpenWebViewBottomSheet) {
                         Box(Modifier.align(Alignment.BottomCenter)) {

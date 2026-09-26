@@ -10,8 +10,6 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.colorResource
 import androidx.core.view.WindowCompat
@@ -72,7 +70,7 @@ fun KlasPlusTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as? Activity)?.window ?: return@SideEffect
-            applySystemBarTheme(window, view, colors.background, darkTheme)
+            applySystemBarTheme(window, view, darkTheme)
         }
     }
 
@@ -86,10 +84,9 @@ fun KlasPlusTheme(
 private fun applySystemBarTheme(
     window: Window,
     view: View,
-    background: Color,
     darkTheme: Boolean,
 ) {
-    window.navigationBarColor = background.toArgb()
+    window.navigationBarColor = android.graphics.Color.TRANSPARENT
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         window.isNavigationBarContrastEnforced = false
     }

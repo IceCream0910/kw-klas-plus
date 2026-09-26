@@ -7,10 +7,12 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
@@ -74,6 +76,7 @@ fun ComposePlatformViewHost(
     title: String? = null,
     contentTag: String = "compose_platform_view",
     applyImePadding: Boolean = true,
+    drawBehindNavigationBar: Boolean = false,
 ) {
     ComposeWebContentHost(
         contentView = contentView,
@@ -82,6 +85,7 @@ fun ComposePlatformViewHost(
         title = title,
         contentTag = contentTag,
         applyImePadding = applyImePadding,
+        drawBehindNavigationBar = drawBehindNavigationBar,
     )
 }
 
@@ -94,10 +98,15 @@ private fun ComposeWebContentHost(
     title: String?,
     contentTag: String,
     applyImePadding: Boolean,
+    drawBehindNavigationBar: Boolean = false,
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        contentWindowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout),
+        contentWindowInsets = (if (drawBehindNavigationBar) {
+            WindowInsets.systemBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)
+        } else {
+            WindowInsets.systemBars
+        }).union(WindowInsets.displayCutout),
         topBar = {
             if (title != null) {
                 TopAppBar(
