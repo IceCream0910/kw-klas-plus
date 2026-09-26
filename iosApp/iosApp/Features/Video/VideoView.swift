@@ -323,7 +323,15 @@ final class VideoScreenModel: ObservableObject {
     func seekToProgress(_ progress: Float) {
         let seconds = Double(progress) * Double(duration)
         guard seconds.isFinite, seconds >= 0 else { return }
+        uiState.progress = progress
+        uiState.currentTime = codec.formatTime(seconds: Float(seconds))
         evaluateVideo(PlayerWebScripts.shared.seekTo(seconds: seconds))
+    }
+
+    func previewTime(for progress: Float) -> String {
+        let seconds = Double(progress) * Double(duration)
+        guard seconds.isFinite, seconds >= 0 else { return uiState.currentTime }
+        return codec.formatTime(seconds: Float(seconds))
     }
 
     func seekToLastPlaytime() {
@@ -621,7 +629,7 @@ struct VideoView: View {
                 .accessibilityHidden(!showsKlas)
             WebViewContainer(webView: model.listHolder.webView)
                 .webSurfaceLayout()
-                .background(Color(.systemBackground))
+                .webSurfaceTopBackground()
                 .opacity(showsList ? 1 : 0)
                 .allowsHitTesting(showsList)
                 .accessibilityHidden(!showsList)
@@ -630,6 +638,7 @@ struct VideoView: View {
                     state: model.uiState,
                     isPictureInPictureSupported: model.isPictureInPictureSupported && !model.isInPictureInPicture,
                     onSeek: { model.seekToProgress($0) },
+                    previewTime: { model.previewTime(for: $0) },
                     onPlayPauseClick: { model.playPause() },
                     onBackwardClick: { model.move(.backward) },
                     onForwardClick: { model.move(.forward) },
@@ -651,9 +660,11 @@ struct VideoView: View {
                     .accessibilityHidden(true)
             }
         }
-        .navigationTitle("온라인 강의")
+        .webSurfaceTopBackground()
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button {

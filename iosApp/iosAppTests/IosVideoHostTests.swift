@@ -108,6 +108,8 @@ final class IosVideoHostTests: XCTestCase {
         )
 
         model.seekToProgress(0.5)
+        XCTAssertEqual(model.previewTime(for: 0.75), "01:15")
+        XCTAssertEqual(model.uiState.currentTime, "00:50")
         XCTAssertEqual(
             model.lastVideoScriptSource,
             PlayerWebScripts.shared.seekTo(seconds: 50).reveal()

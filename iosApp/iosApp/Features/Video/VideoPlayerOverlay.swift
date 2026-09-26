@@ -15,6 +15,7 @@ struct VideoPlayerOverlay<Media: View>: View {
     var state: VideoPlayerUiState
     var isPictureInPictureSupported: Bool
     var onSeek: (Float) -> Void
+    var previewTime: (Float) -> String
     var onPlayPauseClick: () -> Void
     var onBackwardClick: () -> Void
     var onForwardClick: () -> Void
@@ -87,7 +88,7 @@ struct VideoPlayerOverlay<Media: View>: View {
                 }
                 .accessibilityIdentifier("video_progress")
                 HStack {
-                    Text(state.currentTime)
+                    Text(isSeeking ? previewTime(sliderProgress) : state.currentTime)
                         .font(.caption)
                         .foregroundStyle(KlasTheme.onSurfaceVariant)
                     Spacer()
