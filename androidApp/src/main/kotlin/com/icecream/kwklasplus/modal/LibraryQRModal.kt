@@ -23,8 +23,10 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.icecream.kwklasplus.AppPrefs
 import com.icecream.kwklasplus.HomeActivity
+import com.icecream.kwklasplus.LoginActivity
 import com.icecream.kwklasplus.appDependencies
 import com.icecream.kwklasplus.appPreferences
+import com.icecream.kwklasplus.feature.auth.LoginFunnelStatus
 import com.icecream.kwklasplus.core.library.AndroidLibraryService
 import com.icecream.kwklasplus.core.library.LibraryQrData
 import com.icecream.kwklasplus.core.library.LibraryQrResult
@@ -98,8 +100,11 @@ class LibraryQRModal : KlasBottomSheetDialogFragment() {
 
     private fun showSettingsDialog() {
         if (isWidget) {
-            startActivity(Intent(requireContext(), HomeActivity::class.java).apply {
-                action = HomeActivity.ACTION_OPEN_LIBRARY_SETTINGS
+            val setupIncomplete = LoginFunnelStatus.blocksHome(
+                requireContext().appPreferences.getString(LoginFunnelStatus.KEY, null),
+            )
+            startActivity(Intent(requireContext(), if (setupIncomplete) LoginActivity::class.java else HomeActivity::class.java).apply {
+                if (!setupIncomplete) action = HomeActivity.ACTION_OPEN_LIBRARY_SETTINGS
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             })
             dismiss()
