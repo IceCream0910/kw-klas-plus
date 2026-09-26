@@ -37,6 +37,10 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.annotation.DrawableRes
 import androidx.annotation.Nullable
 import androidx.appcompat.app.AppCompatActivity
@@ -94,11 +98,13 @@ import com.icecream.kwklasplus.core.web.JavaScriptArgument
 import com.icecream.kwklasplus.core.web.KlasWebAutomationScripts
 import com.icecream.kwklasplus.core.web.LegacyWebCallback
 import com.icecream.kwklasplus.core.web.LegacyWebScripts
+import com.icecream.kwklasplus.core.web.NativeHomeTabScripts
 import com.icecream.kwklasplus.modal.LibraryQRModal
 import com.icecream.kwklasplus.modal.LibraryQRSettingsBottomSheetDialog
 import com.icecream.kwklasplus.modal.MenuBottomSheetDialog
 import com.icecream.kwklasplus.modal.YearHakgiBottomSheetDialog
 import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
+import com.icecream.kwklasplus.ui.navigation.NativeHomeNavigation
 import com.icecream.kwklasplus.ui.dialog.ComposeLoadingDialog
 import com.icecream.kwklasplus.ui.web.ComposePlatformViewHost
 import kotlinx.coroutines.Dispatchers
@@ -161,14 +167,14 @@ class HomeActivity : AppCompatActivity() {
     @SuppressLint("MissingInflatedId")
     lateinit var webView: WebView
     private lateinit var webViewContainer: FrameLayout
-    internal var currentTab: String = "" // "feed", "timetable", "calendar", "menu"
+    internal var currentTab by mutableStateOf("") // "feed", "timetable", "calendar", "menu"
     private var deadlineForWebview: String = ""
     private var timetableForWebview: String = ""
     lateinit var sessionIdForOtherClass: String
     lateinit var loadingDialog: ComposeLoadingDialog
     lateinit var yearHakgiList: Array<String>
     var yearHakgi: String = ""
-    var isOpenWebViewBottomSheet: Boolean = false
+    var isOpenWebViewBottomSheet by mutableStateOf(false)
     lateinit var onBackPressedCallback: OnBackPressedCallback
     var main: View? = null
     private var isInitialPageLoading by mutableStateOf(true)
@@ -246,12 +252,19 @@ class HomeActivity : AppCompatActivity() {
         enableEdgeToEdge()
         setContent {
             KlasPlusTheme {
-                ComposePlatformViewHost(
-                    contentView = webViewContainer,
-                    isLoading = isInitialPageLoading,
-                    contentTag = "compose_web_view",
-                    applyImePadding = false,
-                )
+                Box(Modifier.fillMaxSize()) {
+                    ComposePlatformViewHost(
+                        contentView = webViewContainer,
+                        isLoading = isInitialPageLoading,
+                        contentTag = "compose_web_view",
+                        applyImePadding = false,
+                    )
+                    if (!isInitialPageLoading && currentTab.isNotEmpty() && !isOpenWebViewBottomSheet) {
+                        Box(Modifier.align(Alignment.BottomCenter)) {
+                            NativeHomeNavigation(currentTab, ::selectNativeTab)
+                        }
+                    }
+                }
             }
         }
         main = findViewById(android.R.id.content)
@@ -407,6 +420,10 @@ class HomeActivity : AppCompatActivity() {
 
     fun switchToTab(tab: String) {
         if (currentTab == tab && currentTab.isNotEmpty()) return
+        if (getCurrentTab() == tab) {
+            currentTab = tab
+            return
+        }
         if (tab != "calendar") {
             calendarBottomSheetImeCoordinator?.setActive(false)
         }
@@ -430,6 +447,21 @@ class HomeActivity : AppCompatActivity() {
         )
 
         runOnUiThread { webView.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK) }
+    }
+
+    private fun selectNativeTab(tab: String) {
+        if (tab == currentTab) return
+        val url = when (tab) {
+            "feed" -> "${AppUrls.KLAS_PLUS_BASE}/feed?yearHakgi=$yearHakgi"
+            "timetable" -> "${AppUrls.KLAS_PLUS_BASE}/timetableTab?yearHakgi=$yearHakgi"
+            "calendar" -> "${AppUrls.KLAS_PLUS_BASE}/calendar?yearHakgi=$yearHakgi"
+            "menu" -> "${AppUrls.KLAS_PLUS_BASE}/profile"
+            else -> return
+        }
+        if (tab != "calendar") calendarBottomSheetImeCoordinator?.setActive(false)
+        currentTab = tab
+        webView.executeWebScript(NativeHomeTabScripts.navigate(tab, url))
+        webView.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
     }
 
     internal fun setCalendarBottomSheetImeHandling(active: Boolean) {
