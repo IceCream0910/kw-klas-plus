@@ -38,13 +38,18 @@ struct AcademicTimetableProvider: TimelineProvider {
 
 struct AcademicTimetableWidgetView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.widgetFamily) private var family
     let entry: AcademicWidgetEntry
 
     var body: some View {
         let placeholder = AcademicWidgetPlaceholder.timetable(load: entry.load)
         Group {
             if placeholder.isEmpty, case .ready(let display) = entry.load, let classes = display.classes {
-                timetableView(display, classes: classes)
+                if family == .systemLarge || family == .systemExtraLarge {
+                    timetableView(display, classes: classes)
+                } else {
+                    compactView(classes)
+                }
             } else {
                 placeholderView(placeholder.isEmpty ? "앱을 열어 가져오기" : placeholder)
             }
@@ -54,6 +59,111 @@ struct AcademicTimetableWidgetView: View {
         .background(AcademicWidgetPalette.background(colorScheme))
         .widgetURL(AcademicWidgetURL.timetable)
         .modifier(AcademicWidgetChrome())
+    }
+
+    private func compactView(_ classes: [AcademicWidgetClass]) -> some View {
+        let today = AcademicWidgetLayoutPolicy.todayClasses(classes, at: entry.date)
+        let small = family == .systemSmall
+        return Group {
+            if small {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 4) {
+                        Text(AcademicWidgetCopy.fullDate(entry.date))
+                            .font(.system(size: 14, weight: .bold))
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                        if today.count > 2 {
+                            Text("+\(today.count - 2)")
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                    }
+                    .foregroundStyle(AcademicWidgetPalette.text(colorScheme))
+                    compactRows(today, small: true)
+                }
+            } else {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(["일", "월", "화", "수", "목", "금", "토"][Calendar.current.component(.weekday, from: entry.date) - 1])
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(AcademicWidgetPalette.secondary(colorScheme))
+                        Text("\(Calendar.current.component(.day, from: entry.date))")
+                            .font(.system(size: 32, weight: .bold))
+                            .foregroundStyle(AcademicWidgetPalette.text(colorScheme))
+                        if today.count > 4 {
+                            Text("외 \(today.count - 4)개")
+                                .font(.system(size: 10))
+                                .foregroundStyle(AcademicWidgetPalette.secondary(colorScheme))
+                        }
+                    }
+                    .frame(width: 44, alignment: .leading)
+                    compactRows(today, small: false)
+                }
+            }
+        }
+    }
+
+    private func compactRows(_ today: [AcademicWidgetClass], small: Bool) -> some View {
+        VStack(alignment: .leading, spacing: small ? 6 : 4) {
+            if today.isEmpty {
+                Spacer(minLength: 0)
+                Text("오늘 수업이 없어요")
+                    .font(.system(size: 13))
+                    .foregroundStyle(AcademicWidgetPalette.secondary(colorScheme))
+                Spacer(minLength: 0)
+            } else {
+                ForEach(Array(today.prefix(small ? 2 : 4).enumerated()), id: \.offset) { _, item in
+                    compactRow(item, small: small)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func compactRow(_ item: AcademicWidgetClass, small: Bool) -> some View {
+        let minute = Calendar.current.component(.hour, from: entry.date) * 60
+            + Calendar.current.component(.minute, from: entry.date)
+        let start = AcademicWidgetLayoutPolicy.minutes(item.startTime)
+        let end = AcademicWidgetLayoutPolicy.minutes(item.endTime)
+        let status = minute < start ? "예정" : (minute < end ? "수업 중" : "종료")
+        return Group {
+            if small {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 4) {
+                        Text(item.title)
+                            .font(.system(size: 11, weight: .bold))
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                        Text(status)
+                            .font(.system(size: 10, weight: .medium))
+                            .lineLimit(1)
+                    }
+                    Text("\(AcademicWidgetLayoutPolicy.formattedTime(item.startTime))–\(AcademicWidgetLayoutPolicy.formattedTime(item.endTime))")
+                        .font(.system(size: 10))
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+            } else {
+                HStack(spacing: 5) {
+                    Text(AcademicWidgetLayoutPolicy.formattedTime(item.startTime))
+                        .font(.system(size: 11, weight: .medium))
+                    Text(item.title)
+                        .font(.system(size: 12, weight: .bold))
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                    Text(status)
+                        .font(.system(size: 10, weight: .medium))
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+            }
+        }
+        .foregroundStyle(AcademicWidgetPalette.ink(item.color, dark: colorScheme == .dark))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AcademicWidgetPalette.fill(item.color, dark: colorScheme == .dark))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private func placeholderView(_ text: String) -> some View {
@@ -174,9 +284,9 @@ struct AcademicTimetableWidget: Widget {
         StaticConfiguration(kind: AcademicWidgetKindID.timetable, provider: AcademicTimetableProvider()) { entry in
             AcademicTimetableWidgetView(entry: entry)
         }
-        .configurationDisplayName("주간 시간표")
-        .description("선택된 학기의 전체 시간표를 확인해보세요.")
-        .supportedFamilies([.systemLarge, .systemExtraLarge])
+        .configurationDisplayName("시간표")
+        .description("크기에 따라 오늘 수업 목록이나 주간 시간표를 확인해보세요.")
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge])
         .contentMarginsDisabled()
     }
 }

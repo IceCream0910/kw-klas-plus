@@ -94,6 +94,7 @@ flowchart TD
 ### 1. 위젯 규격
 - 형태: WidgetKit `StaticConfiguration` (Small 단일 사이즈 또는 아이콘 중심 Medium 지원)
 - 렌더링: 광운대학교 도서관 출입증 정적 심볼/아이콘 이미지
+- 이미지 자산: 위젯 확장의 `QrWidgetLight`·`QrWidgetDark`를 번들에서 로드한다. 명시적인 위젯 배경과 대체 심볼을 제공하고, iOS 18 이상 액센트 렌더링에서도 원본 색상을 유지한다.
 - 딥링크 URL: `kwklasplus://library-qr`
 
 ### 2. 딥링크 라우팅 및 보안 규칙

@@ -17,6 +17,15 @@ enum AcademicWidgetLayoutPolicy {
         return hour * 60 + minute
     }
 
+    static func formattedTime(_ time: String) -> String {
+        let parts = time.split(separator: ":", omittingEmptySubsequences: false)
+        guard parts.count == 2,
+              let hour = Int(parts[0]), (0...23).contains(hour),
+              let minute = Int(parts[1]), (0...59).contains(minute)
+        else { return time }
+        return String(format: "%02d:%02d", hour, minute)
+    }
+
     static func weekdays(_ classes: [AcademicWidgetClass]) -> [AcademicWidgetClass] {
         classes.filter { $0.day >= 0 && $0.day <= 4 }
     }
@@ -29,6 +38,27 @@ enum AcademicWidgetLayoutPolicy {
                 let right = minutes($1.startTime)
                 if left != right { return left < right }
                 return $0.title < $1.title
+            }
+    }
+
+    static func todayClasses(_ classes: [AcademicWidgetClass], at date: Date) -> [AcademicWidgetClass] {
+        let calendar = Calendar.current
+        let day = (calendar.component(.weekday, from: date) + 5) % 7
+        let minute = calendar.component(.hour, from: date) * 60 + calendar.component(.minute, from: date)
+        return classes.filter { $0.day == day }
+            .sorted { left, right in
+                func rank(_ item: AcademicWidgetClass) -> Int {
+                    if minute < minutes(item.startTime) { return 1 }
+                    if minute >= minutes(item.endTime) { return 2 }
+                    return 0
+                }
+                let leftRank = rank(left)
+                let rightRank = rank(right)
+                if leftRank != rightRank { return leftRank < rightRank }
+                let leftStart = minutes(left.startTime)
+                let rightStart = minutes(right.startTime)
+                if leftStart != rightStart { return leftStart < rightStart }
+                return left.title < right.title
             }
     }
 
