@@ -195,7 +195,7 @@ internal fun LoginFunnelScreen(
                     }
                     LoginFunnelStep.Library -> {
                         val phoneFocusRequester = remember { FocusRequester() }
-                        FunnelHeading("도서관 출입증도 설정해보세요.", "중앙도서관 출입증 정보를 설정해놓으면, 홈 화면 위젯에서 QR을 바로 열 수 있어요. 지금 건너뛰어도 언제든 앱 설정이나 전체 > 상단 프로필을 클릭해 모바일 학생증 팝업에서 다시 설정할 수 있어요.")
+                        FunnelHeading("도서관 출입증도 설정해보세요.", "중앙도서관 출입증 정보를 설정해놓으면, 홈 화면 위젯에서 QR을 바로 열 수 있어요. 지금 건너뛰어도 다시 설정할 수 있어요.")
                         OutlinedTextField(state.studentId, {}, shape = KlasControlShape, label = { Text("학번") }, readOnly = true, singleLine = true, modifier = Modifier.fillMaxWidth())
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
