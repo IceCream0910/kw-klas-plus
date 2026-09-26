@@ -53,6 +53,29 @@ object LegacyWebScripts {
     )
 }
 
+object NativeHomeTabScripts {
+    private val tabs = setOf("feed", "timetable", "calendar", "menu")
+
+    fun navigate(tab: String, fallbackUrl: String): WebScript {
+        require(tab in tabs)
+        val path = when (tab) {
+            "feed" -> "/feed"
+            "timetable" -> "/timetableTab"
+            "calendar" -> "/calendar"
+            else -> "/profile"
+        }
+        val base = "https://klasplus.yuntae.in$path"
+        require(fallbackUrl == base || fallbackUrl.startsWith("$base?"))
+        val encodedTab = JavaScriptEncoder.encodeText(tab)
+        val encodedUrl = JavaScriptEncoder.encodeText(fallbackUrl)
+        return WebScript(
+            "(function(){if(typeof window.klasNativeNavigate==='function'){" +
+                "window.klasNativeNavigate($encodedTab);" +
+                "}else{window.location.assign($encodedUrl);}})();",
+        )
+    }
+}
+
 fun interface WebScriptExecutor {
     fun execute(script: WebScript)
 }

@@ -3,6 +3,9 @@ package com.icecream.kwklasplus.core.web
 import com.icecream.kwklasplus.core.lock.AppLockSettings
 
 object IosWebCallbacks {
+    fun navigateHomeTab(tab: String, fallbackUrl: String): WebScript =
+        NativeHomeTabScripts.navigate(tab, fallbackUrl)
+
     fun receiveToken(token: String): WebScript =
         LegacyWebScripts.call(LegacyWebCallback.RECEIVE_TOKEN, JavaScriptArgument.Text(token))
 

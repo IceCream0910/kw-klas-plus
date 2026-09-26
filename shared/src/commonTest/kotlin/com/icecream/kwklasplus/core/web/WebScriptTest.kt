@@ -7,6 +7,21 @@ import kotlin.test.assertTrue
 
 class WebScriptTest {
     @Test
+    fun nativeTabNavigationUsesWebRouterHookWithLegacyUrlFallback() {
+        val source = NativeHomeTabScripts.navigate(
+            "calendar", "https://klasplus.yuntae.in/calendar?yearHakgi=2026%2C2",
+        ).reveal()
+        assertTrue(source.contains("window.klasNativeNavigate(\"calendar\")"))
+        assertTrue(source.contains("window.location.assign(\"https://klasplus.yuntae.in/calendar?yearHakgi=2026%2C2\")"))
+        assertFailsWith<IllegalArgumentException> {
+            NativeHomeTabScripts.navigate("unknown", "https://klasplus.yuntae.in/feed")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            NativeHomeTabScripts.navigate("feed", "https://klasplus.yuntae.in/profile")
+        }
+    }
+
+    @Test
     fun callbackArgumentsAreJsonEncoded() {
         val script = LegacyWebScripts.call(
             LegacyWebCallback.RECEIVE_TOKEN,
