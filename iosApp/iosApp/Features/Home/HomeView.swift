@@ -50,11 +50,22 @@ struct HomeView: View {
         .onReceive(holder.$navigationState) { state in
             coordinator.handleHomeNavigation(state)
         }
+        .onAppear {
+            updateScrollBounce(for: coordinator.currentTab)
+        }
+        .onChange(of: coordinator.currentTab) { tab in
+            updateScrollBounce(for: tab)
+        }
         .webDownloadOverlay(holder)
         .onDisappear {
             coordinator.endIdCardModalIfNeeded()
         }
         .accessibilityIdentifier("home_view")
+    }
+
+    private func updateScrollBounce(for tab: String) {
+        guard !holder.isDisposed else { return }
+        holder.webView.scrollView.bounces = tab != "feed"
     }
 }
 
