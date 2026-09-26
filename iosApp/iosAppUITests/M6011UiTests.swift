@@ -57,7 +57,7 @@ final class M6011UiTests: XCTestCase {
         XCTAssertEqual(app.buttons.matching(identifier: "selection_option_0").count, 1)
         XCTAssertTrue(firstOption.isHittable)
         XCTAssertTrue(app.buttons["selection_option_1"].isHittable)
-        firstOption.tap()
+        firstOption.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
         waitUntilGone(firstOption)
 
         waitForButton("m6011_alert_button").tap()

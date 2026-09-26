@@ -77,9 +77,14 @@ struct SelectionBottomSheet: View {
     @ViewBuilder
     private func optionButton(index: Int, option: SelectionOptionRow) -> some View {
         let button = Button(action: option.action) {
-            Text(option.title)
+            HStack(spacing: 0) {
+                Text(option.title)
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(KlasSelectionRowButtonStyle())
+        .buttonStyle(KlasSelectionRowButtonStyle(isSelected: option.isSelected))
         .accessibilityAddTraits(option.isSelected ? .isSelected : [])
         .accessibilityIdentifier("selection_option_\(index)")
 

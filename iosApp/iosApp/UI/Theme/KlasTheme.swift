@@ -27,7 +27,7 @@ enum KlasTheme {
     static let disabledContainer = onSurface.opacity(0.12)
     static let disabledContent = onSurface.opacity(0.38)
 
-    static let agreementURL = URL(string: "https://blog.yuntae.in/11cfc9b9-3eca-8078-96a0-c41c4ca9cb8f")!
+    static let agreementURL = URL(string: "https://klasplus.yuntae.in/privacy")!
     static let findIdURL = URL(string: "https://klas.kw.ac.kr/usr/cmn/login/modal/UserFindMemberNoPage.do")!
     static let findPasswordURL = URL(string: "https://klas.kw.ac.kr/usr/cmn/login/modal/UserFindPwdPage.do")!
     static let registerURL = URL(string: "https://klas.kw.ac.kr/usr/cmn/login/modal/UserFrstModPwdPage.do")!
@@ -106,19 +106,24 @@ struct KlasTextLinkButtonStyle: ButtonStyle {
 }
 
 struct KlasSelectionRowButtonStyle: ButtonStyle {
+    var isSelected = false
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.footnote.weight(.medium))
-            .foregroundStyle(KlasTheme.onSurfaceVariant)
+            .foregroundStyle(isSelected ? KlasTheme.primary : KlasTheme.onSurfaceVariant)
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
             .frame(minHeight: KlasTheme.buttonHeight)
-            .padding(.vertical, 4)
             .background(
                 RoundedRectangle(cornerRadius: KlasTheme.controlCornerRadius, style: .continuous)
-                    .fill(configuration.isPressed ? KlasTheme.primary.opacity(0.12) : Color.clear)
+                    .fill(KlasTheme.primary.opacity(configuration.isPressed ? 0.20 : (isSelected ? 0.12 : 0)))
             )
-            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
+            .contentShape(RoundedRectangle(cornerRadius: KlasTheme.controlCornerRadius, style: .continuous))
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .animation(.easeOut(duration: 0.16), value: configuration.isPressed)
     }
 }
 

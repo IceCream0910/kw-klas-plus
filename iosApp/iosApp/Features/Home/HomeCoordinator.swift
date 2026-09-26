@@ -719,10 +719,14 @@ final class HomeCoordinator: ObservableObject {
     }
 
     private func openAppStore(id: String) {
-        if let url = URL(string: "itms-apps://itunes.apple.com/app/id\(id)") {
-            UIApplication.shared.open(url)
-        }
         showOptionsMenu = false
+        guard let storeURL = URL(string: "https://apps.apple.com/kr/app/id\(id)") else { return }
+        UIApplication.shared.open(storeURL) { [weak self] opened in
+            guard !opened else { return }
+            Task { @MainActor in
+                self?.showToast("App Store를 열 수 없습니다.")
+            }
+        }
     }
 
     func showToast(_ message: String) {
