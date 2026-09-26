@@ -5,6 +5,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -20,10 +21,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.ViewWeek
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.ViewWeek
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -36,39 +37,45 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.icecream.kwklasplus.R
 
 private data class HomeTab(val id: String, val label: String, val icon: ImageVector)
 
 private val homeTabs = listOf(
-    HomeTab("feed", "홈", Icons.Default.Home),
-    HomeTab("timetable", "시간표", Icons.Default.ViewWeek),
-    HomeTab("calendar", "캘린더", Icons.Default.CalendarMonth),
-    HomeTab("menu", "내 정보", Icons.Default.Menu),
+    HomeTab("feed", "피드", Icons.Outlined.GridView),
+    HomeTab("timetable", "시간표", Icons.Outlined.ViewWeek),
+    HomeTab("calendar", "캘린더", Icons.Outlined.CalendarToday),
+    HomeTab("menu", "전체", Icons.Default.Menu),
 )
 
 @Composable
 fun NativeHomeNavigation(selectedTab: String, onSelect: (String) -> Unit) {
     val colors = MaterialTheme.colorScheme
+    val barColor = colorResource(R.color.md_theme_background).copy(alpha = 0.96f)
+    val selectedBackground = colorResource(
+        if (isSystemInDarkTheme()) R.color.md_theme_surfaceContainerHighest else R.color.md_theme_primaryFixed
+    )
     Surface(
         modifier = Modifier
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .widthIn(max = 560.dp)
+            .padding(16.dp)
+            .widthIn(max = 300.dp)
             .fillMaxWidth()
             .testTag("native_home_navigation"),
         shape = CircleShape,
         color = Color.Transparent,
-        shadowElevation = 8.dp,
+        shadowElevation = 4.dp,
     ) {
         Box(
             modifier = Modifier
                 .clip(CircleShape)
-                .background(colors.surface.copy(alpha = 0.72f))
-                .border(1.dp, colors.outlineVariant.copy(alpha = 0.55f), CircleShape)
+                .background(barColor)
+                .border(1.dp, colors.onSurface.copy(alpha = 0.16f), CircleShape)
                 .padding(4.dp),
         ) {
             BoxWithConstraints(Modifier.fillMaxWidth().height(54.dp)) {
@@ -84,12 +91,12 @@ fun NativeHomeNavigation(selectedTab: String, onSelect: (String) -> Unit) {
                         .offset(x = capsuleOffset)
                         .width(tabWidth)
                         .fillMaxHeight()
-                        .background(colors.secondaryContainer, CircleShape),
+                        .background(selectedBackground, CircleShape),
                 )
                 Row(Modifier.fillMaxWidth()) {
                     homeTabs.forEach { tab ->
                         val isSelected = selectedTab == tab.id
-                        val contentColor = if (isSelected) colors.onSecondaryContainer else colors.onSurfaceVariant
+                        val contentColor = if (isSelected) colors.primary else colors.onSurfaceVariant
                         Column(
                             modifier = Modifier
                                 .width(tabWidth)

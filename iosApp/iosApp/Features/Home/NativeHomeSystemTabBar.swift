@@ -14,10 +14,10 @@ struct NativeHomeSystemTabBar: UIViewRepresentable {
     func makeUIView(context: Context) -> UITabBar {
         let bar = UITabBar()
         bar.items = [
-            UITabBarItem(title: "홈", image: UIImage(systemName: "house"), tag: 0),
+            UITabBarItem(title: "피드", image: UIImage(systemName: "app.grid.2x2"), tag: 0),
             UITabBarItem(title: "시간표", image: UIImage(systemName: "rectangle.split.3x1"), tag: 1),
-            UITabBarItem(title: "캘린더", image: UIImage(systemName: "calendar"), tag: 2),
-            UITabBarItem(title: "내 정보", image: UIImage(systemName: "person.crop.circle"), tag: 3)
+            UITabBarItem(title: "캘린더", image: UIImage(systemName: "calendar.day"), tag: 2),
+            UITabBarItem(title: "전체", image: UIImage(systemName: "line.3.horizontal"), tag: 3)
         ]
         bar.delegate = context.coordinator
         bar.isTranslucent = true
