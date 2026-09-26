@@ -218,7 +218,11 @@ final class AuthSessionControllerTests: XCTestCase {
         let suite = "com.icecream.kwklasplus.test.auth.expired.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defaults.removePersistentDomain(forName: suite)
-        let runtime = IosAuthRuntime.companion.create(defaults: defaults)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let keychain = IosKeychainSecureStore(
+            service: "com.icecream.kwklasplus.test.auth.expired.keychain.\(UUID().uuidString)"
+        )
+        let runtime = IosAuthRuntime.companion.createForTests(defaults: defaults, secureStore: keychain)
         let observed = expectation(description: "session observed")
         runtime.observeSessionToken(token: "session-expired") { result in
             XCTAssertTrue(result is SessionResultActive)
@@ -240,7 +244,12 @@ final class AuthSessionControllerTests: XCTestCase {
             restored.fulfill()
         }
         await fulfillment(of: [restored], timeout: 5)
-        defaults.removePersistentDomain(forName: suite)
+        let removed = expectation(description: "remove test session")
+        keychain.remove(key: SecureKey.sessionToken) { error in
+            XCTAssertNil(error)
+            removed.fulfill()
+        }
+        await fulfillment(of: [removed], timeout: 5)
     }
 
     private func makeController(

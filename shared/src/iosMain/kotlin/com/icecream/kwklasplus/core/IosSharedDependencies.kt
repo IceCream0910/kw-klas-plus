@@ -47,6 +47,7 @@ import com.icecream.kwklasplus.core.session.IosWebCookieStore
 import com.icecream.kwklasplus.core.session.SecureSessionStore
 import com.icecream.kwklasplus.core.session.SessionCoordinator
 import com.icecream.kwklasplus.core.session.SessionLeaseManager
+import com.icecream.kwklasplus.core.session.WebCookieStore
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.NSDate
 import platform.Foundation.timeIntervalSince1970
@@ -57,7 +58,7 @@ class IosSharedDependencies(
         (NSDate().timeIntervalSince1970 * 1000.0).toLong()
     },
     secureStoreOverride: SecureStore? = null,
-    cookieStoreOverride: IosWebCookieStore? = null,
+    cookieStoreOverride: WebCookieStore? = null,
     sharedDefaults: NSUserDefaults? = null,
     val widgetExtension: Boolean = false,
 ) {
@@ -175,7 +176,7 @@ class IosSharedDependencies(
 
     val webCookieStore: IosWebCookieStore by lazy {
         check(!widgetExtension) { "WK cookie store is not available in the widget extension" }
-        cookieStoreOverride ?: IosWebCookieStore()
+        (cookieStoreOverride as? IosWebCookieStore) ?: IosWebCookieStore()
     }
 
     val sessionCoordinator by lazy {
