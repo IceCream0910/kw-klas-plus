@@ -29,7 +29,7 @@ SESSION 쿠키, 저장 자격증명, 암호화 비밀번호, 앱 잠금 PIN/Keyc
 
 ## 표시와 시간 정책
 
-두 종류의 WidgetKit `StaticConfiguration`을 `KlasWidgetBundle`에 등록한다. 캘린더 위젯은 `systemSmall`/`systemMedium`(오늘/다가오는 일정 아젠다)과 `systemLarge`/`systemExtraLarge`(월간 캘린더+일정 막대)를 제공한다. 반면 시간표 위젯은 WidgetKit의 갱신 예산 제약(하루 약 40~70회)으로 인해 분 단위 갱신이 필요한 수업별 진행률/남은 시간 계산 로직을 안정적으로 보장할 수 없으므로, 축소형 진행률 위젯을 제외하고 전체 시간표를 보여주는 확장형 레이아웃(`systemLarge`/`systemExtraLarge`: 평일 그리드+주말 과목 목록) 1개로 제한한다([이슈 #40](https://github.com/IceCream0910/kw-klas-plus/issues/40)). iPad/홈 화면 family는 지원 OS에서 실제 제공 여부를 확인하고 별도 레이아웃으로 대응한다. Android의 dp 250 경계를 iOS family에 그대로 적용하지 않고, 각 family의 `WidgetFamily`/실제 가용 영역과 Dynamic Type에 맞춰 잘림·빈 상태를 설계한다.
+QR, 캘린더, 시간표 세 종류의 WidgetKit `StaticConfiguration`을 `KlasWidgetBundle`에 등록한다. 캘린더 위젯은 `systemSmall`/`systemMedium`(오늘/다가오는 일정 아젠다)과 `systemLarge`/`systemExtraLarge`(월간 캘린더+일정 막대)를 한 종류의 위젯에서 제공한다. 시간표도 한 종류의 위젯에서 `systemSmall`/`systemMedium`(오늘 수업 목록)과 `systemLarge`/`systemExtraLarge`(평일 그리드+주말 과목 목록)를 제공한다. 작은 시간표는 최대 2개, 중간 크기는 최대 4개 수업을 표시하고 초과 개수를 알려준다. 홈 화면 위젯은 스크롤 목록을 지원하지 않으므로 전체 목록은 위젯 탭으로 앱에서 본다. 축소형에는 수업 상태만 표시하고 분 단위 남은 시간·진행률은 넣지 않는다. WidgetKit의 갱신 예산 제약 때문에 분 단위 상태 갱신을 보장할 수 없기 때문이다([이슈 #40](https://github.com/IceCream0910/kw-klas-plus/issues/40)). iPad/홈 화면 family는 지원 OS에서 실제 제공 여부를 확인하고 별도 레이아웃으로 대응한다. Android의 dp 250 경계를 iOS family에 그대로 적용하지 않고, 각 family의 `WidgetFamily`/실제 가용 영역과 Dynamic Type에 맞춰 잘림·빈 상태를 설계한다.
 
 시간표는 학기 데이터가 바뀌거나 앱이 foreground에 들어와 조회에 성공했을 때 스냅샷을 다시 기록한다. 수업 상태/요일 전환은 분 단위 reload 대신 미리 계산한 시작·종료·자정 시점 timeline entry로만 표현한다. 분 단위 `reloadTimelines` 호출이나 연속 progress 애니메이션은 WidgetKit 예산 정책상 보장되지 않으므로 배제하며, Android와 같은 실시간 진행률 표시는 플랫폼 승인 차이로 둔다.
 
