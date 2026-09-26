@@ -92,12 +92,18 @@ final class WebViewHolder: NSObject, ObservableObject {
                 forMainFrameOnly: true
             )
         )
+        WebSurfaceZoomPolicy.install(on: configuration)
         bridgeAdapter?.install(into: configuration)
         let created = WKWebView(frame: .zero, configuration: configuration)
+        created.isOpaque = false
+        created.backgroundColor = .clear
+        created.scrollView.backgroundColor = .clear
+        created.underPageBackgroundColor = UIColor(KlasTheme.background)
         created.navigationDelegate = navigationRelay
         created.uiDelegate = uiRelay
         created.allowsBackForwardNavigationGestures = true
         Self.configureWebScrollView(created.scrollView)
+        WebSurfaceZoomPolicy.configure(created)
         _webView = created
         return created
     }
@@ -774,4 +780,3 @@ private final class UIRelay: NSObject, WKUIDelegate {
         owner?.handleOpenPanel(allowMultiple: parameters.allowsMultipleSelection, completionHandler: completionHandler)
     }
 }
-

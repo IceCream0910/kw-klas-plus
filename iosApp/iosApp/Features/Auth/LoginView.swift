@@ -91,6 +91,7 @@ private struct OnboardingWebView: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
+        WebSurfaceZoomPolicy.install(on: configuration)
         // 웹 _app.js는 KlasNativeBridge.completePageLoad 실패 시 Play Store로 replace한다.
         // 온보딩 WebView에도 Bridge v1을 심어 앱 내 온보딩이 유지되게 한다.
         let adapter = IosBridgeMessageAdapter(
@@ -102,6 +103,7 @@ private struct OnboardingWebView: UIViewRepresentable {
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
+        WebSurfaceZoomPolicy.configure(webView)
         if let url = URL(string: urlString) {
             webView.load(URLRequest(url: url))
         }

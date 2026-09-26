@@ -396,9 +396,11 @@ struct LectureView: View {
                 KlasLoadingView(message: "불러오는 중")
             }
         }
-        .navigationTitle(model.subjectName)
+        .webSurfaceTopBackground()
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button {

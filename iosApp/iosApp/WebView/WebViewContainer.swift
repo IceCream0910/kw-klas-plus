@@ -37,6 +37,55 @@ enum WebSurfaceViewportScript {
     """
 }
 
+enum WebSurfaceZoomPolicy {
+    static let source = #"""
+    (function() {
+      function lockScale() {
+        var metas = document.querySelectorAll('meta[name="viewport"]');
+        if (!metas.length) {
+          var created = document.createElement('meta');
+          created.name = 'viewport';
+          document.head.appendChild(created);
+          metas = [created];
+        }
+        metas.forEach(function(meta) {
+          var kept = (meta.getAttribute('content') || '').split(',').map(function(part) {
+            return part.trim();
+          }).filter(function(part) {
+            return part && !/^(initial-scale|minimum-scale|maximum-scale|user-scalable)\s*=/i.test(part);
+          });
+          if (!kept.some(function(part) { return /^width\s*=/i.test(part); })) {
+            kept.unshift('width=device-width');
+          }
+          kept.push('initial-scale=1', 'minimum-scale=1', 'maximum-scale=1', 'user-scalable=no');
+          var content = kept.join(', ');
+          if (meta.getAttribute('content') !== content) {
+            meta.setAttribute('content', content);
+          }
+        });
+      }
+      lockScale();
+      new MutationObserver(lockScale).observe(document.head, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['content']
+      });
+    })();
+    """#
+
+    static func install(on configuration: WKWebViewConfiguration) {
+        configuration.ignoresViewportScaleLimits = false
+        configuration.userContentController.addUserScript(
+            WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        )
+    }
+
+    static func configure(_ webView: WKWebView) {
+        webView.scrollView.pinchGestureRecognizer?.isEnabled = false
+    }
+}
+
 // 이미 생성된 WKWebView를 SwiftUI에 표시
 struct WebViewContainer: UIViewRepresentable {
     let webView: WKWebView
@@ -68,5 +117,9 @@ extension View {
                 self
             }
         }
+    }
+
+    func webSurfaceTopBackground() -> some View {
+        self.background(KlasTheme.background.ignoresSafeArea(.container, edges: .top))
     }
 }
