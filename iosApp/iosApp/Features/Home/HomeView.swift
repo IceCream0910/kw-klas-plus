@@ -31,6 +31,7 @@ struct HomeView: View {
                 )
             }
         }
+        .webSurfaceTopBackground()
         .toolbar(.hidden, for: .navigationBar)
         .overlay(alignment: .bottom) {
             if !coordinator.isPageLoading && !coordinator.isWebBottomSheetOpen {

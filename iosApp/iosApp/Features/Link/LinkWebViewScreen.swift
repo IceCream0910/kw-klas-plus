@@ -67,6 +67,7 @@ private struct LinkWebView: UIViewRepresentable {
                 )
             )
         }
+        WebSurfaceZoomPolicy.install(on: configuration)
 
         let adapter = IosBridgeMessageAdapter(
             surface: .linkView,
@@ -87,6 +88,7 @@ private struct LinkWebView: UIViewRepresentable {
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.scrollView.contentInset = .zero
         webView.scrollView.scrollIndicatorInsets = .zero
+        WebSurfaceZoomPolicy.configure(webView)
         context.coordinator.webView = webView
         webView.load(URLRequest(url: url))
         return webView
@@ -120,7 +122,7 @@ private struct LinkWebView: UIViewRepresentable {
     private static let forceMobileLayoutJavaScript = """
         (function(){
           var meta=document.querySelector('meta[name="viewport"]');
-          var content='width=device-width, initial-scale=1, maximum-scale=1, user-scalable=yes, viewport-fit=cover';
+          var content='width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';
           if(meta){meta.setAttribute('content',content);}
           else{
             meta=document.createElement('meta');

@@ -25,7 +25,10 @@ struct PushedWebStack: View {
                 )
             }
         }
+        .webSurfaceTopBackground()
+        .navigationTitle("")
         .navigationBarBackButtonHidden(true)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button(action: onBack) {

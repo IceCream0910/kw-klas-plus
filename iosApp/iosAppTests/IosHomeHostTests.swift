@@ -33,6 +33,9 @@ final class IosHomeHostTests: XCTestCase {
         let second = holder.webView
         XCTAssertTrue(first === second)
         XCTAssertEqual(first.scrollView.keyboardDismissMode, .interactive)
+        XCTAssertFalse(first.isOpaque)
+        XCTAssertEqual(first.backgroundColor, .clear)
+        XCTAssertEqual(first.scrollView.backgroundColor, .clear)
         XCTAssertTrue(WebSurfaceViewportScript.source.contains("visualViewport"))
         XCTAssertTrue(WebSurfaceViewportScript.source.contains("klas-visual-viewport-height"))
         XCTAssertTrue(WebSurfaceViewportScript.source.contains("__klasPlusViewportPublishing"))
