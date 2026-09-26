@@ -1,5 +1,6 @@
 package com.icecream.kwklasplus.core.bridge
 
+import com.icecream.kwklasplus.core.legacy.KlasUrls
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -14,7 +15,10 @@ class BridgeValidatorTest {
 
         assertTrue(policy.isTrustedUrl("https://klas.kw.ac.kr/std/page"))
         assertTrue(policy.isTrustedUrl("https://KLASPLUS.YUNTAE.IN/feed"))
+        assertTrue(policy.isTrustedUrl("${KlasUrls.KLAS_PLUS_BASE}/feed"))
         assertFalse(policy.isTrustedUrl("http://klas.kw.ac.kr/std/page"))
+        assertFalse(policy.isTrustedUrl("http://100.105.14.118:3001/feed"))
+        assertFalse(policy.isTrustedUrl("http://100.105.14.118:3000.evil.example/feed"))
         assertFalse(policy.isTrustedUrl("https://klas.kw.ac.kr.evil.example/std/page"))
         assertFalse(policy.isTrustedUrl("https://klas.kw.ac.kr@evil.example/std/page"))
         assertFalse(policy.isTrustedUrl("https://klas.kw.ac.kr:443/std/page"))
@@ -105,8 +109,15 @@ class BridgeValidatorTest {
         val policy = TrustedOriginPolicy()
 
         assertTrue(policy.isTrusted("https://klas.kw.ac.kr"))
+        assertTrue(policy.isTrusted(KlasUrls.KLAS_PLUS_BASE))
         assertTrue(!policy.isTrusted("http://klas.kw.ac.kr"))
         assertTrue(!policy.isTrusted("https://klas.kw.ac.kr.evil.example"))
+        assertIs<BridgeValidationResult.Accepted>(
+            validator.validate(
+                request("completePageLoad"),
+                context(BridgeSurface.HOME, origin = KlasUrls.KLAS_PLUS_BASE),
+            ),
+        )
     }
 
     @Test

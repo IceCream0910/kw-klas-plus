@@ -6,14 +6,15 @@ import com.icecream.kwklasplus.core.legacy.KlasUrls.KLAS_PLUS_BASE
 class TrustedOriginPolicy(
     private val trustedOrigins: Set<String> = DEFAULT_TRUSTED_ORIGINS,
 ) {
-    fun isTrusted(origin: String): Boolean = origin in trustedOrigins
+    fun isTrusted(origin: String): Boolean = origin in trustedOrigins &&
+        (origin.startsWith("https://") || origin == KLAS_PLUS_BASE)
 
     fun isTrustedUrl(url: String): Boolean {
         if (url.isBlank() || url != url.trim() || url.any(Char::isISOControl)) return false
         val schemeSeparator = url.indexOf("://")
         if (schemeSeparator <= 0) return false
         val scheme = url.substring(0, schemeSeparator).lowercase()
-        if (scheme != "https") return false
+        if (scheme != "https" && scheme != "http") return false
         val authority = url.substring(schemeSeparator + 3)
             .substringBefore('/')
             .substringBefore('?')
@@ -26,6 +27,7 @@ class TrustedOriginPolicy(
     companion object {
         val DEFAULT_TRUSTED_ORIGINS = setOf(
             KLAS_BASE,
+            "https://klasplus.yuntae.in",
             KLAS_PLUS_BASE
         )
     }

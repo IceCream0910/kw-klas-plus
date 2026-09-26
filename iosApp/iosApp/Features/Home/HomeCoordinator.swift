@@ -29,6 +29,12 @@ enum HomeBootstrapPhase: Equatable {
     case failed(String)
 }
 
+enum HomeRefreshPhase: Equatable {
+    case idle
+    case fetching
+    case loadingPage
+}
+
 enum QrAttendancePhase: Equatable {
     case idle
     case preparing
@@ -48,6 +54,7 @@ final class HomeCoordinator: ObservableObject {
     @Published private(set) var bootstrapPhase: HomeBootstrapPhase = .loading
     @Published private(set) var homeHolder: WebViewHolder?
     @Published var isPageLoading = true
+    @Published private(set) var refreshPhase: HomeRefreshPhase = .idle
     @Published var isWebBottomSheetOpen = false
     @Published var toastMessage: String?
     @Published var showYearHakgiPicker = false
@@ -78,7 +85,7 @@ final class HomeCoordinator: ObservableObject {
     private(set) var yearHakgiList: [String] = []
     private(set) var timetableJson = ""
     private(set) var deadlineJson = ""
-    private(set) var currentTab = ""
+    @Published private(set) var currentTab = ""
 
     private let routeFactory = AppRouteFactory(
         webPolicy: ExternalNavigationPolicy(maximumLength: 2048)
@@ -180,12 +187,35 @@ final class HomeCoordinator: ObservableObject {
 
     func switchToTab(_ tab: String) {
         if currentTab == tab && !currentTab.isEmpty { return }
+        if Self.homeTab(fromUrl: homeHolder?.webView.url?.absoluteString ?? "") == tab {
+            currentTab = tab
+            return
+        }
         currentTab = tab
         isPageLoading = true
         let url = ProductWebUrls.shared.homeTab(tab: tab, yearHakgi: yearHakgi)
         homeHolder?.load(url)
         if !yearHakgi.isEmpty {
             homeHolder?.evaluate(IosWebCallbacks.shared.setLocalStorage(key: "currentYearHakgi", value: yearHakgi))
+        }
+        _ = haptics.performLegacy(contractName: "CLOCK_TICK")
+    }
+
+    func selectNativeTab(_ tab: String) {
+        guard currentTab != tab,
+              ["feed", "timetable", "calendar", "menu"].contains(tab),
+              let holder = homeHolder else { return }
+        let url = ProductWebUrls.shared.homeTab(tab: tab, yearHakgi: yearHakgi)
+        currentTab = tab
+        holder.evaluate(IosWebCallbacks.shared.navigateHomeTabIfAvailable(tab: tab)) { [weak self, weak holder] result in
+            Task { @MainActor in
+                guard let self, let holder,
+                      self.homeHolder === holder,
+                      self.currentTab == tab else { return }
+                if (result as? Bool) != true {
+                    holder.load(url)
+                }
+            }
         }
         _ = haptics.performLegacy(contractName: "CLOCK_TICK")
     }
@@ -204,16 +234,36 @@ final class HomeCoordinator: ObservableObject {
         homeRuntime.onForeground(userAgent: Self.platformUserAgent())
     }
 
-    /// `switchToTab`은 같은 탭이면 return하므로, 학기 변경·로드 실패 재시도는 가드를 비운 뒤 URL을 다시 만든다.
-    func reloadCurrentTab() {
+    func reloadCurrentTab(usingOverlay: Bool = false) {
+        guard let holder = homeHolder else { return }
         let tab = currentTab.isEmpty ? "feed" : currentTab
-        currentTab = ""
-        switchToTab(tab)
+        currentTab = tab
+        if usingOverlay {
+            refreshPhase = .loadingPage
+        } else {
+            isPageLoading = true
+        }
+        if !yearHakgi.isEmpty {
+            holder.evaluate(IosWebCallbacks.shared.setLocalStorage(key: "currentYearHakgi", value: yearHakgi))
+        }
+        holder.load(ProductWebUrls.shared.homeTab(tab: tab, yearHakgi: yearHakgi))
     }
 
     func handleHomeNavigation(_ state: WebNavigationState) {
-        guard case .failed = state.loadPhase else { return }
-        isPageLoading = false
+        switch state.loadPhase {
+        case .ready(let url):
+            if refreshPhase == .loadingPage {
+                refreshPhase = .idle
+            }
+            if isPageLoading && url.hasPrefix("\(KlasUrls.shared.KLAS_PLUS_BASE)/") {
+                injectHomePageLoad()
+            }
+        case .failed:
+            refreshPhase = .idle
+            isPageLoading = false
+        case .idle, .loading, .disposed:
+            break
+        }
     }
 
     static func pageLoadFailureMessage(for category: WebNavFailureCategory) -> String {
@@ -233,6 +283,9 @@ final class HomeCoordinator: ObservableObject {
         holder.evaluate(IosWebCallbacks.shared.receiveToken(token: token.reveal()))
         injectHomeTabData()
         isPageLoading = false
+        if refreshPhase == .loadingPage {
+            refreshPhase = .idle
+        }
     }
 
     func injectHomeTabData() {
@@ -456,7 +509,11 @@ final class HomeCoordinator: ObservableObject {
     }
 
     func reloadHome() {
-        isPageLoading = true
+        if bootstrapPhase == .ready && homeHolder != nil {
+            refreshPhase = .fetching
+        } else {
+            isPageLoading = true
+        }
         homeRuntime.refreshHome(yearHakgi: yearHakgi, userAgent: Self.platformUserAgent()) { [weak self] result in
             Task { @MainActor in
                 self?.handleRefresh(result)
@@ -744,21 +801,24 @@ final class HomeCoordinator: ObservableObject {
                 pendingWidgetTab = nil
                 switchToTab(tab)
             } else {
-                reloadCurrentTab()
+                reloadCurrentTab(usingOverlay: refreshPhase == .fetching)
             }
             bootstrapPhase = .ready
             return
         }
         if let empty = result as? HomeBootstrapResultEmptyTerms {
+            refreshPhase = .idle
             sessionToken = empty.sessionToken
             bootstrapPhase = .emptyTerms
             return
         }
         if result is HomeBootstrapResultSessionExpired {
+            refreshPhase = .idle
             bootstrapPhase = .sessionExpired
             return
         }
         isPageLoading = false
+        refreshPhase = .idle
         if let failure = result as? HomeBootstrapResultFailure {
             showToast(failure.message)
         }

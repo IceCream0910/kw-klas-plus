@@ -1,6 +1,7 @@
 package com.icecream.kwklasplus.core.web
 
 import com.icecream.kwklasplus.core.lock.AppLockSettings
+import com.icecream.kwklasplus.core.legacy.KlasUrls
 
 class WebScript internal constructor(private val source: String) {
     fun reveal(): String = source
@@ -51,6 +52,38 @@ object LegacyWebScripts {
     fun appLockSettingChanged(settings: AppLockSettings): WebScript = WebScript(
         "window.onAppLockSettingChanged(${settings.toLegacyJson()});",
     )
+}
+
+object NativeHomeTabScripts {
+    private val tabs = setOf("feed", "timetable", "calendar", "menu")
+
+    fun navigateIfAvailable(tab: String): WebScript {
+        require(tab in tabs)
+        val encodedTab = JavaScriptEncoder.encodeText(tab)
+        return WebScript(
+            "(function(){if(typeof window.klasNativeNavigate!=='function')return false;" +
+                "window.klasNativeNavigate($encodedTab);return true;})()",
+        )
+    }
+
+    fun navigate(tab: String, fallbackUrl: String): WebScript {
+        require(tab in tabs)
+        val path = when (tab) {
+            "feed" -> "/feed"
+            "timetable" -> "/timetableTab"
+            "calendar" -> "/calendar"
+            else -> "/profile"
+        }
+        val base = "${KlasUrls.KLAS_PLUS_BASE}$path"
+        require(fallbackUrl == base || fallbackUrl.startsWith("$base?"))
+        val encodedTab = JavaScriptEncoder.encodeText(tab)
+        val encodedUrl = JavaScriptEncoder.encodeText(fallbackUrl)
+        return WebScript(
+            "(function(){if(typeof window.klasNativeNavigate==='function'){" +
+                "window.klasNativeNavigate($encodedTab);" +
+                "}else{window.location.assign($encodedUrl);}})();",
+        )
+    }
 }
 
 fun interface WebScriptExecutor {

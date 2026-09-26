@@ -36,6 +36,8 @@ final class IosFilePortsTests: XCTestCase {
         )
 
         XCTAssertTrue(holder.handleDecidePolicy(urlString: "https://klasplus.yuntae.in/feed", isMainFrame: true))
+        XCTAssertTrue(holder.handleDecidePolicy(urlString: "\(KlasUrls.shared.KLAS_PLUS_BASE)/feed", isMainFrame: true))
+        XCTAssertEqual(opener.opened.count, 3)
     }
 
     func testInAppWebHolderLoadsUniversityNoticeInsteadOfSafari() {

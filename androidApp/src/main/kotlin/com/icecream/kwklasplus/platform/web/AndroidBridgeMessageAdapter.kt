@@ -96,6 +96,7 @@ class AndroidBridgeMessageAdapter(
         const val NATIVE_OBJECT_NAME = "KlasNativeBridgeNative"
         val ALLOWED_ORIGINS = setOf(
             KLAS_BASE,
+            "https://klasplus.yuntae.in",
             KLAS_PLUS_BASE
         )
         val VIDEO_ALLOWED_ORIGINS = ALLOWED_ORIGINS + "https://*.kw.ac.kr"

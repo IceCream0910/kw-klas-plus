@@ -1,11 +1,41 @@
 package com.icecream.kwklasplus.core.web
 
+import com.icecream.kwklasplus.core.legacy.KlasUrls
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class WebScriptTest {
+    @Test
+    fun nativeTabNavigationUsesWebRouterHookWithLegacyUrlFallback() {
+        val base = KlasUrls.KLAS_PLUS_BASE
+        val source = NativeHomeTabScripts.navigate(
+            "calendar", "$base/calendar?yearHakgi=2026%2C2",
+        ).reveal()
+        assertTrue(source.contains("window.klasNativeNavigate(\"calendar\")"))
+        assertTrue(source.contains("window.location.assign(\"$base/calendar?yearHakgi=2026%2C2\")"))
+        assertFailsWith<IllegalArgumentException> {
+            NativeHomeTabScripts.navigate("unknown", "$base/feed")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            NativeHomeTabScripts.navigate("feed", "$base/profile")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            NativeHomeTabScripts.navigate("feed", "https://evil.example/feed")
+        }
+    }
+
+    @Test
+    fun optionalNativeTabCallbackReportsWhetherWebHookExists() {
+        val source = NativeHomeTabScripts.navigateIfAvailable("feed").reveal()
+        assertTrue(source.contains("window.klasNativeNavigate(\"feed\")"))
+        assertTrue(source.contains("return false"))
+        assertFailsWith<IllegalArgumentException> {
+            NativeHomeTabScripts.navigateIfAvailable("unknown")
+        }
+    }
+
     @Test
     fun callbackArgumentsAreJsonEncoded() {
         val script = LegacyWebScripts.call(

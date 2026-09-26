@@ -322,17 +322,18 @@ final class IosHomeHostTests: XCTestCase {
 
     @MainActor
     func testHomeTabUrlsMatchAndroid() {
+        let base = KlasUrls.shared.KLAS_PLUS_BASE
         XCTAssertEqual(
             ProductWebUrls.shared.homeTab(tab: "feed", yearHakgi: "2026,1"),
-            "https://klasplus.yuntae.in/feed?yearHakgi=2026,1"
+            "\(base)/feed?yearHakgi=2026,1"
         )
         XCTAssertEqual(
             ProductWebUrls.shared.homeTab(tab: "timetable", yearHakgi: "2026,1"),
-            "https://klasplus.yuntae.in/timetableTab?yearHakgi=2026,1"
+            "\(base)/timetableTab?yearHakgi=2026,1"
         )
         XCTAssertEqual(
             ProductWebUrls.shared.homeTab(tab: "menu", yearHakgi: "2026,1"),
-            "https://klasplus.yuntae.in/profile"
+            "\(base)/profile"
         )
         XCTAssertEqual(
             HomeCoordinator.homeTab(fromUrl: "https://klasplus.yuntae.in/timetableTab?yearHakgi=2026,1"),
@@ -352,7 +353,7 @@ final class IosHomeHostTests: XCTestCase {
         )
         XCTAssertEqual(
             ProductWebUrls.shared.boardList(title: "공지"),
-            "https://klasplus.yuntae.in/boardList?title=공지"
+            "\(base)/boardList?title=공지"
         )
         XCTAssertEqual(
             ProductWebUrls.shared.task(path: "/std/lis/evltn/TaskStdPage.do"),
@@ -408,7 +409,7 @@ final class IosHomeHostTests: XCTestCase {
     }
 
     @MainActor
-    func testHomeNavigationFailureClearsLoadingWithoutFailingBootstrap() {
+    func testHomeNavigationCompletionAndFailureClearLoadingWithoutFailingBootstrap() {
         let coordinator = makeHomeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
@@ -418,15 +419,16 @@ final class IosHomeHostTests: XCTestCase {
 
         coordinator.handleHomeNavigation(
             WebNavigationState(
-                loadPhase: .ready(url: "https://klasplus.yuntae.in/feed?yearHakgi=2026,1")
+                loadPhase: .ready(url: ProductWebUrls.shared.homeTab(tab: "feed", yearHakgi: "2026,1"))
             )
         )
-        XCTAssertTrue(coordinator.isPageLoading)
+        XCTAssertFalse(coordinator.isPageLoading)
         XCTAssertEqual(coordinator.bootstrapPhase, .ready)
 
+        coordinator.isPageLoading = true
         coordinator.handleHomeNavigation(
             WebNavigationState(
-                loadPhase: .failed(url: "https://klasplus.yuntae.in/feed?yearHakgi=2026,1", category: .network)
+                loadPhase: .failed(url: ProductWebUrls.shared.homeTab(tab: "feed", yearHakgi: "2026,1"), category: .network)
             )
         )
         XCTAssertFalse(coordinator.isPageLoading)
@@ -458,6 +460,31 @@ final class IosHomeHostTests: XCTestCase {
         XCTAssertEqual(coordinator.currentTab, "feed")
         XCTAssertTrue(coordinator.isPageLoading)
         XCTAssertEqual(coordinator.bootstrapPhase, .ready)
+    }
+
+    @MainActor
+    func testReloadOverlayEndsAfterNavigationCompletesOrFails() {
+        let coordinator = makeHomeCoordinator()
+        defer { coordinator.dispose() }
+        coordinator.handleBootstrap(Self.readyHomeResult())
+        coordinator.isPageLoading = false
+
+        coordinator.reloadCurrentTab(usingOverlay: true)
+        XCTAssertEqual(coordinator.refreshPhase, .loadingPage)
+        XCTAssertFalse(coordinator.isPageLoading)
+        XCTAssertEqual(coordinator.currentTab, "feed")
+
+        coordinator.handleHomeNavigation(
+            WebNavigationState(loadPhase: .ready(url: ProductWebUrls.shared.homeTab(tab: "feed", yearHakgi: "2026,1")))
+        )
+        XCTAssertEqual(coordinator.refreshPhase, .idle)
+
+        coordinator.reloadCurrentTab(usingOverlay: true)
+        coordinator.handleHomeNavigation(
+            WebNavigationState(loadPhase: .failed(url: nil, category: .network))
+        )
+        XCTAssertEqual(coordinator.refreshPhase, .idle)
+        XCTAssertFalse(coordinator.isPageLoading)
     }
 
     func testReceivedDataCallbacksUseLegacyArgumentCounts() {

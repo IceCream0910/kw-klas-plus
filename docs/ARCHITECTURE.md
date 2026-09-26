@@ -29,6 +29,8 @@ flowchart LR
 
 암호화 비밀번호, SESSION, 도서관 키, 앱 잠금 hash/salt는 비밀로 다뤄주세요. Android 비밀은 Keystore 보호 저장소에, iOS 비밀은 Keychain에 둡니다. SESSION 원문은 일반 preferences에 새로 기록하지 않고 보안 저장소와 WebView cookie만 동기화합니다. iOS 17 캘린더 위젯 새로고침은 App Group 파일이 아니라 Keychain Access Group `$(AppIdentifierPrefix)com.icecream.kwklasplus.academic-session`에서 `SESSION_TOKEN`과 서버 암호화 KLAS 비밀번호만 메인 앱과 공유합니다. 각 타깃 `keychain-access-groups`의 첫 항목은 해당 타깃 App ID이고, 공유 키만 academic-session을 `kSecAttrAccessGroup`에 명시합니다. 공유 그룹을 쓸 수 없으면 SESSION·암호화 비밀번호는 기본 그룹에 넣지 않고 저장을 실패합니다. 앱 잠금 hash/salt와 도서관 비밀은 앱 App ID 그룹에 남기고, 확장은 WKWebView cookie를 만들지 않습니다. 확장 재인증 뒤에는 App Group의 cookie 동기화 필요 표시를 메인 앱이 `SessionCoordinator.restore()`로 소비합니다. 비밀 저장 파일은 백업·기기 이전에서 제외해요. 평문 비밀번호는 저장하거나 로그에 남기지 마세요. 앱 잠금(PIN·생체인식) 설정은 기기 설정이므로 로그아웃 후에도 유지합니다.
 
+iOS 시뮬레이터에서 인증을 검증할 때는 앱의 Keychain Access Group 권한을 포함한 서명 빌드를 설치해야 합니다. 기존 로그인 데이터가 있는 시뮬레이터에 `CODE_SIGNING_ALLOWED=NO`로 빌드한 테스트 앱을 설치하면 권한이 빠져 저장 자격증명 조회와 재로그인 저장이 실패합니다. 빌드만 검증할 때는 설치하지 않고, 실행 테스트는 동일한 `AppIdentifierPrefix`로 서명된 앱을 사용합니다. 앱 삭제·Keychain 초기화로 이 문제를 우회하지 않습니다.
+
 ### 인증과 세션에서 지킬 동작
 
 | 상황 | 동작 |
@@ -67,6 +69,8 @@ flowchart LR
 
 일반 surface는 `https://klas.kw.ac.kr` 또는 `https://klasplus.yuntae.in`의 정확한 origin과 main frame만 허용합니다. Video surface는 추가로 HTTPS `*.kw.ac.kr`을 허용하지만 루트 `kw.ac.kr`, 사용자 정보·포트가 붙은 URL은 허용하지 않아요. 알 수 없는 메서드와 잘못된 인자·origin은 거부합니다. [`BridgeValidator`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/BridgeValidator.kt)와 [`BridgeJsonCodec`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/BridgeJsonCodec.kt)이 검증 기준입니다.
 
+로컬 테스트에서 `KlasUrls.KLAS_PLUS_BASE`를 HTTP IP 주소로 임시 지정한 경우에는 그 정확한 scheme·host·port만 홈 URL 및 Bridge v1 origin으로 추가 허용합니다. Android Debug 매니페스트와 iOS Debug Info.plist만 웹 콘텐츠의 평문 HTTP 로드를 허용하며 Release에서는 차단합니다. 운영 도메인은 테스트 주소를 지정해도 계속 허용합니다. 테스트 설정을 배포용 URL로 사용하지 마세요.
+
 ### Web → Native 메서드
 
 현재 카탈로그는 7개 surface, 58개 명령입니다. 아래 이름은 공개 계약이므로 오타처럼 보이는 `evaluteKLASScript`도 바꾸지 마세요. 정확한 인자 개수·타입은 [`LegacyBridgeCatalog`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/LegacyBridgeCatalog.kt), typed 대응은 [`BridgeMethodId`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/BridgeMethodId.kt)가 기준입니다.
@@ -91,6 +95,8 @@ flowchart LR
 | 화면 데이터 | `window.receivedData(2~4)`, `window.receiveTimetableData(1)`, `window.receiveDeadlineData(1)`, `window.receiveIdCardQRValue(2)` |
 | 학기·설정 | `window.updateYearHakgiBtnText(1)`, `window.setDateTime(2)`, `window.receiveTheme(1)`, `window.receiveYearHakgi(1)`, `window.receiveVersion(1)`, `window.onAppLockSettingChanged(1)`, `window.onBiometricSettingChanged(1)` |
 | 화면 제어 | `window.closeWebViewBottomSheet(0)`, `window.pageReload(0)` |
+
+홈 화면의 네이티브 하단 탭(`feed`, `timetable`, `calendar`, `menu`)은 `window.klasNativeNavigate(tab)`을 호출합니다. 웹은 이를 받아 기존 탭 경로로 `router.push`하고, 이동 후 기존 `changeTab(tab)`으로 네이티브 선택 상태를 동기화하며 `completePageLoad`로 화면 데이터를 다시 요청합니다. 웹에 함수가 없는 구버전에서는 검증된 KLAS+ 탭 URL로 이동합니다. Android는 `location.assign`, iOS는 기존 `WebViewHolder.load` 경로를 사용합니다. 웹의 기존 bottom navigation은 새 앱 배포가 확인된 후 제거하고, 구 앱에는 유지해야 합니다. 네이티브 탭은 홈 WebView에만 표시합니다.
 
 숫자는 인자 수입니다. `appLogin.setInitial`은 현재 제품의 기본 HTTP 인증이 아니라 보존된 iOS WebView 인증 경로에서 사용하며, `window.pageReload`는 공통 스크립트에 정의돼 있지만 현재 제품 화면의 호출은 확인되지 않았습니다. JS 문자열은 [`LegacyWebScripts`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/web/WebScript.kt)로 이스케이프해요. `window.receiveSubjList`처럼 과거 패리티 표에만 있는 항목은 현행 callback 목록으로 취급하지 않습니다.
 
