@@ -6,6 +6,9 @@ object IosWebCallbacks {
     fun navigateHomeTab(tab: String, fallbackUrl: String): WebScript =
         NativeHomeTabScripts.navigate(tab, fallbackUrl)
 
+    fun navigateHomeTabIfAvailable(tab: String): WebScript =
+        NativeHomeTabScripts.navigateIfAvailable(tab)
+
     fun receiveToken(token: String): WebScript =
         LegacyWebScripts.call(LegacyWebCallback.RECEIVE_TOKEN, JavaScriptArgument.Text(token))
 

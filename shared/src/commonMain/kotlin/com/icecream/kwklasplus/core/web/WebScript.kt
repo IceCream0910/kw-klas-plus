@@ -56,6 +56,15 @@ object LegacyWebScripts {
 object NativeHomeTabScripts {
     private val tabs = setOf("feed", "timetable", "calendar", "menu")
 
+    fun navigateIfAvailable(tab: String): WebScript {
+        require(tab in tabs)
+        val encodedTab = JavaScriptEncoder.encodeText(tab)
+        return WebScript(
+            "(function(){if(typeof window.klasNativeNavigate!=='function')return false;" +
+                "window.klasNativeNavigate($encodedTab);return true;})()",
+        )
+    }
+
     fun navigate(tab: String, fallbackUrl: String): WebScript {
         require(tab in tabs)
         val path = when (tab) {

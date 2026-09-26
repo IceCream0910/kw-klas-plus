@@ -460,6 +460,31 @@ final class IosHomeHostTests: XCTestCase {
         XCTAssertEqual(coordinator.bootstrapPhase, .ready)
     }
 
+    @MainActor
+    func testReloadOverlayEndsAfterNavigationCompletesOrFails() {
+        let coordinator = makeHomeCoordinator()
+        defer { coordinator.dispose() }
+        coordinator.handleBootstrap(Self.readyHomeResult())
+        coordinator.isPageLoading = false
+
+        coordinator.reloadCurrentTab(usingOverlay: true)
+        XCTAssertEqual(coordinator.refreshPhase, .loadingPage)
+        XCTAssertFalse(coordinator.isPageLoading)
+        XCTAssertEqual(coordinator.currentTab, "feed")
+
+        coordinator.handleHomeNavigation(
+            WebNavigationState(loadPhase: .ready(url: ProductWebUrls.shared.homeTab(tab: "feed", yearHakgi: "2026,1")))
+        )
+        XCTAssertEqual(coordinator.refreshPhase, .idle)
+
+        coordinator.reloadCurrentTab(usingOverlay: true)
+        coordinator.handleHomeNavigation(
+            WebNavigationState(loadPhase: .failed(url: nil, category: .network))
+        )
+        XCTAssertEqual(coordinator.refreshPhase, .idle)
+        XCTAssertFalse(coordinator.isPageLoading)
+    }
+
     func testReceivedDataCallbacksUseLegacyArgumentCounts() {
         XCTAssertTrue(IosWebCallbacks.shared.receivedData(token: "t", subjectId: "s").reveal().contains("window.receivedData"))
         let three = IosWebCallbacks.shared.receivedData(token: "t", subjectId: "s", yearHakgi: "2026,1").reveal()

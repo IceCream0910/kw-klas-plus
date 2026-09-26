@@ -22,6 +22,16 @@ class WebScriptTest {
     }
 
     @Test
+    fun optionalNativeTabCallbackReportsWhetherWebHookExists() {
+        val source = NativeHomeTabScripts.navigateIfAvailable("feed").reveal()
+        assertTrue(source.contains("window.klasNativeNavigate(\"feed\")"))
+        assertTrue(source.contains("return false"))
+        assertFailsWith<IllegalArgumentException> {
+            NativeHomeTabScripts.navigateIfAvailable("unknown")
+        }
+    }
+
+    @Test
     fun callbackArgumentsAreJsonEncoded() {
         val script = LegacyWebScripts.call(
             LegacyWebCallback.RECEIVE_TOKEN,
