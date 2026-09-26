@@ -34,23 +34,15 @@ struct StartupRootView: View {
             switch controller.phase {
             case .checkingNetwork, .bootstrapping:
                 LaunchSplashView()
-            case .needsCredentials:
-                LoginView(
-                    state: $controller.loginState,
-                    toastMessage: controller.toastMessage,
-                    onStartClick: { controller.loginState.onboardingVisible = false },
-                    onLoginClick: { controller.submitLogin() },
-                    onOpenURL: { controller.openLoginURL($0) }
-                )
-                .fullScreenCover(
-                    item: Binding(
-                        get: { controller.presentedLinkURL.map { PresentedLinkURL(url: $0) } },
-                        set: { controller.presentedLinkURL = $0?.url }
-                    )
-                ) { item in
-                    LinkWebViewScreen(url: item.url, onDismiss: { controller.dismissLinkWeb() })
+            case .needsCredentials, .setup:
+                loginFlow
+            case .authenticating:
+                if controller.loginState.step == .authenticating {
+                    loginFlow
+                } else {
+                    AuthenticationLoadingView(message: controller.loadingMessage)
                 }
-            case .authenticating, .blocked:
+            case .blocked:
                 AuthenticationLoadingView(message: controller.loadingMessage)
             case .authenticated:
                 HomeRootView(
@@ -107,6 +99,31 @@ struct StartupRootView: View {
                 return
             }
             _ = libraryQr.handleOpenURL(url)
+        }
+    }
+
+    private var loginFlow: some View {
+        LoginView(
+            state: $controller.loginState,
+            toastMessage: controller.toastMessage,
+            onStartClick: { controller.beginFunnelFromOnboarding() },
+            onLoginClick: { controller.submitLogin() },
+            onOpenURL: { controller.openLoginURL($0) },
+            onFunnelContinue: { controller.continueFunnel() },
+            onFunnelBack: { controller.backFunnel() },
+            onLibrarySave: { controller.saveLibrary() },
+            onLibrarySkip: { controller.skipLibrary() },
+            onFunnelFinish: { controller.finishFunnel() },
+            onStudentIdChange: { controller.updateStudentId($0) },
+            canReturnToOnboarding: controller.canReturnToOnboarding
+        )
+        .fullScreenCover(
+            item: Binding(
+                get: { controller.presentedLinkURL.map { PresentedLinkURL(url: $0) } },
+                set: { controller.presentedLinkURL = $0?.url }
+            )
+        ) { item in
+            LinkWebViewScreen(url: item.url, onDismiss: { controller.dismissLinkWeb() })
         }
     }
 

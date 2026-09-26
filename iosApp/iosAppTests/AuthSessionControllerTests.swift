@@ -5,6 +5,63 @@ import XCTest
 
 @MainActor
 final class AuthSessionControllerTests: XCTestCase {
+    func testBackFunnelUsesAvailablePreviousStep() {
+        let controller = makeController(networkPath: FakeNetworkPathChecker(satisfied: true))
+        controller.loginState.step = .complete
+        controller.backFunnel()
+        XCTAssertEqual(controller.loginState.step, .agreements)
+        controller.backFunnel()
+        XCTAssertEqual(controller.loginState.step, .library)
+        controller.backFunnel()
+        XCTAssertEqual(controller.loginState.step, .library)
+
+        controller.loginState.step = .studentId
+        controller.beginFunnelFromOnboarding()
+        controller.backFunnel()
+        XCTAssertTrue(controller.loginState.onboardingVisible)
+    }
+
+    func testCompletedStudentIdDoesNotAutoAdvanceAgainAfterBack() {
+        let controller = makeController(networkPath: FakeNetworkPathChecker(satisfied: true))
+        controller.loginState.onboardingVisible = false
+        controller.updateStudentId("202012345")
+        controller.updateStudentId("2020123456")
+        XCTAssertEqual(controller.loginState.step, .password)
+        XCTAssertNil(controller.loginState.error)
+
+        controller.backFunnel()
+        controller.updateStudentId("2020123456")
+        XCTAssertEqual(controller.loginState.step, .studentId)
+        XCTAssertNil(controller.loginState.error)
+    }
+
+    func testInterruptedManualLoginReturnsToPasswordBeforeHome() async {
+        let suite = "com.icecream.kwklasplus.test.auth.funnel.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.set("authenticating", forKey: "login_funnel_status")
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let controller = AuthSessionController(
+            authRuntime: IosAuthRuntime.companion.create(defaults: defaults),
+            networkPath: FakeNetworkPathChecker(satisfied: true)
+        )
+
+        controller.start()
+        await waitUntil { controller.phase == .needsCredentials }
+
+        XCTAssertEqual(controller.loginState.step, .password)
+        XCTAssertFalse(controller.loginState.onboardingVisible)
+    }
+
+    func testFunnelCannotFinishBeforeAuthentication() {
+        let controller = makeController(networkPath: FakeNetworkPathChecker(satisfied: true))
+        controller.loginState.step = .complete
+        controller.loginState.privacyAccepted = true
+
+        controller.finishFunnel()
+
+        XCTAssertEqual(controller.phase, .checkingNetwork)
+    }
+
     func testStartReturnsImmediatelyWhileNetworkProbeIsInFlight() {
         let checker = FakeNetworkPathChecker(satisfied: false, delayNanos: 200_000_000)
         let controller = makeController(networkPath: checker)

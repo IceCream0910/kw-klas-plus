@@ -9,6 +9,7 @@ enum AuthPhase: Equatable {
     case bootstrapping
     case needsCredentials
     case authenticating
+    case setup
     case authenticated
     case blocked(AuthBlockReason)
 }
@@ -29,6 +30,7 @@ final class AuthSessionController: ObservableObject {
         password: "",
         agreementAccepted: false
     )
+    @Published private(set) var canReturnToOnboarding = false
     @Published var loadingMessage = "로그인 중"
     @Published var toastMessage: String?
     /// Android `openWebRoute` → LinkViewActivity 패리티 (학번/비번 찾기,최초 등록)
@@ -43,6 +45,7 @@ final class AuthSessionController: ObservableObject {
     private var toastTask: Task<Void, Never>?
     private var activeCredential: StoredCredential?
     private var isAppActive = false
+    private let funnelStatusKey = "login_funnel_status"
 
     init(
         authRuntime: IosAuthRuntime = IosAuthRuntime.companion.createDefault(),
@@ -80,7 +83,7 @@ final class AuthSessionController: ObservableObject {
 
     func setAppActive(_ active: Bool) {
         isAppActive = active
-        if active, phase == .authenticated {
+        if active && (phase == .authenticated || phase == .setup) {
             startSessionKeepAlive(initialDelayMillis: 0)
         } else if !active {
             authRuntime.stopSessionKeepAlive()
@@ -103,21 +106,101 @@ final class AuthSessionController: ObservableObject {
     }
 
     func submitLogin() {
-        if !loginState.agreementAccepted {
-            showToast("개인정보 수집 및 제공에 동의해주세요.")
+        guard !loginState.password.isEmpty else { return }
+        if loginState.studentId.count != LoginUiState.studentIdLength {
+            loginState.error = "학번을 확인해 주세요."
             return
         }
-        if loginState.studentId.count != LoginUiState.studentIdLength || loginState.password.isEmpty {
-            showToast("학번과 비밀번호를 입력해주세요.")
-            return
-        }
+        authRuntime.dependencies.writeStringPreference(key: funnelStatusKey, value: "authenticating")
+        loginState.step = .authenticating
+        loginState.error = nil
         let accountId = loginState.studentId
         let plainPassword = loginState.password
+        loginState.password = ""
         authRuntime.prepareCredential(accountId: accountId, plainPassword: plainPassword) { [weak self] result in
             Task { @MainActor in
                 self?.handlePrepareResult(result)
             }
         }
+    }
+
+    func beginFunnelFromOnboarding() {
+        canReturnToOnboarding = true
+        loginState.onboardingVisible = false
+    }
+
+    func continueFunnel() {
+        switch loginState.step {
+        case .studentId:
+            guard loginState.studentId.count == LoginUiState.studentIdLength else { return }
+            loginState.step = .password
+        case .password:
+            submitLogin()
+        case .agreements:
+            guard phase == .setup else { return }
+            loginState.privacyAccepted = true
+            loginState.termsAccepted = true
+            loginState.step = .complete
+        case .complete:
+            finishFunnel()
+        default:
+            break
+        }
+    }
+
+    func updateStudentId(_ input: String) {
+        let next = String(input.filter(\.isNumber).prefix(LoginUiState.studentIdLength))
+        let wasIncomplete = loginState.studentId.count < LoginUiState.studentIdLength
+        loginState.studentId = next
+        loginState.error = nil
+        if wasIncomplete, next.count == LoginUiState.studentIdLength, loginState.step == .studentId {
+            loginState.step = .password
+        }
+    }
+
+    func backFunnel() {
+        switch loginState.step {
+        case .studentId:
+            if canReturnToOnboarding {
+                canReturnToOnboarding = false
+                loginState.onboardingVisible = true
+            }
+        case .password: loginState.step = .studentId
+        case .agreements: loginState.step = .library
+        case .complete: loginState.step = .agreements
+        default: break
+        }
+    }
+
+    func skipLibrary() {
+        guard phase == .setup, loginState.step == .library else { return }
+        loginState.libraryPassword = ""
+        loginState.step = .agreements
+    }
+
+    func saveLibrary() {
+        guard phase == .setup, loginState.step == .library,
+              !loginState.libraryPassword.isEmpty, !loginState.libraryPhone.isEmpty else { return }
+        authRuntime.dependencies.libraryService.saveCredentials(
+            studentNumber: loginState.studentId,
+            phoneNumber: loginState.libraryPhone,
+            password: loginState.libraryPassword
+        ) { [weak self] in
+            Task { @MainActor in
+                guard let self, self.phase == .setup, self.loginState.step == .library else { return }
+                self.loginState.libraryPassword = ""
+                self.loginState.step = .agreements
+            }
+        }
+    }
+
+    func finishFunnel() {
+        guard phase == .setup, loginState.step == .complete,
+              loginState.privacyAccepted, loginState.termsAccepted else { return }
+        authRuntime.dependencies.writeStringPreference(key: funnelStatusKey, value: "complete")
+        loginState.libraryPassword = ""
+        phase = .authenticated
+        if isAppActive { startSessionKeepAlive(initialDelayMillis: 0) }
     }
 
     func retryAuthentication() {
@@ -201,11 +284,16 @@ final class AuthSessionController: ObservableObject {
     }
 
     private func handleLoadedCredential(_ credential: StoredCredential?) {
+        if authRuntime.dependencies.stringPreference(key: funnelStatusKey) == "authenticating" {
+            loadAccountIdForLogin()
+            return
+        }
         guard let credential else {
             loadAccountIdForLogin()
             return
         }
         activeCredential = credential
+        loginState.studentId = credential.accountId
         validateStoredSession(credential: credential)
     }
 
@@ -248,7 +336,9 @@ final class AuthSessionController: ObservableObject {
             } else {
                 message = "로그인 정보를 확인하는 중 오류가 발생했습니다."
             }
-            showToast(message)
+            loginState.step = .password
+            loginState.error = message
+            phase = .needsCredentials
         }
     }
 
@@ -270,6 +360,15 @@ final class AuthSessionController: ObservableObject {
         cancelLoadingHint()
         if result is LoginResultAuthenticated {
             enterAuthenticated(initialDelayMillis: 0)
+            return
+        }
+        if authRuntime.dependencies.stringPreference(key: funnelStatusKey) == "authenticating" {
+            loginState.step = .password
+            loginState.password = ""
+            loginState.error = result is LoginResultUserActionRequired
+                ? "KLAS에서 CAPTCHA 또는 임시 비밀번호 변경이 필요해요. 학교 사이트에서 조치를 마친 뒤 다시 시도해 주세요."
+                : "KLAS 인증에 실패했어요. 학번과 비밀번호를 확인해 주세요."
+            phase = .needsCredentials
             return
         }
         if result is LoginResultUserActionRequired {
@@ -310,6 +409,21 @@ final class AuthSessionController: ObservableObject {
     }
 
     private func enterAuthenticated(initialDelayMillis: Int64) {
+        if authRuntime.dependencies.stringPreference(key: funnelStatusKey) == "authenticating" {
+            authRuntime.dependencies.writeStringPreference(key: funnelStatusKey, value: "setup")
+        }
+        if authRuntime.dependencies.stringPreference(key: funnelStatusKey) == "setup" {
+            loginState.step = .library
+            loginState.onboardingVisible = false
+            loginState.password = ""
+            if loginState.libraryPhone.isEmpty {
+                loginState.libraryPhone = (authRuntime.dependencies.stringPreference(key: "library_phone") ?? "")
+                    .filter { ("0"..."9").contains($0) }
+            }
+            phase = .setup
+            if isAppActive { startSessionKeepAlive(initialDelayMillis: initialDelayMillis) }
+            return
+        }
         phase = .authenticated
         guard isAppActive else { return }
         startSessionKeepAlive(initialDelayMillis: initialDelayMillis)
@@ -342,6 +456,10 @@ final class AuthSessionController: ObservableObject {
                     password: "",
                     agreementAccepted: false
                 )
+                if self.authRuntime.dependencies.stringPreference(key: self.funnelStatusKey) == "authenticating" {
+                    self.loginState.step = .password
+                    self.loginState.onboardingVisible = false
+                }
                 self.phase = .needsCredentials
             }
         }

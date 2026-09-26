@@ -28,6 +28,7 @@ enum KlasTheme {
     static let disabledContent = onSurface.opacity(0.38)
 
     static let agreementURL = URL(string: "https://klasplus.yuntae.in/privacy")!
+    static let termsURL = URL(string: "https://klasplus.yuntae.in/tos")!
     static let findIdURL = URL(string: "https://klas.kw.ac.kr/usr/cmn/login/modal/UserFindMemberNoPage.do")!
     static let findPasswordURL = URL(string: "https://klas.kw.ac.kr/usr/cmn/login/modal/UserFindPwdPage.do")!
     static let registerURL = URL(string: "https://klas.kw.ac.kr/usr/cmn/login/modal/UserFrstModPwdPage.do")!
