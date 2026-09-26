@@ -116,6 +116,7 @@ class WebAutomationScriptsTest {
         assertTrue(scripts[2].contains("KlasNativeBridge.receiveVideoURL("))
         assertTrue(scripts[3].contains("KlasNativeBridge.receiveInitSpeed("))
         assertTrue(scripts[3].contains("KlasNativeBridge.receivePlayerStates("))
+        assertTrue(scripts[3].contains("typeof player._isMuted==='boolean'?player._isMuted:(v?v.muted:false)"))
         assertTrue(PlayerWebScripts.move(PlayerSeekDirection.FORWARD).reveal().contains("_seekLimit"))
         assertTrue(PlayerWebScripts.setControllerVisible(false).reveal().contains("display: none"))
     }

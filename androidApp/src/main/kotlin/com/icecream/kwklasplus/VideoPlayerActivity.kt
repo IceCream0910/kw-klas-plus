@@ -60,7 +60,6 @@ import com.icecream.kwklasplus.core.web.OnlineContentDecodeResult
 import com.icecream.kwklasplus.core.web.PlayerBridgeCodec
 import com.icecream.kwklasplus.core.web.KlasWebAutomationScripts
 import com.icecream.kwklasplus.core.web.PlayerPlaybackCommand
-import com.icecream.kwklasplus.core.web.PlayerSeekDirection
 import com.icecream.kwklasplus.core.web.PlayerWebScripts
 import com.icecream.kwklasplus.core.media.MediaMetadataResult
 import com.icecream.kwklasplus.core.bridge.BridgeSurface
@@ -233,7 +232,11 @@ class VideoPlayerActivity : AppCompatActivity() {
                     onPlayPauseClick = { pressKey(KeyEvent.KEYCODE_SPACE) },
                     onBackwardClick = { pressKey(KeyEvent.KEYCODE_DPAD_LEFT) },
                     onForwardClick = { pressKey(KeyEvent.KEYCODE_DPAD_RIGHT) },
-                    onMuteClick = { pressKey(KeyEvent.KEYCODE_M) },
+                    onMuteClick = {
+                        val muted = !playerUiState.isMuted
+                        playerUiState = playerUiState.copy(isMuted = muted)
+                        pressKey(KeyEvent.KEYCODE_M)
+                    },
                     onFullscreenClick = {
                         pressKey(KeyEvent.KEYCODE_F)
                         showController()
@@ -675,7 +678,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                     PendingIntent.getBroadcast(
                         this,
                         REQUEST_BACKWARD,
-                        Intent(ACTION_MEDIA_CONTROL).putExtra(
+                        Intent(ACTION_MEDIA_CONTROL).setPackage(packageName).putExtra(
                             EXTRA_CONTROL_TYPE,
                             CONTROL_TYPE_BACKWARD
                         ),
@@ -692,7 +695,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                     PendingIntent.getBroadcast(
                         this,
                         if (isPlaying) REQUEST_PAUSE else REQUEST_PLAY,
-                        Intent(ACTION_MEDIA_CONTROL).putExtra(
+                        Intent(ACTION_MEDIA_CONTROL).setPackage(packageName).putExtra(
                             EXTRA_CONTROL_TYPE,
                             if (isPlaying) CONTROL_TYPE_PAUSE else CONTROL_TYPE_PLAY
                         ),
@@ -706,7 +709,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                     PendingIntent.getBroadcast(
                         this,
                         REQUEST_FORWARD,
-                        Intent(ACTION_MEDIA_CONTROL).putExtra(
+                        Intent(ACTION_MEDIA_CONTROL).setPackage(packageName).putExtra(
                             EXTRA_CONTROL_TYPE,
                             CONTROL_TYPE_FORWARD
                         ),
@@ -751,7 +754,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                 PendingIntent.getBroadcast(
                     this,
                     REQUEST_BACKWARD,
-                    Intent(ACTION_MEDIA_CONTROL).putExtra(
+                    Intent(ACTION_MEDIA_CONTROL).setPackage(packageName).putExtra(
                         EXTRA_CONTROL_TYPE,
                         CONTROL_TYPE_BACKWARD
                     ),
@@ -768,7 +771,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                 PendingIntent.getBroadcast(
                     this,
                     if (isPlaying) REQUEST_PAUSE else REQUEST_PLAY,
-                    Intent(ACTION_MEDIA_CONTROL).putExtra(
+                    Intent(ACTION_MEDIA_CONTROL).setPackage(packageName).putExtra(
                         EXTRA_CONTROL_TYPE,
                         if (isPlaying) CONTROL_TYPE_PAUSE else CONTROL_TYPE_PLAY
                     ),
@@ -782,7 +785,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                 PendingIntent.getBroadcast(
                     this,
                     REQUEST_FORWARD,
-                    Intent(ACTION_MEDIA_CONTROL).putExtra(EXTRA_CONTROL_TYPE, CONTROL_TYPE_FORWARD),
+                    Intent(ACTION_MEDIA_CONTROL).setPackage(packageName).putExtra(EXTRA_CONTROL_TYPE, CONTROL_TYPE_FORWARD),
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
                 )
             )
@@ -831,19 +834,19 @@ class VideoPlayerActivity : AppCompatActivity() {
             when (intent.getIntExtra(EXTRA_CONTROL_TYPE, 0)) {
                 CONTROL_TYPE_CLOSE -> closePlaybackFromPip()
                 CONTROL_TYPE_PLAY -> {
-                    VideoWebView.executeWebScript(PlayerWebScripts.playback(PlayerPlaybackCommand.PLAY))
+                    pressKey(KeyEvent.KEYCODE_SPACE)
                 }
 
                 CONTROL_TYPE_PAUSE -> {
-                    VideoWebView.executeWebScript(PlayerWebScripts.playback(PlayerPlaybackCommand.PAUSE))
+                    pressKey(KeyEvent.KEYCODE_SPACE)
                 }
 
                 CONTROL_TYPE_FORWARD -> {
-                    VideoWebView.executeWebScript(PlayerWebScripts.move(PlayerSeekDirection.FORWARD))
+                    pressKey(KeyEvent.KEYCODE_DPAD_RIGHT)
                 }
 
                 CONTROL_TYPE_BACKWARD -> {
-                    VideoWebView.executeWebScript(PlayerWebScripts.move(PlayerSeekDirection.BACKWARD))
+                    pressKey(KeyEvent.KEYCODE_DPAD_LEFT)
                 }
             }
         }
@@ -1014,9 +1017,10 @@ class VideoBridgeDelegate(private val videoPlayerActivity: VideoPlayerActivity) 
                 isPlaying,
                 isFullscreen,
             )
+            val playbackChanged = videoPlayerActivity.isPlaying != state.isPlaying
             videoPlayerActivity.isPlaying = state.isPlaying
             videoPlayerActivity.onPlayerReady(state.durationSeconds)
-            videoPlayerActivity.updatePipActions()
+            if (playbackChanged) videoPlayerActivity.updatePipActions()
             if (videoPlayerActivity.isFinishing || videoPlayerActivity.isDestroyed) return@post
             videoPlayerActivity.isFullscreen = state.isFullscreen
 
