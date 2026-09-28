@@ -67,11 +67,18 @@ class IosLibraryService(
         studentNumber: String,
         phoneNumber: String,
         password: String,
-        onDone: () -> Unit,
+        onResult: (Boolean) -> Unit,
     ) {
         scope.launch {
-            saveCredentials(studentNumber, phoneNumber, password)
-            onDone()
+            val saved = try {
+                saveCredentials(studentNumber, phoneNumber, password)
+                true
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                false
+            }
+            onResult(saved)
         }
     }
 
@@ -103,10 +110,13 @@ class IosLibraryService(
         password: String,
     ) {
         clearSessionCache()
+        secureStore.write(SecureKey.LIBRARY_PASSWORD, SecretValue.of(password))
         defaults.setObject(studentNumber, LegacyPreferenceKeys.LIBRARY_STD_NUMBER)
         defaults.setObject(phoneNumber, LegacyPreferenceKeys.LIBRARY_PHONE)
-        defaults.synchronize()
-        secureStore.write(SecureKey.LIBRARY_PASSWORD, SecretValue.of(password))
+        check(defaults.synchronize()) { "Library settings could not be saved" }
+        check(storedStudentNumber() == studentNumber && storedPhoneNumber() == phoneNumber) {
+            "Library settings could not be verified"
+        }
         cachedPassword = password
     }
 

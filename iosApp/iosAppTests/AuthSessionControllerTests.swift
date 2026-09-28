@@ -60,6 +60,28 @@ final class AuthSessionControllerTests: XCTestCase {
         controller.finishFunnel()
 
         XCTAssertEqual(controller.phase, .checkingNetwork)
+        XCTAssertNotNil(controller.toastMessage)
+    }
+
+    func testFailedLibraryStorageKeepsSetupStepAndShowsError() async {
+        let store = FakeFunnelStatusStore(value: "authenticating")
+        let controller = makeController(
+            networkPath: FakeNetworkPathChecker(satisfied: true),
+            funnelStatusStore: store,
+            saveLibraryCredentials: { _, _, _, onResult in onResult(false) }
+        )
+        controller.enterAuthenticated(initialDelayMillis: 0)
+        controller.loginState.studentId = "2020123456"
+        controller.loginState.libraryPhone = "01012345678"
+        controller.loginState.libraryPassword = "lib-pass"
+
+        controller.saveLibrary()
+        await waitUntil { controller.loginState.error != nil }
+
+        XCTAssertEqual(controller.phase, .setup)
+        XCTAssertEqual(controller.loginState.step, .library)
+        XCTAssertEqual(controller.loginState.libraryPassword, "lib-pass")
+        XCTAssertEqual(store.read(), "setup")
     }
 
     func testFailedAuthenticatingStatusWriteKeepsLoginBeforeCredentialPreparation() {
@@ -110,6 +132,25 @@ final class AuthSessionControllerTests: XCTestCase {
 
         XCTAssertEqual(controller.phase, .setup)
         XCTAssertEqual(store.read(), "setup")
+        XCTAssertNotNil(controller.toastMessage)
+    }
+
+    func testStaleSetupStatusBlocksCompletionWithFeedback() {
+        let store = FakeFunnelStatusStore(value: "authenticating")
+        let controller = makeController(
+            networkPath: FakeNetworkPathChecker(satisfied: true),
+            funnelStatusStore: store
+        )
+        controller.enterAuthenticated(initialDelayMillis: 0)
+        controller.loginState.step = .complete
+        controller.loginState.privacyAccepted = true
+        controller.loginState.termsAccepted = true
+        XCTAssertTrue(store.write("not_started"))
+
+        controller.finishFunnel()
+
+        XCTAssertEqual(controller.phase, .setup)
+        XCTAssertEqual(store.read(), "not_started")
         XCTAssertNotNil(controller.toastMessage)
     }
 
@@ -254,7 +295,8 @@ final class AuthSessionControllerTests: XCTestCase {
 
     private func makeController(
         networkPath: NetworkPathChecking,
-        funnelStatusStore: FunnelStatusStoring? = nil
+        funnelStatusStore: FunnelStatusStoring? = nil,
+        saveLibraryCredentials: ((String, String, String, @escaping (Bool) -> Void) -> Void)? = nil
     ) -> AuthSessionController {
         let suite = "com.icecream.kwklasplus.test.auth.network.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
@@ -262,7 +304,8 @@ final class AuthSessionControllerTests: XCTestCase {
         return AuthSessionController(
             authRuntime: IosAuthRuntime.companion.create(defaults: defaults),
             networkPath: networkPath,
-            funnelStatusStore: funnelStatusStore
+            funnelStatusStore: funnelStatusStore,
+            saveLibraryCredentials: saveLibraryCredentials
         )
     }
 

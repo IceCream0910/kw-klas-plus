@@ -129,7 +129,17 @@ class LoginActivity : AppCompatActivity() {
                     onTermsChange = { termsAccepted = it },
                     onContinue = ::continueFunnel,
                     onBack = ::backFunnel,
-                    onSkipLibrary = { libraryPassword = ""; funnelStep = LoginFunnelStep.Agreements },
+                    onSkipLibrary = {
+                        if (funnelStep == LoginFunnelStep.Library &&
+                            appPreferences.getString(LoginFunnelStatus.KEY, null) == LoginFunnelStatus.SETUP
+                        ) {
+                            libraryPassword = ""
+                            funnelError = null
+                            funnelStep = LoginFunnelStep.Agreements
+                        } else {
+                            funnelError = "설정 상태를 확인하지 못했어요. 다시 시도해 주세요."
+                        }
+                    },
                     onSaveLibrary = ::saveLibrary,
                     onPrivacyDetails = {
                         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://klasplus.yuntae.in/privacy")))
@@ -250,11 +260,18 @@ class LoginActivity : AppCompatActivity() {
 
     private fun continueFunnel() {
         when (funnelStep) {
-            LoginFunnelStep.StudentId -> funnelStep = LoginFunnelStep.Password
+            LoginFunnelStep.StudentId -> if (studentId.length == LoginUiState.STUDENT_ID_LENGTH) {
+                funnelStep = LoginFunnelStep.Password
+            }
             LoginFunnelStep.Password -> submitLogin()
             LoginFunnelStep.Agreements -> {
+                if (appPreferences.getString(LoginFunnelStatus.KEY, null) != LoginFunnelStatus.SETUP) {
+                    funnelError = "설정 상태를 확인하지 못했어요. 다시 시도해 주세요."
+                    return
+                }
                 privacyAccepted = true
                 termsAccepted = true
+                funnelError = null
                 funnelStep = LoginFunnelStep.Complete
             }
             LoginFunnelStep.Complete -> finishFunnel()
@@ -279,6 +296,12 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun saveLibrary() {
+        if (funnelStep != LoginFunnelStep.Library ||
+            appPreferences.getString(LoginFunnelStatus.KEY, null) != LoginFunnelStatus.SETUP
+        ) {
+            funnelError = "설정 상태를 확인하지 못했어요. 다시 시도해 주세요."
+            return
+        }
         if (studentId.isBlank() || libraryPassword.isBlank() || libraryPhone.isBlank()) return
         val secureSaved = encryptedPreferences.edit()
             .putString(AppPrefs.LIBRARY_PASSWORD, libraryPassword)
@@ -306,7 +329,10 @@ class LoginActivity : AppCompatActivity() {
             funnelStep != LoginFunnelStep.Complete ||
             !privacyAccepted || !termsAccepted ||
             appPreferences.getString(LoginFunnelStatus.KEY, null) != LoginFunnelStatus.SETUP
-        ) return
+        ) {
+            funnelError = "설정 상태를 확인하지 못했어요. 다시 시도해 주세요."
+            return
+        }
         if (!appPreferences.edit().putString(LoginFunnelStatus.KEY, LoginFunnelStatus.COMPLETE).commit()) {
             funnelError = "설정 완료 상태를 저장하지 못했어요. 다시 시도해 주세요."
             return

@@ -74,7 +74,10 @@ final class LibraryQrWidgetPolicyTests: XCTestCase {
                 studentNumber: "2026000001",
                 phoneNumber: "01012345678",
                 password: "password",
-                onDone: { continuation.resume() }
+                onResult: { saved in
+                    XCTAssertTrue(saved.boolValue)
+                    continuation.resume()
+                }
             )
         }
 
@@ -189,7 +192,10 @@ final class LibraryQrWidgetPolicyTests: XCTestCase {
                 studentNumber: "2026000001",
                 phoneNumber: "01012345678",
                 password: "password",
-                onDone: { continuation.resume() }
+                onResult: { saved in
+                    XCTAssertTrue(saved.boolValue)
+                    continuation.resume()
+                }
             )
         }
 
@@ -236,7 +242,10 @@ final class LibraryQrWidgetPolicyTests: XCTestCase {
                 studentNumber: "2026000001",
                 phoneNumber: "01012345678",
                 password: "password",
-                onDone: { continuation.resume() }
+                onResult: { saved in
+                    XCTAssertTrue(saved.boolValue)
+                    continuation.resume()
+                }
             )
         }
 
@@ -282,7 +291,10 @@ final class LibraryQrWidgetPolicyTests: XCTestCase {
                 studentNumber: "2026000001",
                 phoneNumber: "01012345678",
                 password: "password",
-                onDone: { continuation.resume() }
+                onResult: { saved in
+                    XCTAssertTrue(saved.boolValue)
+                    continuation.resume()
+                }
             )
         }
 
@@ -327,7 +339,10 @@ final class LibraryQrWidgetPolicyTests: XCTestCase {
                 studentNumber: "2026000001",
                 phoneNumber: "01012345678",
                 password: "password",
-                onDone: { continuation.resume() }
+                onResult: { saved in
+                    XCTAssertTrue(saved.boolValue)
+                    continuation.resume()
+                }
             )
         }
 
@@ -378,7 +393,10 @@ final class LibraryQrWidgetPolicyTests: XCTestCase {
                 studentNumber: "2026000001",
                 phoneNumber: "01012345678",
                 password: "wrong_password",
-                onDone: { continuation.resume() }
+                onResult: { saved in
+                    XCTAssertTrue(saved.boolValue)
+                    continuation.resume()
+                }
             )
         }
 

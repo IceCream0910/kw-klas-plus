@@ -247,6 +247,7 @@ internal fun LoginFunnelScreen(
                                 style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                             TextButton(onClick = onTermsDetails) { Text("보기") }
                         }
+                        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     }
                     LoginFunnelStep.Complete -> {
                         CompletionCheck()
@@ -254,6 +255,7 @@ internal fun LoginFunnelScreen(
                         Text("모두 완료되었어요!", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
                         Spacer(Modifier.height(8.dp))
                         Text("이제 KLAS+를 사용할 준비가 끝났어요.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     }
                 }
             }

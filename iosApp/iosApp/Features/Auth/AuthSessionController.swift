@@ -55,6 +55,7 @@ final class AuthSessionController: ObservableObject {
     let authRuntime: IosAuthRuntime
     private let networkPath: NetworkPathChecking
     private let funnelStatusStore: FunnelStatusStoring
+    private let saveLibraryCredentials: (String, String, String, @escaping (Bool) -> Void) -> Void
     private let loginTokenEncryptor = IosRsaLoginTokenEncryptor()
     private let platformUserAgent = HomeCoordinator.platformUserAgent()
     private var startTask: Task<Void, Never>?
@@ -66,11 +67,24 @@ final class AuthSessionController: ObservableObject {
     init(
         authRuntime: IosAuthRuntime = IosAuthRuntime.companion.createDefault(),
         networkPath: NetworkPathChecking = SystemNetworkPathChecker(),
-        funnelStatusStore: FunnelStatusStoring? = nil
+        funnelStatusStore: FunnelStatusStoring? = nil,
+        saveLibraryCredentials: ((String, String, String, @escaping (Bool) -> Void) -> Void)? = nil
     ) {
         self.authRuntime = authRuntime
         self.networkPath = networkPath
         self.funnelStatusStore = funnelStatusStore ?? UserDefaultsFunnelStatusStore(dependencies: authRuntime.dependencies)
+        if let saveLibraryCredentials {
+            self.saveLibraryCredentials = saveLibraryCredentials
+        } else {
+            self.saveLibraryCredentials = { studentNumber, phoneNumber, password, onResult in
+                authRuntime.dependencies.libraryService.saveCredentials(
+                    studentNumber: studentNumber,
+                    phoneNumber: phoneNumber,
+                    password: password,
+                    onResult: { saved in onResult(saved.boolValue) }
+                )
+            }
+        }
     }
 
     func handleHomeLogout() {
@@ -158,7 +172,10 @@ final class AuthSessionController: ObservableObject {
         case .password:
             submitLogin()
         case .agreements:
-            guard phase == .setup else { return }
+            guard phase == .setup, funnelStatusStore.read() == "setup" else {
+                showToast("설정 상태를 확인하지 못했습니다. 다시 시도해 주세요.")
+                return
+            }
             loginState.privacyAccepted = true
             loginState.termsAccepted = true
             loginState.step = .complete
@@ -195,21 +212,35 @@ final class AuthSessionController: ObservableObject {
 
     func skipLibrary() {
         guard phase == .setup, loginState.step == .library else { return }
+        guard funnelStatusStore.read() == "setup" else {
+            loginState.error = "설정 상태를 확인하지 못했습니다. 다시 시도해 주세요."
+            return
+        }
         loginState.libraryPassword = ""
+        loginState.error = nil
         loginState.step = .agreements
     }
 
     func saveLibrary() {
         guard phase == .setup, loginState.step == .library,
               !loginState.libraryPassword.isEmpty, !loginState.libraryPhone.isEmpty else { return }
-        authRuntime.dependencies.libraryService.saveCredentials(
-            studentNumber: loginState.studentId,
-            phoneNumber: loginState.libraryPhone,
-            password: loginState.libraryPassword
-        ) { [weak self] in
+        guard funnelStatusStore.read() == "setup" else {
+            loginState.error = "설정 상태를 확인하지 못했습니다. 다시 시도해 주세요."
+            return
+        }
+        saveLibraryCredentials(
+            loginState.studentId,
+            loginState.libraryPhone,
+            loginState.libraryPassword
+        ) { [weak self] saved in
             Task { @MainActor in
                 guard let self, self.phase == .setup, self.loginState.step == .library else { return }
+                guard saved else {
+                    self.loginState.error = "출입증 정보를 안전하게 저장하지 못했어요. 다시 시도해 주세요."
+                    return
+                }
                 self.loginState.libraryPassword = ""
+                self.loginState.error = nil
                 self.loginState.step = .agreements
             }
         }
@@ -217,7 +248,11 @@ final class AuthSessionController: ObservableObject {
 
     func finishFunnel() {
         guard phase == .setup, loginState.step == .complete,
-              loginState.privacyAccepted, loginState.termsAccepted else { return }
+              loginState.privacyAccepted, loginState.termsAccepted,
+              funnelStatusStore.read() == "setup" else {
+            showToast("설정 상태를 확인하지 못했습니다. 다시 시도해 주세요.")
+            return
+        }
         guard funnelStatusStore.write("complete") else {
             showToast("설정 완료 상태를 저장하지 못했습니다. 다시 시도해 주세요.")
             return

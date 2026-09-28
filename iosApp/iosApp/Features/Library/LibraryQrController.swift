@@ -161,15 +161,19 @@ final class LibraryQrController: ObservableObject {
     func saveSettings() {
         guard settingsState.canSave else { return }
         let source = settingsSource
-        settingsSource = .qr
         service.saveCredentials(
             studentNumber: settingsState.studentNumber,
             phoneNumber: settingsState.phone,
             password: settingsState.password
-        ) { [weak self] in
+        ) { [weak self] saved in
+            guard saved.boolValue else {
+                ToastBanner.show("출입증 정보를 안전하게 저장하지 못했어요. 다시 시도해 주세요.")
+                return
+            }
             ToastBanner.show("저장되었습니다.")
             guard let self else { return }
             self.settingsState.password = ""
+            self.settingsSource = .qr
             switch source {
             case .home:
                 self.presentedSheet = nil

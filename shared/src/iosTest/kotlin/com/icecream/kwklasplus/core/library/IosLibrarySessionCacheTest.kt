@@ -2,10 +2,13 @@ package com.icecream.kwklasplus.core.library
 
 import com.icecream.kwklasplus.core.legacy.LegacyPreferenceKeys
 import com.icecream.kwklasplus.core.platform.SecureKey
+import com.icecream.kwklasplus.core.platform.SecureStore
 import com.icecream.kwklasplus.core.security.SecretValue
 import com.icecream.kwklasplus.core.session.Clock
 import com.icecream.kwklasplus.core.session.InMemorySecureStore
 import com.icecream.kwklasplus.core.session.runSuspendTest
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import platform.Foundation.NSUserDefaults
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -91,7 +94,6 @@ class IosLibraryServiceClearTest {
             secureStore = secureStore,
             cache = cache,
         )
-        service.saveCredentials("2020123456", "01012345678", "lib-pass") {}
         secureStore.write(SecureKey.LIBRARY_PASSWORD, SecretValue.of("lib-pass"))
         defaults.setObject("2020123456", LegacyPreferenceKeys.LIBRARY_STD_NUMBER)
         defaults.setObject("01012345678", LegacyPreferenceKeys.LIBRARY_PHONE)
@@ -137,6 +139,33 @@ class IosLibraryServiceClearTest {
         assertNull(cache.readAuthKey(oldIdentity))
         assertNull(secrets.readAccount("secret_${oldIdentity.realId}_${oldIdentity.userInfoHash}"))
         assertNull(secrets.readAccount("authKey_${oldIdentity.realId}_${oldIdentity.userInfoHash}"))
+    }
+
+    @Test
+    fun saveCredentialsReportsSecureStoreFailureWithoutAdvancingSettings() {
+        val secureStore = object : SecureStore {
+            override suspend fun read(key: SecureKey): SecretValue? = null
+            override suspend fun write(key: SecureKey, value: SecretValue) {
+                throw IllegalStateException("storage unavailable")
+            }
+            override suspend fun remove(key: SecureKey) = Unit
+        }
+        val cache = IosLibrarySessionCache(InMemoryLibraryAccountSecrets(), defaults, Clock { 1_000L })
+        val service = IosLibraryService(
+            gateway = RejectingLibraryGateway(),
+            defaults = defaults,
+            secureStore = secureStore,
+            cache = cache,
+            scope = CoroutineScope(Dispatchers.Unconfined),
+        )
+        var saved: Boolean? = null
+
+        service.saveCredentials("2020123456", "01012345678", "lib-pass", onResult = { saved = it })
+
+        assertEquals(false, saved)
+        assertNull(defaults.stringForKey(LegacyPreferenceKeys.LIBRARY_STD_NUMBER))
+        assertNull(defaults.stringForKey(LegacyPreferenceKeys.LIBRARY_PHONE))
+        assertFalse(service.hasConfiguredCredentials())
     }
 }
 
