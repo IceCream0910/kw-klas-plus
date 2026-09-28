@@ -6,6 +6,7 @@ import com.icecream.kwklasplus.core.auth.LoginTokenEncryptor
 import com.icecream.kwklasplus.core.auth.PlainPassword
 import com.icecream.kwklasplus.core.auth.StoredCredential
 import com.icecream.kwklasplus.core.auth.WebAuthDriver
+import com.icecream.kwklasplus.core.academic.IosNoOpWebCookieStore
 import com.icecream.kwklasplus.core.platform.SecureStore
 import com.icecream.kwklasplus.core.security.SecretValue
 import com.icecream.kwklasplus.core.session.SessionResult
@@ -164,6 +165,7 @@ class IosAuthRuntime(
                 IosSharedDependencies(
                     defaults = defaults,
                     secureStoreOverride = secureStore,
+                    cookieStoreOverride = IosNoOpWebCookieStore(),
                     sharedDefaults = defaults,
                 ),
             )

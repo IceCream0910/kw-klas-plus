@@ -68,7 +68,10 @@ struct LibraryQrSettingsSheet: View {
                     }
                     KlasOutlinedTextField(
                         label: "전화번호",
-                        text: $state.phone,
+                        text: Binding(
+                            get: { state.phone },
+                            set: { state.phone = $0.filter { ("0"..."9").contains($0) } }
+                        ),
                         focusedField: $focusedField,
                         field: .phone,
                         keyboardType: .phonePad,
@@ -77,6 +80,9 @@ struct LibraryQrSettingsSheet: View {
                         accessibilityId: "library_qr_settings_phone",
                         onSubmit: { moveFocus(to: nil) }
                     )
+                    .onAppear {
+                        state.phone = state.phone.filter { ("0"..."9").contains($0) }
+                    }
                 }
                 .frame(maxWidth: 640)
                 .frame(maxWidth: .infinity, alignment: .leading)

@@ -10,7 +10,9 @@ import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.icecream.kwklasplus.R
+import com.icecream.kwklasplus.appPreferences
 import com.icecream.kwklasplus.core.academic.*
+import com.icecream.kwklasplus.feature.auth.LoginFunnelStatus
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -22,6 +24,24 @@ import java.time.YearMonth
 class AcademicWidgetsTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
+
+    @Test fun incompleteOnboardingKeepsAcademicWidgetsEmpty() {
+        val preferences = context.appPreferences
+        val previousStatus = preferences.getString(LoginFunnelStatus.KEY, null)
+        try {
+            preferences.edit().putString(LoginFunnelStatus.KEY, LoginFunnelStatus.SETUP).commit()
+            for (kind in AcademicWidgetKind.entries) {
+                val presentation = AcademicWidgets.presentation(context, kind)
+                assertFalse(presentation.ready)
+                assertNull(presentation.snapshot)
+                assertEquals("설정을 완료해 주세요", presentation.empty)
+            }
+        } finally {
+            preferences.edit().apply {
+                if (previousStatus == null) remove(LoginFunnelStatus.KEY) else putString(LoginFunnelStatus.KEY, previousStatus)
+            }.commit()
+        }
+    }
 
     @Test fun compactWidgetProvidersAllowTheSingleClassCardWidth() {
         val providers = AppWidgetManager.getInstance(context).installedProviders

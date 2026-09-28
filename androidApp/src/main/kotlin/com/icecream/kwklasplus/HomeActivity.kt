@@ -53,6 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
+import com.icecream.kwklasplus.feature.auth.LoginFunnelStatus
 import com.icecream.kwklasplus.core.platform.SecureKey
 import com.icecream.kwklasplus.core.bridge.BridgeSurface
 import com.icecream.kwklasplus.platform.web.AndroidBridgeMessageAdapter
@@ -128,9 +129,18 @@ class HomeActivity : AppCompatActivity() {
         const val ACTION_OPEN_LIBRARY_SETTINGS = "com.icecream.kwklasplus.OPEN_LIBRARY_SETTINGS"
     }
 
+    private fun redirectToLoginIfSetupIncomplete(): Boolean {
+        if (isFinishing) return true
+        if (!LoginFunnelStatus.blocksHome(appPreferences.getString(LoginFunnelStatus.KEY, null))) return false
+        startActivity(Intent(this, LoginActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+        finish()
+        return true
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (redirectToLoginIfSetupIncomplete()) return
         if (intent.action == ACTION_OPEN_LIBRARY_SETTINGS &&
             com.icecream.kwklasplus.manager.AppLockManager.isAppLockEnabled(this) &&
             !com.icecream.kwklasplus.manager.AppLockManager.isUnlocked
@@ -204,6 +214,7 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (redirectToLoginIfSetupIncomplete()) return
 
         if (com.icecream.kwklasplus.manager.AppLockManager.isAppLockEnabled(this) && !com.icecream.kwklasplus.manager.AppLockManager.isUnlocked) {
             val lockIntent = Intent(this, LockActivity::class.java).apply {
@@ -366,6 +377,7 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (redirectToLoginIfSetupIncomplete()) return
         appDependencies.academicWidgets.foreground()
         if (yearHakgi.isNotBlank()) {
             lifecycleScope.launch {

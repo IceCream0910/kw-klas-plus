@@ -21,6 +21,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.icecream.kwklasplus.core.auth.AuthFailure
 import com.icecream.kwklasplus.core.auth.LoginResult
 import com.icecream.kwklasplus.core.auth.StoredCredential
+import com.icecream.kwklasplus.feature.auth.LoginFunnelStatus
 import com.icecream.kwklasplus.core.session.SessionLeaseResult
 import com.icecream.kwklasplus.feature.startup.AuthenticationLoadingScreen
 import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
@@ -56,6 +57,12 @@ class MainActivity : AppCompatActivity() {
 
         lockPortraitOnPhone()
 
+        if (LoginFunnelStatus.blocksHome(appPreferences.getString(LoginFunnelStatus.KEY, null))) {
+            finish()
+            startActivity(WidgetNavigation.forward(intent, Intent(this, LoginActivity::class.java)))
+            return
+        }
+
         if (!isNetworkConnected()) {
             var builder = MaterialAlertDialogBuilder(this)
             builder
@@ -75,6 +82,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private suspend fun initializeAuthentication() {
+        if (LoginFunnelStatus.blocksHome(appPreferences.getString(LoginFunnelStatus.KEY, null))) {
+            finish()
+            startActivity(WidgetNavigation.forward(intent, Intent(this, LoginActivity::class.java)))
+            return
+        }
         val credential = runCatching { appDependencies.credentialStore.load() }.getOrNull()
         if (credential == null) {
             finish()

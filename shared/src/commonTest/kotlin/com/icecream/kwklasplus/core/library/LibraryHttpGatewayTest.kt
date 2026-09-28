@@ -37,7 +37,7 @@ class LibraryHttpGatewayTest {
         )
         assertEquals(
             LibraryGatewayResult.Success("AUTH"),
-            gateway.login("REAL", "STUDENT", "01012345678", "PASSWORD", "A"),
+            gateway.login("REAL", "STUDENT", "010-1234-5678", "PASSWORD", "A"),
         )
         val qr = assertIs<LibraryGatewayResult.Success<LibraryQrData>>(
             gateway.requestQr("REAL", "AUTH"),

@@ -7,6 +7,7 @@ import com.icecream.kwklasplus.*
 import com.icecream.kwklasplus.core.academic.*
 import com.icecream.kwklasplus.core.network.KlasUserAgent
 import com.icecream.kwklasplus.core.platform.SecureKey
+import com.icecream.kwklasplus.feature.auth.LoginFunnelStatus
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -75,11 +76,13 @@ class AcademicWidgetRuntime(private val context: Context) {
     }
 
     fun snapshot(): AcademicWidgetSnapshot? {
+        if (setupIncomplete()) return null
         val key = identity()
         return snapshotCache?.takeIf { key.first.isNotBlank() && it.owner == key.first && it.term == key.second }
     }
 
     suspend fun recordTimetable(term: String, entries: List<TimetableEntry>) = withContext(Dispatchers.Main.immediate) {
+        if (setupIncomplete()) return@withContext
         initialized.await()
         refreshIdentity()
         if (identity.first.isBlank() || identity.second != term) return@withContext
@@ -91,11 +94,17 @@ class AcademicWidgetRuntime(private val context: Context) {
 
     fun foreground() {
         render()
+        if (setupIncomplete()) return
         AcademicWidgetScheduler.schedule(context)
         refreshCalendarNow()
     }
 
     fun refreshCalendarNow(onFinished: () -> Unit = {}) {
+        if (setupIncomplete()) {
+            render()
+            onFinished()
+            return
+        }
         synchronized(immediateRefreshLock) {
             immediateRefreshCallbacks += onFinished
             if (immediateRefreshActive) return
@@ -117,12 +126,15 @@ class AcademicWidgetRuntime(private val context: Context) {
     }
 
     fun requestCalendar() {
+        if (setupIncomplete()) return
         AcademicWidgetScheduler.requestCalendar(context)
     }
 
     suspend fun syncCalendar(): Boolean = withContext(Dispatchers.Main.immediate) {
+        if (setupIncomplete()) return@withContext false
         initialized.await()
         syncMutex.withLock {
+            if (setupIncomplete()) return@withLock false
             if (!AcademicWidgets.hasCalendar(context)) return@withLock false
             refreshIdentity()
             val key = identity
@@ -139,7 +151,7 @@ class AcademicWidgetRuntime(private val context: Context) {
                     KlasUserAgent.fromPlatform(WebSettings.getDefaultUserAgent(context)),
                     month.atDay(1).toString(), month.atEndOfMonth().toString(),
                 )
-                if (version != generation || key != identity() || month != YearMonth.now()) return@withLock false
+                if (setupIncomplete() || version != generation || key != identity() || month != YearMonth.now()) return@withLock false
                 when (result) {
                     is CalendarSyncResult.Success -> {
                         val old = snapshot() ?: AcademicWidgetSnapshot(key.first, key.second)
@@ -163,6 +175,10 @@ class AcademicWidgetRuntime(private val context: Context) {
         }
     }
 
+    private fun setupIncomplete(): Boolean = LoginFunnelStatus.blocksHome(
+        context.appPreferences.getString(LoginFunnelStatus.KEY, null),
+    )
+
     private suspend fun markStatus(status: WidgetSyncStatus) {
         val old = snapshot() ?: AcademicWidgetSnapshot(identity.first, identity.second)
         persist(old.copy(calendarStatus = status))
@@ -179,11 +195,12 @@ class AcademicWidgetRuntime(private val context: Context) {
     }
 
     private suspend fun persist(snapshot: AcademicWidgetSnapshot): Boolean {
+        if (setupIncomplete()) return false
         val version = generation
         val saved = runCatching {
             persistence.writeIf(snapshot) {
                 val current = identity()
-                version == generation && snapshot.owner == current.first && snapshot.term == current.second
+                !setupIncomplete() && version == generation && snapshot.owner == current.first && snapshot.term == current.second
             }
         }.getOrDefault(false)
         if (saved && version == generation) snapshotCache = snapshot

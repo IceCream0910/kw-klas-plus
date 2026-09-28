@@ -1,6 +1,5 @@
 import Shared
 import SwiftUI
-import WebKit
 
 struct LoginUiState: Equatable {
     static let studentIdLength = 10
@@ -9,6 +8,12 @@ struct LoginUiState: Equatable {
     var studentId: String
     var password: String
     var agreementAccepted: Bool
+    var step: LoginFunnelStep = .studentId
+    var libraryPassword: String = ""
+    var libraryPhone: String = ""
+    var privacyAccepted: Bool = false
+    var termsAccepted: Bool = false
+    var error: String? = nil
 
     var passwordFieldVisible: Bool { studentId.count == Self.studentIdLength }
 
@@ -23,6 +28,13 @@ struct LoginView: View {
     var onStartClick: () -> Void
     var onLoginClick: () -> Void
     var onOpenURL: (URL) -> Void
+    var onFunnelContinue: () -> Void = {}
+    var onFunnelBack: () -> Void = {}
+    var onLibrarySave: () -> Void = {}
+    var onLibrarySkip: () -> Void = {}
+    var onFunnelFinish: () -> Void = {}
+    var onStudentIdChange: (String) -> Void = { _ in }
+    var canReturnToOnboarding: Bool = false
 
     var body: some View {
         ZStack {
@@ -31,10 +43,16 @@ struct LoginView: View {
                 OnboardingContent(onStartClick: onStartClick)
                     .accessibilityIdentifier("login_onboarding")
             } else {
-                LoginFormContent(
+                LoginFunnelView(
                     state: $state,
-                    onLoginClick: onLoginClick,
-                    onOpenURL: onOpenURL
+                    onContinue: onFunnelContinue,
+                    onBack: onFunnelBack,
+                    onSaveLibrary: onLibrarySave,
+                    onSkipLibrary: onLibrarySkip,
+                    onOpenURL: onOpenURL,
+                    onFinish: onFunnelFinish,
+                    onStudentIdChange: onStudentIdChange,
+                    canReturnToOnboarding: canReturnToOnboarding
                 )
                 .accessibilityIdentifier("login_form")
             }
@@ -63,85 +81,97 @@ private enum LoginField {
 
 private struct OnboardingContent: View {
     var onStartClick: () -> Void
+    @State private var page = 0
+
+    private let slides: [(title: String, description: String, note: String, image: String)] = [
+        ("불편했던 KLAS를\n더 편리하게.", "KLAS+는 모바일에 맞게 학사포털의\n사용자 경험을 다시 설계했어요.", "⚠️ KLAS+는 개인이 개발한 것으로, 학교의 공식 앱이 아닙니다.", "OnboardingPlaceholder"),
+        ("남아있는 할 일을\n한 눈에.", "과제, 온라인 강의 등 남아있는 할 일을\n한 눈에 모아서 홈 화면에 보여줄게요.", "", "OnboardingTodo"),
+        ("복잡한 메뉴를\n깔끔하게.", "PC와 달라 불편했던 복잡한 메뉴들을 한 페이지에서 찾고,\n자주 쓰는 메뉴를 상단에 고정할 수 있어요.", "", "OnboardingMenu"),
+        ("학교 생활을 위한\n나만의 캘린더.", "학사일정, 개인 스케줄은 물론 과제 마감기한까지,\n대학 생활에 필요한 모든 일정을 관리해보세요.", "", "OnboardingCalendar"),
+        ("궁금한 건\nKLAS AI에게.", "학교 홈페이지와 KLAS를 누비는\n다재다능한 AI 에이전트와 함께해보세요.", "", "OnboardingAI")
+    ]
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            OnboardingWebView(urlString: KlasUrls.shared.ONBOARDING)
-                .ignoresSafeArea()
-                .accessibilityIdentifier("login_onboarding_web_view")
-            Button(action: onStartClick) {
-                Text("시작하기")
+        GeometryReader { geometry in
+            let horizontalPadding: CGFloat = geometry.size.width >= 840 ? 32 : 16
+            let copyInset: CGFloat = geometry.size.width >= 840 ? 16 : 8
+            VStack(spacing: 28) {
+                TabView(selection: $page) {
+                    ForEach(slides.indices, id: \.self) { index in
+                        GeometryReader { pageGeometry in
+                            let imageWidth = min(pageGeometry.size.width, min(600, pageGeometry.size.height * 0.62) * 8 / 9)
+                            ScrollView {
+                                VStack(spacing: 32) {
+                                    Image(slides[index].image)
+                                        .resizable()
+                                        .frame(width: imageWidth, height: imageWidth * 9 / 8)
+                                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                                        .frame(maxWidth: .infinity)
+                                        .accessibilityLabel("KLAS+ 앱 화면 미리보기")
+                                    VStack(alignment: .leading, spacing: 0) {
+                                        Text(slides[index].title)
+                                            .font(.title.bold())
+                                            .foregroundStyle(KlasTheme.onBackground)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                        Text(slides[index].description)
+                                            .font(.body)
+                                            .foregroundStyle(KlasTheme.onSurfaceVariant)
+                                            .padding(.top, 16)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                        if !slides[index].note.isEmpty {
+                                            Text(slides[index].note)
+                                                .font(.footnote)
+                                                .foregroundStyle(KlasTheme.onSurfaceVariant)
+                                                .padding(.top, 12)
+                                                .fixedSize(horizontal: false, vertical: true)
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, copyInset)
+                                }
+                                .frame(minHeight: pageGeometry.size.height, alignment: .bottom)
+                            }
+                        }
+                        .tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .task(id: page) {
+                    guard page < slides.count - 1 else { return }
+                    try? await Task.sleep(nanoseconds: 5_000_000_000)
+                    guard !Task.isCancelled else { return }
+                    withAnimation(.easeInOut(duration: 0.35)) { page += 1 }
+                }
+
+                HStack {
+                    HStack(spacing: 8) {
+                        ForEach(slides.indices, id: \.self) { index in
+                            Capsule()
+                                .fill(index == page ? KlasTheme.onBackground : KlasTheme.outline.opacity(0.45))
+                                .frame(width: index == page ? 22 : 8, height: 8)
+                        }
+                    }
+                    .accessibilityLabel("\(page + 1)/\(slides.count) 페이지")
+                    Spacer()
+                    Button(action: onStartClick) {
+                        HStack(spacing: 8) {
+                            Text("로그인")
+                            Image(systemName: "arrow.right")
+                        }
+                    }
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(KlasTheme.onPrimary)
+                        .padding(.horizontal, 24)
+                        .frame(height: 50)
+                        .background(KlasTheme.primary, in: Capsule())
+                        .accessibilityIdentifier("login_start")
+                }
+                .padding(.horizontal, copyInset)
             }
-            .buttonStyle(KlasInverseButtonStyle())
-            .padding(.horizontal, 16)
+            .padding(.horizontal, horizontalPadding)
             .padding(.vertical, 24)
-            .frame(maxWidth: 520)
-            .accessibilityIdentifier("login_start")
-        }
-    }
-}
-
-private struct OnboardingWebView: UIViewRepresentable {
-    let urlString: String
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-
-    func makeUIView(context: Context) -> WKWebView {
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .default()
-        WebSurfaceZoomPolicy.install(on: configuration)
-        // 웹 _app.js는 KlasNativeBridge.completePageLoad 실패 시 Play Store로 replace한다.
-        // 온보딩 WebView에도 Bridge v1을 심어 앱 내 온보딩이 유지되게 한다.
-        let adapter = IosBridgeMessageAdapter(
-            surface: .home,
-            handler: AcceptingBridgeCommandHandler()
-        )
-        adapter.install(into: configuration)
-        context.coordinator.bridgeAdapter = adapter
-
-        let webView = WKWebView(frame: .zero, configuration: configuration)
-        webView.navigationDelegate = context.coordinator
-        WebSurfaceZoomPolicy.configure(webView)
-        if let url = URL(string: urlString) {
-            webView.load(URLRequest(url: url))
-        }
-        return webView
-    }
-
-    func updateUIView(_ uiView: WKWebView, context: Context) {}
-
-    static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
-        uiView.stopLoading()
-        uiView.navigationDelegate = nil
-        coordinator.bridgeAdapter?.dispose()
-        coordinator.bridgeAdapter = nil
-    }
-
-    final class Coordinator: NSObject, WKNavigationDelegate {
-        var bridgeAdapter: IosBridgeMessageAdapter?
-        private let trustedOrigins = TrustedOriginPolicy(
-            trustedOrigins: TrustedOriginPolicy.companion.DEFAULT_TRUSTED_ORIGINS
-        )
-
-        func webView(
-            _ webView: WKWebView,
-            decidePolicyFor navigationAction: WKNavigationAction,
-            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
-        ) {
-            guard navigationAction.targetFrame?.isMainFrame != false,
-                  let url = navigationAction.request.url?.absoluteString
-            else {
-                decisionHandler(.allow)
-                return
-            }
-            if trustedOrigins.isTrustedUrl(url: url) {
-                decisionHandler(.allow)
-                return
-            }
-            // Play Store 등 외부 URL은 온보딩 WebView 안에서 열지 않는다.
-            decisionHandler(.cancel)
+            .frame(maxWidth: 680)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }

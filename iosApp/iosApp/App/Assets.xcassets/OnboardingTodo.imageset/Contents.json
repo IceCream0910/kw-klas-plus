@@ -1,0 +1,22 @@
+{
+  "images": [
+    {
+      "filename": "todo_light.png",
+      "idiom": "universal"
+    },
+    {
+      "filename": "todo_dark.png",
+      "idiom": "universal",
+      "appearances": [
+        {
+          "appearance": "luminosity",
+          "value": "dark"
+        }
+      ]
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}

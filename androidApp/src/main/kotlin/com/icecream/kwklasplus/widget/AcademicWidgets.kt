@@ -12,6 +12,7 @@ import android.view.View
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
 import com.icecream.kwklasplus.*
+import com.icecream.kwklasplus.feature.auth.LoginFunnelStatus
 import com.icecream.kwklasplus.core.academic.*
 import java.time.*
 import java.time.format.DateTimeFormatter
@@ -112,11 +113,13 @@ object AcademicWidgets {
         val snapshot = context.appDependencies.academicWidgets.snapshot()
         val calendar = kind == AcademicWidgetKind.CALENDAR
         val title = if (calendar) "${today.monthValue}월" else "시간표"
+        val setupIncomplete = LoginFunnelStatus.blocksHome(context.appPreferences.getString(LoginFunnelStatus.KEY, null))
         val signedOut = context.appPreferences.getString(AppPrefs.KW_ID, "").isNullOrBlank()
         val loading = calendar && context.appDependencies.academicWidgets.calendarLoading
-        val ready = !signedOut && if (calendar) snapshot?.calendar != null &&
+        val ready = !signedOut && !setupIncomplete && if (calendar) snapshot?.calendar != null &&
             snapshot.month == YearMonth.now().toString() else snapshot?.timetable != null
         if (!ready) return WidgetPresentation(title, "", "앱을 눌러 확인", when {
+            setupIncomplete -> "설정을 완료해 주세요"
             signedOut -> "로그인해주세요"
             loading -> "일정을 불러오고 있어요."
             calendar && snapshot?.calendarStatus == WidgetSyncStatus.NEEDS_LOGIN -> "로그인 후 다시 확인해주세요"

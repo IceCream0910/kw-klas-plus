@@ -11,5 +11,7 @@
 | [ADR-005](ADR-005-ios-academic-widgets.md) | iOS 학사 WidgetKit 확장 | Accepted; 후속 새로고침은 [ADR-006](ADR-006-ios-widget-interactive-refresh.md) |
 | [ADR-006](ADR-006-ios-widget-interactive-refresh.md) | iOS 17 캘린더 위젯 AppIntent 새로고침 | Accepted; 실기기 검증 별도 |
 | [ADR-007](ADR-007-native-home-navigation.md) | 네이티브 홈 하단 탐색과 웹 라우터 연결 | Accepted; 웹 저장소 동시 배포 대기 |
+| [ADR-008](ADR-008-native-onboarding.md) | 네이티브 최초 온보딩 | Accepted; 실기기 검증 대기 |
+| [ADR-009](ADR-009-login-funnel.md) | 인증 후 설정을 포함한 로그인 퍼널 | Accepted; 약관 전문 및 실기기 검증 대기 |
 
 현재 코드의 모듈 경계는 [아키텍처](../ARCHITECTURE.md), M1~M7 당시 진행 상황은 [마이그레이션 기록](../kmp-migration/kmp_migration_tasks.md)에 있어요.

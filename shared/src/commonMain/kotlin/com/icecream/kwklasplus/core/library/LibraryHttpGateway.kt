@@ -38,7 +38,7 @@ class LibraryHttpGateway(
             append("real_id", encodedRealId)
             append("rid", encodedStudentNumber)
             append("device_gb", deviceCode)
-            append("tel_no", phoneNumber)
+            append("tel_no", phoneNumber.filter { it in '0'..'9' })
             append("pass_wd", encryptedPassword)
         },
     ) { body ->
