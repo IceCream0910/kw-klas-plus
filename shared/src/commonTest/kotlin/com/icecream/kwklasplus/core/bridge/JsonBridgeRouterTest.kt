@@ -15,6 +15,38 @@ class JsonBridgeRouterTest {
     )
 
     @Test
+    fun hostileInputsAreRejectedBeforeJsonParsingInBothRoutes() = runJsonBridgeRouterTest {
+        var calls = 0
+        val router = JsonBridgeRouter(BridgeRouter(BridgeCommandHandler {
+            calls++
+            BridgeHandlerResult.Success()
+        }))
+        val oversizedMalformed = "[".repeat(100_000)
+        for ((inputContext, code) in listOf(
+            context.copy(origin = "https://attacker.invalid") to "UNTRUSTED_ORIGIN",
+            context.copy(isMainFrame = false) to "NOT_MAIN_FRAME",
+            context to "PAYLOAD_TOO_LARGE",
+        )) {
+            assertContains(router.route(oversizedMalformed, inputContext), code)
+            assertContains(router.routeSynchronously(oversizedMalformed, inputContext), code)
+        }
+        kotlin.test.assertEquals(0, calls)
+    }
+
+    @Test
+    fun legitimateLimitAndVideoOriginRemainAccepted() = runJsonBridgeRouterTest {
+        val payload = """{"version":1,"id":"request","method":"completePageLoad","arguments":[]}"""
+        val router = JsonBridgeRouter(BridgeRouter(
+            BridgeCommandHandler { BridgeHandlerResult.Success() },
+            validator = BridgeValidator(maximumPayloadSizeBytes = payload.encodeToByteArray().size),
+        ))
+        assertContains(router.route(payload, context), "\"ok\":true")
+        assertContains(router.route(payload, context.copy(
+            surface = BridgeSurface.VIDEO, origin = "https://video.kw.ac.kr",
+        )), "\"ok\":true")
+    }
+
+    @Test
     fun malformedPayloadReturnsStableErrorEnvelope() = runJsonBridgeRouterTest {
         val router = JsonBridgeRouter(
             BridgeRouter(BridgeCommandHandler { BridgeHandlerResult.Success() }),

@@ -69,20 +69,28 @@ class BridgeValidator(
     private val klasContentOriginPolicy: KlasContentOriginPolicy = KlasContentOriginPolicy(),
     private val maximumPayloadSizeBytes: Int = 64 * 1_024,
 ) {
+    fun validateContext(context: BridgeContext): BridgeRejection? {
+        val trusted = originPolicy.isTrusted(context.origin) ||
+            context.surface == BridgeSurface.VIDEO &&
+            context.origin != KLAS_CONTENT_ROOT_ORIGIN &&
+            klasContentOriginPolicy.isTrustedUrl(context.origin)
+        if (!trusted) return BridgeRejection.UNTRUSTED_ORIGIN
+        if (!context.isMainFrame) return BridgeRejection.NOT_MAIN_FRAME
+        if (context.payloadSizeBytes !in 0..maximumPayloadSizeBytes) return BridgeRejection.PAYLOAD_TOO_LARGE
+        return null
+    }
+
+    fun measurePayload(payload: String): Int {
+        if (payload.length > maximumPayloadSizeBytes) return maximumPayloadSizeBytes + 1
+        return payload.encodeToByteArray().size
+    }
+
     fun validate(request: BridgeRequest, context: BridgeContext): BridgeValidationResult {
         if (request.version != CURRENT_VERSION) return rejected(BridgeRejection.UNSUPPORTED_VERSION)
         if (request.id.isBlank() || request.id.length > MAXIMUM_REQUEST_ID_LENGTH) {
             return rejected(BridgeRejection.INVALID_REQUEST_ID)
         }
-        val isTrustedOrigin = originPolicy.isTrusted(context.origin) ||
-            context.surface == BridgeSurface.VIDEO &&
-            context.origin != KLAS_CONTENT_ROOT_ORIGIN &&
-            klasContentOriginPolicy.isTrustedUrl(context.origin)
-        if (!isTrustedOrigin) return rejected(BridgeRejection.UNTRUSTED_ORIGIN)
-        if (!context.isMainFrame) return rejected(BridgeRejection.NOT_MAIN_FRAME)
-        if (context.payloadSizeBytes !in 0..maximumPayloadSizeBytes) {
-            return rejected(BridgeRejection.PAYLOAD_TOO_LARGE)
-        }
+        validateContext(context)?.let { return rejected(it) }
 
         val method = LegacyBridgeCatalog.find(context.surface, request.method)
             ?: return rejected(BridgeRejection.UNKNOWN_METHOD)

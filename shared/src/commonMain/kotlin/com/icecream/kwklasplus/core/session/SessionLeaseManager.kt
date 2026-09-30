@@ -172,12 +172,13 @@ class SessionLeaseManager(
         token: SecretValue,
         info: SessionLeaseInfo,
         extended: Boolean,
-    ): SessionLeaseResult = when (sessionCoordinator.observe(token)) {
+    ): SessionLeaseResult = when (sessionCoordinator.observeIfStored(token)) {
         is SessionResult.Active -> SessionLeaseResult.Active(
             info = info,
             nextCheckAfterMillis = policy.nextCheckAfterMillis(info),
             extended = extended,
         )
+        SessionResult.Expired -> SessionLeaseResult.Expired
         else -> retry(SessionLeaseFailure.Storage)
     }
 

@@ -1,9 +1,23 @@
 import Foundation
+import SwiftUI
+import UIKit
 import Shared
 import XCTest
 @testable import kw_klas_plus
 
 final class IosAppLockStoreTests: XCTestCase {
+    @MainActor
+    func testPrivacyCoverConcealsHomePixelsAndKeepsUnlockedControlVisible() throws {
+        let sensitive = Color.red.frame(width: 120, height: 120)
+        let hidden = ImageRenderer(content: sensitive.protectedHomeContent(isHidden: true))
+        let visible = ImageRenderer(content: sensitive.protectedHomeContent(isHidden: false))
+        let expected = ImageRenderer(content: Color(uiColor: .systemBackground).frame(width: 120, height: 120))
+        let hiddenPixels = try XCTUnwrap(hidden.uiImage?.pngData())
+        let visiblePixels = try XCTUnwrap(visible.uiImage?.pngData())
+        XCTAssertEqual(hiddenPixels, try XCTUnwrap(expected.uiImage?.pngData()))
+        XCTAssertNotEqual(hiddenPixels, visiblePixels)
+    }
+
     func testSaveVerifyAndDisableClearsSecretsFromUserDefaults() {
         let env = LockTestEnvironment()
         defer { env.tearDown() }

@@ -25,6 +25,7 @@ class BridgeJsonCodec(
     private val maximumNestingDepth: Int = 16,
 ) {
     fun decodeRequest(payload: String): BridgeDecodeResult = try {
+        if (!hasBoundedNesting(payload)) return BridgeDecodeResult.Malformed
         val root = json.parseToJsonElement(payload).jsonObject
         if (root.keys.any { it !in REQUEST_FIELDS }) return BridgeDecodeResult.Malformed
         val version = root.requiredNumber("version").intOrNull
@@ -77,6 +78,26 @@ class BridgeJsonCodec(
             BridgeErrorCode.MALFORMED_REQUEST,
         ),
     )
+
+    private fun hasBoundedNesting(payload: String): Boolean {
+        var depth = 0
+        var quoted = false
+        var escaped = false
+        for (character in payload) {
+            if (quoted) {
+                when {
+                    escaped -> escaped = false
+                    character == '\\' -> escaped = true
+                    character == '"' -> quoted = false
+                }
+            } else when (character) {
+                '"' -> quoted = true
+                '{', '[' -> if (++depth > maximumNestingDepth + 3) return false
+                '}', ']' -> if (--depth < 0) return false
+            }
+        }
+        return !quoted && depth == 0
+    }
 
     private fun decodeValue(element: JsonElement, depth: Int): BridgeValue? {
         if (depth > maximumNestingDepth) return null

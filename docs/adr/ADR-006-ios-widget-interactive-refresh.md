@@ -30,7 +30,7 @@ Android 캘린더 위젯 새로고침은 앱과 같은 UID에서 `CalendarSyncUs
 | 만료 | 저장 암호화 비밀번호로 `CalendarSyncUseCase` 재인증 | 동일 유스케이스 |
 | 성공 | SESSION+timestamp 기록, revision 증가, cookie 동기화 필요, 스냅샷 저장, calendar timeline reload | `observe()`가 SESSION+timestamp+WK cookie를 한 경로로 기록 |
 | 중간 실패 | 이전 SESSION/timestamp 유지, 일정은 마지막 성공 데이터+`RETRY`/`NEEDS_LOGIN` | `SessionCoordinator` 보상 복원 |
-| 동시 갱신 | 요청 시작 시 owner/term을 캡처하고 완료 시 불일치면 스냅샷을 쓰지 않음 | 로그아웃·계정 변경이 `clear()`로 공유 비밀과 스냅샷을 함께 지움 |
+| 동시 갱신 | 자격증명 조회 전 공유 세대를 캡처하고, App Group 파일 잠금 아래 같은 세대일 때만 SESSION을 저장. owner/term 불일치 시 스냅샷도 폐기 | 같은 파일 잠금 아래 로그아웃 세대를 증가시키고 SESSION을 삭제. 대화형 로그인 전까지 백그라운드 재인증 차단 |
 | CAPTCHA·임시 비밀번호·자격증명 오류 | `NEEDS_LOGIN`, 앱을 열지 않음 | 로그인 화면 |
 | 네트워크 오류 | `RETRY`, SESSION을 지우지 않음 | 동일 |
 
@@ -53,3 +53,5 @@ Android 캘린더 위젯 새로고침은 앱과 같은 UID에서 `CalendarSyncUs
 - 구현은 이 문서를 따른다. ADR-005의 표시 JSON·딥링크·시간표 축소 제외는 유지한다.
 - 학사 WidgetKit 타깃은 캘린더 새로고침을 위해 Shared.framework를 링크한다. 도서관 QR 런처는 인증 API를 호출하지 않는다.
 - 롤백은 AppIntent 버튼 제거와 공유 Keychain 미사용으로 되돌리며, 이 경우 재로그인이 필요할 수 있다.
+
+공유 세대와 허용 상태는 인증 비밀이 없는 `academic_session_generation` 파일에 저장합니다. `academic_session.lock`의 `flock`은 세대 비교부터 Keychain 저장·실패 복원까지 보호합니다. 로그아웃 중 삭제하거나 초기화하지 않습니다. 잠금을 획득하지 못하거나 세대를 읽지 못하면 갱신을 실패 처리합니다. 기존 revision은 표시·cookie 동기화용이며 세션 저장 허가로 사용하지 않습니다.

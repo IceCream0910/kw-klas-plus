@@ -387,3 +387,27 @@ enum LockScreenMetrics {
         return widthClass == .expanded || (widthClass == .medium && height < 600)
     }
 }
+
+struct ProtectedHomeContentModifier: ViewModifier {
+    let isHidden: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(isHidden ? 0 : 1)
+            .allowsHitTesting(!isHidden)
+            .accessibilityHidden(isHidden)
+            .overlay {
+                if isHidden {
+                    Color(uiColor: .systemBackground)
+                        .ignoresSafeArea()
+                        .accessibilityIdentifier("protected_home_cover")
+                }
+            }
+    }
+}
+
+extension View {
+    func protectedHomeContent(isHidden: Bool) -> some View {
+        modifier(ProtectedHomeContentModifier(isHidden: isHidden))
+    }
+}

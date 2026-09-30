@@ -205,7 +205,10 @@ class IosSharedDependencies(
             )
             else -> IosCookieSyncingWebCookieStore(IosWebCookieStore(), academicWidgetFlags)
         }
-        SessionCoordinator(primary, cookies, clock)
+        SessionCoordinator(
+            primary, cookies, clock,
+            mutationGuard = com.icecream.kwklasplus.core.session.IosSessionMutationGuard(),
+        )
     }
 
     private val sessionLeaseGateway by lazy { KlasSessionLeaseHttpGateway(httpClient) }

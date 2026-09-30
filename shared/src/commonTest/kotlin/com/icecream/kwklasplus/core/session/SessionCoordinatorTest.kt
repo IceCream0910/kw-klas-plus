@@ -13,6 +13,21 @@ class SessionCoordinatorTest {
     private val token = SecretValue.of("session-token")
 
     @Test
+    fun leaseCompletionCannotRecreateClearedOrReplacedSession(): Unit = runSuspend {
+        val store = FakeSessionStore(Session(token, 500L))
+        val cookies = FakeCookieStore(token)
+        val coordinator = SessionCoordinator(store, cookies, Clock { 1_000L })
+        coordinator.expire()
+        assertIs<SessionResult.Expired>(coordinator.observeIfStored(token))
+        assertNull(store.session)
+        val replacement = SecretValue.of("replacement")
+        coordinator.observe(replacement)
+        assertIs<SessionResult.Expired>(coordinator.observeIfStored(token))
+        assertEquals(replacement, store.session?.token)
+        assertIs<SessionResult.Active>(coordinator.observeIfStored(replacement))
+    }
+
+    @Test
     fun restoresSessionWithoutFixedLocalTtl() = runSuspend {
         val store = FakeSessionStore(Session(token, 1_000L))
         val cookies = FakeCookieStore()

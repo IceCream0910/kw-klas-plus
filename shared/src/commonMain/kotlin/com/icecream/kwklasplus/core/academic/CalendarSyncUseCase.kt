@@ -17,9 +17,11 @@ class CalendarSyncUseCase(
     private val repository: CalendarRepository,
     private val sessionCoordinator: SessionCoordinator,
 ) {
+    suspend fun checkpoint(): Long = sessionCoordinator.checkpoint()
+
     suspend fun sync(credential: StoredCredential?, token: SecretValue?, ua: KlasUserAgent,
-                     start: String, end: String): CalendarSyncResult {
-        val sessionCheckpoint = sessionCoordinator.checkpoint()
+                     start: String, end: String, checkpoint: Long? = null): CalendarSyncResult {
+        val sessionCheckpoint = checkpoint ?: sessionCoordinator.checkpoint()
         if (token != null) {
             when (val result = repository.fetch(token, ua, start, end)) {
                 is CalendarResult.Success -> return CalendarSyncResult.Success(result.events)
