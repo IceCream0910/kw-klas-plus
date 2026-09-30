@@ -51,6 +51,7 @@ struct StartupRootView: View {
                     onSessionExpired: { controller.handleHomeSessionExpired() }
                 )
                 .environmentObject(academicWidgets)
+                .protectedHomeContent(isHidden: shouldHideHome)
             }
         }
         .environmentObject(appLock)
@@ -100,6 +101,10 @@ struct StartupRootView: View {
             }
             _ = libraryQr.handleOpenURL(url)
         }
+    }
+
+    private var shouldHideHome: Bool {
+        libraryQr.isQrBypassActive || (appLock.store.isEnabled() && !appLock.store.isUnlocked)
     }
 
     private var loginFlow: some View {

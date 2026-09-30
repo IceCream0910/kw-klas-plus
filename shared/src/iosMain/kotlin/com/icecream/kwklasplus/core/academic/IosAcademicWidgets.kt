@@ -72,12 +72,14 @@ class IosAcademicWidgets(
         val range = currentMonthRange()
         val month = range.first.take(7)
         val result = runCatching {
+            val checkpoint = sync.checkpoint()
             sync.sync(
                 credential(),
                 session(),
                 KlasUserAgent.fromPlatform(userAgent),
                 range.first,
                 range.second,
+                checkpoint,
             )
         }.getOrElse {
             if (!sameIdentity(owner, term, startedRevision, allowOwnSessionBump = true)) return false

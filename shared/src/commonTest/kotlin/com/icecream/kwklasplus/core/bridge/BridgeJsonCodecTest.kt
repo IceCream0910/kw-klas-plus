@@ -12,6 +12,17 @@ class BridgeJsonCodecTest {
     private val codec = BridgeJsonCodec()
 
     @Test
+    fun rejectsDeepEnvelopeBeforeBuildingJsonTree() {
+        val nested = "[".repeat(20_000) + "0" + "]".repeat(20_000)
+        assertEquals(BridgeDecodeResult.Malformed, codec.decodeRequest(
+            """{"version":1,"id":"id","method":"reload","arguments":$nested}""",
+        ))
+        kotlin.test.assertIs<BridgeDecodeResult.Success>(codec.decodeRequest(
+            """{"version":1,"id":"id","method":"changeTab","arguments":["[{}]\\\"quoted\\\""]}""",
+        ))
+    }
+
+    @Test
     fun decodesStrictRequestAndMeasuresUtf8Payload() {
         val payload = """{"version":1,"id":"요청-1","method":"changeTab","arguments":["피드",true,null]}"""
 

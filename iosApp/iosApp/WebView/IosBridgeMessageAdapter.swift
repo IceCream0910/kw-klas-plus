@@ -92,6 +92,10 @@ extension IosBridgeMessageAdapter: WKScriptMessageHandlerWithReply {
             isMainFrame: message.frameInfo.isMainFrame,
             payloadSizeBytes: 0
         )
+        if let rejection = router.preflight(payload: payload, context: context) {
+            replyHandler(rejection, nil)
+            return
+        }
         routeScope.route(
             router: router,
             payload: payload,

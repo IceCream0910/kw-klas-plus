@@ -59,6 +59,13 @@ class BridgeRouter(
     private val synchronousHandler: SynchronousBridgeCommandHandler? = null,
     private val validator: BridgeValidator = BridgeValidator(),
 ) {
+    fun validateContext(context: BridgeContext): BridgeResponse.Failure? =
+        validator.validateContext(context)?.let {
+            BridgeResponse.Failure(BridgeValidator.CURRENT_VERSION, null, it.toErrorCode())
+        }
+
+    fun measurePayload(payload: String): Int = validator.measurePayload(payload)
+
     suspend fun route(request: BridgeRequest, context: BridgeContext): BridgeResponse {
         val command = when (val validation = validator.validate(request, context)) {
             is BridgeValidationResult.Accepted -> validation.toCommand(request, context)

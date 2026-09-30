@@ -21,6 +21,7 @@ import com.icecream.kwklasplus.core.session.WebCookieStore
 import com.icecream.kwklasplus.core.session.runSuspendTest
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.serialization.json.JsonArray
+import kotlinx.coroutines.async
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSUserDefaults
@@ -43,6 +44,62 @@ class IosAcademicWidgetSessionContractTest {
     fun tearDown() {
         defaults.removePersistentDomainForName(suite)
         NSFileManager.defaultManager.removeItemAtPath(tmp, null)
+    }
+
+    @Test
+    fun separateCoordinatorsRejectWidgetCompletionAfterLogoutAndAccountChange() = kotlinx.coroutines.runBlocking {
+        NSFileManager.defaultManager.createDirectoryAtPath(tmp, true, null, null)
+        val inner = MemorySessionStore()
+        fun coordinator() = SessionCoordinator(
+            IosRevisingSessionStore(inner, flags, markCookieSync = true),
+            IosNoOpWebCookieStore(), Clock { 1_000L },
+            mutationGuard = com.icecream.kwklasplus.core.session.IosSessionMutationGuard(tmp),
+        )
+        val app = coordinator()
+        val widget = coordinator()
+        app.observe(SecretValue.of("old-session"))
+        val beforeLogout = widget.checkpoint()
+        assertIs<SessionResult.Expired>(app.expire())
+        assertIs<SessionResult.Expired>(widget.observeIfCurrent(SecretValue.of("late"), beforeLogout))
+        assertIs<SessionResult.Expired>(widget.observeIfCurrent(SecretValue.of("late"), widget.checkpoint()))
+        assertNull(inner.session)
+        assertFalse(flags.cookieSyncNeeded())
+        assertIs<SessionResult.Active>(app.observe(SecretValue.of("new-account-session")))
+        assertIs<SessionResult.Expired>(widget.observeIfCurrent(SecretValue.of("late"), beforeLogout))
+        assertEquals("new-account-session", inner.session?.token?.reveal())
+    }
+
+    @Test
+    fun sharedLockSerializesPendingCommitWithLogout() = kotlinx.coroutines.runBlocking {
+        NSFileManager.defaultManager.createDirectoryAtPath(tmp, true, null, null)
+        val entered = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val finishSave = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val inner = MemorySessionStore()
+        val pendingStore = object : SessionStore {
+            override suspend fun load() = inner.load()
+            override suspend fun clear() = inner.clear()
+            override suspend fun save(session: Session) {
+                entered.complete(Unit)
+                finishSave.await()
+                inner.save(session)
+            }
+        }
+        val widget = SessionCoordinator(pendingStore, IosNoOpWebCookieStore(), Clock { 1_000L },
+            mutationGuard = com.icecream.kwklasplus.core.session.IosSessionMutationGuard(tmp))
+        val app = SessionCoordinator(inner, IosNoOpWebCookieStore(), Clock { 1_000L },
+            mutationGuard = com.icecream.kwklasplus.core.session.IosSessionMutationGuard(tmp))
+        val checkpoint = widget.checkpoint()
+        val commit = async {
+            widget.observeIfCurrent(SecretValue.of("pending"), checkpoint)
+        }
+        entered.await()
+        val logout = async { app.expire() }
+        kotlinx.coroutines.delay(30)
+        assertFalse(logout.isCompleted)
+        finishSave.complete(Unit)
+        assertIs<SessionResult.Active>(commit.await())
+        assertIs<SessionResult.Expired>(logout.await())
+        assertNull(inner.session)
     }
 
     @Test

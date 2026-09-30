@@ -31,6 +31,8 @@ flowchart LR
 
 iOS 시뮬레이터에서 인증을 검증할 때는 앱의 Keychain Access Group 권한을 포함한 서명 빌드를 설치해야 합니다. 기존 로그인 데이터가 있는 시뮬레이터에 `CODE_SIGNING_ALLOWED=NO`로 빌드한 테스트 앱을 설치하면 권한이 빠져 저장 자격증명 조회와 재로그인 저장이 실패합니다. 빌드만 검증할 때는 설치하지 않고, 실행 테스트는 동일한 `AppIdentifierPrefix`로 서명된 앱을 사용합니다. 앱 삭제·Keychain 초기화로 이 문제를 우회하지 않습니다.
 
+iOS 앱과 위젯 확장은 App Group의 `academic_session.lock`을 `flock`으로 함께 잠그고 `academic_session_generation`의 변경 세대·백그라운드 재인증 허용 상태를 읽습니다. 이 파일에는 인증 비밀을 넣지 않습니다. 세션 복원·저장·삭제와 실패 시 복원은 잠금 안에서 처리하고, 로그아웃은 세대를 먼저 증가시키고 백그라운드 재인증을 차단합니다. 위젯은 자격증명을 읽기 전에 세대를 캡처하며, 저장할 때 같은 세대인지 확인합니다. 새 대화형 로그인만 차단 상태를 해제합니다. App Group이나 잠금·세대 파일을 사용할 수 없으면 저장소 실패로 처리하며 프로세스 내부 잠금으로 대체하지 않습니다. 세션 연장 응답은 저장된 토큰이 요청 토큰과 같을 때에만 관찰 시각을 갱신합니다.
+
 ### 인증과 세션에서 지킬 동작
 
 | 상황 | 동작 |
@@ -76,7 +78,7 @@ iOS 시뮬레이터에서 인증을 검증할 때는 앱의 Keychain Access Grou
 
 ### Bridge v1 요청과 검증
 
-웹 요청은 `{"version":1,"id":"...","method":"openPage","arguments":["..."]}` 형태입니다. 응답은 같은 `version`·`id`와 `ok`, `result` 또는 `error.code`를 돌려줘요. `id`는 비어 있으면 안 되고 최대 128자, payload는 UTF-8 기준 최대 64 KiB입니다. 인자 목록·타입은 surface별 카탈로그와 일치해야 합니다.
+웹 요청은 `{"version":1,"id":"...","method":"openPage","arguments":["..."]}` 형태입니다. 응답은 같은 `version`·`id`와 `ok`, `result` 또는 `error.code`를 돌려줘요. `id`는 비어 있으면 안 되고 최대 128자, payload는 UTF-8 기준 최대 64 KiB입니다. 인자 목록·타입은 surface별 카탈로그와 일치해야 합니다. iOS adapter와 공통 JSON router는 파싱 전에 origin·main frame·실제 UTF-8 크기를 검사합니다. 크기 측정은 문자 수로 먼저 제한하고 제한 안의 문자열만 인코딩합니다. 파싱 전 거부 응답은 `id: null`이며 기존 오류 코드를 사용합니다. 허용된 요청의 메서드·인자·콜백 계약은 유지합니다. JSON 중첩은 트리 생성 전에 제한합니다.
 
 일반 surface는 `https://klas.kw.ac.kr` 또는 `https://klasplus.yuntae.in`의 정확한 origin과 main frame만 허용합니다. Video surface는 추가로 HTTPS `*.kw.ac.kr`을 허용하지만 루트 `kw.ac.kr`, 사용자 정보·포트가 붙은 URL은 허용하지 않아요. 알 수 없는 메서드와 잘못된 인자·origin은 거부합니다. [`BridgeValidator`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/BridgeValidator.kt)와 [`BridgeJsonCodec`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/BridgeJsonCodec.kt)이 검증 기준입니다.
 
@@ -126,3 +128,11 @@ Android 네이티브 화면은 compact(<600dp), medium(600~839dp), expanded(≥8
 ## 최초 온보딩
 
 저장된 계정이 없는 신규 설치의 온보딩은 Android Compose와 iOS SwiftUI에서 로컬 데이터로 바로 그립니다. 두 플랫폼은 Android의 다섯 페이지 문구와 순서를 사용합니다. 이미지는 문구 바로 위에 하단 정렬하고, 각 페이지를 5초마다 자동으로 넘깁니다. 두 플랫폼은 할 일·메뉴·캘린더·AI 페이지에 라이트/다크 이미지를 사용하며 첫 페이지는 기존 더미 이미지를 유지합니다. 가로 스와이프로 페이지를 이동하고 모든 페이지의 우측 `로그인` 버튼은 기존 로그인 양식으로 이동합니다. 기존 웹 온보딩 파일과 WebView 브리지 계약은 변경하지 않습니다. 이 전환의 기준 Native 커밋은 `3c3590110910ff77be8a2e9ff0c739e53cbb674b`입니다. 되돌릴 때에는 이 변경을 되돌려 각 플랫폼의 이전 WebView 온보딩 경로를 복원할 수 있습니다. [ADR-008](adr/ADR-008-native-onboarding.md)을 따릅니다.
+
+### 보안 위협과 회귀 검증
+
+- 위젯 인증과 로그아웃이 겹쳐도 공유 SESSION이 다시 저장되지 않아야 합니다. `IosAcademicWidgetSessionContractTest`는 별도 파일 잠금 인스턴스와 두 코디네이터로 늦은 인증 결과·계정 변경·저장 중 로그아웃을 검증합니다.
+- QR 잠금 예외는 QR만 허용합니다. iOS는 예외가 활성화되었거나 앱이 잠겨 있으면 홈을 불투명하게 가리고 접근성·터치를 차단합니다. 기존 홈 WebView 인스턴스와 QR 시트 크기는 유지합니다. `IosAppLockStoreTests`에서 보호 화면 렌더링을 검증합니다.
+- 외부 프레임·큰 문자열·과도한 JSON 중첩은 파서 호출 전에 거부합니다. `JsonBridgeRouterTest`, `BridgeJsonCodecTest`, `IosBridgeMessageAdapterTests`에서 거부와 정상 요청을 함께 검증합니다.
+
+이 변경을 롤백할 때에는 수정 커밋을 되돌립니다. 새 비밀 저장 키나 데이터 이전은 없으며, 세대·잠금 파일은 삭제하지 않아도 됩니다. 이전 앱은 이 파일을 사용하지 않아 위젯 동시 실행의 보호가 사라집니다.
