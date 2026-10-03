@@ -13,5 +13,6 @@
 | [ADR-007](ADR-007-native-home-navigation.md) | 네이티브 홈 하단 탐색과 웹 라우터 연결 | Accepted; 웹 저장소 동시 배포 대기 |
 | [ADR-008](ADR-008-native-onboarding.md) | 네이티브 최초 온보딩 | Accepted; 실기기 검증 대기 |
 | [ADR-009](ADR-009-login-funnel.md) | 인증 후 설정을 포함한 로그인 퍼널 | Accepted; 약관 전문 및 실기기 검증 대기 |
+| [ADR-010](ADR-010-deadline-notifications.md) | DEADLINE 최신 조회 알림·웹 토글/네이티브 권한 시트 | Accepted; DEADLINE 전용 구현·자동 검증, 실기기/배포 검증 대기 |
 
 현재 코드의 모듈 경계는 [아키텍처](../ARCHITECTURE.md), M1~M7 당시 진행 상황은 [마이그레이션 기록](../kmp-migration/kmp_migration_tasks.md)에 있어요.

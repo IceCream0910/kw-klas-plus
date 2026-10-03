@@ -27,7 +27,7 @@ final class IosBridgeMessageAdapter: NSObject {
         self.surface = surface
         self.bridgeTimeoutMillis = bridgeTimeoutMillis
         self.router = IosBridgeRouting.shared.createRouter(
-            handler: handler,
+            handler: IosReminderRuntime.shared.wrap(fallback: handler),
             synchronousHandler: synchronousHandler
         )
         self.routeScope = IosBridgeRouting.shared.createRouteScope()

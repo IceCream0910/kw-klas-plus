@@ -85,6 +85,11 @@ class SettingsActivity : AppCompatActivity() {
         isDisablingProcess = false
     }
 
+    override fun onResume() {
+        super.onResume()
+        appDependencies.reminders.foreground()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         sharedPreferences = appPreferences
@@ -121,7 +126,7 @@ class SettingsActivity : AppCompatActivity() {
             webView,
             BridgeSurface.SETTINGS,
             lifecycleScope,
-            SettingsLegacyBridgeCommandHandler(bridgeDelegate),
+            appDependencies.reminders.wrap(this, SettingsLegacyBridgeCommandHandler(bridgeDelegate)),
             SettingsLegacySynchronousBridgeCommandHandler(bridgeDelegate),
         ).also { it.install() }
         try {

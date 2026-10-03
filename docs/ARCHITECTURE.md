@@ -82,7 +82,7 @@ iOS 앱과 위젯 확장은 App Group의 `academic_session.lock`을 `flock`으�
 
 일반 surface는 `https://klas.kw.ac.kr` 또는 `https://klasplus.yuntae.in`의 정확한 origin과 main frame만 허용합니다. Video surface는 추가로 HTTPS `*.kw.ac.kr`을 허용하지만 루트 `kw.ac.kr`, 사용자 정보·포트가 붙은 URL은 허용하지 않아요. 알 수 없는 메서드와 잘못된 인자·origin은 거부합니다. [`BridgeValidator`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/BridgeValidator.kt)와 [`BridgeJsonCodec`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/BridgeJsonCodec.kt)이 검증 기준입니다.
 
-로컬 테스트에서 `KlasUrls.KLAS_PLUS_BASE`를 HTTP IP 주소로 임시 지정한 경우에는 그 정확한 scheme·host·port만 홈 URL 및 Bridge v1 origin으로 추가 허용합니다. Android Debug 매니페스트와 iOS Debug Info.plist만 웹 콘텐츠의 평문 HTTP 로드를 허용하며 Release에서는 차단합니다. 운영 도메인은 테스트 주소를 지정해도 계속 허용합니다. 테스트 설정을 배포용 URL로 사용하지 마세요.
+로컬 테스트에서 `KlasUrls.KLAS_PLUS_BASE`를 HTTP IP 주소로 임시 지정한 경우에는 그 정확한 scheme·host·port만 홈 URL 및 Bridge v1 origin으로 추가 허용합니다. Android는 Debug·Release 모두 cleartext 트래픽을 차단합니다. iOS는 기존 Debug Info.plist에서만 웹 콘텐츠의 평문 HTTP 로드를 허용하며 Release에서는 차단합니다. 운영 도메인은 테스트 주소를 지정해도 계속 허용합니다. 테스트 설정을 배포용 URL로 사용하지 마세요.
 
 ### Web → Native 메서드
 
@@ -116,6 +116,16 @@ iOS 앱과 위젯 확장은 App Group의 `academic_session.lock`을 `flock`으�
 ## 플랫폼 기능과 ADR
 
 QR 출석, 앱 잠금, PIP, 위젯, 파일·외부 URL은 공통 요청/결과와 OS 실행을 분리합니다.
+
+DEADLINE 알림은 [ADR-010](adr/ADR-010-deadline-notifications.md)을 따릅니다. 캘린더 일정 알림은 제거하며 기존 CRUD·위젯은 유지합니다. ReminderEngine은 최신 전체 조회·60초 신선도, KST 항목별 하루 한 번 claim, 새 항목 추가 안내, 계정 generation/설정 revision/최신 request 검사를 소유합니다. 홈 피드는 새 DeadlineRepository 응답만 전달하며 같은 응답의 알림 projection으로 과목·종류·건수·남은 시간을 구성합니다. 실패 시 과거 feed로 fallback하지 않습니다.
+
+홈 조회 및 재활성화/권한 허용 완료에서는 알림을 게시하지 않으며 홈 조회는 당일 claim을 소비하지 않습니다. 백그라운드 JobService/BGAppRefreshTask가 WebView 없이 Native source를 조회하고 앱이 표시되지 않을 때만 게시합니다. 플랫폼 상태 port를 공통 엔진에 주입하고 권한 조회·claim 저장 뒤에도 재확인합니다. 저장 중 앱을 열면 미게시 claim을 해제합니다. iOS BG 요청은 기존 pending 요청이 1시간 목표보다 늦으면 앞당기고 이미 더 이른 요청은 유지해 재진입마다 실행 가능 시점을 미루지 않습니다. Debug 진단 로그는 알림 상태/권한/등록 성공 여부만 포함하며 계정·항목·본문을 출력하지 않습니다. iOS Debug 전용 KlasDeadlineDebug는 LLDB의 Objective-C runtime 호출로 갱신 함수를 수동 실행합니다. Release/Web 브리지에는 노출하지 않으며 실제 background 상태·권한·계정·claim을 유지하고 짧은 실행 시간의 만료 시 작업을 취소합니다.
+
+Android NotificationManager/1시간 JobScheduler와 iOS UNUserNotificationCenter/BGAppRefreshTask를 사용합니다. 미래 예약·정확 알람 권한은 없으며 갱신 실행 주기를 보장하지 않습니다. 기본값은 꺼짐이고 웹 ON/OFF 토글은 Native 상태를 읽고 해제 저장 또는 활성화 시트를 요청합니다. Android Compose/iOS SwiftUI bottom sheet의 권한 허용하기 CTA에서만 OS 권한 요청·ON 저장을 처리하며 완료 안내를 표시한 뒤 별도 닫기 버튼으로 닫습니다. 거부/취소/저장 실패는 ON으로 확정하지 않습니다. getDeadlineNotificationState/setDeadlineNotificationsEnabled(Boolean)를 추가하고 기존 opener를 호환 별칭으로 유지합니다. 기존 58개 메서드·콜백·DTO는 유지하고 새 메서드는 KLAS+ origin·main frame으로 제한합니다. 자세한 계약은 [WebView 계약](notifications/webview-implementation-contract.md)에 있습니다.
+
+원장은 백업 제외 academic_reminders_v1 파일이며 설치별 HMAC으로 계정·항목·배치 키를 저장합니다. 세션·과목명·원본 학번은 원장/로그/Intent/userInfo에 저장하지 않습니다. 과목명은 최신 메모리와 요청한 OS 본문에만 사용합니다. 이전 미출시 calendar 필드는 읽을 때 무시하고 저장에서 제거합니다. 세션 복구는 기존 HTTP 인증·SessionCoordinator checkpoint를 이용하며 캘린더 조회를 하지 않습니다. 로그아웃/계정 전환/해제는 표시 알림과 작업을 정리합니다.
+
+위협: 권한 없는 웹 호출은 origin/frame 검증으로 거부하고 웹의 ON 요청은 attempt/generation/revision으로 보호한 네이티브 권한 시트만 시작하며 OFF는 저장 후 반영합니다. 중복/재시작은 영속 claim으로 억제하며 늦은 응답은 generation/revision/request/학기 검사로 차단합니다. 권한 거절은 claim 미소비, 저장 실패는 미게시, ID/완료/시각 검증 불가는 미게시입니다. 공통 엔진·원본·브리지 테스트와 Native/Web 계약 테스트를 수행하며 실제 서버 fixture와 실기기 전달 검증은 별도 출시 조건입니다.
 
 | 기능 | 플랫폼별 구현·차이 |
 |---|---|

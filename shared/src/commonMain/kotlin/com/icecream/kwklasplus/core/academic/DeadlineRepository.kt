@@ -1,5 +1,7 @@
 package com.icecream.kwklasplus.core.academic
 
+import com.icecream.kwklasplus.core.notification.DeadlineNotificationProjection
+import com.icecream.kwklasplus.core.notification.ReminderDeadline
 import com.icecream.kwklasplus.core.network.AuthenticatedKlasEndpoint
 import com.icecream.kwklasplus.core.network.KlasAuthenticatedResult
 import com.icecream.kwklasplus.core.network.KlasAuthenticatedTransport
@@ -41,7 +43,7 @@ data class SubjectDeadlines(
 )
 
 sealed interface DeadlinesResult {
-    data class Success(val subjects: List<SubjectDeadlines>) : DeadlinesResult
+    data class Success(val subjects: List<SubjectDeadlines>, val reminders: List<ReminderDeadline>? = null, val startedAt: Long = 0, val fetchedAt: Long = 0) : DeadlinesResult
     data object SessionExpired : DeadlinesResult
     data object Timeout : DeadlinesResult
     data object NetworkFailure : DeadlinesResult
@@ -68,13 +70,18 @@ class DeadlineRepository(
         yearSemester: String,
         subjects: List<AcademicSubject>,
     ): DeadlinesResult = coroutineScope {
+        val startedAt = clock.nowEpochMillis()
         if (yearSemester.isBlank()) return@coroutineScope DeadlinesResult.MalformedResponse
         val results = subjects.map { subject ->
             async { fetchSubject(session, userAgent, yearSemester, subject) }
         }.awaitAll()
         val failure = results.firstOrNull { it !is SubjectDeadlineResult.Success }
         if (failure != null) failure.toPublicResult()
-        else DeadlinesResult.Success(results.map { (it as SubjectDeadlineResult.Success).deadlines })
+        else {
+            val successes = results.map { it as SubjectDeadlineResult.Success }
+            val reminders = if (successes.all { it.reminders != null }) successes.flatMap { it.reminders.orEmpty() } else null
+            DeadlinesResult.Success(successes.map { it.deadlines }, reminders?.takeIf { it.map(ReminderDeadline::key).distinct().size == it.size }, startedAt, clock.nowEpochMillis())
+        }
     }
 
     private suspend fun fetchSubject(
@@ -110,6 +117,11 @@ class DeadlineRepository(
         )
         if (teamTasks !is ArrayResult.Success) return teamTasks.toSubjectResult()
 
+        val projections = listOf(
+            DeadlineNotificationProjection.parse(yearSemester, subject.id, subject.name, "onlineLecture", online.body),
+            DeadlineNotificationProjection.parse(yearSemester, subject.id, subject.name, "task", tasks.body),
+            DeadlineNotificationProjection.parse(yearSemester, subject.id, subject.name, "teamTask", teamTasks.body),
+        )
         return try {
             SubjectDeadlineResult.Success(
                 SubjectDeadlines(
@@ -119,6 +131,7 @@ class DeadlineRepository(
                     task = parseAssignments(tasks.body),
                     teamTask = parseAssignments(teamTasks.body),
                 ),
+                if (projections.all { it != null }) projections.flatMap { it.orEmpty() } else null,
             )
         } catch (_: MalformedDeadlineException) {
             SubjectDeadlineResult.MalformedResponse
@@ -182,7 +195,7 @@ class DeadlineRepository(
     }
 
     private sealed interface SubjectDeadlineResult {
-        data class Success(val deadlines: SubjectDeadlines) : SubjectDeadlineResult
+        data class Success(val deadlines: SubjectDeadlines, val reminders: List<ReminderDeadline>?) : SubjectDeadlineResult
         data object SessionExpired : SubjectDeadlineResult
         data object Timeout : SubjectDeadlineResult
         data object NetworkFailure : SubjectDeadlineResult

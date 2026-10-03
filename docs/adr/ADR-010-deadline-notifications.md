@@ -1,0 +1,67 @@
+# ADR-010: 최신 조회 기반 DEADLINE 알림과 네이티브 설정
+
+- 상태: Accepted — DEADLINE 전용 구현·자동 검증, 실기기 검증 별도
+- 결정일: 2026-10-02
+- Native 기준: `7faa2f80490125e8bf46ed70b4511d696904b69d`
+- Web 검토 기준: `bc5a173b9a55532e6d782b4e5c058a62e019cdd6` (호환 배포 완료 SHA가 아님)
+
+## 결정과 범위
+
+캘린더 일정 알림 설계를 철회한다. 일정 rule, 예약 원장, mutation 준비/완료 브리지, AlarmManager, 정확한 알람 권한 및 iOS 미래 로컬 알림 예약을 제거한다. 기존 캘린더 CRUD·위젯·snapshot 갱신은 유지한다. 이번 기능은 온라인 강의·과제·팀프로젝트 중 24시간 안에 마감하는 미완료 할 일만 안내한다.
+
+발송은 서버 푸시가 아닌 OS 즉시 로컬 알림이다. APNs/FCM 서버, 무음 푸시, 고정 시각 발송은 추가하지 않는다. 같은 기기의 백그라운드 최신 조회가 전체 성공하고 앱이 표시되지 않는 상태에서만 발송한다. 포그라운드 홈 조회는 feed 갱신 및 부적격 기존 알림 취소만 수행하며 게시/당일 claim은 소비하지 않는다. 다음 성공 조회에서 완료·삭제·마감 변경으로 부적격해진 항목을 포함하는 기존 알림 요약은 취소하며 남은 항목을 중복 재게시하지 않는다. 서버에서 이후 완료되거나 삭제되는 변경을 이미 표시된 알림에 실시간 반영할 수는 없다.
+
+## 최신 데이터와 실행
+
+홈 피드의 WebView 전달 데이터는 항상 해당 실행에서 새로 조회한 과목·마감 응답을 사용한다. DeadlineRepository는 동일 원본 응답에서 기존 feed DTO와 내부 알림 projection을 함께 생성한다. 실패 시 과거 feed JSON을 최신 데이터처럼 전달하지 않는다. 포그라운드 조회는 알림 게시를 유발하지 않으며 백그라운드 Native source가 API를 직접 조회한다. WebView에서 보내는 제목·건수 payload는 필요하지 않다.
+
+백그라운드는 Android JobScheduler의 네트워크 조건·1시간 요청 간격과 iOS BGAppRefreshTask의 earliestBeginDate 1시간을 사용한다. 이는 OS 실행 요청이며 실제 주기 보장이 아니다. 장기 미실행, 강제 종료, 절전, 권한·네트워크 제한으로 갱신이 실행되지 않거나 실패하면 알림도 없다. 과거 snapshot으로 알림을 만들거나 미래 발송을 예약하지 않는다.
+
+앱 재활성화 및 권한 허용 완료는 상태 확인과 BG 작업 등록만 수행한다. 알림용 즉시 조회는 시작하지 않는다. Android JobService/iOS BGAppRefreshTask는 WebView 없이 Native source를 조회한다. iOS는 이미 pending인 같은 task 요청을 유지하여 화면 진입마다 earliestBeginDate를 뒤로 미루지 않는다. 해제/계정 변경 등으로 활성 조건이 사라지면 취소하고 다음 BG 실행에서 후속 요청을 등록한다. iOS 시뮬레이터의 자동 BG 실행을 실기기 실행 증거로 간주하지 않는다.
+
+조회 시작부터 게시까지 60초 이내의 완전한 결과만 사용한다. 부분 실패, 세션 만료, 검증 불가 ID·시각·완료 여부는 게시하지 않는다. 온라인 강의의 lesson+oid, 과제 taskNo, 팀프로젝트 prjctNo는 실제 비식별 서버 fixture로 확인해야 하며 확인되지 않은 행에 임의 키를 만들지 않는다. 미시작 항목과 마감 경과 항목은 제외하고 `now < dueAt <= now + 24h`를 적용한다. 앱의 현재 선택 학기를 따른다.
+
+## 중복과 추가 안내
+
+계정·안정 항목 ID·KST 날짜 단위로 하루 한 번 claim한다. 첫 조회가 A/B를 안내하고 같은 날 C가 새로 적격 대상이 되면 C만 추가 안내한다. 완료 후 복귀·마감 변경·학기 재선택·앱 재실행으로 같은 ID의 당일 claim을 초기화하지 않는다. 다음 KST 날에는 다시 적격일 때 안내할 수 있다. 기기 간 claim은 공유하지 않는다.
+
+판단과 claim 저장을 mutex로 직렬화하고 OS 게시 전에 디스크 저장한다. 저장 실패는 미게시, 게시 직전 종료는 해당 배치가 누락될 수 있으나 같은 날 중복은 피한다. 권한 미허용·홈 조회·앱 표시 중에는 claim을 소비하지 않는다. Android는 프로세스 lifecycle STARTED 이상을 표시 중으로 취급하고 iOS는 applicationState=background일 때만 게시한다. 권한 조회 뒤와 claim 저장 뒤에도 상태를 확인하며 저장 도중 foreground로 돌아오면 아직 게시하지 않은 claim을 해제한다. iOS willPresent는 표시를 억제한다. OS 등록 뒤 표시 직전의 상태 변화까지 원자적으로 통제할 수는 없다. 최신 request ID, 계정 generation, 설정 revision, 선택 학기를 확인하여 이전 조회·로그아웃·토글 해제 이후의 늦은 응답을 차단한다. claim은 35일 유지한다.
+
+제목은 `하루 안에 마감되는 할 일이 N건 있어요`, 추가 제목은 `곧 마감되는 할 일이 N건 더 생겼어요`로 안내한다. 본문은 새 적격 항목만 과목·종류별로 집계하고 마감이 빠른 최대 2그룹과 나머지 건수를 한 문장으로 요약한다. 예: `자료구조 과제 2건, 운영체제 팀프로젝트 1건 외 2건이 있어요. 가장 빠른 마감은 약 45분 뒤예요.` 단일 항목은 `자료구조 과제 1건이 있어요. 약 2시간 뒤 마감돼요.`로 안내한다. 1시간 미만은 올림 분, 그 외는 내림 시간이며 과목명은 제어문자·방향 제어 문자를 제거하고 최대 20자로 줄인다.
+
+주기 변경 시 Android의 기존 6시간 Job도 1시간으로 교체한다. iOS는 기존 pending 요청의 earliestBeginDate가 새 1시간 목표보다 늦을 때 앞당기고, 이미 더 이른 요청은 유지하여 재진입마다 지연시키지 않는다.
+
+## WebView 토글과 네이티브 권한 시트
+
+2026-10-03 수정: 전체 네이티브 설정 화면을 철회하고 웹 설정에 ON/OFF 토글을 둔다. Native 원장이 설정의 유일한 저장소이며 웹 localStorage에 저장하지 않는다. OFF는 Native에 저장·알림/갱신 작업 취소 후 반영한다. ON은 네이티브 bottom sheet를 열고 미리 ON으로 저장하지 않는다.
+
+시트는 알림 대상·조회 시점·일일 중복 정책 설명과 하단 ‘권한 허용하기’ CTA를 제공한다. CTA에서만 실제 OS 다이얼로그를 요청한다. 이미 authorized/provisional이면 시트 진입 시 권한 요청을 생략하고 설정을 저장한 뒤 완료 안내를 표시한다. 거부 시 OFF를 유지하고 안내·‘시스템 설정으로 이동’ CTA를 표시한다. OS가 재요청을 허용하지 않거나 Android 12 이하/채널 차단인 경우에도 시스템 설정을 안내한다. 시스템 설정에서 돌아온 뒤 실제 권한을 재검사하며 해당 시트의 활성화 의도가 유효할 때만 저장한다.
+
+권한 허용과 디스크 저장이 모두 성공하면 ‘알림 설정 완료’ 체크 인터랙션과 동작 설명을 표시하고 별도 닫기 버튼으로 종료한다. 저장 실패는 오류·재시도를 표시하며 완료로 처리하지 않는다. 완료 전 시트 취소/닫기는 OFF로 돌아가고, 저장 완료 후 닫기는 ON을 유지한다. 계정 generation·설정 revision·시트 attempt ID를 검사하여 로그아웃·계정 전환·OFF 이후 늦은 허용 결과가 설정을 켜지 못하게 한다. 프로세스 종료는 미완료 ON을 복구하지 않는다.
+
+Bridge v1에 getDeadlineNotificationState()와 setDeadlineNotificationsEnabled(Boolean)를 추가한다. 응답 enabled는 저장 설정과 실제 OS 권한을 모두 만족할 때 true다. pending은 미완료 시트 상태이며 웹은 짧은 상태 조회로 완료/취소를 반영한다. 시트/권한 조작을 15초 bridge 응답 대기 안에 묶지 않는다. 기존 opener는 호환 별칭으로 같은 시트를 연다. capability의 consentFlow=nativePermissionSheet 및 새 메서드를 확인하고 구 앱에는 토글을 숨긴다. 기존 메서드/콜백은 보존하며 알림 메서드는 legacy fallback을 금지한다.
+
+## 계층·보안·저장
+
+commonMain은 최신 데이터 검증, 중복 정책, 저장 port, 네이티브 설정 상태를 소유한다. 플랫폼 adapter는 즉시 게시·권한 읽기·파일/HMAC을, 앱은 화면·권한 요청·수명주기·백그라운드 진입점을 소유한다. shared는 UI 타입을 노출하지 않는다.
+
+Android 알림 small icon은 KLAS+ 앱 foreground의 K 모양과 + 요소를 배경 없는 흰색 단색 벡터 `ic_academic_reminder`로 사용한다. 런처 아이콘과 브리지 계약은 변경하지 않는다.
+
+`academic_reminders_v1` 별도 백업 제외 원장을 사용한다. 이전 미출시 prototype의 calendar 필드는 읽을 때 무시하고 이후 저장에서 제거한다. iOS prototype의 기존 미래 pending requests는 설치 후 첫 초기화에서 취소한다. 설치별 HMAC으로 계정·항목·배치 키를 저장하고 과목명·세션·비밀번호·원본 학번은 저장/로그/분석에 남기지 않는다. 과목명은 최신 메모리와 OS 본문에만 있다. Android PRIVATE 및 iOS OS 미리보기 설정을 따른다. 알림 tap은 기존 앱 진입·인증·잠금 경로를 사용하며 임의 URL이나 학사 내용을 intent/userInfo에 넣지 않는다.
+
+알림 브리지는 허용된 KLAS+ origin·main frame에서만 수락한다. 웹은 OFF 저장 또는 ON 시트 시작만 요청하며 OS 권한 prompt와 ON 확정은 네이티브 CTA에서 처리한다. 세션 만료 시 저장 자격증명, 기존 HTTP 인증, SessionCoordinator checkpoint 검사를 통한 공통 복구를 한 번만 시도한다. 캘린더 조회를 세션 복구 수단으로 사용하지 않는다. CAPTCHA·임시 비밀번호는 NEEDS_LOGIN, 네트워크·저장 오류는 재시도로 분리한다. 로그아웃/계정 전환은 표시 알림을 취소하고 늦은 결과를 폐기한다. 로그인 퍼널 complete만 실행한다.
+
+## 검증·배포·롤백
+
+자동 검증은 common Android/iOS 테스트, Android JVM/빌드, source-set 경계 검사, Xcode simulator 빌드, Web bridge/설정 계약 테스트를 포함한다. 중복·C 추가·다음날·동시 조회·완료·누락 ID·부분 실패·권한 거절·저장 실패·로그아웃/토글 경합·최신 feed 특성을 검증한다. 캘린더 알림 메서드가 거부되고 기존 CRUD/위젯이 유지되는 것도 검사한다.
+
+
+시뮬레이터의 수동 갱신 시험은 Debug 전용 KlasDeadlineDebug wrapper를 LLDB Objective-C runtime으로 호출한다. KMP 타입의 Swift expression 직접 조회에 의존하지 않는다. 기존 Native source/엔진을 실행하며 포그라운드·권한·계정·claim을 우회하지 않는다. beginBackgroundTask로 요청한 실행 시간은 종료/만료 시 반환한다. OS BGTaskScheduler 기동 검증과 구분한다.
+
+실기기는 Android 권한/채널 차단/Doze/재부팅/강제중지, iOS denied/provisional/Focus/BG off/저전력/강제종료 및 양 플랫폼 설정 복귀·잠금·계정 변경을 검증해야 한다. 빌드 성공은 전달 검증이 아니다. 실제 서버 ID fixture, 서명된 iOS 실행, Web 호환 배포 SHA, Issue/PR 및 실기기 증거가 없는 상태는 구현 검증 제한으로 기록한다.
+
+구 웹은 새 Native에서도 기존대로 동작한다. 새 웹은 capability가 없는 구 Native에서 진입점을 숨긴다. 롤백은 기능 비활성화·표시 알림/작업 취소를 포함한 패치와 웹 진입점 제거로 수행한다. 기존 인증·위젯 데이터는 삭제하지 않는다. 캘린더 알림 prototype은 출시하지 않았으므로 삭제 메서드를 호환 API로 유지하지 않는다. 장기 미실행에도 최신 원본 안내를 보장하려면 별도 원본 서버 연동과 APNs/FCM 설계가 필요하다.
+
+최종 구현/검증과 미검증 범위는 [구현 기록](../notifications/native-implementation.md)에 기록한다.
+
+시트 상단 종 아이콘은 제거하고 타이틀·설명·알림 카드 예시를 배치한다. 상단에는 움직이는 그라데이션 블러를 적용하며 모션 감소를 따른다. 완료 시트는 별도 닫기 버튼으로 닫는다. Android drag handle까지 배경을 공유하고 KLAS+ 커스텀 CTA를 사용한다. iOS는 설명·그래픽·버튼의 실측 높이로 SwiftUI/UIKit 시트를 조절하며 화면 높이를 넘으면 콘텐츠만 스크롤한다.
