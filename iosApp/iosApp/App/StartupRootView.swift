@@ -144,7 +144,8 @@ struct StartupRootView: View {
                 AppLockCoverPolicy.coverMode(
                     isSessionAuthenticated: isSessionAuthenticated,
                     isQrBypassActive: libraryQr.isQrBypassActive,
-                    mode: appLock.mode
+                    mode: appLock.mode,
+                    allowsOnboardingSetup: controller.phase == .setup && controller.loginState.step == .appLock
                 )
             },
             set: { proposed in

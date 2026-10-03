@@ -1,3 +1,4 @@
+import Shared
 import SwiftUI
 import UIKit
 
@@ -6,6 +7,8 @@ enum LoginFunnelStep: Int, Equatable {
     case password
     case authenticating
     case library
+    case appLock
+    case notifications
     case agreements
     case complete
 
@@ -14,8 +17,10 @@ enum LoginFunnelStep: Int, Equatable {
         case .studentId: 1
         case .password, .authenticating: 2
         case .library: 3
-        case .agreements: 4
-        case .complete: 5
+        case .agreements: 6
+        case .appLock: 4
+        case .notifications: 5
+        case .complete: 7
         }
     }
 }
@@ -31,6 +36,14 @@ struct LoginFunnelView: View {
     var onStudentIdChange: (String) -> Void
     var canReturnToOnboarding: Bool = false
 
+    private struct NotificationAttempt: Identifiable { let id: Int64 }
+    @State private var notificationAttempt: NotificationAttempt?
+    @EnvironmentObject private var appLock: AppLockController
+    @State private var appLockEnabled = false
+    @State private var deadlineNotificationsEnabled = false
+    @State private var appLockBusy = false
+    @State private var notificationBusy = false
+    @State private var notificationError = ""
     @State private var showPassword = false
     @State private var completionScale: CGFloat = 0.6
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -47,11 +60,11 @@ struct LoginFunnelView: View {
                     Color.clear.frame(width: 40, height: 40)
                 }
                 Spacer()
-                Text("\(state.step.progress) / 5")
+                Text("\(state.step.progress) / 7")
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(KlasTheme.onSurfaceVariant)
             }
-            ProgressView(value: Double(state.step.progress), total: 5)
+            ProgressView(value: Double(state.step.progress), total: 7)
                 .tint(KlasTheme.primary)
                 .padding(.top, 8)
 
@@ -61,7 +74,8 @@ struct LoginFunnelView: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        Spacer(minLength: 32)
+                        Spacer(minLength: 12)
+                        FunnelIllustration(symbol: artworkSymbol, plain: true)
                         Group {
                             switch state.step {
                             case .studentId: studentIdContent
@@ -69,6 +83,8 @@ struct LoginFunnelView: View {
                             case .authenticating: authenticatingContent
                             case .library: libraryContent
                             case .agreements: agreementsContent
+                            case .appLock: appLockContent
+                            case .notifications: notificationsContent
                             case .complete: EmptyView()
                             }
                         }
@@ -85,6 +101,12 @@ struct LoginFunnelView: View {
             if state.step != .authenticating {
                 primaryAction
                     .buttonStyle(KlasInverseButtonStyle(enabled: canContinue))
+                if state.step == .appLock || state.step == .notifications {
+                    Button("지금은 건너뛰기", action: onContinue)
+                        .disabled(notificationBusy || appLockBusy)
+                        .font(.subheadline).padding(.top, 16).frame(maxWidth: .infinity)
+                        .accessibilityIdentifier(state.step == .appLock ? "funnel_skip_app_lock" : "funnel_skip_notifications")
+                }
                 if state.step == .library {
                     Button("지금은 건너뛰기", action: onSkipLibrary)
                         .font(.subheadline)
@@ -98,9 +120,9 @@ struct LoginFunnelView: View {
         .padding(.vertical, 16)
         .frame(maxWidth: 600)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(KlasTheme.background)
+        .background { ZStack(alignment: .top) { KlasTheme.background; FunnelGlow() } }
         .foregroundStyle(KlasTheme.onBackground)
-        .animation(.smooth(duration: 0.32), value: state.step)
+        .animation(reduceMotion ? nil : .smooth(duration: 0.32), value: state.step)
         .simultaneousGesture(
             DragGesture(minimumDistance: 24).onEnded { value in
                 let horizontal = value.translation.width
@@ -111,12 +133,29 @@ struct LoginFunnelView: View {
             }
         )
         .task(id: state.step) {
+            if state.step == .appLock {
+                appLockEnabled = appLock.store.isEnabled()
+                if appLockEnabled { onContinue() }
+            } else if state.step == .notifications {
+                IosReminderRuntime.shared.readConsentState { consent in
+                    guard state.step == .notifications else { return }
+                    deadlineNotificationsEnabled = consent?.enabled == true
+                    if deadlineNotificationsEnabled && consent?.ready == true { onContinue() }
+                }
+            }
             try? await Task.sleep(nanoseconds: 180_000_000)
             guard !Task.isCancelled else { return }
             switch state.step {
             case .studentId: focusedField = .studentId
             case .password: focusedField = .password
             default: focusedField = nil
+            }
+        }
+        .sheet(item: $notificationAttempt, onDismiss: notificationSheetClosed) { attempt in
+            DeadlineNotificationSettingsView(attempt: attempt.id) {
+                guard state.step == .notifications else { return }
+                deadlineNotificationsEnabled = true
+                onContinue()
             }
         }
         .accessibilityIdentifier("login_form")
@@ -146,11 +185,11 @@ struct LoginFunnelView: View {
     }
 
     private var primaryAction: some View {
-        Button(action: state.step == .library ? onSaveLibrary : state.step == .complete ? onFinish : onContinue) {
+        Button(action: primaryHandler) {
             Text(primaryTitle)
         }
         .tint(KlasTheme.primary)
-        .disabled(!canContinue)
+        .disabled(!canContinue || notificationBusy || appLockBusy)
         .accessibilityIdentifier("login_submit")
     }
 
@@ -231,7 +270,7 @@ struct LoginFunnelView: View {
 
     private var agreementsContent: some View {
         VStack(alignment: .leading, spacing: 20) {
-            heading("마지막으로 약관에 동의해주세요.", "KLAS+를 사용하기 위해 아래 약관에 필수로 동의해야 해요.\n개인정보는 자체 서버에 저장되지 않고 안전하게 처리되며, 서비스 개선을 위해 사용 데이터가 수집돼요.")
+            heading("약관에 동의해주세요.", "KLAS+를 사용하기 위해 아래 약관에 필수로 동의해야 해요.\n개인정보는 자체 서버에 저장되지 않고 안전하게 처리되며, 서비스 개선을 위해 사용 데이터가 수집돼요.")
             HStack(spacing: 12) {
                 Toggle("[필수] 개인정보 처리방침 확인 및 동의", isOn: $state.privacyAccepted)
                     .toggleStyle(KlasCheckboxToggleStyle())
@@ -250,6 +289,83 @@ struct LoginFunnelView: View {
                 Button("보기") { onOpenURL(KlasTheme.termsURL) }
                     .font(.footnote)
             }
+        }
+    }
+
+    private var appLockContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            heading("앱 잠금을 설정할 수 있어요.", "비밀번호와 생체인증으로 앱을 잠글 수 있어요. 앱 잠금을 설정하지 않으면 자동 로그인이 적용되어 별도 인증없이 앱을 실행하면 KLAS에 접근할 수 있어요. 건너뛰어도 나중에 설정에서 다시 잠글 수 있어요.")
+            if appLockEnabled { Label("앱 잠금 설정 완료", systemImage: "checkmark.circle.fill").foregroundStyle(KlasTheme.primary) }
+            if let error = state.error { Text(error).font(.footnote).foregroundStyle(.red) }
+        }
+    }
+
+    private var notificationsContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            heading("곧 마감되는 할 일을 알려드릴까요?", "앱을 사용하지 않고 있을 때, 주기적으로 24시간 안에 마감되는 할 일이 있는지 확인해서 알림을 보내줄게요.")
+            DeadlineNotificationPreview()
+            if deadlineNotificationsEnabled { Label("알림 설정 완료", systemImage: "checkmark.circle.fill").foregroundStyle(KlasTheme.primary) }
+            if !notificationError.isEmpty { Text(notificationError).font(.footnote).foregroundStyle(.red) }
+            if let error = state.error { Text(error).font(.footnote).foregroundStyle(.red) }
+        }
+    }
+
+    private var artworkSymbol: String {
+        switch state.step {
+        case .studentId: "graduationcap"
+        case .password, .authenticating: "key"
+        case .library: "person.text.rectangle"
+        case .appLock: "lock.shield"
+        case .notifications: "bell.badge"
+        case .agreements: "checklist"
+        case .complete: "checkmark.circle"
+        }
+    }
+
+    private var primaryHandler: () -> Void {
+        switch state.step {
+        case .library: onSaveLibrary
+        case .complete: onFinish
+        case .appLock: appLockEnabled ? onContinue : configureAppLock
+        case .notifications: deadlineNotificationsEnabled ? onContinue : configureNotifications
+        default: onContinue
+        }
+    }
+
+    private func configureAppLock() {
+        guard state.step == .appLock, !appLockBusy, !notificationBusy else { return }
+        appLockBusy = true
+        appLock.presentOnboardingPasswordSetup { success in
+            appLockBusy = false
+            appLockEnabled = appLock.store.isEnabled()
+            if success {
+                notificationError = ""
+                if state.step == .appLock && appLockEnabled { onContinue() }
+            }
+        }
+    }
+
+    private func configureNotifications() {
+        guard state.step == .notifications, !notificationBusy else { return }
+        notificationBusy = true
+        notificationError = ""
+        IosReminderRuntime.shared.beginNativeConsent { result, error in
+            let attempt = result.int64Value
+            notificationBusy = false
+            guard state.step == .notifications else {
+                if attempt != 0 { IosReminderRuntime.shared.cancelConsent(attempt: attempt) }
+                return
+            }
+            if attempt != 0 { notificationAttempt = NotificationAttempt(id: attempt) }
+            else { notificationError = error }
+        }
+    }
+
+    private func notificationSheetClosed() {
+        IosReminderRuntime.shared.readConsentState { consent in
+            guard state.step == .notifications else { return }
+            deadlineNotificationsEnabled = consent?.enabled == true
+            if consent?.status == "COMPLETED" && deadlineNotificationsEnabled { onContinue() }
         }
     }
 
@@ -300,7 +416,7 @@ struct LoginFunnelView: View {
         case .studentId: state.studentId.count == LoginUiState.studentIdLength
         case .password: !state.password.isEmpty
         case .library: !state.libraryPassword.isEmpty && !state.libraryPhone.isEmpty
-        case .agreements: true
+        case .agreements, .appLock, .notifications: true
         case .complete: true
         case .authenticating: false
         }
@@ -308,7 +424,7 @@ struct LoginFunnelView: View {
 
     private var canNavigateBack: Bool {
         (state.step == .studentId && canReturnToOnboarding) ||
-            state.step == .password || state.step == .agreements || state.step == .complete
+            state.step == .password || state.step == .agreements || state.step == .appLock || state.step == .notifications || state.step == .complete
     }
 
     private var primaryTitle: String {
@@ -317,6 +433,8 @@ struct LoginFunnelView: View {
         case .password: "로그인하기"
         case .library: "출입증 저장하기"
         case .agreements: "모두 동의하고 계속"
+        case .appLock: appLockEnabled ? "계속" : "앱 잠금 설정하기"
+        case .notifications: deadlineNotificationsEnabled ? "계속" : "알림 설정하기"
         case .complete: "홈으로 가기"
         case .authenticating: "다음"
         }
