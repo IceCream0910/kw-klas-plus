@@ -24,6 +24,7 @@
 | Kotlin / AGP / Ktor | 2.4.0 / 9.3.2 / 3.5.0             |
 | Android | minSdk 29, compileSdk/targetSdk 37 |
 | iOS/iPadOS | 16.0 이상, macOS와 Xcode 필요          |
+| Xcode | CI 26.5, iOS 27 SDK 기능 확인은 27     |
 
 Android 빌드와 공통/Android JVM 테스트:
 
