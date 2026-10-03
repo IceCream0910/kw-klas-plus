@@ -179,6 +179,13 @@ final class AuthSessionController: ObservableObject {
             loginState.privacyAccepted = true
             loginState.termsAccepted = true
             loginState.step = .complete
+        case .appLock, .notifications:
+            guard phase == .setup, funnelStatusStore.read() == "setup" else {
+                loginState.error = "설정 상태를 확인하지 못했습니다. 다시 시도해 주세요."
+                return
+            }
+            loginState.error = nil
+            loginState.step = loginState.step == .appLock ? .notifications : .agreements
         case .complete:
             finishFunnel()
         default:
@@ -204,7 +211,9 @@ final class AuthSessionController: ObservableObject {
                 loginState.onboardingVisible = true
             }
         case .password: loginState.step = .studentId
-        case .agreements: loginState.step = .library
+        case .agreements: loginState.step = .notifications
+        case .notifications: loginState.step = .appLock
+        case .appLock: loginState.step = .library
         case .complete: loginState.step = .agreements
         default: break
         }
@@ -218,7 +227,7 @@ final class AuthSessionController: ObservableObject {
         }
         loginState.libraryPassword = ""
         loginState.error = nil
-        loginState.step = .agreements
+        loginState.step = .appLock
     }
 
     func saveLibrary() {
@@ -241,7 +250,7 @@ final class AuthSessionController: ObservableObject {
                 }
                 self.loginState.libraryPassword = ""
                 self.loginState.error = nil
-                self.loginState.step = .agreements
+                self.loginState.step = .appLock
             }
         }
     }
