@@ -43,11 +43,11 @@ iOS 앱과 위젯 확장은 App Group의 `academic_session.lock`을 `flock`으�
 | 서버가 세션 만료를 명시함 | 세션과 cookie를 지운 뒤 재인증 경로로 돌아갑니다. 네트워크 오류·timeout·서버 오류만으로는 비밀을 지우지 않아요. |
 | 로그아웃·계정 변경 | 세션·cookie·계정 자격증명을 정책대로 정리하되 기기 잠금 설정은 유지합니다. 로그아웃 전 시작한 위젯 재인증은 완료되어도 세션·cookie를 다시 만들지 못합니다. |
 
-신규 수동 로그인은 학번 → 비밀번호 → 공통 HTTP KLAS 인증 → 선택적 중앙도서관 출입증 → 개인정보 처리방침·이용약관 동의 → 완료 순서로 진행합니다. 인증 실패는 비밀번호 단계로 돌아가며, 인증 성공 후에는 설정이 완료되기 전까지 홈을 열지 않습니다. Android 일반 설정 키 `login_funnel_status`는 `not_started`, `authenticating`, `setup`, `complete` 중 하나로 저장합니다. 앱 프로세스 시작 시 이 키가 없는 기존 설치는 `kwID` 계정 식별자가 있으면 한 번만 `complete`로, 없으면 `not_started`로 이전합니다. 이전 기록에 실패해 키가 여전히 없더라도 홈과 QR 위젯은 차단합니다. `complete`만 홈·위젯을 허용하고, `authenticating` 또는 `setup` 상태에서 앱이 재시작되면 남은 퍼널을 표시합니다. 실제 KLAS 인증·세션 관찰은 기존 `LoginUseCase`와 `SessionCoordinator`를 사용합니다. 자세한 결정과 이용약관 URL은 [ADR-009](adr/ADR-009-login-funnel.md)를 따릅니다.
+신규 수동 로그인은 학번 → 비밀번호 → 공통 HTTP KLAS 인증 → 선택적 중앙도서관 출입증 → 선택적 앱 잠금 설정 → 선택적 마감 할 일 알림 설정 → 개인정보 처리방침·이용약관 동의 → 완료 순서로 진행합니다. 인증 실패는 비밀번호 단계로 돌아가며, 인증 성공 후에는 설정이 완료되기 전까지 홈을 열지 않습니다. Android 일반 설정 키 `login_funnel_status`는 `not_started`, `authenticating`, `setup`, `complete` 중 하나로 저장합니다. 앱 프로세스 시작 시 이 키가 없는 기존 설치는 `kwID` 계정 식별자가 있으면 한 번만 `complete`로, 없으면 `not_started`로 이전합니다. 이전 기록에 실패해 키가 여전히 없더라도 홈과 QR 위젯은 차단합니다. `complete`만 홈·위젯을 허용하고, `authenticating` 또는 `setup` 상태에서 앱이 재시작되면 남은 퍼널을 표시합니다. 실제 KLAS 인증·세션 관찰은 기존 `LoginUseCase`와 `SessionCoordinator`를 사용합니다. 자세한 결정과 이용약관 URL은 [ADR-009](adr/ADR-009-login-funnel.md)를 따릅니다.
 
 출입증 전화번호는 기존 `library_phone` 값이 있으면 재사용합니다. Android는 새 번호를 직접 입력하며 전화번호 읽기 권한을 요청하지 않습니다. iOS는 회선 번호를 직접 읽는 공개 API가 없어 전화번호 자동 완성과 직접 입력을 사용합니다. 사용자가 출입증 저장을 선택할 때에만 기존 `library_phone` 키에 기록합니다.
 
-출입증 저장 단계에서는 iOS Keychain 기록과 일반 설정 저장이 성공한 경우에만 약관 단계로 이동합니다. 저장 실패는 화면에 표시하고 입력값을 유지해 재시도할 수 있게 합니다. Android와 iOS 모두 저장된 퍼널 상태가 `setup`인 경우에만 출입증 저장·건너뛰기·약관 완료를 진행하며, 완료 전 상태가 어긋나면 오류를 표시하고 홈 진입을 막습니다.
+출입증 저장 단계에서는 iOS Keychain 기록과 일반 설정 저장이 성공한 경우에만 앱 잠금 단계로 이동합니다. 저장 실패는 화면에 표시하고 입력값을 유지해 재시도할 수 있게 합니다. Android와 iOS 모두 저장된 퍼널 상태가 `setup`인 경우에만 출입증 저장·건너뛰기·약관 완료를 진행하며, 완료 전 상태가 어긋나면 오류를 표시하고 홈 진입을 막습니다.
 
 전화번호 입력창은 숫자 이외의 문자를 즉시 제거합니다. 기존 저장값에 하이픈이 포함돼 있어도 공통 `LibraryHttpGateway`가 `tel_no` 요청 값을 숫자로 정규화하므로 도서관 서버에는 하이픈을 전송하지 않습니다.
 
@@ -86,17 +86,17 @@ iOS 앱과 위젯 확장은 App Group의 `academic_session.lock`을 `flock`으�
 
 ### Web → Native 메서드
 
-현재 카탈로그는 7개 surface, 58개 명령입니다. 아래 이름은 공개 계약이므로 오타처럼 보이는 `evaluteKLASScript`도 바꾸지 마세요. 정확한 인자 개수·타입은 [`LegacyBridgeCatalog`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/LegacyBridgeCatalog.kt), typed 대응은 [`BridgeMethodId`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/BridgeMethodId.kt)가 기준입니다.
+현재 카탈로그는 7개 surface, 66개 명령입니다. 아래 이름은 공개 계약이므로 오타처럼 보이는 `evaluteKLASScript`도 바꾸지 마세요. 정확한 인자 개수·타입은 [`LegacyBridgeCatalog`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/LegacyBridgeCatalog.kt), typed 대응은 [`BridgeMethodId`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/BridgeMethodId.kt)가 기준입니다.
 
 | Surface | 메서드 |
 |---|---|
-| Home | `changeTab`, `evaluate`, `openPage`, `openExternalPage`, `completePageLoad`, `openLibraryQR`, `openLibraryQRSettingsModal`, `openLectureActivity`, `qrCheckIn`, `openDateTimePicker`, `syncCalendar`, `openWebViewBottomSheet`, `closeWebViewBottomSheet`, `openOptionsMenu`, `openYearHakgiBottomSheet`, `reload`, `performHapticFeedback`, `requestIdCardQRValue` |
+| Home | `changeTab`, `evaluate`, `openPage`, `openExternalPage`, `completePageLoad`, `openLibraryQR`, `openLibraryQRSettingsModal`, `openLectureActivity`, `qrCheckIn`, `openDateTimePicker`, `syncCalendar`, `openWebViewBottomSheet`, `closeWebViewBottomSheet`, `openOptionsMenu`, `openYearHakgiBottomSheet`, `reload`, `performHapticFeedback`, `requestIdCardQRValue`, `getNotificationCapabilities`, `openDeadlineNotificationSettings`, `getDeadlineNotificationState`, `setDeadlineNotificationsEnabled` |
 | Lecture | `completePageLoad`, `openPage`, `getBoardPath`, `openBoardList`, `openBoardView`, `openExternalLink`, `evaluteKLASScript`, `openOnlineLecture`, `openLecturePlan`, `openQRScan` |
 | Board | `openPage`, `openExternalLink`, `completePageLoad` |
 | Lecture plan | `completePageLoad`, `openPage`, `openExternalPage` |
 | Link | `openPage`, `openLecturePlanPage`, `openWebViewBottomSheet`, `closeWebViewBottomSheet`, `completePageLoad` |
 | Video | `completePageLoad`, `openExternalLink`, `openInKLAS`, `requestOnlineLecture`, `receivePlayerStates`, `receiveInitSpeed`, `receiveVideoData`, `receiveVideoURL`, `performHapticFeedback` |
-| Settings | `completePageLoad`, `changeAppTheme`, `openYearHakgiSelectModal`, `openLibraryQRSettingsModal`, `openExternalLink`, `performHapticFeedback`, `setAppLockEnabled`, `setAppLockPassword`, `setBiometricEnabled`, `getAppLockSettings` |
+| Settings | `completePageLoad`, `changeAppTheme`, `openYearHakgiSelectModal`, `openLibraryQRSettingsModal`, `openExternalLink`, `performHapticFeedback`, `setAppLockEnabled`, `setAppLockPassword`, `setBiometricEnabled`, `getAppLockSettings`, `getNotificationCapabilities`, `openDeadlineNotificationSettings`, `getDeadlineNotificationState`, `setDeadlineNotificationsEnabled` |
 
 ### Native → Web callback
 
@@ -146,3 +146,5 @@ Android 네이티브 화면은 compact(<600dp), medium(600~839dp), expanded(≥8
 - 외부 프레임·큰 문자열·과도한 JSON 중첩은 파서 호출 전에 거부합니다. `JsonBridgeRouterTest`, `BridgeJsonCodecTest`, `IosBridgeMessageAdapterTests`에서 거부와 정상 요청을 함께 검증합니다.
 
 이 변경을 롤백할 때에는 수정 커밋을 되돌립니다. 새 비밀 저장 키나 데이터 이전은 없으며, 세대·잠금 파일은 삭제하지 않아도 됩니다. 이전 앱은 이 파일을 사용하지 않아 위젯 동시 실행의 보호가 사라집니다.
+
+온보딩은 앱 잠금과 마감 할 일 알림을 별도 단계에서 안내하며 각각 건너뛰고 필수 약관 동의로 이동할 수 있습니다. 앱 잠금은 기존 Native 비밀번호 설정 화면을, 알림은 기존 Native 권한 안내 시트를 재사용합니다. iOS는 setup 상태의 앱 잠금 단계에서 요청한 set/change 앱 잠금 화면만 표시하고, 자동 unlock·홈 진입은 complete gate를 유지합니다. 인증 후 `setup`에서는 계정 범위의 알림 설정 저장만 허용하며 `ReminderIdentity.canConfigure`가 이 경계를 나타냅니다. 조회·발송·OS 백그라운드 작업 등록은 기존 `ready`와 `complete` 조건을 유지합니다. 권한 요청은 사용자의 CTA로만 시작하며 거부·취소·저장 실패 시 재시도 또는 나중에를 선택할 수 있습니다.
