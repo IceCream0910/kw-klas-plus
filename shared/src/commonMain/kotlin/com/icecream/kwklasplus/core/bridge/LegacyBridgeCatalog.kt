@@ -28,6 +28,11 @@ object LegacyBridgeCatalog {
             method("reload"),
             method("performHapticFeedback", string),
             method("requestIdCardQRValue"),
+            method("getNotificationCapabilities"),
+            method("openDeadlineNotificationSettings"),
+            method("getDeadlineNotificationState"),
+            method("setDeadlineNotificationsEnabled", boolean),
+
         ),
         BridgeSurface.LECTURE_PLAN to listOf(
             method("completePageLoad"), method("openPage", string), method("openExternalPage", string),
@@ -62,6 +67,11 @@ object LegacyBridgeCatalog {
             method("setAppLockPassword"),
             method("setBiometricEnabled", boolean),
             LegacyBridgeMethod("getAppLockSettings", synchronousReturn = true),
+            method("getNotificationCapabilities"),
+            method("openDeadlineNotificationSettings"),
+            method("getDeadlineNotificationState"),
+            method("setDeadlineNotificationsEnabled", boolean),
+
         ),
         BridgeSurface.VIDEO to listOf(
             method("completePageLoad"),

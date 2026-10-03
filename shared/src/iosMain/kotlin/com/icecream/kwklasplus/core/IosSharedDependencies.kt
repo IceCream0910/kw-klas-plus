@@ -80,6 +80,13 @@ class IosSharedDependencies(
         TimetableRepository(KlasSessionHttpClient(longRunningClient))
     }
 
+    val reminderSource by lazy {
+        com.icecream.kwklasplus.core.notification.AcademicReminderSource(
+            KlasSessionHttpClient(httpClient),
+            { secureStore.read(com.icecream.kwklasplus.core.platform.SecureKey.SESSION_TOKEN) },
+            { KlasUserAgent.fromPlatform("KLAS+ iOS reminders") },
+        )
+    }
     val calendarRepository: CalendarRepository by lazy {
         CalendarRepository(KlasSessionHttpClient(httpClient), KlasCalendarEventNormalizer())
     }
@@ -221,6 +228,9 @@ class IosSharedDependencies(
 
     fun httpAuthDriver(tokenEncryptor: LoginTokenEncryptor): WebAuthDriver =
         IosHttpAuthDriver(tokenEncryptor)
+
+    fun reminderSessionRecovery(tokenEncryptor: LoginTokenEncryptor) =
+        com.icecream.kwklasplus.core.notification.ReminderSessionRecovery(sessionLeaseGateway, httpAuthDriver(tokenEncryptor), sessionCoordinator)
 
     fun calendarSync(tokenEncryptor: LoginTokenEncryptor) = CalendarSyncUseCase(
         sessionLeaseGateway,

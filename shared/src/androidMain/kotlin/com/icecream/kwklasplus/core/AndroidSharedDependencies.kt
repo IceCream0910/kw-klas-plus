@@ -56,6 +56,16 @@ class AndroidSharedDependencies(
             network.sessionLeaseGateway, httpAuthDriver(), network.calendarRepository, sessionCoordinator,
         )
     }
+    val reminderSessionRecovery by lazy {
+        com.icecream.kwklasplus.core.notification.ReminderSessionRecovery(network.sessionLeaseGateway, httpAuthDriver(), sessionCoordinator)
+    }
+    val reminderSource by lazy {
+        com.icecream.kwklasplus.core.notification.AcademicReminderSource(
+            network.reminderTransport,
+            { secureStore.read(com.icecream.kwklasplus.core.platform.SecureKey.SESSION_TOKEN) },
+            { KlasUserAgent.fromPlatform("KLAS+ Android reminders") },
+        )
+    }
     val deadlineRepository: DeadlineRepository get() = network.deadlineRepository
     val libraryGateway: LibraryGateway get() = network.libraryGateway
     val idCardQrRepository: IdCardQrRepository get() = network.idCardQrRepository

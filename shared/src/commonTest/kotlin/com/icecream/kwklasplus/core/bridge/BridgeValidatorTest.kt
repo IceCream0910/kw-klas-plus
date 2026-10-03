@@ -43,8 +43,8 @@ class BridgeValidatorTest {
 
     @Test
     fun catalogCapturesEveryLegacyMethodSignature() {
-        assertEquals(58, LegacyBridgeCatalog.methods.values.sumOf { it.size })
-        assertEquals(58, BridgeMethodId.entries.size)
+        assertEquals(66, LegacyBridgeCatalog.methods.values.sumOf { it.size })
+        assertEquals(66, BridgeMethodId.entries.size)
         assertTrue(LegacyBridgeCatalog.methods.all { (surface, methods) ->
             methods.all { BridgeMethodId.from(surface, it.name) != null }
         })
@@ -59,6 +59,15 @@ class BridgeValidatorTest {
         val synchronousContract = LegacyBridgeCatalog.find(BridgeSurface.SETTINGS, "getAppLockSettings")
         assertNotNull(synchronousContract)
         assertTrue(synchronousContract.synchronousReturn)
+    }
+
+    @Test
+    fun reminderMethodsAreRestrictedToAppOriginAndMainFrame() {
+        val r=request("getNotificationCapabilities")
+        assertIs<BridgeValidationResult.Accepted>(validator.validate(r,context(BridgeSurface.HOME)))
+        assertEquals(BridgeValidationResult.Rejected(BridgeRejection.UNTRUSTED_ORIGIN),validator.validate(r,context(BridgeSurface.HOME,origin="https://klas.kw.ac.kr")))
+        assertEquals(BridgeValidationResult.Rejected(BridgeRejection.NOT_MAIN_FRAME),validator.validate(r,context(BridgeSurface.HOME,isMainFrame=false)))
+        assertEquals(BridgeValidationResult.Rejected(BridgeRejection.UNKNOWN_METHOD),validator.validate(request("setCalendarReminder",BridgeValue.Text("{}")),context(BridgeSurface.SETTINGS)))
     }
 
     @Test

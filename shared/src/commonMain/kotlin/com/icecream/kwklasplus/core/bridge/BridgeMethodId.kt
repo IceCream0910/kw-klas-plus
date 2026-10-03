@@ -69,6 +69,14 @@ enum class BridgeMethodId(
     VIDEO_RECEIVE_VIDEO_URL(BridgeSurface.VIDEO, "receiveVideoURL"),
     VIDEO_PERFORM_HAPTIC_FEEDBACK(BridgeSurface.VIDEO, "performHapticFeedback"),
 
+    HOME_GET_NOTIFICATION_CAPABILITIES(BridgeSurface.HOME, "getNotificationCapabilities"),
+    HOME_OPEN_DEADLINE_NOTIFICATION_SETTINGS(BridgeSurface.HOME, "openDeadlineNotificationSettings"),
+    HOME_GET_DEADLINE_NOTIFICATION_STATE(BridgeSurface.HOME, "getDeadlineNotificationState"),
+    HOME_SET_DEADLINE_NOTIFICATIONS_ENABLED(BridgeSurface.HOME, "setDeadlineNotificationsEnabled"),
+    SETTINGS_GET_NOTIFICATION_CAPABILITIES(BridgeSurface.SETTINGS, "getNotificationCapabilities"),
+    SETTINGS_OPEN_DEADLINE_NOTIFICATION_SETTINGS(BridgeSurface.SETTINGS, "openDeadlineNotificationSettings"),
+    SETTINGS_GET_DEADLINE_NOTIFICATION_STATE(BridgeSurface.SETTINGS, "getDeadlineNotificationState"),
+    SETTINGS_SET_DEADLINE_NOTIFICATIONS_ENABLED(BridgeSurface.SETTINGS, "setDeadlineNotificationsEnabled"),
     ;
 
     companion object {
