@@ -2,8 +2,6 @@ import SwiftUI
 import UIKit
 
 enum HomeSystemTabBarMetrics {
-    static let overlayHeight: CGFloat = 60
-
     static var fillsHomeIndicator: Bool {
         if #available(iOS 26.0, *) {
             return false
@@ -87,13 +85,12 @@ extension View {
 
 private struct HomeSystemTabBarPlacement: ViewModifier {
     func body(content: Content) -> some View {
-        let bar = content.frame(height: HomeSystemTabBarMetrics.overlayHeight)
         if HomeSystemTabBarMetrics.fillsHomeIndicator {
-            bar
+            content
                 .background(.bar, ignoresSafeAreaEdges: .bottom)
                 .overlay(alignment: .top) { Divider() }
         } else {
-            bar
+            content
         }
     }
 }

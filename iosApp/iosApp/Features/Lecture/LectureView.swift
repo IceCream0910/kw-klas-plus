@@ -409,8 +409,8 @@ struct LectureView: View {
                     Image(systemName: "chevron.left")
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                if model.uiHolder.shareableFileURL != nil || model.klasHolder.shareableFileURL != nil {
+            if model.uiHolder.shareableFileURL != nil || model.klasHolder.shareableFileURL != nil {
+                ToolbarItem(placement: .klasPinnedTrailing) {
                     Button {
                         if model.klasHolder.shareableFileURL != nil {
                             model.klasHolder.shareCurrentFile()
