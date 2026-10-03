@@ -122,6 +122,7 @@ QR 출석, 앱 잠금, PIP, 위젯, 파일·외부 URL은 공통 요청/결과�
 | 강의 재생·PIP | Android는 Activity PIP, iOS는 WKWebView HTML5 PIP를 사용합니다. iOS PIP 창의 ±10초 조작은 Android와 같지 않아요. [ADR-001](adr/ADR-001-ios-player-pip.md) |
 | 도서관 QR 위젯 | Android·iOS 모두 정적 아이콘에서 앱의 QR 화면을 엽니다. iOS 위젯에는 개인정보를 공유하지 않아요. [ADR-002](adr/ADR-002-ios-library-qr-widget.md) |
 | 학사 시간표·캘린더 위젯 | Android 구현은 [ADR-004](adr/ADR-004-android-academic-widgets.md)를 따릅니다. iOS WidgetKit 표시·딥링크는 [ADR-005](adr/ADR-005-ios-academic-widgets.md), iOS 17 캘린더 새로고침은 [ADR-006](adr/ADR-006-ios-widget-interactive-refresh.md)를 따릅니다. iOS 캘린더 새로고침은 SESSION 원문을 App Group에 두지 않고 Keychain Access Group의 SESSION·암호화 비밀번호만 확장과 공유합니다. |
+| iOS Liquid Glass | iOS 26 이상에서만 시스템 컴포넌트와 플로팅 오버레이에 glass를 적용하고, iOS 16~18과 Android 화면은 유지합니다. [ADR-010](adr/ADR-010-ios-liquid-glass.md) |
 
 Android 네이티브 화면은 compact(<600dp), medium(600~839dp), expanded(≥840dp)로 나눕니다. WebView 내부 레이아웃은 웹 앱이 맡아요. iOS에서는 safe area·키보드·Dynamic Type·회전 때문에 WKWebView holder를 새로 만들지 않도록 주의해 주세요.
 
