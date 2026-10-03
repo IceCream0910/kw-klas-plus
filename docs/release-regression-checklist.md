@@ -22,5 +22,7 @@
 | Android | minified release로 로그인·Home·강의·QR·앱 잠금·위젯 실행, 각 WebView 화면 반복 진입·종료 | reflection/리소스 누락 없이 동작하고 반복 종료 후 WebView 메모리 증가가 지속되지 않음 |
 | Android | PIN 설정·변경·해제와 위젯 최초 로드·갱신·로그아웃을 실기기에서 반복하며 Main thread trace와 debug StrictMode disk violation 확인 | PIN hash/Keystore 작업과 위젯 `AtomicFile` 읽기·쓰기·삭제가 Main thread에서 실행되지 않고, 로그아웃 후 이전 위젯 데이터가 재등장하지 않음 |
 | iOS | 로그인·재시작·세션 만료·로그아웃, Keychain read/write/delete 반복 | 인증 동작을 유지하고 Instruments Leaks/Allocations에서 CF 객체 증가가 지속되지 않음 |
+| iOS 26/27 | 홈 탭 바·새로고침, PDF 공유 툴바, 선택 시트, 다운로드 오버레이를 Liquid Glass 투명도 최소·기본·최대와 Clear/Tinted, 투명도 줄이기·대비 증가에서 확인 | 탭 라벨과 시트·오버레이 글자를 읽을 수 있고 공유 버튼이 없을 때 빈 glass 버튼이 남지 않음 |
+| iOS 16~18 | 위 화면을 iOS 18 이하에서 확인 | 기존 material·surface 배경과 시트 높이가 변경 전과 같음 |
 
 CAPTCHA, 임시 비밀번호, 잘못된 자격증명, 사용자 취소, 일시적 네트워크 실패도 각각 확인한다. 실기기에서만 확인 가능한 항목은 PR에 기기·OS·앱 버전과 결과를 따로 남긴다.

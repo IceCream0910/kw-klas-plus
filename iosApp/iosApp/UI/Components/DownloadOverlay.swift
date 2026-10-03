@@ -31,7 +31,7 @@ struct DownloadProgressOverlay: View {
             }
             .padding(24)
             .frame(maxWidth: 320)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .klasFloatingSurface(cornerRadius: 12)
             .padding(16)
         }
         .accessibilityElement(children: .contain)
