@@ -39,7 +39,7 @@ struct HomeView: View {
                     selectedTab: coordinator.currentTab,
                     onSelect: coordinator.selectNativeTab
                 )
-                .frame(height: 60)
+                .homeSystemTabBarPlacement()
             }
         }
         .overlay {

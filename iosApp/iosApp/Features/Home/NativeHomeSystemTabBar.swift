@@ -1,6 +1,17 @@
 import SwiftUI
 import UIKit
 
+enum HomeSystemTabBarMetrics {
+    static let overlayHeight: CGFloat = 60
+
+    static var fillsHomeIndicator: Bool {
+        if #available(iOS 26.0, *) {
+            return false
+        }
+        return true
+    }
+}
+
 struct NativeHomeSystemTabBar: UIViewRepresentable {
     let selectedTab: String
     let onSelect: (String) -> Void
@@ -22,6 +33,7 @@ struct NativeHomeSystemTabBar: UIViewRepresentable {
         bar.delegate = context.coordinator
         bar.isTranslucent = true
         bar.accessibilityIdentifier = "native_home_navigation"
+        applyChrome(bar)
         return bar
     }
 
@@ -31,6 +43,26 @@ struct NativeHomeSystemTabBar: UIViewRepresentable {
         uiView.selectedItem = uiView.items?[index]
         uiView.tintColor = UIColor(KlasTheme.primary)
         uiView.unselectedItemTintColor = UIColor(KlasTheme.onSurfaceVariant)
+        applyChrome(uiView)
+    }
+
+    private func applyChrome(_ bar: UITabBar) {
+        guard HomeSystemTabBarMetrics.fillsHomeIndicator else { return }
+        let selected = UIColor(KlasTheme.primary)
+        let unselected = UIColor(KlasTheme.onSurfaceVariant)
+        let items = UITabBarItemAppearance()
+        items.normal.iconColor = unselected
+        items.normal.titleTextAttributes = [.foregroundColor: unselected]
+        items.selected.iconColor = selected
+        items.selected.titleTextAttributes = [.foregroundColor: selected]
+
+        let appearance = UITabBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.stackedLayoutAppearance = items
+        appearance.inlineLayoutAppearance = items
+        appearance.compactInlineLayoutAppearance = items
+        bar.standardAppearance = appearance
+        bar.scrollEdgeAppearance = appearance
     }
 
     final class Coordinator: NSObject, UITabBarDelegate {
@@ -43,6 +75,25 @@ struct NativeHomeSystemTabBar: UIViewRepresentable {
         func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
             guard NativeHomeSystemTabBar.tabs.indices.contains(item.tag) else { return }
             onSelect(NativeHomeSystemTabBar.tabs[item.tag])
+        }
+    }
+}
+
+extension View {
+    func homeSystemTabBarPlacement() -> some View {
+        modifier(HomeSystemTabBarPlacement())
+    }
+}
+
+private struct HomeSystemTabBarPlacement: ViewModifier {
+    func body(content: Content) -> some View {
+        let bar = content.frame(height: HomeSystemTabBarMetrics.overlayHeight)
+        if HomeSystemTabBarMetrics.fillsHomeIndicator {
+            bar
+                .background(.bar, ignoresSafeAreaEdges: .bottom)
+                .overlay(alignment: .top) { Divider() }
+        } else {
+            bar
         }
     }
 }
