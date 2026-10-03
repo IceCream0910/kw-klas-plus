@@ -3,6 +3,12 @@ package com.icecream.kwklasplus.feature.auth
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.test.platform.app.InstrumentationRegistry
+import android.graphics.Bitmap
+import java.io.File
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -40,23 +46,69 @@ class LoginFunnelScreenTest {
     }
 
     @Test
-    fun skippingLibraryOffersDirectConsent() {
+    fun skippingLibraryOffersRecommendationsBeforeConsent() {
         var state by mutableStateOf(funnelState(LoginFunnelStep.Library).copy(studentId = "2020123456"))
         rule.setContent {
             KlasPlusTheme {
                 funnel(
                     state = state,
                     update = { state = it },
-                    onContinue = { state = state.copy(step = LoginFunnelStep.Complete) },
-                    onSkipLibrary = { state = state.copy(step = LoginFunnelStep.Agreements) },
+                    onContinue = { state = state.copy(step = if (state.step == LoginFunnelStep.AppLock) LoginFunnelStep.Notifications else LoginFunnelStep.Agreements) },
+                    onSkipLibrary = { state = state.copy(step = LoginFunnelStep.AppLock) },
                 )
             }
         }
         rule.onNodeWithTag("funnel_skip_library").performClick()
+        rule.onNodeWithTag("funnel_skip_app_lock").performClick()
+        rule.onNodeWithTag("funnel_skip_notifications").performClick()
         rule.onNodeWithTag("login_submit").assertIsEnabled()
         rule.onNodeWithTag("login_agreement").performClick()
         rule.onNodeWithTag("login_terms_agreement").performClick()
         rule.onNodeWithTag("login_submit").assertIsEnabled()
+    }
+
+    @Test
+    fun notificationPermissionOnlyStartsOnCtaAndCanBeSkipped() {
+        var configured = 0
+        var skipped = 0
+        var locks = 0
+        var state by mutableStateOf(funnelState(LoginFunnelStep.AppLock))
+        rule.setContent {
+            KlasPlusTheme {
+                funnel(state, {},
+                    onContinue = { skipped++; state = state.copy(step = LoginFunnelStep.Notifications) }, onConfigureNotifications = { configured++ }, onConfigureAppLock = { locks++ })
+            }
+        }
+        rule.runOnIdle { org.junit.Assert.assertEquals(0, configured) }
+        rule.onNodeWithTag("login_submit").performClick()
+        rule.runOnIdle { org.junit.Assert.assertEquals(1, locks) }
+        rule.onNodeWithTag("funnel_skip_app_lock").performClick()
+        rule.onNodeWithTag("login_submit").performClick()
+        rule.runOnIdle { org.junit.Assert.assertEquals(1, configured) }
+        rule.onNodeWithTag("funnel_skip_notifications").performClick()
+        rule.runOnIdle { org.junit.Assert.assertEquals(2, skipped) }
+    }
+
+    @Test
+    fun enabledNotificationStageContinuesWithoutReopeningPermissionSheet() {
+        var continued = 0
+        var configured = 0
+        rule.setContent {
+            KlasPlusTheme {
+                funnel(funnelState(LoginFunnelStep.Notifications).copy(deadlineNotificationsEnabled = true), {},
+                    onContinue = { continued++ }, onConfigureNotifications = { configured++ })
+            }
+        }
+        val screenshot = rule.onRoot().captureToImage().asAndroidBitmap()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        File(context.cacheDir, "deadline-onboarding-preview.png").outputStream().use {
+            screenshot.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+        rule.onNodeWithTag("login_submit").performClick()
+        rule.runOnIdle {
+            org.junit.Assert.assertEquals(1, continued)
+            org.junit.Assert.assertEquals(0, configured)
+        }
     }
 
     private fun funnelState(step: LoginFunnelStep) = LoginFunnelUiState(
@@ -76,6 +128,8 @@ class LoginFunnelScreenTest {
         update: (LoginFunnelUiState) -> Unit,
         onContinue: () -> Unit,
         onSkipLibrary: () -> Unit = {},
+        onConfigureNotifications: () -> Unit = {},
+        onConfigureAppLock: () -> Unit = {},
     ) {
         LoginFunnelScreen(
             state = state,
@@ -86,6 +140,8 @@ class LoginFunnelScreenTest {
             onPrivacyChange = { update(state.copy(privacyAccepted = it)) },
             onTermsChange = { update(state.copy(termsAccepted = it)) },
             onContinue = onContinue,
+            onConfigureNotifications = onConfigureNotifications,
+            onConfigureAppLock = onConfigureAppLock,
             onBack = {},
             onSkipLibrary = onSkipLibrary,
             onSaveLibrary = {},

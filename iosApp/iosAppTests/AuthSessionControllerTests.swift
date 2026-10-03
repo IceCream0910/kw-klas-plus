@@ -11,6 +11,10 @@ final class AuthSessionControllerTests: XCTestCase {
         controller.backFunnel()
         XCTAssertEqual(controller.loginState.step, .agreements)
         controller.backFunnel()
+        XCTAssertEqual(controller.loginState.step, .notifications)
+        controller.backFunnel()
+        XCTAssertEqual(controller.loginState.step, .appLock)
+        controller.backFunnel()
         XCTAssertEqual(controller.loginState.step, .library)
         controller.backFunnel()
         XCTAssertEqual(controller.loginState.step, .library)
@@ -19,6 +23,28 @@ final class AuthSessionControllerTests: XCTestCase {
         controller.beginFunnelFromOnboarding()
         controller.backFunnel()
         XCTAssertTrue(controller.loginState.onboardingVisible)
+    }
+
+    func testLockAndNotificationsCanBeSkippedBeforeRequiredAgreements() {
+        let store = FakeFunnelStatusStore(value: "authenticating")
+        let controller = makeController(networkPath: FakeNetworkPathChecker(satisfied: true), funnelStatusStore: store)
+        controller.enterAuthenticated(initialDelayMillis: 0)
+        controller.skipLibrary()
+        XCTAssertEqual(controller.loginState.step, .appLock)
+        XCTAssertFalse(controller.loginState.privacyAccepted)
+        controller.continueFunnel()
+        XCTAssertEqual(controller.loginState.step, .notifications)
+        XCTAssertFalse(controller.loginState.privacyAccepted)
+        controller.continueFunnel()
+        XCTAssertEqual(controller.loginState.step, .agreements)
+        XCTAssertEqual(store.read(), "setup")
+        controller.finishFunnel()
+        XCTAssertEqual(store.read(), "setup")
+        controller.continueFunnel()
+        XCTAssertEqual(controller.loginState.step, .complete)
+        XCTAssertEqual(store.read(), "setup")
+        controller.finishFunnel()
+        XCTAssertEqual(store.read(), "complete")
     }
 
     func testCompletedStudentIdDoesNotAutoAdvanceAgainAfterBack() {
