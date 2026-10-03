@@ -85,6 +85,7 @@ final class HomeCoordinator: ObservableObject {
     private(set) var yearHakgiList: [String] = []
     private(set) var timetableJson = ""
     private(set) var deadlineJson = ""
+    private var deadlineInjectionVersion = 0
     @Published private(set) var currentTab = ""
 
     private let routeFactory = AppRouteFactory(
@@ -232,6 +233,7 @@ final class HomeCoordinator: ObservableObject {
     func onForeground() {
         guard bootstrapPhase == .ready else { return }
         homeRuntime.onForeground(userAgent: Self.platformUserAgent())
+        if currentTab == "feed" { injectHomeTabData() }
     }
 
     func reloadCurrentTab(usingOverlay: Bool = false) {
@@ -293,7 +295,17 @@ final class HomeCoordinator: ObservableObject {
         holder.evaluate(IosWebCallbacks.shared.setLocalStorage(key: "currentYearHakgi", value: yearHakgi))
         switch currentTab {
         case "feed":
-            holder.evaluate(IosWebCallbacks.shared.receiveDeadline(json: deadlineJson))
+            deadlineInjectionVersion += 1
+            let version = deadlineInjectionVersion
+            let term = yearHakgi
+            homeRuntime.refreshFeed(yearHakgi: term, userAgent: Self.platformUserAgent()) { [weak self, weak holder] status, json in
+                guard let self, let holder, self.homeHolder === holder,
+                      self.deadlineInjectionVersion == version, self.currentTab == "feed", self.yearHakgi == term else { return }
+                self.deadlineJson = json
+                holder.evaluate(IosWebCallbacks.shared.receiveDeadline(json: json))
+                if status == "SESSION_EXPIRED" { self.bootstrapPhase = .sessionExpired }
+                else if status == "FAILED" { self.showToast("마감 정보를 새로 불러오지 못했습니다.") }
+            }
             holder.evaluate(IosWebCallbacks.shared.receiveTimetable(json: timetableJson))
             if let token = sessionToken {
                 holder.evaluate(IosWebCallbacks.shared.setLocalStorage(key: "klasSessionToken", value: token.reveal()))

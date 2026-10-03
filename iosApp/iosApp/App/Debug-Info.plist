@@ -25,9 +25,12 @@
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array><string>com.icecream.kwklasplus.academic-reminders.refresh</string></array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
+        <string>fetch</string>
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>

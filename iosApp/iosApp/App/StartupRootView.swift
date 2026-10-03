@@ -76,6 +76,8 @@ struct StartupRootView: View {
             }
         }
         .onChange(of: scenePhase) { phase in
+            if phase == .active { AcademicReminderHost.shared.foreground() }
+            if phase == .background { AcademicReminderHost.shared.scheduleRefresh() }
             controller.setAppActive(phase == .active)
             libraryQr.handleScenePhase(phase)
             applyAppLock(for: phase)
