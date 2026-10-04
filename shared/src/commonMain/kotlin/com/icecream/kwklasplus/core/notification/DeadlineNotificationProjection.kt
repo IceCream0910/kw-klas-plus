@@ -9,8 +9,8 @@ object DeadlineNotificationProjection {
             val row = element as? JsonObject ?: return null
             if (kind == "onlineLecture") {
                 if (row.text("evltnSe") != "lesson") continue
-                val progress = row.text("prog")?.toIntOrNull() ?: return null
-                if (progress >= 100) continue
+                val progress = row.text("prog")?.toDoubleOrNull() ?: return null
+                if (progress >= 100.0) continue
             } else when (row.text("submityn")) { "Y" -> continue; "N" -> Unit; else -> return null }
             val id = when (kind) {
                 "onlineLecture" -> {

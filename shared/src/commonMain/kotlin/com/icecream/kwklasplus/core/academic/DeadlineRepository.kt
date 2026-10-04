@@ -19,7 +19,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
 
 fun interface DeadlineDateParser {
@@ -158,7 +157,7 @@ class DeadlineRepository(
     private fun parseOnlineLectures(rows: JsonArray): List<DeadlineItem> = rows.mapNotNull { element ->
         val row = element as? JsonObject ?: throw MalformedDeadlineException()
         if (row.string("evltnSe") != "lesson") return@mapNotNull null
-        if ((row.int("prog") ?: throw MalformedDeadlineException()) >= 100) return@mapNotNull null
+        if ((row.number("prog") ?: throw MalformedDeadlineException()) >= 100.0) return@mapNotNull null
         val startDate = row.string("startDate") ?: throw MalformedDeadlineException()
         val endDate = row.string("endDate") ?: throw MalformedDeadlineException()
         deadlineItem(startDate, endDate, onlineLectureEndParser.parseEpochMillis("$endDate:59"))
@@ -181,8 +180,8 @@ class DeadlineRepository(
     private fun JsonObject.string(key: String): String? =
         (get(key) as? JsonPrimitive)?.contentOrNull
 
-    private fun JsonObject.int(key: String): Int? =
-        (get(key) as? JsonPrimitive)?.intOrNull
+    private fun JsonObject.number(key: String): Double? =
+        (get(key) as? JsonPrimitive)?.contentOrNull?.toDoubleOrNull()
 
     private sealed interface ArrayResult {
         data class Success(val body: JsonArray) : ArrayResult

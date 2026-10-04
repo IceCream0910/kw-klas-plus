@@ -37,4 +37,15 @@ class DeadlineFreshSnapshotTest {
         val result=assertIs<DeadlinesResult.Success>(repository.fetch(SecretValue.of("synthetic"),KlasUserAgent.fromPlatform("fixture"),"2026,2",listOf(AcademicSubject("s","자료구조"))))
         assertEquals(1,result.subjects.single().task.size);assertNull(result.reminders)
     }
+    @Test fun fractionalLectureProgressKeepsFeedAndNotificationProjection()=runBlocking {
+        val now=ReminderTime.parse("2026-10-04 21:41:00")!!
+        val repository=DeadlineRepository(KlasAuthenticatedTransport { endpoint,_,_,_ ->
+            KlasAuthenticatedResult.Success(if(endpoint==AuthenticatedKlasEndpoint.ONLINE_LECTURE_DEADLINES)Json.parseToJsonElement("""[{"evltnSe":"lesson","prog":3.33,"lesson":"003","oid":"lecture","startDate":"2026-09-08 00:00","endDate":"2026-12-12 23:59"},{"evltnSe":"lesson","prog":100,"lesson":"001","oid":"done","startDate":"2026-09-01 00:00","endDate":"2026-09-18 23:59"},{"evltnSe":"proj","startDate":"2026-09-18 00:00","endDate":"2026-10-10 23:59"}]""") else JsonArray(emptyList()))
+        },Clock { now },DeadlineDateParser(ReminderTime::parse),DeadlineDateParser(ReminderTime::parse))
+        val result=assertIs<DeadlinesResult.Success>(repository.fetch(SecretValue.of("synthetic"),KlasUserAgent.fromPlatform("fixture"),"2026,2",listOf(AcademicSubject("s","운영체제"))))
+        val reminder=assertNotNull(result.reminders).single()
+        assertEquals("2026-12-12 23:59",result.subjects.single().onlineLecture.single().endDate)
+        assertEquals("onlineLecture",reminder.kind)
+        assertEquals("2026,2/s/onlineLecture/003/lecture",reminder.key)
+    }
 }

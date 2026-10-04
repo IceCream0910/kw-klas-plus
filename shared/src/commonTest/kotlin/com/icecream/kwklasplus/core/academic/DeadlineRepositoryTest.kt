@@ -7,8 +7,11 @@ import com.icecream.kwklasplus.core.network.KlasUserAgent
 import com.icecream.kwklasplus.core.security.SecretValue
 import com.icecream.kwklasplus.core.session.Clock
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -85,6 +88,53 @@ class DeadlineRepositoryTest {
     }
 
     @Test
+    fun fractionalProgressDoesNotFailTheSubjectOrOtherSubjects() = runBlocking {
+        val repository = DeadlineRepository(
+            transport = KlasAuthenticatedTransport { endpoint, _, _, body ->
+                val subjectId = (body as JsonObject).string("selectSubj")
+                when (endpoint) {
+                    AuthenticatedKlasEndpoint.ONLINE_LECTURE_DEADLINES ->
+                        if (subjectId == "PARTIAL") {
+                            KlasAuthenticatedResult.Success(
+                                buildJsonArray {
+                                    add(onlineLecture("future", 3.33))
+                                    add(onlineLecture("future", 100.0))
+                                },
+                            )
+                        } else {
+                            KlasAuthenticatedResult.Success(buildJsonArray { add(onlineLecture("future", 20)) })
+                        }
+                    else -> KlasAuthenticatedResult.Success(buildJsonArray {})
+                }
+            },
+            clock = Clock { 0L },
+            onlineLectureEndParser = DeadlineDateParser { value ->
+                when {
+                    value.startsWith("future") -> 7_200_000L
+                    value.startsWith("past") -> -7_200_000L
+                    else -> null
+                }
+            },
+            assignmentEndParser = DeadlineDateParser { null },
+        )
+
+        val result = repository.fetch(
+            SecretValue.of("session"),
+            KlasUserAgent.fromPlatform("UA"),
+            "2026,2",
+            listOf(
+                AcademicSubject("PARTIAL", "운영체제"),
+                AcademicSubject("OTHER", "다른 과목"),
+            ),
+        )
+
+        val deadlines = assertIs<DeadlinesResult.Success>(result).subjects
+        assertEquals(listOf("운영체제", "다른 과목"), deadlines.map(SubjectDeadlines::name))
+        assertEquals(listOf("future"), deadlines.first().onlineLecture.map(DeadlineItem::endDate))
+        assertEquals(listOf("future"), deadlines.last().onlineLecture.map(DeadlineItem::endDate))
+    }
+
+    @Test
     fun malformedDatesAndFailuresRemainDistinct() = runBlocking {
         val malformed = repository(
             dateParser = DeadlineDateParser { null },
@@ -151,12 +201,15 @@ class DeadlineRepositoryTest {
         assignmentEndParser = dateParser,
     )
 
-    private fun onlineLecture(endDate: String, progress: Int) = buildJsonObject {
+    private fun onlineLecture(endDate: String, progress: Number) = buildJsonObject {
         put("evltnSe", "lesson")
-        put("prog", progress)
+        put("prog", progress.toDouble())
         put("startDate", "start")
         put("endDate", endDate)
     }
+
+    private fun JsonObject.string(key: String): String? =
+        (get(key) as? JsonPrimitive)?.contentOrNull
 
     private fun assignment(endDate: String, submitted: String) = buildJsonObject {
         put("submityn", submitted)
