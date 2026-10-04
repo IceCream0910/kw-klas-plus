@@ -26,8 +26,8 @@ iOS 27 SDK로 빌드하면 `UIDesignRequiresCompatibility`가 무시되어 표�
 - 툴바 배경: `.toolbarBackground(.hidden)`과 `webSurfaceTopBackground()` 조합에서는 WebView가 툴바 아래에서 시작하고 툴바 영역은 단색이라 scroll edge effect와 겹치지 않습니다. 스크롤 주체가 `WKWebView` 내부 `UIScrollView`라 `toolbarMinimizationBehavior`도 쓰지 않습니다.
 - confirmationDialog 위치: 로그아웃은 옵션 시트가 닫힌 뒤, 강의 전환은 PiP 중 웹 요청에서 열려 기준으로 삼을 네이티브 버튼이 없습니다. 강의 종료는 `VideoPlayerOverlay`의 Android 패리티 콜백 구조를 바꿔야 해 화면 루트 위치를 유지합니다.
 - 버튼: 로그인 퍼널의 플로팅 뒤로가기는 `.buttonStyle(.glass)`를 유지합니다. 내비게이션 툴바의 뒤로가기·공유 버튼은 시스템 툴바 스타일을 사용합니다. 로그인·저장·확인 CTA는 `KlasInverseButtonStyle`을 유지합니다.
-- `VideoPlayerOverlay`: 재생·이동·PIP·배속 버튼은 플레이어 컨트롤 패널의 surface 배경을 유지합니다. `Slider`는 시스템 컨트롤의 Liquid Glass와 대비만 확인합니다.
-- 로그인 `Toggle`은 `KlasCheckboxToggleStyle`로 그린 커스텀 체크박스라 glass 적용 대상이 아니며 바꾸지 않습니다. `ProgressView`는 기존 tint와 주변 배경의 대비만 확인합니다.
+- `VideoPlayerOverlay`: 재생·이동·PIP·배속 버튼은 플레이어 컨트롤 패널의 surface 배경을 유지합니다. `Slider`는 시스템 컨트롤의 Liquid Glass와 기존 tint 대비를 수동으로 확인했고, 코드는 바꾸지 않습니다.
+- 로그인 `Toggle`은 `KlasCheckboxToggleStyle`로 그린 커스텀 체크박스라 glass 적용 대상이 아니며 바꾸지 않습니다. `ProgressView`는 기존 tint와 주변 배경의 대비를 수동으로 확인했고, 별도 glass surface는 두지 않습니다.
 - 도서관 QR 시트는 `presentationBackground` 없이 콘텐츠 `.background(KlasTheme.surface)`만 사용합니다. 배경 변경은 실기기에서 QR 대비와 quiet zone을 비교한 뒤 결정합니다.
 - 학사 시간표·캘린더 위젯과 도서관 QR 위젯의 Clear/Tinted 렌더링은 별도 이슈로 두고, 이번 변경은 위젯 코드를 바꾸지 않습니다.
 - 앱 아이콘 Icon Composer 전환은 디자인 리소스가 필요해 후속 작업으로 둡니다.
@@ -38,4 +38,4 @@ iOS 27 SDK로 빌드하면 `UIDesignRequiresCompatibility`가 무시되어 표�
 
 ## 검증
 
-로컬 Xcode 27.0(27A266a)에서 `:shared:iosSimulatorArm64Test`와 iOS 27.0 시뮬레이터의 `iosAppTests` 189개가 통과했습니다. iOS 27.0·26.5 시뮬레이터에서 Light/Dark로 툴바 glass 버튼·다운로드 오버레이·스크롤 중 툴바를 UI 테스트 fixture로 확인했습니다. 탭 바 높이 제거와 시트 콘텐츠 배경 유지 후의 iPhone·iPad·Dynamic Type·분할 화면 레이아웃, Xcode 26.5 빌드, 로그인한 실제 화면, iOS 27 Liquid Glass 투명도 슬라이더, 투명도 줄이기·대비 증가·동작 줄이기, iOS 16~18 회귀는 수동 검증 대상입니다. 위젯 Clear/Tinted와 도서관 QR 시트 배경은 이번 범위가 아닙니다.
+로컬 Xcode 27.0(27A266a)에서 `:shared:iosSimulatorArm64Test`와 iOS 27.0 시뮬레이터의 `iosAppTests` 189개가 통과했습니다. iOS 27.0·26.5 시뮬레이터에서 Light/Dark로 툴바 glass 버튼·다운로드 오버레이·스크롤 중 툴바를 UI 테스트 fixture로 확인했습니다. 탭 바 높이 제거 후 iPhone·iPad·Dynamic Type·분할 화면에서 탭 바가 잘리지 않는지 수동으로 확인했습니다. `VideoPlayerOverlay`의 `Slider`는 시스템 Liquid Glass와 기존 tint 대비를, `ProgressView`는 기존 tint와 주변 배경의 대비를 수동으로 확인했습니다. 시트 콘텐츠 배경 유지 후의 iPhone·iPad·Dynamic Type·분할 화면 레이아웃, Xcode 26.5 빌드, 로그인한 실제 화면, iOS 27 Liquid Glass 투명도 슬라이더, 투명도 줄이기·대비 증가·동작 줄이기, iOS 16~18 회귀는 수동 검증 대상입니다. 위젯 Clear/Tinted와 도서관 QR 시트 배경은 이번 범위가 아닙니다.
