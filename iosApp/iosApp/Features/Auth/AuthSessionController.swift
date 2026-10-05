@@ -55,6 +55,7 @@ final class AuthSessionController: ObservableObject {
     let authRuntime: IosAuthRuntime
     private let networkPath: NetworkPathChecking
     private let funnelStatusStore: FunnelStatusStoring
+    private let hasAppLockPassword: () -> Bool
     private let saveLibraryCredentials: (String, String, String, @escaping (Bool) -> Void) -> Void
     private let loginTokenEncryptor = IosRsaLoginTokenEncryptor()
     private let platformUserAgent = HomeCoordinator.platformUserAgent()
@@ -68,10 +69,12 @@ final class AuthSessionController: ObservableObject {
         authRuntime: IosAuthRuntime = IosAuthRuntime.companion.createDefault(),
         networkPath: NetworkPathChecking = SystemNetworkPathChecker(),
         funnelStatusStore: FunnelStatusStoring? = nil,
-        saveLibraryCredentials: ((String, String, String, @escaping (Bool) -> Void) -> Void)? = nil
+        saveLibraryCredentials: ((String, String, String, @escaping (Bool) -> Void) -> Void)? = nil,
+        hasAppLockPassword: (() -> Bool)? = nil
     ) {
         self.authRuntime = authRuntime
         self.networkPath = networkPath
+        self.hasAppLockPassword = hasAppLockPassword ?? { authRuntime.dependencies.appLockStore.hasPassword() }
         self.funnelStatusStore = funnelStatusStore ?? UserDefaultsFunnelStatusStore(dependencies: authRuntime.dependencies)
         if let saveLibraryCredentials {
             self.saveLibraryCredentials = saveLibraryCredentials
@@ -179,6 +182,13 @@ final class AuthSessionController: ObservableObject {
             loginState.privacyAccepted = true
             loginState.termsAccepted = true
             loginState.step = .complete
+        case .appLock, .notifications:
+            guard phase == .setup, funnelStatusStore.read() == "setup" else {
+                loginState.error = "설정 상태를 확인하지 못했습니다. 다시 시도해 주세요."
+                return
+            }
+            loginState.error = nil
+            loginState.step = loginState.step == .appLock ? .notifications : .agreements
         case .complete:
             finishFunnel()
         default:
@@ -204,7 +214,9 @@ final class AuthSessionController: ObservableObject {
                 loginState.onboardingVisible = true
             }
         case .password: loginState.step = .studentId
-        case .agreements: loginState.step = .library
+        case .agreements: loginState.step = .notifications
+        case .notifications: loginState.step = hasAppLockPassword() ? .library : .appLock
+        case .appLock: loginState.step = .library
         case .complete: loginState.step = .agreements
         default: break
         }
@@ -218,7 +230,7 @@ final class AuthSessionController: ObservableObject {
         }
         loginState.libraryPassword = ""
         loginState.error = nil
-        loginState.step = .agreements
+        loginState.step = hasAppLockPassword() ? .notifications : .appLock
     }
 
     func saveLibrary() {
@@ -241,7 +253,7 @@ final class AuthSessionController: ObservableObject {
                 }
                 self.loginState.libraryPassword = ""
                 self.loginState.error = nil
-                self.loginState.step = .agreements
+                self.loginState.step = self.hasAppLockPassword() ? .notifications : .appLock
             }
         }
     }

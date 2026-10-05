@@ -7,6 +7,18 @@ import XCTest
 
 final class IosAppLockStoreTests: XCTestCase {
     @MainActor
+    func testOnboardingCoverAllowsOnlyExplicitPasswordSetup() {
+        for mode in [AppLockController.Mode.set, .change] {
+            XCTAssertEqual(AppLockCoverPolicy.coverMode(isSessionAuthenticated: false, isQrBypassActive: false, mode: mode, allowsOnboardingSetup: true), mode)
+            XCTAssertNil(AppLockCoverPolicy.coverMode(isSessionAuthenticated: false, isQrBypassActive: false, mode: mode))
+        }
+        for mode in [AppLockController.Mode.unlock, .verify] {
+            XCTAssertNil(AppLockCoverPolicy.coverMode(isSessionAuthenticated: false, isQrBypassActive: false, mode: mode, allowsOnboardingSetup: true))
+        }
+        XCTAssertNil(AppLockCoverPolicy.coverMode(isSessionAuthenticated: false, isQrBypassActive: true, mode: .set, allowsOnboardingSetup: true))
+    }
+
+    @MainActor
     func testPrivacyCoverConcealsHomePixelsAndKeepsUnlockedControlVisible() throws {
         let sensitive = Color.red.frame(width: 120, height: 120)
         let hidden = ImageRenderer(content: sensitive.protectedHomeContent(isHidden: true))
@@ -16,6 +28,30 @@ final class IosAppLockStoreTests: XCTestCase {
         let visiblePixels = try XCTUnwrap(visible.uiImage?.pngData())
         XCTAssertEqual(hiddenPixels, try XCTUnwrap(expected.uiImage?.pngData()))
         XCTAssertNotEqual(hiddenPixels, visiblePixels)
+    }
+
+    @MainActor
+    func testRetainedLockSkipsSetupWhileLoggedOutCoverIsBypassed() {
+        let env = LockTestEnvironment()
+        defer { env.tearDown() }
+        env.store.savePassword(password: "123456")
+        env.store.setEnabled(enabled: true)
+        env.store.setBiometricEnabled(enabled: true)
+        env.store.isUnlocked = false
+        let auth = AuthSessionController(authRuntime: IosAuthRuntime.companion.create(dependencies: env.dependencies))
+        auth.handleHomeLogout()
+        XCTAssertNil(AppLockCoverPolicy.coverMode(isSessionAuthenticated: false, isQrBypassActive: false, mode: .unlock))
+        env.defaults.set("authenticating", forKey: "login_funnel_status")
+        auth.enterAuthenticated(initialDelayMillis: 0)
+        auth.skipLibrary()
+        XCTAssertEqual(auth.loginState.step, .notifications)
+        auth.backFunnel()
+        XCTAssertEqual(auth.loginState.step, .library)
+        XCTAssertTrue(env.store.isEnabled())
+        XCTAssertTrue(env.store.isBiometricEnabled())
+        XCTAssertTrue(env.store.verifyPassword(input: "123456"))
+        XCTAssertFalse(env.store.isUnlocked)
+        XCTAssertEqual(env.defaults.string(forKey: "login_funnel_status"), "setup")
     }
 
     func testSaveVerifyAndDisableClearsSecretsFromUserDefaults() {
@@ -121,6 +157,56 @@ final class AppLockControllerTests: XCTestCase {
         XCTAssertFalse(env.store.isUnlocked)
         controller.handleScenePhase(.active)
         XCTAssertEqual(controller.mode, .unlock)
+    }
+
+    func testOnboardingNewPinAdvancesAfterSaveEvenWhenBiometricsCancelled() async {
+        let env = LockTestEnvironment()
+        defer { env.tearDown() }
+        let lock = AppLockController(store: env.store, canUseBiometrics: { true },
+            authenticateBiometrics: { _, _ in PlatformActionResultCancelled() })
+        let auth = AuthSessionController(authRuntime: IosAuthRuntime.companion.create(dependencies: env.dependencies))
+        env.defaults.set("authenticating", forKey: "login_funnel_status")
+        auth.enterAuthenticated(initialDelayMillis: 0)
+        auth.skipLibrary()
+        let finished = expectation(description: "advance onboarding")
+        lock.presentOnboardingPasswordSetup { success in
+            if success { auth.continueFunnel() }
+            finished.fulfill()
+        }
+        for _ in 0..<2 { [1, 2, 3, 4, 5, 6].forEach(lock.appendDigit) }
+        await fulfillment(of: [finished], timeout: 2)
+        XCTAssertEqual(auth.loginState.step, .notifications)
+        XCTAssertEqual(env.defaults.string(forKey: "login_funnel_status"), "setup")
+        XCTAssertTrue(env.store.isEnabled())
+        XCTAssertNil(lock.mode)
+    }
+
+    func testOnboardingExistingPinSkipsPasswordChangeForEnabledAndDisabledLock() {
+        for enabled in [false, true] {
+            let env = LockTestEnvironment()
+            defer { env.tearDown() }
+            env.store.savePassword(password: "123456")
+            if enabled { env.store.setEnabled(enabled: true) }
+            let lock = AppLockController(store: env.store, canUseBiometrics: { false })
+            var succeeded: Bool?
+            lock.presentOnboardingPasswordSetup { succeeded = $0 }
+            XCTAssertEqual(succeeded, true)
+            XCTAssertNil(lock.mode)
+            XCTAssertEqual(env.store.isEnabled(), enabled)
+            XCTAssertTrue(env.store.verifyPassword(input: "123456"))
+            XCTAssertFalse(env.store.isUnlocked)
+        }
+    }
+
+    func testCancelledOnboardingNewPinDoesNotEnable() {
+        let env = LockTestEnvironment()
+        defer { env.tearDown() }
+        let lock = AppLockController(store: env.store, canUseBiometrics: { false })
+        var succeeded: Bool?
+        lock.presentOnboardingPasswordSetup { succeeded = $0 }
+        lock.cancel()
+        XCTAssertEqual(succeeded, false)
+        XCTAssertFalse(env.store.isEnabled())
     }
 
     func testCancelRestoreDoesNotEnableLock() {

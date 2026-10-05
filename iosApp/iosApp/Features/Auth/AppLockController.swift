@@ -122,6 +122,19 @@ final class AppLockController: ObservableObject {
         present(store.hasPassword() ? .change : .set, disabling: false, completion: completion)
     }
 
+    func presentOnboardingPasswordSetup(completion: @escaping (Bool) -> Void) {
+        if store.hasPassword() {
+            completion(true)
+            return
+        }
+        presentPasswordSetup { [self] success in
+            guard success else { completion(false); return }
+            store.setEnabled(enabled: true)
+            store.isUnlocked = true
+            completion(store.isEnabled() && store.hasPassword())
+        }
+    }
+
     func presentVerifyToDisable(completion: @escaping (Bool) -> Void) {
         present(.verify, disabling: true, completion: completion)
     }
@@ -361,10 +374,13 @@ enum AppLockCoverPolicy {
     static func coverMode(
         isSessionAuthenticated: Bool,
         isQrBypassActive: Bool,
-        mode: AppLockController.Mode?
+        mode: AppLockController.Mode?,
+        allowsOnboardingSetup: Bool = false
     ) -> AppLockController.Mode? {
-        guard isSessionAuthenticated, !isQrBypassActive else { return nil }
-        return mode
+        guard !isQrBypassActive else { return nil }
+        if isSessionAuthenticated { return mode }
+        if allowsOnboardingSetup, mode == .set || mode == .change { return mode }
+        return nil
     }
 
     static func assignedMode(

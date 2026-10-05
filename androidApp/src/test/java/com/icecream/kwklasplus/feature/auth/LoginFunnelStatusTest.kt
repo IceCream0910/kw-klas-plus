@@ -7,6 +7,19 @@ import org.junit.Test
 
 class LoginFunnelStatusTest {
     @Test
+    fun retainedLockSkipsRecommendationInBothDirectionsWithoutCompletingSetup() {
+        assertEquals(LoginFunnelStep.Notifications, LoginFunnelStatus.appLockRecommendationStep(true))
+        assertEquals(LoginFunnelStep.Library, LoginFunnelStatus.stepBeforeNotifications(true))
+        assertTrue(LoginFunnelStatus.blocksHome(LoginFunnelStatus.SETUP))
+    }
+
+    @Test
+    fun unsetLockStillOffersSetupAndBackNavigation() {
+        assertEquals(LoginFunnelStep.AppLock, LoginFunnelStatus.appLockRecommendationStep(false))
+        assertEquals(LoginFunnelStep.AppLock, LoginFunnelStatus.stepBeforeNotifications(false))
+    }
+
+    @Test
     fun interruptedAuthenticationReturnsToPasswordAndBlocksHome() {
         assertEquals(LoginFunnelStep.Password, LoginFunnelStatus.initialStep(LoginFunnelStatus.AUTHENTICATING))
         assertTrue(LoginFunnelStatus.blocksHome(LoginFunnelStatus.AUTHENTICATING))

@@ -24,6 +24,12 @@ internal object LoginFunnelStatus {
         else -> LoginFunnelStep.StudentId
     }
 
+    fun appLockRecommendationStep(hasAppLockPassword: Boolean): LoginFunnelStep =
+        if (hasAppLockPassword) LoginFunnelStep.Notifications else LoginFunnelStep.AppLock
+
+    fun stepBeforeNotifications(hasAppLockPassword: Boolean): LoginFunnelStep =
+        if (hasAppLockPassword) LoginFunnelStep.Library else LoginFunnelStep.AppLock
+
     fun shouldAdvanceToPassword(previousId: String, nextId: String, step: LoginFunnelStep): Boolean =
         step == LoginFunnelStep.StudentId &&
             previousId.length < LoginUiState.STUDENT_ID_LENGTH &&
