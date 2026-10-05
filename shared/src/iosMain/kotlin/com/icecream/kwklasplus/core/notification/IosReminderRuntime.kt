@@ -9,14 +9,17 @@ import platform.Foundation.NSDate
 import platform.Foundation.timeIntervalSince1970
 import kotlin.coroutines.resume
 
+data class IosReminderLedgerRead(val value: String?, val success: Boolean)
+
 interface IosReminderHost {
     fun isBackground(): Boolean
-    fun readLedger(): String?
+    fun readLedger(): IosReminderLedgerRead
     fun writeLedger(value: String): Boolean
     fun hash(value: String): String
     fun permission(kind: String,done: (String)->Unit)
     fun postDetailed(id: String,kind: String,generation: Long,additional: Boolean,title: String,body: String,done: (String)->Unit)
     fun openDeadlineSettings(attempt: Long): Boolean
+    fun cancelRefresh()
     fun preferencesChanged()
     fun cancel(id: String)
     fun cancelAll(done: (String)->Unit)
@@ -37,7 +40,11 @@ object IosReminderRuntime {
             override suspend fun cancelAll() { awaitString { host.cancelAll(it) } }
         }
         val store=object: ReminderStore {
-            override suspend fun read()=host.readLedger()
+            override suspend fun read(): String? {
+                val result=host.readLedger()
+                check(result.success) { "STORAGE_FAILED" }
+                return result.value
+            }
             override suspend fun write(value: String) { check(host.writeLedger(value)) { "STORAGE_FAILED" } }
         }
         engine=ReminderEngine(store,adapter,ReminderIdentityProvider {
@@ -78,7 +85,7 @@ object IosReminderRuntime {
         scope.launch { done(runCatching { engine?.snapshot()?.let { state -> engine?.isReady()==true && kind=="deadline" && state.ownerHash.isNotBlank() && state.generation==generation && state.deadlineEnabled && state.claims.any { it.batchId==occurrenceId && it.ownerHash==state.ownerHash } } ?: false }.getOrDefault(false)) }
     }
     fun isEnabled(done: (Boolean)->Unit) { scope.launch { done(runCatching { engine?.snapshot()?.let { engine?.isReady()==true && it.ownerHash.isNotBlank() && it.deadlineEnabled } ?: false }.getOrDefault(false)) } }
-    suspend fun beginDeadlineRefresh(): ReminderDeadlineTicket? = engine?.beginDeadlineRefresh()
+    suspend fun beginDeadlineRefresh(): ReminderDeadlineTicket? = engine?.beginHomeDeadlineRefresh()
     suspend fun acceptHomeDeadlines(ticket: ReminderDeadlineTicket?,result: com.icecream.kwklasplus.core.academic.DeadlinesResult) { if(ticket!=null)engine?.acceptHomeDeadlines(ticket,result) }
     fun foreground() { scope.launch { runCatching { engine?.snapshot() } } }
     fun refresh(done: (String)->Unit): IosReminderRefreshTask {
@@ -87,7 +94,7 @@ object IosReminderRuntime {
         }
         return IosReminderRefreshTask(job)
     }
-    suspend fun clear() { engine?.clear() }
+    suspend fun clear() { try { engine?.clear() } finally { host?.cancelRefresh() } }
     private suspend fun awaitString(action: ((String)->Unit)->Unit): String=suspendCancellableCoroutine { c -> action { if(c.isActive)c.resume(it) } }
 }
 class IosReminderRefreshTask internal constructor(private val job: Job) { fun cancel()=job.cancel() }

@@ -12,7 +12,7 @@ final class AcademicReminderHost: NSObject, IosReminderHost, UNUserNotificationC
     static let taskId = "com.icecream.kwklasplus.academic-reminders.refresh"
     static let refreshInterval: TimeInterval = 3600
     private let center = UNUserNotificationCenter.current()
-    private let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+    private var root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("academic_reminders_v1", isDirectory: true)
     private let namespace = "academic_reminders:"
     private var installed = false
@@ -113,6 +113,10 @@ final class AcademicReminderHost: NSObject, IosReminderHost, UNUserNotificationC
         }
         #endif
     }
+    func cancelRefresh() {
+        refreshScheduleVersion += 1
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.taskId)
+    }
     func scheduleRefresh() {
         refreshScheduleVersion += 1
         let version = refreshScheduleVersion
@@ -148,10 +152,19 @@ final class AcademicReminderHost: NSObject, IosReminderHost, UNUserNotificationC
         values.isExcludedFromBackup = true
         try url.setResourceValues(values)
     }
-    func readLedger() -> String? {
+    override init() { super.init() }
+    init(root: URL) { self.root = root; super.init() }
+
+    func readLedger() -> IosReminderLedgerRead {
         let url = root.appendingPathComponent("ledger.json")
-        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-        return (try? String(contentsOf: url, encoding: .utf8)) ?? "unreadable"
+        do {
+            return IosReminderLedgerRead(value: try String(contentsOf: url, encoding: .utf8), success: true)
+        } catch let error as NSError {
+            if error.domain == NSCocoaErrorDomain && error.code == NSFileReadNoSuchFileError {
+                return IosReminderLedgerRead(value: nil, success: true)
+            }
+            return IosReminderLedgerRead(value: nil, success: false)
+        }
     }
     func writeLedger(value: String) -> Bool {
         do {
@@ -193,6 +206,10 @@ final class AcademicReminderHost: NSObject, IosReminderHost, UNUserNotificationC
         }
     }
     func postDetailed(id: String, kind: String, generation: Int64, additional: Bool, title: String, body: String, done: @escaping (String) -> Void) {
+        guard !ReminderTime.shared.isQuietHours(now: Int64(Date().timeIntervalSince1970 * 1000)), isBackground() else {
+            done("failed")
+            return
+        }
         #if DEBUG
         debugLastPostedId = id
         #endif
