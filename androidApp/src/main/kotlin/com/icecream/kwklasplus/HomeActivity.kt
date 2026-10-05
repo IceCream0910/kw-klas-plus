@@ -182,6 +182,8 @@ class HomeActivity : AppCompatActivity() {
     private lateinit var webViewContainer: FrameLayout
     internal var currentTab by mutableStateOf("") // "feed", "timetable", "calendar", "menu"
     private var deadlineForWebview: String = ""
+    private var deadlineRequestVersion=0L
+    private var feedInjectionVersion=0L
     private var timetableForWebview: String = ""
     lateinit var sessionIdForOtherClass: String
     lateinit var loadingDialog: ComposeLoadingDialog
@@ -378,7 +380,9 @@ class HomeActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (redirectToLoginIfSetupIncomplete()) return
+        appDependencies.reminders.foreground()
         appDependencies.academicWidgets.foreground()
+        if (::webView.isInitialized && currentTab=="feed" && yearHakgi.isNotBlank())sendDeadlineAndTimetableToWebView()
         if (yearHakgi.isNotBlank()) {
             lifecycleScope.launch {
                 val token = (appDependencies.sessionCoordinator.restore() as? SessionResult.Active)
@@ -569,7 +573,7 @@ class HomeActivity : AppCompatActivity() {
                 webView,
                 BridgeSurface.HOME,
                 lifecycleScope,
-                HomeLegacyBridgeCommandHandler(bridgeDelegate),
+                appDependencies.reminders.wrap(this, HomeLegacyBridgeCommandHandler(bridgeDelegate)),
             ).also(AndroidBridgeMessageAdapter::install)
             webView.overScrollMode = WebView.OVER_SCROLL_NEVER
 
@@ -776,26 +780,41 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun sendDeadlineAndTimetableToWebView() {
-        webView.executeWebScript(
-            LegacyWebScripts.call(
-                LegacyWebCallback.RECEIVE_DEADLINE,
-                JavaScriptArgument.Text(deadlineForWebview),
-            ),
-        )
-        webView.executeWebScript(
-            LegacyWebScripts.call(
-                LegacyWebCallback.RECEIVE_TIMETABLE,
-                JavaScriptArgument.Text(timetableForWebview),
-            ),
-        )
-        webView.executeWebScript(
-            LegacyWebScripts.setLocalStorage("klasSessionToken", sessionIdForOtherClass),
-        )
-        webView.executeWebScript(
-            LegacyWebScripts.setLocalStorage("currentYearHakgi", yearHakgi),
-        )
+        val version=++feedInjectionVersion
+        val page=webView.url
+        val selectedTerm=yearHakgi
+        val account=appPreferences.getString(AppPrefs.KW_ID,null)
+        lifecycleScope.launch {
+            val session=restoreSessionId() ?: return@launch
+            val terms=appDependencies.academicRepository.fetchTerms(SecretValue.of(session),KlasUserAgent.fromPlatform(WebSettings.getDefaultUserAgent(this@HomeActivity)))
+            if(version!=feedInjectionVersion || page!=webView.url || selectedTerm!=yearHakgi || account!=appPreferences.getString(AppPrefs.KW_ID,null))return@launch
+            val subjects=(terms as? AcademicTermsResult.Success)?.terms?.firstOrNull { it.value==selectedTerm }?.subjects
+            if(subjects==null) {
+                deadlineForWebview="[]"
+                if(terms==AcademicTermsResult.SessionExpired)showSessionExpiredDialog()
+                else Toast.makeText(this@HomeActivity,"마감 정보를 새로 불러오지 못했습니다.",Toast.LENGTH_SHORT).show()
+            } else if(!fetchDeadlines(session,subjects))return@launch
+            if(version!=feedInjectionVersion || page!=webView.url || currentTab!="feed" || selectedTerm!=yearHakgi || account!=appPreferences.getString(AppPrefs.KW_ID,null))return@launch
+            webView.executeWebScript(
+                LegacyWebScripts.call(
+                    LegacyWebCallback.RECEIVE_DEADLINE,
+                    JavaScriptArgument.Text(deadlineForWebview),
+                ),
+            )
+            webView.executeWebScript(
+                LegacyWebScripts.call(
+                    LegacyWebCallback.RECEIVE_TIMETABLE,
+                    JavaScriptArgument.Text(timetableForWebview),
+                ),
+            )
+            webView.executeWebScript(
+                LegacyWebScripts.setLocalStorage("klasSessionToken", sessionIdForOtherClass),
+            )
+            webView.executeWebScript(
+                LegacyWebScripts.setLocalStorage("currentYearHakgi", yearHakgi),
+            )
+        }
     }
-
 
     private fun initSubjectList(sessionId: String) {
         fetchSubjectList(sessionId) { terms ->
@@ -825,14 +844,12 @@ class HomeActivity : AppCompatActivity() {
                     openYearHakgiBottomSheetDialog(true)
                 }
 
-                val newSubjList = selection.term.subjects
                 yearHakgi = selection.term.value
                 editor.putString(AppPrefs.YEAR_HAKGI, yearHakgi)
                 editor.apply()
 
                 lifecycleScope.launch {
                     launch { getTimetableData(sessionId) }
-                    launch { fetchDeadlines(sessionId, newSubjList) }
                 }.invokeOnCompletion {
                     runOnUiThread {
                         initWebView()
@@ -873,7 +890,6 @@ class HomeActivity : AppCompatActivity() {
             }
             lifecycleScope.launch {
                 launch { getTimetableData(sessionId) }
-                launch { fetchDeadlines(sessionId, selectedSubjList) }
             }.invokeOnCompletion {
                 runOnUiThread {
                     reloadCurrentTab()
@@ -909,7 +925,6 @@ class HomeActivity : AppCompatActivity() {
             }
             lifecycleScope.launch {
                 launch { getTimetableData(sessionId) }
-                launch { fetchDeadlines(sessionId, selectedSubjList) }
             }.invokeOnCompletion {
                 runOnUiThread {
                     initWebView()
@@ -931,23 +946,21 @@ class HomeActivity : AppCompatActivity() {
         return selection.term.subjects
     }
 
-    private suspend fun fetchDeadlines(sessionId: String, subjects: List<AcademicSubject>) {
-        when (
-            val result = appDependencies.deadlineRepository.fetch(
-                session = SecretValue.of(sessionId),
-                userAgent = KlasUserAgent.fromPlatform(WebSettings.getDefaultUserAgent(this)),
-                yearSemester = yearHakgi,
-                subjects = subjects,
-            )
-        ) {
-            is DeadlinesResult.Success -> {
-                deadlineForWebview = DeadlinesWebCodec().encode(result.subjects)
-            }
-            DeadlinesResult.SessionExpired -> withContext(Dispatchers.Main) {
-                showSessionExpiredDialog()
-            }
-            else -> Unit
+    private suspend fun fetchDeadlines(sessionId: String, subjects: List<AcademicSubject>): Boolean {
+        val selectedTerm=yearHakgi
+        val account=appPreferences.getString(AppPrefs.KW_ID,null)
+        val version=withContext(Dispatchers.Main) { deadlineForWebview="";++deadlineRequestVersion }
+        val ticket=runCatching { appDependencies.reminders.engine.beginHomeDeadlineRefresh() }.getOrNull()
+        val result=appDependencies.deadlineRepository.fetch(SecretValue.of(sessionId),KlasUserAgent.fromPlatform(WebSettings.getDefaultUserAgent(this)),selectedTerm,subjects)
+        val accepted=withContext(Dispatchers.Main) {
+            if(version!=deadlineRequestVersion || selectedTerm!=yearHakgi || account!=appPreferences.getString(AppPrefs.KW_ID,null))return@withContext false
+            deadlineForWebview=if(result is DeadlinesResult.Success)DeadlinesWebCodec().encode(result.subjects) else "[]"
+            if(result==DeadlinesResult.SessionExpired)showSessionExpiredDialog()
+            else if(result !is DeadlinesResult.Success)Toast.makeText(this@HomeActivity,"마감 정보를 새로 불러오지 못했습니다.",Toast.LENGTH_SHORT).show()
+            true
         }
+        if(accepted && ticket!=null)runCatching { appDependencies.reminders.engine.acceptHomeDeadlines(ticket,result) }
+        return accepted
     }
 
     private suspend fun getTimetableData(sessionId: String, reportSessionExpiry: Boolean = true) {
@@ -1206,6 +1219,7 @@ class HomeActivity : AppCompatActivity() {
             .setMessage("정말 로그아웃할까요?")
             .setPositiveButton("확인") { _, _ ->
                 lifecycleScope.launch {
+                    runCatching { appDependencies.reminders.logout() }
                     appDependencies.sessionKeepAlive.onSessionCleared()
                     appDependencies.sessionCoordinator.expire()
                     runCatching {

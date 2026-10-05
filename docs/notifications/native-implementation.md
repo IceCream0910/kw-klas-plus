@@ -1,0 +1,93 @@
+# DEADLINE 알림 구현 구조 및 검증
+
+## 기준과 범위
+
+- 구현 시작 기준: Native `7faa2f80490125e8bf46ed70b4511d696904b69d`
+- PR 기준: Native `3ece7bcee32beff9f2f01e1a8807ffa5f5754376` (`main`)
+- WebView 기준: `bc5a173b9a55532e6d782b4e5c058a62e019cdd6` + 별도 저장소의 알림 토글·브리지 작업 트리 변경. 호환 배포가 완료된 SHA는 아니다.
+
+[ADR-011](../adr/ADR-011-deadline-notifications.md)을 따른다. 캘린더 일정 알림은 구현 범위에서 제외하며 기존 캘린더 CRUD·위젯을 유지한다. 온라인 강의·과제·팀프로젝트의 미완료 항목 중 24시간 안에 마감되는 항목만 안내한다. APNs/FCM 서버 푸시나 미래 시각 예약 대신 최신 조회 직후 OS 로컬 알림을 게시한다.
+
+## 구현 구조
+
+- `shared/commonMain`: 최신 원본 projection, 알림 엔진, 네이티브 권한 시트 동의 상태, 계정·학기 검사, 중복 방지 원장과 브리지 계약을 소유한다. 시간·저장소·권한·발송·앱 표시 상태는 port로 주입한다.
+- Android: `JobScheduler`/`JobService`, 알림 채널·단색 KLAS+ 아이콘, Compose 권한 시트를 연결한다.
+- iOS: `BGAppRefreshTask`, `UNUserNotificationCenter`, SwiftUI 권한 시트와 UIKit presenter를 연결한다.
+- 홈 피드: 매번 최신 DEADLINE 전체 조회가 성공한 응답만 기존 WebView callback에 전달한다. 조회 실패 시 과거 snapshot을 정상 최신 데이터로 전달하지 않는다. 같은 응답의 projection으로 이미 부적격해진 알림을 정리하며 홈 조회에서 발송하거나 당일 claim을 소비하지 않는다.
+- 원장: 백업 제외 `academic_reminders_v1` 파일에 설치별 HMAC으로 계정·항목·배치 식별자를 기록한다. 과목명·세션·비밀번호·원본 학번은 원장과 로그에 저장하지 않는다.
+
+## 갱신 주기와 주요 정책
+
+| 항목 | 정책 |
+|---|---|
+| Android 갱신 | 1시간 주기 JobScheduler 요청. 기존 6시간 Job은 교체한다. |
+| iOS 갱신 | 다음 요청의 earliestBeginDate를 1시간 뒤로 지정한다. 실제 실행 시각은 OS가 결정한다. 기존 더 이른 요청은 유지한다. |
+| 실행 조건 | 로그인 퍼널 complete, 알림 설정 ON, 유효 계정·선택 학기, 허용된 OS 권한. WebView 없이 Native source를 조회한다. |
+| 발송 조건 | 앱이 표시되지 않을 때만 발송한다. 조회 시작부터 게시까지 60초 이내의 전체 성공 결과만 사용한다. |
+| 대상 | 시작된 미완료 항목의 `now < dueAt <= now + 24h`. ID·완료·시각 검증 불가 및 부분 실패는 미게시한다. |
+| 중복 | 계정·항목 ID·KST 날짜별 하루 한 번. 첫 안내 이후 같은 날 새로 적격이 된 항목만 추가 안내한다. 기기 간 원장은 공유하지 않는다. |
+| 변경 대응 | 다음 성공 조회에서 완료·삭제·마감 변경으로 부적격해진 항목이 포함된 기존 요약을 취소한다. 남은 항목을 당일 중복 재게시하지 않는다. |
+| 경합 | mutex로 판단과 claim을 직렬화하고 OS 게시 전에 저장한다. 계정 generation·설정 revision·최신 request·학기를 검사한다. 저장 도중 foreground로 돌아오면 미게시 claim을 해제한다. |
+| 해제·로그아웃 | 표시 알림과 갱신 작업을 정리하고 이전 요청의 늦은 응답을 폐기한다. |
+| 세션 만료 | 기존 HTTP 인증·SessionCoordinator로 한 번 복구한다. CAPTCHA·임시 비밀번호는 사용자 재로그인으로 분리한다. |
+
+주기 요청은 실행 보장이 아니다. iOS 저전력·백그라운드 갱신 해제·강제 종료, Android Doze·강제 중지 등에서는 갱신이 지연되거나 실행되지 않을 수 있다. 서버에서 이후 변경된 내용을 이미 표시된 알림에 실시간 반영하지는 못한다.
+
+## 설정 UI와 WebView 계약
+
+웹 설정에는 ON/OFF 토글만 제공한다. ON은 Native 시트를 시작하고 실제 허용·저장 성공 전에는 ON으로 확정하지 않는다. OFF는 Native 저장 및 정리 성공 후 반영한다. capability가 없는 구 앱에는 새 진입점을 표시하지 않으며 새 알림 메서드는 구 Android fallback을 사용하지 않는다. 상세 호출·콜백은 [WebView 구현 계약](webview-implementation-contract.md)을 따른다.
+
+권한은 Native 시트의 명시적 CTA에서 요청한다. 이미 authorized/provisional이면 요청 단계를 생략한다. 거부 시 안내와 시스템 설정 이동을 제공하고 복귀 후 재검사한다. 완료 시 타이틀·짧은 설명·알림 카드 예시를 표시하고 별도 닫기 버튼으로 닫는다. 상단에는 종 아이콘 없이 그라데이션 블러를 적용한다. Android handle까지 같은 배경을 적용하고 CTA는 KLAS+ 버튼 스타일을 사용한다. iOS는 설명·그래픽·버튼 실측 높이에 따라 시트를 조절하며 최대 높이를 넘으면 콘텐츠를 스크롤하고 닫기를 하단에 고정한다.
+
+## 검증 범위
+
+Mocking 기능 제거 후 공통 Android 285개, Kotlin iOS 310개, Android JVM 36개 테스트와 Android 앱 빌드·모듈 경계 검사·iOS 앱/위젯 시뮬레이터 빌드가 통과했다. 중복·새 항목 추가·날짜 전환·부분 실패·ID/시각 검증·권한 거부·저장 실패·로그아웃/토글 경합·foreground 억제와 최신 홈 응답을 테스트한다. Web 계약/설정 테스트는 별도 저장소에서 실행한다.
+
+사용자가 별도 디버거와 mocking 데이터로 수행한 수신 시험:
+
+- Android 실기기에서 알림이 정상 수신되는 것을 확인했다.
+- iOS 시뮬레이터에서는 디버깅 인터럽션으로 갱신 프로세스를 강제로 백그라운드에서 실행해 알림 수신을 확인했다.
+- iOS에서 실제 OS 백그라운드 갱신 주기에 따른 수신은 확인하지 못했다. iOS 실기기 테스트가 필요하다.
+
+앱과 홈 WebView에 주입되던 mocking 스위치·fixture·override·전용 테스트는 모두 제거했다. Debug 전용 `KlasDeadlineDebug` 수동 갱신 진입점은 실제 Native source·엔진을 실행하며 데이터 주입을 하지 않는다. 단위 테스트의 격리된 테스트 대역은 유지한다. 앞선 수신 시험을 mocking 제거 후 실제 서버·백그라운드 실행 검증으로 간주하지 않는다.
+
+실제 서버 fixture의 안정 ID·완료 상태·시간 해석, 양 플랫폼 배터리 제한·권한 차단·재부팅·계정 전환, 최종 시트의 작은 화면·큰 글꼴 배치와 Web 운영 배포 조합은 추가 확인 대상이다. 빌드 성공만으로 알림 수신을 검증했다고 판단하지 않는다.
+
+## 롤백
+
+기능을 비활성화하고 표시 알림·OS 갱신 작업을 취소한 뒤 구현 커밋과 Web 토글 진입점을 되돌린다. 기존 인증·앱 잠금·위젯 데이터는 삭제하지 않는다. 캘린더 알림 prototype은 출시하지 않았으므로 제거한 메서드를 호환 API로 복원하지 않는다.
+
+## iOS 콘텐츠 높이 측정 회귀 수정
+
+측정된 높이를 ScrollView의 maxHeight로 다시 적용하던 제한을 제거했습니다. 콘텐츠를 세로 fixedSize로 독립 측정하고, 일시적인 0·비정상 측정값은 시트 높이에 반영하지 않습니다. 권한 확인→완료 상태 전환에서도 타이틀·설명·그래픽이 복구되며 CTA는 고정합니다. SwiftUI 온보딩과 UIKit 설정 presenter가 동일한 레이아웃을 사용합니다. 별도 iOS 시뮬레이터에서 작은 viewport·0 높이 전환 후 확장·큰 글꼴 UIKit 표시 회귀 테스트 2개와 앱/위젯 빌드가 통과했습니다.
+
+## PR #85 리뷰 및 야간 정책 수정 (2026-10-05)
+
+기준은 PR head `75d92b737052cd08912a6c38b4a2ab8c070447f0`이다. 진도 소수값 수정은 이미 반영된 상태여서 유지했고, 나머지 7개 리뷰 지적사항은 코드 경로를 확인한 뒤 반영했다. WebView 계약·호환 기준 SHA는 기존과 동일하며 이번 변경에 Web 배포는 필요하지 않다.
+
+KST 00:00~08:00에는 양 플랫폼에서 새 알림을 게시하지 않는다. 공통 엔진은 권한 조회 전·후와 원장 저장 후, Android·iOS adapter는 OS 호출 직전에 검사한다. 이 시간대의 조회·기존 부적격 알림 정리는 유지하지만 발송 claim을 소비하지 않는다. 08:00 이후 다음 성공 백그라운드 조회에서 최신 미완료 항목을 다시 판단한다. 이전 야간 snapshot을 큐에 넣거나 08:00 정확 알람으로 전달하지 않는다.
+
+백그라운드 source는 최대 4과목 병렬 조회로 변경했다. 홈 조회 요청만으로 발송 티켓을 폐기하지 않도록 홈·background 번호를 분리하고, 더 최신의 검증된 홈 성공 이후에는 이전 background 응답을 폐기한다. 번호 비교는 동일 밀리초에 시작한 조회도 구분한다. iOS는 원장 읽기 실패와 손상 JSON을 구분하며 로그아웃 finally에서 BG 요청을 취소한다. Android는 1시간/15분 flex를 비교·등록하고 BIND_JOB_SERVICE로 보호된 exported service를 기존 위젯과 맞췄다. exported 변경만으로 기존 시스템 연결 실패를 재현·확인했다고 간주하지 않는다.
+
+Android 시트는 checking·busy 동안 swipe로 Hidden 전환 및 back 닫기를 막는다. 완료 저장은 동시에 중복 실행하지 않으며 동일 attempt 재호출은 계정·generation·revision·권한이 여전히 유효할 때만 COMPLETED를 반환한다. OFF·계정 전환 후에는 재활성화하지 않는다.
+
+최종 검증:
+
+- `JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home ANDROID_HOME=/Users/taein/Library/Android/sdk ./gradlew :shared:testAndroidHostTest :shared:iosSimulatorArm64Test :androidApp:testDebugUnitTest :androidApp:assembleDebug --no-configuration-cache` 통과. 공통 Android 294개, Kotlin iOS 319개, Android JVM 36개가 실패 없이 통과했다.
+- Xcode `iosAppUnitTests`에서 별도 시뮬레이터로 `AcademicReminderHostTests`와 `DeadlineNotificationSheetLayoutTests` 3개 통과. 앱·위젯 빌드 및 Swift/KMP host 연결을 확인했다. 실행 명령은 `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosAppUnitTests -configuration Debug -destination 'platform=iOS Simulator,id=<전용 테스트 기기>' -only-testing:iosAppTests/AcademicReminderHostTests -only-testing:iosAppTests/DeadlineNotificationSheetLayoutTests CODE_SIGN_IDENTITY=- test`이다.
+- 00:00·07:59:59·08:00 경계, KST/UTC 해석, 권한 조회·claim 저장 중 자정 전환과 claim 미소비, 홈 시작/최신 성공 경합, 4과목 병렬 상한, 원장 읽기 실패와 손상 구분, 완료 attempt 재호출·OFF 이후 취소를 검증했다. `git diff --check` 통과.
+
+리뷰어는 2026-10-04 iOS 실기기에서 정상 알림 수신을 확인했다고 보고했다. 이 기록은 이번 야간 정책 수정 후 검증이 아니다. 이번 수정의 Android JobScheduler 실제 onStartJob 기동, 시트 회전·swipe/back 경합, 양 플랫폼 실제 새벽 억제와 08:00 이후 OS 주기 수신은 실기기 수동 확인이 필요하다. 신규 instrumentation은 실행하지 않았다. 롤백은 이번 리뷰 수정 커밋을 되돌리며 저장 키·브리지 schema 변경이나 데이터 이전은 없다.
+
+
+## OS 확정 미게시 claim 복구 (2026-10-05)
+
+`postDetailed()`가 `false`를 반환하면 새로 추가한 미게시 claim을 게시 전 claims로 복구합니다. 먼저 `SCHEDULE_FAILED`와 복구 원장을 저장한 뒤 현재 앱 표시·KST 야간·권한 상태로 원인을 보완합니다. 권한 재조회가 실패해도 claim은 이미 복구되어 다음 최신 조회에서 재시도할 수 있습니다. 기존 성공 배치의 claim은 유지하며, 첫 안내 실패 후 재시도는 추가 안내로 바뀌지 않습니다. 결과 불명 예외·취소는 기존 중복 방지 정책을 유지합니다. 플랫폼 Boolean 및 WebView 브리지 계약은 유지합니다.
+
+- 기준 커밋: `d8b09855f6ba6966c6b1409234f0b9c8612f4880` (#85).
+- 명령: `JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home ANDROID_HOME=/Users/taein/Library/Android/sdk ./gradlew :shared:testAndroidHostTest :shared:iosSimulatorArm64Test --no-configuration-cache`.
+- 결과: 공통 Android 297개·Kotlin iOS 322개 통과, diff 검사 통과.
+- 새 회귀 테스트: `failedOsPostDoesNotConsumeClaimAndNextRefreshRetries`, `refusedOsPostRestoresPreviousClaimsAndRecordsSuppressionReason`, `permissionReadFailureAfterRefusedPostStillRestoresClaim`.
+- 실패 후 원장 재읽기·재시도·중복 방지, 기존 성공 claim 유지와 추가 안내, OS 게시 단계 foreground/권한/야간 거부, 후속 권한 조회 실패를 가짜 platform으로 검증했습니다.
+- Native OS 호출 구현은 변경하지 않았습니다. 실제 권한 철회·앱 전환 race, 실기기 알림 수신 및 OS 갱신 주기는 이번 작업에서 수동 검증하지 않았습니다.
+- 롤백: 공통 엔진·회귀 테스트 변경과 이 문서 커밋을 되돌립니다. 저장 원장 스키마·설정 키·브리지 변경은 없습니다.

@@ -32,6 +32,9 @@ class AndroidAppDependencies(context: Context) {
     val attendanceRepository get() = shared.attendanceRepository
     val academicRepository get() = shared.academicRepository
     val timetableRepository get() = shared.timetableRepository
+    val reminderSessionRecovery get() = shared.reminderSessionRecovery
+    val reminderSource get() = shared.reminderSource
+    val reminders by lazy { com.icecream.kwklasplus.notification.AcademicReminderRuntime(applicationContext) }
     val calendarSync get() = shared.calendarSync
     val academicWidgets by lazy { com.icecream.kwklasplus.widget.AcademicWidgetRuntime(applicationContext) }
     val deadlineRepository get() = shared.deadlineRepository

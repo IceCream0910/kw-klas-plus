@@ -1,5 +1,7 @@
 package com.icecream.kwklasplus.core.academic
 
+import com.icecream.kwklasplus.core.notification.DeadlineNotificationProjection
+import com.icecream.kwklasplus.core.notification.ReminderDeadline
 import com.icecream.kwklasplus.core.network.AuthenticatedKlasEndpoint
 import com.icecream.kwklasplus.core.network.KlasAuthenticatedResult
 import com.icecream.kwklasplus.core.network.KlasAuthenticatedTransport
@@ -17,7 +19,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
 
 fun interface DeadlineDateParser {
@@ -41,7 +42,7 @@ data class SubjectDeadlines(
 )
 
 sealed interface DeadlinesResult {
-    data class Success(val subjects: List<SubjectDeadlines>) : DeadlinesResult
+    data class Success(val subjects: List<SubjectDeadlines>, val reminders: List<ReminderDeadline>? = null, val startedAt: Long = 0, val fetchedAt: Long = 0) : DeadlinesResult
     data object SessionExpired : DeadlinesResult
     data object Timeout : DeadlinesResult
     data object NetworkFailure : DeadlinesResult
@@ -68,13 +69,18 @@ class DeadlineRepository(
         yearSemester: String,
         subjects: List<AcademicSubject>,
     ): DeadlinesResult = coroutineScope {
+        val startedAt = clock.nowEpochMillis()
         if (yearSemester.isBlank()) return@coroutineScope DeadlinesResult.MalformedResponse
         val results = subjects.map { subject ->
             async { fetchSubject(session, userAgent, yearSemester, subject) }
         }.awaitAll()
         val failure = results.firstOrNull { it !is SubjectDeadlineResult.Success }
         if (failure != null) failure.toPublicResult()
-        else DeadlinesResult.Success(results.map { (it as SubjectDeadlineResult.Success).deadlines })
+        else {
+            val successes = results.map { it as SubjectDeadlineResult.Success }
+            val reminders = if (successes.all { it.reminders != null }) successes.flatMap { it.reminders.orEmpty() } else null
+            DeadlinesResult.Success(successes.map { it.deadlines }, reminders?.takeIf { it.map(ReminderDeadline::key).distinct().size == it.size }, startedAt, clock.nowEpochMillis())
+        }
     }
 
     private suspend fun fetchSubject(
@@ -110,6 +116,11 @@ class DeadlineRepository(
         )
         if (teamTasks !is ArrayResult.Success) return teamTasks.toSubjectResult()
 
+        val projections = listOf(
+            DeadlineNotificationProjection.parse(yearSemester, subject.id, subject.name, "onlineLecture", online.body),
+            DeadlineNotificationProjection.parse(yearSemester, subject.id, subject.name, "task", tasks.body),
+            DeadlineNotificationProjection.parse(yearSemester, subject.id, subject.name, "teamTask", teamTasks.body),
+        )
         return try {
             SubjectDeadlineResult.Success(
                 SubjectDeadlines(
@@ -119,6 +130,7 @@ class DeadlineRepository(
                     task = parseAssignments(tasks.body),
                     teamTask = parseAssignments(teamTasks.body),
                 ),
+                if (projections.all { it != null }) projections.flatMap { it.orEmpty() } else null,
             )
         } catch (_: MalformedDeadlineException) {
             SubjectDeadlineResult.MalformedResponse
@@ -145,7 +157,7 @@ class DeadlineRepository(
     private fun parseOnlineLectures(rows: JsonArray): List<DeadlineItem> = rows.mapNotNull { element ->
         val row = element as? JsonObject ?: throw MalformedDeadlineException()
         if (row.string("evltnSe") != "lesson") return@mapNotNull null
-        if ((row.int("prog") ?: throw MalformedDeadlineException()) >= 100) return@mapNotNull null
+        if ((row.number("prog") ?: throw MalformedDeadlineException()) >= 100.0) return@mapNotNull null
         val startDate = row.string("startDate") ?: throw MalformedDeadlineException()
         val endDate = row.string("endDate") ?: throw MalformedDeadlineException()
         deadlineItem(startDate, endDate, onlineLectureEndParser.parseEpochMillis("$endDate:59"))
@@ -168,8 +180,8 @@ class DeadlineRepository(
     private fun JsonObject.string(key: String): String? =
         (get(key) as? JsonPrimitive)?.contentOrNull
 
-    private fun JsonObject.int(key: String): Int? =
-        (get(key) as? JsonPrimitive)?.intOrNull
+    private fun JsonObject.number(key: String): Double? =
+        (get(key) as? JsonPrimitive)?.contentOrNull?.toDoubleOrNull()
 
     private sealed interface ArrayResult {
         data class Success(val body: JsonArray) : ArrayResult
@@ -182,7 +194,7 @@ class DeadlineRepository(
     }
 
     private sealed interface SubjectDeadlineResult {
-        data class Success(val deadlines: SubjectDeadlines) : SubjectDeadlineResult
+        data class Success(val deadlines: SubjectDeadlines, val reminders: List<ReminderDeadline>?) : SubjectDeadlineResult
         data object SessionExpired : SubjectDeadlineResult
         data object Timeout : SubjectDeadlineResult
         data object NetworkFailure : SubjectDeadlineResult

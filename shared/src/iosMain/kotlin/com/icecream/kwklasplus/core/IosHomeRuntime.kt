@@ -42,16 +42,22 @@ class IosHomeRuntime(
     private val academicWidgets: IosAcademicWidgets? = null,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
 ) {
+    private var bootstrapRequestVersion=0L
     fun bootstrapHome(userAgent: String, onResult: (HomeBootstrapResult) -> Unit) {
+        val request=++bootstrapRequestVersion
         scope.launch {
-            onResult(runBootstrap(userAgent))
+            val result=runBootstrap(userAgent,requestVersion=request)
+            if(request==bootstrapRequestVersion)onResult(result)
         }
     }
 
     fun refreshHome(yearHakgi: String, userAgent: String, onResult: (HomeBootstrapResult) -> Unit) {
+        val request=++bootstrapRequestVersion
         scope.launch {
+            if(request!=bootstrapRequestVersion)return@launch
             dependencies.writeStringPreference(LegacyPreferenceKeys.YEAR_HAKGI, yearHakgi)
-            onResult(runBootstrap(userAgent, selectedYearHakgi = yearHakgi))
+            val result=runBootstrap(userAgent, selectedYearHakgi = yearHakgi,requestVersion=request)
+            if(request==bootstrapRequestVersion)onResult(result)
         }
     }
 
@@ -78,6 +84,7 @@ class IosHomeRuntime(
     fun yearHakgiButtonText(value: String): String = AcademicTermDisplay.buttonText(value)
 
     fun onForeground(userAgent: String) {
+        com.icecream.kwklasplus.core.notification.IosReminderRuntime.foreground()
         scope.launch {
             if (dependencies.academicWidgetFlags.cookieSyncNeeded()) {
                 runCatching { dependencies.sessionCoordinator.restore() }
@@ -92,7 +99,10 @@ class IosHomeRuntime(
     }
 
     fun logout(onDone: () -> Unit) {
+        ++bootstrapRequestVersion
+        ++feedRequestVersion
         scope.launch {
+            runCatching { com.icecream.kwklasplus.core.notification.IosReminderRuntime.clear() }
             academicWidgets?.clear()
             runCatching { dependencies.sessionCoordinator.expire() }
             runCatching { dependencies.credentialStore.clear() }
@@ -105,7 +115,9 @@ class IosHomeRuntime(
     private suspend fun runBootstrap(
         userAgent: String,
         selectedYearHakgi: String? = null,
+        requestVersion: Long,
     ): HomeBootstrapResult {
+        val selectedAccount=dependencies.stringPreference(LegacyPreferenceKeys.KW_ID)
         val session = when (val restored = dependencies.sessionCoordinator.restore()) {
             is SessionResult.Active -> restored.session.token
             SessionResult.Expired, SessionResult.Missing -> return HomeBootstrapResult.SessionExpired
@@ -116,6 +128,7 @@ class IosHomeRuntime(
         }
         return when (val termsResult = dependencies.academicRepository.fetchTerms(session, agent)) {
             is AcademicTermsResult.Success -> {
+                if(requestVersion!=bootstrapRequestVersion || selectedAccount!=dependencies.stringPreference(LegacyPreferenceKeys.KW_ID))return HomeBootstrapResult.Failure("새 요청으로 대체되었습니다.")
                 val terms = termsResult.terms
                 if (terms.isEmpty()) return HomeBootstrapResult.EmptyTerms(session)
                 val savedYearHakgi = selectedYearHakgi
@@ -136,6 +149,7 @@ class IosHomeRuntime(
                     }
                     timetable.await() to deadlines.await()
                 }
+                if(requestVersion!=bootstrapRequestVersion || selectedAccount!=dependencies.stringPreference(LegacyPreferenceKeys.KW_ID) || yearHakgi!=dependencies.stringPreference(LegacyPreferenceKeys.YEAR_HAKGI))return HomeBootstrapResult.Failure("새 요청으로 대체되었습니다.")
                 if (timetableJson == SESSION_EXPIRED || deadlineJson == SESSION_EXPIRED) {
                     return HomeBootstrapResult.SessionExpired
                 }
@@ -182,12 +196,33 @@ class IosHomeRuntime(
         userAgent: KlasUserAgent,
         yearHakgi: String,
         subjects: List<AcademicSubject>,
-    ): String = when (
-        val result = dependencies.deadlineRepository.fetch(session, userAgent, yearHakgi, subjects)
-    ) {
-        is DeadlinesResult.Success -> DeadlinesWebCodec().encode(result.subjects)
-        DeadlinesResult.SessionExpired -> SESSION_EXPIRED
-        else -> ""
+    ): String {
+        val account=dependencies.stringPreference(LegacyPreferenceKeys.KW_ID)
+        val ticket=runCatching { com.icecream.kwklasplus.core.notification.IosReminderRuntime.beginDeadlineRefresh() }.getOrNull()
+        val result=dependencies.deadlineRepository.fetch(session,userAgent,yearHakgi,subjects)
+        if(account!=dependencies.stringPreference(LegacyPreferenceKeys.KW_ID) || yearHakgi!=dependencies.stringPreference(LegacyPreferenceKeys.YEAR_HAKGI))return ""
+        runCatching { com.icecream.kwklasplus.core.notification.IosReminderRuntime.acceptHomeDeadlines(ticket,result) }
+        return when(result) {
+            is DeadlinesResult.Success -> DeadlinesWebCodec().encode(result.subjects)
+            DeadlinesResult.SessionExpired -> SESSION_EXPIRED
+            else -> ""
+        }
+    }
+    private var feedRequestVersion=0L
+    fun refreshFeed(yearHakgi: String,userAgent: String,onResult: (String,String)->Unit) {
+        val version=++feedRequestVersion
+        val account=dependencies.stringPreference(LegacyPreferenceKeys.KW_ID)
+        scope.launch {
+            val restored=dependencies.sessionCoordinator.restore()
+            if(restored !is SessionResult.Active) { if(version==feedRequestVersion)onResult("SESSION_EXPIRED","[]");return@launch }
+            val agent=KlasUserAgent.fromPlatform(userAgent)
+            val terms=dependencies.academicRepository.fetchTerms(restored.session.token,agent)
+            if(version!=feedRequestVersion || account!=dependencies.stringPreference(LegacyPreferenceKeys.KW_ID) || yearHakgi!=dependencies.stringPreference(LegacyPreferenceKeys.YEAR_HAKGI))return@launch
+            val subjects=(terms as? AcademicTermsResult.Success)?.terms?.firstOrNull { it.value==yearHakgi }?.subjects
+            val json=if(subjects!=null)fetchDeadlines(restored.session.token,agent,yearHakgi,subjects) else ""
+            if(version!=feedRequestVersion || account!=dependencies.stringPreference(LegacyPreferenceKeys.KW_ID) || yearHakgi!=dependencies.stringPreference(LegacyPreferenceKeys.YEAR_HAKGI))return@launch
+            onResult(if(json==SESSION_EXPIRED || terms==AcademicTermsResult.SessionExpired)"SESSION_EXPIRED" else if(json.isEmpty())"FAILED" else "READY",json.takeUnless { it.isEmpty() || it==SESSION_EXPIRED } ?: "[]")
+        }
     }
 
     companion object {
