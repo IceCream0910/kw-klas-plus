@@ -11,7 +11,8 @@ class ReminderEngineTest {
         var raw: String?=null
         var fail=false
         var onWrite: () -> Unit = {}
-        override suspend fun read()=raw
+        var failRead=false
+        override suspend fun read(): String? { check(!failRead) { "STORAGE_FAILED" };return raw }
         override suspend fun write(value: String) { check(!fail) { "STORAGE_FAILED" };raw=value;onWrite() }
     }
     private class Platform : ReminderPlatform {
@@ -44,6 +45,65 @@ class ReminderEngineTest {
         suspend fun enable() { engine.setEnabled(true) }
         fun item(id: String)=ReminderDeadline(id,null,now+60*60*1000)
     }
+    @Test fun quietHoursDoNotConsumeClaimsAndEightAmRechecksLatestData()=runBlocking {
+        val f=Fixture();f.enable()
+        for(time in listOf("00:00:00","04:00:00","07:59:59")) {
+            f.now=ReminderTime.parse("2026-10-03 $time")!!
+            f.source.items=listOf(f.item("A"))
+            f.engine.refresh()
+            assertTrue(f.engine.snapshot().claims.isEmpty())
+            assertEquals("QUIET_HOURS",f.engine.snapshot().deadlineStatus)
+        }
+        f.now=ReminderTime.parse("2026-10-03 08:00:00")!!
+        f.source.items=listOf(f.item("B"));f.engine.refresh()
+        assertEquals(1,f.platform.posted.size)
+        assertEquals(setOf("user/B"),f.engine.snapshot().claims.single().keys)
+    }
+    @Test fun midnightDuringPermissionOrClaimSaveReleasesUnpostedClaim()=runBlocking {
+        for(duringSave in listOf(false,true)) {
+            val f=Fixture();f.enable();f.now=ReminderTime.parse("2026-10-02 23:59:59")!!
+            f.source.items=listOf(f.item("A"))
+            val midnight=ReminderTime.parse("2026-10-03 00:00:00")!!
+            if(duringSave) f.store.onWrite={ if(f.store.raw?.contains("POST_ATTEMPTED")==true)f.now=midnight }
+            else f.platform.onPermission={ f.now=midnight }
+            f.engine.refresh()
+            assertTrue(f.platform.posted.isEmpty());assertTrue(f.engine.snapshot().claims.isEmpty())
+            assertEquals("QUIET_HOURS",f.engine.snapshot().deadlineStatus)
+        }
+    }
+    @Test fun quietHoursUseKstRegardlessOfTimestampOffset() {
+        assertFalse(ReminderTime.isQuietHours(ReminderTime.parse("2026-10-02T14:59:59Z")!!))
+        assertTrue(ReminderTime.isQuietHours(ReminderTime.parse("2026-10-02T15:00:00Z")!!))
+        assertTrue(ReminderTime.isQuietHours(ReminderTime.parse("2026-10-02T22:59:59Z")!!))
+        assertFalse(ReminderTime.isQuietHours(ReminderTime.parse("2026-10-02T23:00:00Z")!!))
+    }
+    @Test fun unreadableStorePreservesDeliveredNotificationsButMalformedContentCancelsThem()=runBlocking {
+        val f=Fixture();f.enable();f.source.items=listOf(f.item("A"));f.engine.refresh()
+        f.platform.cancelledAll=false;f.store.failRead=true
+        assertFailsWith<IllegalStateException> { f.engine().snapshot() }
+        assertFalse(f.platform.cancelledAll)
+        f.store.failRead=false;f.store.raw="not-json"
+        assertFailsWith<IllegalStateException> { f.engine().snapshot() }
+        assertTrue(f.platform.cancelledAll)
+    }
+    @Test fun startingHomeQueryDoesNotInvalidateBackgroundButNewerHomeSuccessDoes()=runBlocking {
+        for(homeSucceeds in listOf(false,true)) {
+            val f=Fixture();f.enable()
+            val started=CompletableDeferred<Unit>();val finish=CompletableDeferred<Unit>()
+            val source=object: ReminderDataSource {
+                override suspend fun deadlines(term: String): ReminderSourceResult<List<ReminderDeadline>> {
+                    started.complete(Unit);finish.await();return ReminderSourceResult.Success(listOf(f.item("A")))
+                }
+            }
+            val engine=ReminderEngine(f.store,f.platform,ReminderIdentityProvider { ReminderIdentity(f.owner,"2026,2",true) },source,Clock { f.now })
+            val refresh=launch { engine.refresh() };started.await()
+            val home=engine.beginHomeDeadlineRefresh()
+            if(homeSucceeds)engine.acceptHomeDeadlines(home,com.icecream.kwklasplus.core.academic.DeadlinesResult.Success(emptyList(),emptyList(),f.now,f.now))
+            finish.complete(Unit);refresh.join()
+            assertEquals(if(homeSucceeds)0 else 1,f.platform.posted.size)
+        }
+    }
+
     @Test fun sameDayAdditionalAlertIncludesOnlyPreviouslyUnannouncedItems()=runBlocking {
         val f=Fixture();f.enable();f.source.items=listOf(f.item("A"),f.item("B"))
         f.engine.refresh();f.engine.refresh()
@@ -58,7 +118,7 @@ class ReminderEngineTest {
         val a=f.item("A").copy(subjectId="s1",subjectName="자료구조",kind="task")
         val b=f.item("B").copy(subjectId="s2",subjectName="운영체제",kind="onlineLecture")
         suspend fun accept(items: List<ReminderDeadline>) {
-            val ticket=f.engine.beginDeadlineRefresh()
+            val ticket=f.engine.beginHomeDeadlineRefresh()
             f.engine.acceptHomeDeadlines(ticket,com.icecream.kwklasplus.core.academic.DeadlinesResult.Success(emptyList(),items,f.now,f.now))
         }
         accept(listOf(a,b))
@@ -100,7 +160,7 @@ class ReminderEngineTest {
     }
     @Test fun staleOrSupersededHomeSnapshotDoesNotNotify()=runBlocking {
         val f=Fixture();f.enable()
-        val first=f.engine.beginDeadlineRefresh();val second=f.engine.beginDeadlineRefresh()
+        val first=f.engine.beginHomeDeadlineRefresh();val second=f.engine.beginHomeDeadlineRefresh()
         val snapshot=com.icecream.kwklasplus.core.academic.DeadlinesResult.Success(emptyList(),listOf(f.item("A")),f.now,f.now)
         f.engine.acceptHomeDeadlines(first,snapshot);assertTrue(f.platform.posted.isEmpty())
         f.now+=60_001;f.engine.acceptHomeDeadlines(second,snapshot);assertTrue(f.platform.posted.isEmpty())

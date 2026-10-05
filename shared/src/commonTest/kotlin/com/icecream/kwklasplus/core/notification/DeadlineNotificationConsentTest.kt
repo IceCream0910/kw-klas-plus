@@ -33,6 +33,13 @@ class DeadlineNotificationConsentTest {
         val consent=DeadlineNotificationConsent(engine) { changed++ }
         val ui=ReminderSettingsUi { attempt=it;true }
     }
+    @Test fun completedAttemptIsIdempotentAcrossRecreationAndCannotReviveDisabledSetting()=runBlocking {
+        val f=Fixture();f.permission="authorized";f.consent.request(true,f.ui)
+        assertEquals("COMPLETED",f.consent.complete(f.attempt))
+        assertEquals("COMPLETED",f.consent.complete(f.attempt));assertEquals(1,f.changed)
+        f.consent.request(false,f.ui)
+        assertEquals("CANCELLED",f.consent.complete(f.attempt));assertFalse(f.engine.snapshot().deadlineEnabled)
+    }
     @Test fun setupCanSaveConsentButCannotRefreshUntilFunnelCompletes()=runBlocking {
         val f=Fixture();f.ready=false;f.permission="authorized"
         assertTrue(f.consent.request(true,f.ui).pending)

@@ -48,6 +48,7 @@ interface ReminderDataSource {
 object ReminderTime {
     const val DAY = 86_400_000L
     const val SEOUL_OFFSET = 9 * 3_600_000L
+    fun isQuietHours(now: Long): Boolean = ((now + SEOUL_OFFSET) % DAY + DAY) % DAY < 8 * 3_600_000L
     fun day(now: Long): Long = (now + SEOUL_OFFSET) / DAY
     fun parse(value: String): Long? = runCatching {
         val compact = Regex("[0-9]{8}([0-9]{2}){0,3}")

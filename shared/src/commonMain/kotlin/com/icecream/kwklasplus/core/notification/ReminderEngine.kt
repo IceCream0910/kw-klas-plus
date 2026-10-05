@@ -20,6 +20,9 @@ class ReminderEngine(
     private val refreshMutex=Mutex()
     private val json=Json { encodeDefaults=true; ignoreUnknownKeys=true }
     private var latestDeadlineRequest=0L
+    private var latestHomeRequest=0L
+    private var latestHomeAcceptedRequest=0L
+    private var requestSequence=0L
     private var ledger: ReminderLedger?=null
     private suspend fun load(): ReminderLedger {
         ledger?.let { return it }
@@ -85,9 +88,13 @@ class ReminderEngine(
         }
         acceptDeadlines(ticket,result)
     }
-    suspend fun beginDeadlineRefresh(): ReminderDeadlineTicket=mutex.withLock {
+    suspend fun beginDeadlineRefresh(): ReminderDeadlineTicket = beginRefresh(false)
+    suspend fun beginHomeDeadlineRefresh(): ReminderDeadlineTicket = beginRefresh(true)
+    private suspend fun beginRefresh(home: Boolean): ReminderDeadlineTicket=mutex.withLock {
         val state=align()
-        ReminderDeadlineTicket(state.ownerHash,state.generation,state.revision,identity.current().term,clock.nowEpochMillis(),++latestDeadlineRequest)
+        val request=++requestSequence
+        if(home)latestHomeRequest=request else latestDeadlineRequest=request
+        ReminderDeadlineTicket(state.ownerHash,state.generation,state.revision,identity.current().term,clock.nowEpochMillis(),request)
     }
     suspend fun acceptHomeDeadlines(ticket: ReminderDeadlineTicket, result: com.icecream.kwklasplus.core.academic.DeadlinesResult) {
         val projection=when(result) {
@@ -104,13 +111,14 @@ class ReminderEngine(
     private suspend fun acceptDeadlines(ticket: ReminderDeadlineTicket,result: ReminderSourceResult<List<ReminderDeadline>>,allowPosting: Boolean=true) {
         mutex.withLock {
             val old=align(); val current=identity.current(); val now=clock.nowEpochMillis()
-            if(ticket.requestId!=latestDeadlineRequest || old.ownerHash!=ticket.ownerHash || old.generation!=ticket.generation || !current.ready || current.term!=ticket.term || !old.deadlineEnabled || old.revision!=ticket.revision) return@withLock
+            if(ticket.requestId!=(if(allowPosting) latestDeadlineRequest else latestHomeRequest) || (allowPosting && ticket.requestId<latestHomeAcceptedRequest) || old.ownerHash!=ticket.ownerHash || old.generation!=ticket.generation || !current.ready || current.term!=ticket.term || !old.deadlineEnabled || old.revision!=ticket.revision) return@withLock
             val status=when(result) { ReminderSourceResult.NeedsLogin ->"NEEDS_LOGIN"; ReminderSourceResult.UnverifiedSource ->"UNVERIFIED_SOURCE"; ReminderSourceResult.Retry ->"REFRESH_FAILED"; is ReminderSourceResult.Success ->"READY" }
             save(old.copy(deadlineStatus=status))
             if(result !is ReminderSourceResult.Success || now-ticket.startedAt !in 0..60_000) return@withLock
             val day=ReminderTime.day(now)
             val eligible=result.value.filter { (it.startsAt==null || it.startsAt<=now) && it.dueAt>now && it.dueAt<=now+ReminderTime.DAY }
             if(eligible.map { it.key }.distinct().size!=eligible.size) { save(load().copy(deadlineStatus="UNVERIFIED_SOURCE"));return@withLock }
+            if(!allowPosting)latestHomeAcceptedRequest=maxOf(latestHomeAcceptedRequest,ticket.requestId)
             val candidates=eligible.map { platform.hash("${old.ownerHash}/${it.key}") }.toSet()
             val claims=old.claims.filter { it.day>=day-35 }
             claims.filter { it.ownerHash==old.ownerHash && !candidates.containsAll(it.keys) }.forEach { platform.cancel(it.batchId) }
@@ -124,9 +132,15 @@ class ReminderEngine(
             if(!allowPosting || !deliveryGate.canPost()) {
                 save(load().copy(deadlineStatus="FOREGROUND_SUPPRESSED"));return@withLock
             }
+            if(ReminderTime.isQuietHours(clock.nowEpochMillis())) {
+                save(load().copy(deadlineStatus="QUIET_HOURS"));return@withLock
+            }
             if(platform.permission("deadline") !in listOf("authorized","provisional")) { save(load().copy(deadlineStatus="PERMISSION_BLOCKED")); return@withLock }
             if(!deliveryGate.canPost()) {
                 save(load().copy(deadlineStatus="FOREGROUND_SUPPRESSED"));return@withLock
+            }
+            if(ReminderTime.isQuietHours(clock.nowEpochMillis())) {
+                save(load().copy(deadlineStatus="QUIET_HOURS"));return@withLock
             }
             if(clock.nowEpochMillis()-ticket.startedAt !in 0..60_000)return@withLock
             val batch=platform.hash("${old.ownerHash}/$day/${added.sorted().joinToString()}")
@@ -135,6 +149,9 @@ class ReminderEngine(
                 save(load().copy(claims=claims,deadlineStatus="FOREGROUND_SUPPRESSED"));return@withLock
             }
             val dispatchTime=clock.nowEpochMillis()
+            if(ReminderTime.isQuietHours(dispatchTime)) {
+                save(load().copy(claims=claims,deadlineStatus="QUIET_HOURS"));return@withLock
+            }
             val dispatchIdentity=identity.current()
             if(!dispatchIdentity.ready || dispatchIdentity.term!=ticket.term || platform.hash(dispatchIdentity.owner)!=ticket.ownerHash)return@withLock
             if(dispatchTime-ticket.startedAt !in 0..60_000 || ReminderTime.day(dispatchTime)!=day)return@withLock
@@ -142,7 +159,9 @@ class ReminderEngine(
             if(newItems.isEmpty())return@withLock
             val message=DeadlineReminderMessage.create(newItems,dispatchTime,seen.isNotEmpty())
             val posted=platform.postDetailed(batch,"deadline",old.generation,seen.isNotEmpty(),message)
-            save(load().copy(deadlineStatus=if(posted)"POST_ATTEMPTED" else "SCHEDULE_FAILED"))
+            if(!posted && ReminderTime.isQuietHours(clock.nowEpochMillis())) {
+                save(load().copy(claims=claims,deadlineStatus="QUIET_HOURS"))
+            } else save(load().copy(deadlineStatus=if(posted)"POST_ATTEMPTED" else "SCHEDULE_FAILED"))
         }
     }
 

@@ -2,7 +2,7 @@ package com.icecream.kwklasplus.core.notification
 
 import com.icecream.kwklasplus.core.network.*
 import com.icecream.kwklasplus.core.security.SecretValue
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import kotlinx.serialization.json.*
 import kotlin.test.*
 
@@ -18,6 +18,30 @@ class AcademicReminderSourceTest {
         },{ SecretValue.of("synthetic-session") },{ KlasUserAgent.fromPlatform("fixture") },
     )
     private val row="""{"taskNo":"A","submityn":"N","startdate":"202610010900","expiredate":"202610031000"}"""
+    @Test fun subjectsAreFetchedConcurrentlyWithBoundedParallelism()=runBlocking {
+        var active=0;var peak=0;var requests=0
+        val fourStarted=CompletableDeferred<Unit>();val release=CompletableDeferred<Unit>()
+        val source=AcademicReminderSource(KlasAuthenticatedTransport { endpoint,_,_,_ ->
+            if(endpoint==AuthenticatedKlasEndpoint.ACADEMIC_TERM_SUBJECTS) {
+                KlasAuthenticatedResult.Success(buildJsonArray { add(buildJsonObject {
+                    put("value","2026,2");put("subjList",buildJsonArray {
+                        repeat(8) { add(buildJsonObject { put("value","S$it");put("name","subject") }) }
+                    })
+                }) })
+            } else {
+                active++;peak=maxOf(peak,active);requests++
+                if(active==4)fourStarted.complete(Unit)
+                try { release.await() } finally { active-- }
+                KlasAuthenticatedResult.Success(JsonArray(emptyList()))
+            }
+        },{ SecretValue.of("fixture") },{ KlasUserAgent.fromPlatform("fixture") })
+        withTimeout(3000) {
+            val result=async { source.deadlines("2026,2") }
+            fourStarted.await();release.complete(Unit)
+            assertIs<ReminderSourceResult.Success<List<ReminderDeadline>>>(result.await())
+        }
+        assertEquals(4,peak);assertEquals(24,requests)
+    }
     @Test fun missingStableIdOrUnknownCompletionFailsClosed()=runBlocking {
         assertEquals(ReminderSourceResult.UnverifiedSource,source("[${row.replace("\"taskNo\":\"A\",","")}]").deadlines("2026,2"))
         assertEquals(ReminderSourceResult.UnverifiedSource,source("[${row.replace("\"submityn\":\"N\",","")}]").deadlines("2026,2"))

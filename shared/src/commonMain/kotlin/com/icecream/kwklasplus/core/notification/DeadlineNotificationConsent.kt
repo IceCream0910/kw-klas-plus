@@ -10,6 +10,8 @@ class DeadlineNotificationConsent(private val engine: ReminderEngine,private val
     private var sequence=0L
     private var attempt=0L
     private var captured: ReminderLedger?=null
+    private var completedAttempt=0L
+    private var completedLedger: ReminderLedger?=null
     private var status="IDLE"
     suspend fun state(): DeadlineConsentState=mutex.withLock { stateLocked() }
     private suspend fun stateLocked(): DeadlineConsentState {
@@ -26,6 +28,7 @@ class DeadlineNotificationConsent(private val engine: ReminderEngine,private val
         } else if(attempt==0L) {
             val current=engine.snapshot()
             check(engine.canConfigure() && current.ownerHash.isNotBlank()) { "NOT_AUTHENTICATED" }
+            completedAttempt=0;completedLedger=null
             captured=current;attempt=++sequence;status="AWAITING_PERMISSION"
             val opened=try { ui.open(attempt) } catch(cause: Exception) {
                 captured=null;attempt=0;status="OPEN_FAILED"
@@ -37,9 +40,16 @@ class DeadlineNotificationConsent(private val engine: ReminderEngine,private val
         stateLocked()
     }
     suspend fun complete(id: Long): String=mutex.withLock {
+        if(id!=0L && id==completedAttempt) {
+            val current=engine.snapshot()
+            val saved=completedLedger
+            if(saved==null || current.ownerHash!=saved.ownerHash || current.generation!=saved.generation || current.revision!=saved.revision || !current.deadlineEnabled || !engine.canConfigure())return@withLock "CANCELLED"
+            return@withLock if(engine.settings().permission in listOf("authorized","provisional")) "COMPLETED" else "PERMISSION_DENIED"
+        }
         val saved=captured ?: return@withLock "CANCELLED"
         if(id!=attempt)return@withLock "CANCELLED"
         if(!engine.enableAfterConsent(saved))return@withLock stateLocked().let { if(it.pending)"PERMISSION_DENIED" else "CANCELLED" }
+        completedAttempt=id;completedLedger=engine.snapshot()
         captured=null;attempt=0;status="COMPLETED";changed();status
     }
     suspend fun cancel(id: Long)=mutex.withLock {
