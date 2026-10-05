@@ -15,6 +15,7 @@ struct SelectionBottomSheet: View {
 
     @AccessibilityFocusState private var focusedElement: SelectionFocus?
     @State private var contentHeight: CGFloat = 240
+    @State private var windowSize: CGSize?
 
     var body: some View {
         ScrollView {
@@ -28,9 +29,14 @@ struct SelectionBottomSheet: View {
                     }
                 }
         }
-        .scrollDisabled(contentHeight + grabberAllowance <= maxDetent)
-        .background(KlasTheme.surface)
-        .presentationDetents([.height(detentHeight)])
+        .scrollDisabled(
+            contentHeight + SelectionSheetMetrics.grabberAllowance
+                <= SelectionSheetMetrics.maxDetent(windowSize: windowSize)
+        )
+        .background(WindowSizeReader { windowSize = $0 })
+        .presentationDetents([
+            .height(SelectionSheetMetrics.detentHeight(contentHeight: contentHeight, windowSize: windowSize))
+        ])
         .presentationDragIndicator(.visible)
         .modifier(SelectionSheetSurfaceBackground())
         .tint(KlasTheme.primary)
@@ -95,16 +101,21 @@ struct SelectionBottomSheet: View {
         }
     }
 
-    private var grabberAllowance: CGFloat { 20 }
+}
 
-    private var maxDetent: CGFloat {
-        min(UIScreen.main.bounds.width, UIScreen.main.bounds.height) * 0.9
+enum SelectionSheetMetrics {
+    static let grabberAllowance: CGFloat = 20
+
+    static func maxDetent(windowSize: CGSize?) -> CGFloat {
+        guard let windowSize, windowSize.width > 0, windowSize.height > 0 else {
+            return .infinity
+        }
+        return min(windowSize.width, windowSize.height) * 0.9
     }
 
-    private var detentHeight: CGFloat {
-        min(max(contentHeight + grabberAllowance, 1), maxDetent)
+    static func detentHeight(contentHeight: CGFloat, windowSize: CGSize?) -> CGFloat {
+        min(max(contentHeight + grabberAllowance, 1), maxDetent(windowSize: windowSize))
     }
-
 }
 
 private enum SelectionFocus: Hashable {
@@ -114,10 +125,52 @@ private enum SelectionFocus: Hashable {
 
 private struct SelectionSheetSurfaceBackground: ViewModifier {
     func body(content: Content) -> some View {
-        if #available(iOS 16.4, *) {
-            content.presentationBackground(KlasTheme.surface)
-        } else {
+        if #available(iOS 26.0, *) {
+            content.background(KlasTheme.surface)
+        } else if #available(iOS 16.4, *) {
             content
+                .background(KlasTheme.surface)
+                .presentationBackground(KlasTheme.surface)
+        } else {
+            content.background(KlasTheme.surface)
+        }
+    }
+}
+
+private struct WindowSizeReader: UIViewRepresentable {
+    let onChange: (CGSize) -> Void
+
+    func makeUIView(context: Context) -> ReaderView {
+        let view = ReaderView()
+        view.isUserInteractionEnabled = false
+        view.onChange = onChange
+        return view
+    }
+
+    func updateUIView(_ uiView: ReaderView, context: Context) {
+        uiView.onChange = onChange
+    }
+
+    final class ReaderView: UIView {
+        var onChange: ((CGSize) -> Void)?
+        private var reportedSize: CGSize?
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            reportWindowSize()
+        }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            reportWindowSize()
+        }
+
+        private func reportWindowSize() {
+            guard let size = window?.bounds.size, size != reportedSize else { return }
+            reportedSize = size
+            DispatchQueue.main.async { [onChange] in
+                onChange?(size)
+            }
         }
     }
 }

@@ -35,8 +35,8 @@ struct PushedWebStack: View {
                     Image(systemName: "chevron.left")
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                if holder.shareableFileURL != nil {
+            if holder.shareableFileURL != nil {
+                ToolbarItem(placement: .klasPinnedTrailing) {
                     Button(action: { holder.shareCurrentFile() }) {
                         Image(systemName: "square.and.arrow.up")
                     }

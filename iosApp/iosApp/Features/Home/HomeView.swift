@@ -83,7 +83,7 @@ private struct HomeReloadOverlay: View {
                     .foregroundStyle(KlasTheme.onBackground)
             }
             .padding(24)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+            .klasFloatingSurface(cornerRadius: 20)
             .accessibilityElement(children: .combine)
         }
         .accessibilityIdentifier("home_reload_overlay")
