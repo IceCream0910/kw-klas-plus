@@ -81,9 +81,9 @@ class LoginActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 appLockEnabled = AppLockManager.isAppLockEnabled(this@LoginActivity)
+                if (funnelStep == LoginFunnelStep.AppLock && AppLockManager.hasPassword(this@LoginActivity)) continueFunnel()
                 deadlineNotificationsEnabled = appDependencies.reminders.consent.state().enabled
-                if (funnelStep == LoginFunnelStep.AppLock && appLockEnabled ||
-                    funnelStep == LoginFunnelStep.Notifications && deadlineNotificationsEnabled) continueFunnel()
+                if (funnelStep == LoginFunnelStep.Notifications && deadlineNotificationsEnabled) continueFunnel()
             } catch (cause: Exception) {
                 if (cause is CancellationException) throw cause
                 funnelError = "추천 설정을 확인하지 못했어요. 다시 시도해 주세요."
@@ -102,8 +102,12 @@ class LoginActivity : AppCompatActivity() {
         lockSetupBusy = true
         lifecycleScope.launch {
             try {
-                val mode = if (AppLockManager.hasPassword(this@LoginActivity)) "CHANGE" else "SET"
-                lockSetup.launch(Intent(this@LoginActivity, LockActivity::class.java).putExtra("MODE", mode))
+                if (AppLockManager.hasPassword(this@LoginActivity)) {
+                    lockSetupBusy = false
+                    if (funnelStep == LoginFunnelStep.AppLock) continueFunnel()
+                    return@launch
+                }
+                lockSetup.launch(Intent(this@LoginActivity, LockActivity::class.java).putExtra("MODE", "SET"))
             } catch (cause: Exception) {
                 lockSetupBusy = false
                 if (cause is CancellationException) throw cause
@@ -234,8 +238,7 @@ class LoginActivity : AppCompatActivity() {
                         ) {
                             libraryPassword = ""
                             funnelError = null
-                            funnelStep = LoginFunnelStep.AppLock
-                            refreshRecommendationSettings()
+                            advanceAfterLibrary()
                         } else {
                             funnelError = "설정 상태를 확인하지 못했어요. 다시 시도해 주세요."
                         }
@@ -386,6 +389,20 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun backFunnel() {
+        if (funnelStep == LoginFunnelStep.Notifications) {
+            lifecycleScope.launch {
+                try {
+                    val hasPassword = AppLockManager.hasPassword(this@LoginActivity)
+                    if (funnelStep == LoginFunnelStep.Notifications) {
+                        funnelStep = LoginFunnelStatus.stepBeforeNotifications(hasPassword)
+                    }
+                } catch (cause: Exception) {
+                    if (cause is CancellationException) throw cause
+                    funnelError = "앱 잠금 설정을 확인하지 못했어요. 다시 시도해 주세요."
+                }
+            }
+            return
+        }
         funnelStep = when (funnelStep) {
             LoginFunnelStep.StudentId -> {
                 if (canReturnToOnboarding) {
@@ -396,10 +413,24 @@ class LoginActivity : AppCompatActivity() {
             }
             LoginFunnelStep.Password -> LoginFunnelStep.StudentId
             LoginFunnelStep.Agreements -> LoginFunnelStep.Notifications
-            LoginFunnelStep.Notifications -> LoginFunnelStep.AppLock
             LoginFunnelStep.AppLock -> LoginFunnelStep.Library
             LoginFunnelStep.Complete -> LoginFunnelStep.Agreements
             else -> funnelStep
+        }
+    }
+
+    private fun advanceAfterLibrary() {
+        lifecycleScope.launch {
+            try {
+                val hasPassword = AppLockManager.hasPassword(this@LoginActivity)
+                if (funnelStep != LoginFunnelStep.Library ||
+                    appPreferences.getString(LoginFunnelStatus.KEY, null) != LoginFunnelStatus.SETUP) return@launch
+                funnelStep = LoginFunnelStatus.appLockRecommendationStep(hasPassword)
+                refreshRecommendationSettings()
+            } catch (cause: Exception) {
+                if (cause is CancellationException) throw cause
+                funnelError = "앱 잠금 설정을 확인하지 못했어요. 다시 시도해 주세요."
+            }
         }
     }
 
@@ -429,8 +460,7 @@ class LoginActivity : AppCompatActivity() {
         }
         libraryPassword = ""
         funnelError = null
-        funnelStep = LoginFunnelStep.AppLock
-        refreshRecommendationSettings()
+        advanceAfterLibrary()
     }
 
     private fun finishFunnel() {
