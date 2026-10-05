@@ -45,9 +45,10 @@ class ReminderEngineTest {
         val store=Store();val platform=Platform();val source=Source()
         var now=ReminderTime.parse("2026-10-02 10:00:00")!!
         var owner="user"
+        var term="2026,2"
         var ready=true
         var background=true
-        fun engine()=ReminderEngine(store,platform,ReminderIdentityProvider { ReminderIdentity(owner,"2026,2",ready) },source,Clock { now },ReminderDeliveryGate { background })
+        fun engine()=ReminderEngine(store,platform,ReminderIdentityProvider { ReminderIdentity(owner,term,ready) },source,Clock { now },ReminderDeliveryGate { background })
         val engine=engine()
         suspend fun enable() { engine.setEnabled(true) }
         fun item(id: String)=ReminderDeadline(id,null,now+60*60*1000)
@@ -61,6 +62,52 @@ class ReminderEngineTest {
         f.platform.postSucceeds=true;f.engine().refresh();f.engine().refresh()
         assertEquals(2,f.platform.postAttempts)
         assertEquals(listOf(false),f.platform.posted.map { it.second })
+    }
+    @Test fun staleResultDuringClaimSaveRestoresClaimsAndNextRefreshRetries()=runBlocking {
+        val f=Fixture();f.enable();f.source.items=listOf(f.item("A"));f.engine.refresh()
+        val previous=f.engine.snapshot().claims
+        f.source.items+=f.item("B")
+        f.store.onWrite={ if(f.store.raw?.contains("POST_ATTEMPTED")==true)f.now+=60_001 }
+        f.engine.refresh()
+        assertEquals(1,f.platform.postAttempts)
+        assertEquals(previous,f.engine().snapshot().claims)
+        assertEquals("REFRESH_FAILED",f.engine.snapshot().deadlineStatus)
+        f.store.onWrite={};f.engine().refresh();f.engine().refresh()
+        assertEquals(listOf(false,true),f.platform.posted.map { it.second })
+        assertEquals(setOf("user/B"),f.engine().snapshot().claims.last().keys)
+    }
+    @Test fun identityChangeDuringClaimSaveDoesNotConsumeUnpostedClaim()=runBlocking {
+        for(change in listOf("term","owner","ready")) {
+            val f=Fixture();f.enable();f.source.items=listOf(f.item("A"))
+            f.store.onWrite={
+                if(f.store.raw?.contains("POST_ATTEMPTED")==true)when(change) {
+                    "term" -> f.term="2026,1"
+                    "owner" -> f.owner="other"
+                    else -> f.ready=false
+                }
+            }
+            f.engine.refresh()
+            assertEquals(0,f.platform.postAttempts)
+            f.store.onWrite={};f.term="2026,2";f.owner="user";f.ready=true
+            assertTrue(f.engine().snapshot().claims.isEmpty())
+            f.engine().refresh();assertEquals(listOf(false),f.platform.posted.map { it.second })
+        }
+    }
+    @Test fun itemsExpiringDuringClaimSaveDoNotConsumeAnyUnpostedClaims()=runBlocking {
+        for(includeLater in listOf(false,true)) {
+            val f=Fixture();f.enable()
+            f.source.items=listOf(ReminderDeadline("A",null,f.now+1))+
+                if(includeLater)listOf(f.item("B")) else emptyList()
+            f.store.onWrite={ if(f.store.raw?.contains("POST_ATTEMPTED")==true)f.now+=2 }
+            f.engine.refresh()
+            assertEquals(0,f.platform.postAttempts)
+            assertTrue(f.engine().snapshot().claims.isEmpty())
+            f.store.onWrite={};f.source.items=listOf(f.item("A"))+
+                if(includeLater)listOf(f.item("B")) else emptyList()
+            f.engine().refresh()
+            assertEquals(listOf(false),f.platform.posted.map { it.second })
+            assertEquals(if(includeLater)setOf("user/A","user/B") else setOf("user/A"),f.engine().snapshot().claims.single().keys)
+        }
     }
     @Test fun refusedOsPostRestoresPreviousClaimsAndRecordsSuppressionReason()=runBlocking {
         for(reason in listOf("FOREGROUND_SUPPRESSED","PERMISSION_BLOCKED","QUIET_HOURS")) {

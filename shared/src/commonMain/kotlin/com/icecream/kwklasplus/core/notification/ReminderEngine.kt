@@ -153,10 +153,14 @@ class ReminderEngine(
                 save(load().copy(claims=claims,deadlineStatus="QUIET_HOURS"));return@withLock
             }
             val dispatchIdentity=identity.current()
-            if(!dispatchIdentity.ready || dispatchIdentity.term!=ticket.term || platform.hash(dispatchIdentity.owner)!=ticket.ownerHash)return@withLock
-            if(dispatchTime-ticket.startedAt !in 0..60_000 || ReminderTime.day(dispatchTime)!=day)return@withLock
+            if(!dispatchIdentity.ready || dispatchIdentity.term!=ticket.term || platform.hash(dispatchIdentity.owner)!=ticket.ownerHash ||
+                dispatchTime-ticket.startedAt !in 0..60_000 || ReminderTime.day(dispatchTime)!=day) {
+                save(load().copy(claims=claims,deadlineStatus="REFRESH_FAILED"));return@withLock
+            }
             val newItems=eligible.filter { platform.hash("${old.ownerHash}/${it.key}") in added && it.dueAt>dispatchTime }
-            if(newItems.isEmpty())return@withLock
+            if(newItems.size!=added.size) {
+                save(load().copy(claims=claims,deadlineStatus="REFRESH_FAILED"));return@withLock
+            }
             val message=DeadlineReminderMessage.create(newItems,dispatchTime,seen.isNotEmpty())
             val posted=platform.postDetailed(batch,"deadline",old.generation,seen.isNotEmpty(),message)
             if(posted) {
