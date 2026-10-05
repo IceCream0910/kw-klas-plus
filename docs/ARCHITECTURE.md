@@ -119,7 +119,11 @@ QR 출석, 앱 잠금, PIP, 위젯, 파일·외부 URL은 공통 요청/결과�
 
 DEADLINE 알림은 [ADR-010](adr/ADR-010-deadline-notifications.md)을 따릅니다. 캘린더 일정 알림은 제거하며 기존 CRUD·위젯은 유지합니다. ReminderEngine은 최신 전체 조회·60초 신선도, KST 항목별 하루 한 번 claim, 새 항목 추가 안내, 계정 generation/설정 revision/최신 request 검사를 소유합니다. 홈 피드는 새 DeadlineRepository 응답만 전달하며 같은 응답의 알림 projection으로 과목·종류·건수·남은 시간을 구성합니다. 실패 시 과거 feed로 fallback하지 않습니다.
 
-홈 조회 및 재활성화/권한 허용 완료에서는 알림을 게시하지 않으며 홈 조회는 당일 claim을 소비하지 않습니다. 백그라운드 JobService/BGAppRefreshTask가 WebView 없이 Native source를 조회하고 앱이 표시되지 않을 때만 게시합니다. 플랫폼 상태 port를 공통 엔진에 주입하고 권한 조회·claim 저장 뒤에도 재확인합니다. 저장 중 앱을 열면 미게시 claim을 해제합니다. iOS BG 요청은 기존 pending 요청이 1시간 목표보다 늦으면 앞당기고 이미 더 이른 요청은 유지해 재진입마다 실행 가능 시점을 미루지 않습니다. Debug 진단 로그는 알림 상태/권한/등록 성공 여부만 포함하며 계정·항목·본문을 출력하지 않습니다. iOS Debug 전용 KlasDeadlineDebug는 LLDB의 Objective-C runtime 호출로 갱신 함수를 수동 실행합니다. Release/Web 브리지에는 노출하지 않으며 실제 background 상태·권한·계정·claim을 유지하고 짧은 실행 시간의 만료 시 작업을 취소합니다.
+Android·iOS는 KST 00:00~08:00에 발송하지 않는다. 공통 엔진과 OS 게시 adapter에서 검사하고 제한 시간 중 미게시 claim은 소비하지 않는다. 08:00 이후 다음 OS 갱신에서 최신 데이터를 다시 조회하며 고정 시각 예약은 없다.
+
+홈 조회 및 재활성화/권한 허용 완료에서는 알림을 게시하지 않으며 홈 조회는 당일 claim을 소비하지 않습니다. 백그라운드 JobService/BGAppRefreshTask가 WebView 없이 Native source를 조회하고 앱이 표시되지 않을 때만 게시합니다. 홈과 background 요청 번호를 분리하고 더 최신의 검증된 홈 성공보다 오래된 background 결과를 폐기한다. Native source는 최대 4과목 병렬 조회를 사용한다. 플랫폼 상태 port를 공통 엔진에 주입하고 권한 조회·claim 저장 뒤에도 재확인합니다. 저장 중 앱을 열면 미게시 claim을 해제합니다. iOS BG 요청은 기존 pending 요청이 1시간 목표보다 늦으면 앞당기고 이미 더 이른 요청은 유지해 재진입마다 실행 가능 시점을 미루지 않습니다. Debug 진단 로그는 알림 상태/권한/등록 성공 여부만 포함하며 계정·항목·본문을 출력하지 않습니다. iOS Debug 전용 KlasDeadlineDebug는 LLDB의 Objective-C runtime 호출로 갱신 함수를 수동 실행합니다. Release/Web 브리지에는 노출하지 않으며 실제 background 상태·권한·계정·claim을 유지하고 짧은 실행 시간의 만료 시 작업을 취소합니다.
+
+iOS 원장 읽기 실패는 STORAGE_FAILED로 전달하며 손상 JSON과 구분한다. 로그아웃은 pending BG 요청과 등록 callback을 취소한다. Android Job은 기존 interval·flex를 함께 검사해 1시간/15분 flex로 등록하고 BIND_JOB_SERVICE 권한을 유지한다.
 
 Android NotificationManager/1시간 JobScheduler와 iOS UNUserNotificationCenter/BGAppRefreshTask를 사용합니다. 미래 예약·정확 알람 권한은 없으며 갱신 실행 주기를 보장하지 않습니다. 기본값은 꺼짐이고 웹 ON/OFF 토글은 Native 상태를 읽고 해제 저장 또는 활성화 시트를 요청합니다. Android Compose/iOS SwiftUI bottom sheet의 권한 허용하기 CTA에서만 OS 권한 요청·ON 저장을 처리하며 완료 안내를 표시한 뒤 별도 닫기 버튼으로 닫습니다. 거부/취소/저장 실패는 ON으로 확정하지 않습니다. getDeadlineNotificationState/setDeadlineNotificationsEnabled(Boolean)를 추가하고 기존 opener를 호환 별칭으로 유지합니다. 기존 58개 메서드·콜백·DTO는 유지하고 새 메서드는 KLAS+ origin·main frame으로 제한합니다. 자세한 계약은 [WebView 계약](notifications/webview-implementation-contract.md)에 있습니다.
 

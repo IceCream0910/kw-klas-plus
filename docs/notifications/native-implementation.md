@@ -60,3 +60,21 @@ Mocking 기능 제거 후 공통 Android 285개, Kotlin iOS 310개, Android JVM 
 ## iOS 콘텐츠 높이 측정 회귀 수정
 
 측정된 높이를 ScrollView의 maxHeight로 다시 적용하던 제한을 제거했습니다. 콘텐츠를 세로 fixedSize로 독립 측정하고, 일시적인 0·비정상 측정값은 시트 높이에 반영하지 않습니다. 권한 확인→완료 상태 전환에서도 타이틀·설명·그래픽이 복구되며 CTA는 고정합니다. SwiftUI 온보딩과 UIKit 설정 presenter가 동일한 레이아웃을 사용합니다. 별도 iOS 시뮬레이터에서 작은 viewport·0 높이 전환 후 확장·큰 글꼴 UIKit 표시 회귀 테스트 2개와 앱/위젯 빌드가 통과했습니다.
+
+## PR #85 리뷰 및 야간 정책 수정 (2026-10-05)
+
+기준은 PR head `75d92b737052cd08912a6c38b4a2ab8c070447f0`이다. 진도 소수값 수정은 이미 반영된 상태여서 유지했고, 나머지 7개 리뷰 지적사항은 코드 경로를 확인한 뒤 반영했다. WebView 계약·호환 기준 SHA는 기존과 동일하며 이번 변경에 Web 배포는 필요하지 않다.
+
+KST 00:00~08:00에는 양 플랫폼에서 새 알림을 게시하지 않는다. 공통 엔진은 권한 조회 전·후와 원장 저장 후, Android·iOS adapter는 OS 호출 직전에 검사한다. 이 시간대의 조회·기존 부적격 알림 정리는 유지하지만 발송 claim을 소비하지 않는다. 08:00 이후 다음 성공 백그라운드 조회에서 최신 미완료 항목을 다시 판단한다. 이전 야간 snapshot을 큐에 넣거나 08:00 정확 알람으로 전달하지 않는다.
+
+백그라운드 source는 최대 4과목 병렬 조회로 변경했다. 홈 조회 요청만으로 발송 티켓을 폐기하지 않도록 홈·background 번호를 분리하고, 더 최신의 검증된 홈 성공 이후에는 이전 background 응답을 폐기한다. 번호 비교는 동일 밀리초에 시작한 조회도 구분한다. iOS는 원장 읽기 실패와 손상 JSON을 구분하며 로그아웃 finally에서 BG 요청을 취소한다. Android는 1시간/15분 flex를 비교·등록하고 BIND_JOB_SERVICE로 보호된 exported service를 기존 위젯과 맞췄다. exported 변경만으로 기존 시스템 연결 실패를 재현·확인했다고 간주하지 않는다.
+
+Android 시트는 checking·busy 동안 swipe로 Hidden 전환 및 back 닫기를 막는다. 완료 저장은 동시에 중복 실행하지 않으며 동일 attempt 재호출은 계정·generation·revision·권한이 여전히 유효할 때만 COMPLETED를 반환한다. OFF·계정 전환 후에는 재활성화하지 않는다.
+
+최종 검증:
+
+- `JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home ANDROID_HOME=/Users/taein/Library/Android/sdk ./gradlew :shared:testAndroidHostTest :shared:iosSimulatorArm64Test :androidApp:testDebugUnitTest :androidApp:assembleDebug --no-configuration-cache` 통과. 공통 Android 294개, Kotlin iOS 319개, Android JVM 36개가 실패 없이 통과했다.
+- Xcode `iosAppUnitTests`에서 별도 시뮬레이터로 `AcademicReminderHostTests`와 `DeadlineNotificationSheetLayoutTests` 3개 통과. 앱·위젯 빌드 및 Swift/KMP host 연결을 확인했다. 실행 명령은 `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosAppUnitTests -configuration Debug -destination 'platform=iOS Simulator,id=<전용 테스트 기기>' -only-testing:iosAppTests/AcademicReminderHostTests -only-testing:iosAppTests/DeadlineNotificationSheetLayoutTests CODE_SIGN_IDENTITY=- test`이다.
+- 00:00·07:59:59·08:00 경계, KST/UTC 해석, 권한 조회·claim 저장 중 자정 전환과 claim 미소비, 홈 시작/최신 성공 경합, 4과목 병렬 상한, 원장 읽기 실패와 손상 구분, 완료 attempt 재호출·OFF 이후 취소를 검증했다. `git diff --check` 통과.
+
+리뷰어는 2026-10-04 iOS 실기기에서 정상 알림 수신을 확인했다고 보고했다. 이 기록은 이번 야간 정책 수정 후 검증이 아니다. 이번 수정의 Android JobScheduler 실제 onStartJob 기동, 시트 회전·swipe/back 경합, 양 플랫폼 실제 새벽 억제와 08:00 이후 OS 주기 수신은 실기기 수동 확인이 필요하다. 신규 instrumentation은 실행하지 않았다. 롤백은 이번 리뷰 수정 커밋을 되돌리며 저장 키·브리지 schema 변경이나 데이터 이전은 없다.
