@@ -78,3 +78,16 @@ Android 시트는 checking·busy 동안 swipe로 Hidden 전환 및 back 닫기�
 - 00:00·07:59:59·08:00 경계, KST/UTC 해석, 권한 조회·claim 저장 중 자정 전환과 claim 미소비, 홈 시작/최신 성공 경합, 4과목 병렬 상한, 원장 읽기 실패와 손상 구분, 완료 attempt 재호출·OFF 이후 취소를 검증했다. `git diff --check` 통과.
 
 리뷰어는 2026-10-04 iOS 실기기에서 정상 알림 수신을 확인했다고 보고했다. 이 기록은 이번 야간 정책 수정 후 검증이 아니다. 이번 수정의 Android JobScheduler 실제 onStartJob 기동, 시트 회전·swipe/back 경합, 양 플랫폼 실제 새벽 억제와 08:00 이후 OS 주기 수신은 실기기 수동 확인이 필요하다. 신규 instrumentation은 실행하지 않았다. 롤백은 이번 리뷰 수정 커밋을 되돌리며 저장 키·브리지 schema 변경이나 데이터 이전은 없다.
+
+
+## OS 확정 미게시 claim 복구 (2026-10-05)
+
+`postDetailed()`가 `false`를 반환하면 새로 추가한 미게시 claim을 게시 전 claims로 복구합니다. 먼저 `SCHEDULE_FAILED`와 복구 원장을 저장한 뒤 현재 앱 표시·KST 야간·권한 상태로 원인을 보완합니다. 권한 재조회가 실패해도 claim은 이미 복구되어 다음 최신 조회에서 재시도할 수 있습니다. 기존 성공 배치의 claim은 유지하며, 첫 안내 실패 후 재시도는 추가 안내로 바뀌지 않습니다. 결과 불명 예외·취소는 기존 중복 방지 정책을 유지합니다. 플랫폼 Boolean 및 WebView 브리지 계약은 유지합니다.
+
+- 기준 커밋: `d8b09855f6ba6966c6b1409234f0b9c8612f4880` (#85).
+- 명령: `JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home ANDROID_HOME=/Users/taein/Library/Android/sdk ./gradlew :shared:testAndroidHostTest :shared:iosSimulatorArm64Test --no-configuration-cache`.
+- 결과: 공통 Android 297개·Kotlin iOS 322개 통과, diff 검사 통과.
+- 새 회귀 테스트: `failedOsPostDoesNotConsumeClaimAndNextRefreshRetries`, `refusedOsPostRestoresPreviousClaimsAndRecordsSuppressionReason`, `permissionReadFailureAfterRefusedPostStillRestoresClaim`.
+- 실패 후 원장 재읽기·재시도·중복 방지, 기존 성공 claim 유지와 추가 안내, OS 게시 단계 foreground/권한/야간 거부, 후속 권한 조회 실패를 가짜 platform으로 검증했습니다.
+- Native OS 호출 구현은 변경하지 않았습니다. 실제 권한 철회·앱 전환 race, 실기기 알림 수신 및 OS 갱신 주기는 이번 작업에서 수동 검증하지 않았습니다.
+- 롤백: 공통 엔진·회귀 테스트 변경과 이 문서 커밋을 되돌립니다. 저장 원장 스키마·설정 키·브리지 변경은 없습니다.
