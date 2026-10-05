@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,16 +37,20 @@ class DeadlineNotificationSettingsActivity: AppCompatActivity() {
     private var completed by mutableStateOf(false)
     private var error by mutableStateOf<String?>(null)
     private var awaitingSettings=false
+    private var completing=false
     private val attempt get()=intent.getLongExtra("consent_attempt",0)
     private val permissionRequest=registerForActivityResult(ActivityResultContracts.RequestPermission()) { complete() }
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState);enableEdgeToEdge()
+        onBackPressedDispatcher.addCallback(this,object: OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() { if(!checking && !busy)finish() }
+        })
         awaitingSettings=savedInstanceState?.getBoolean("awaiting_settings") ?: false
         completed=savedInstanceState?.getBoolean("completed") ?: false
         setContent {
             KlasPlusTheme {
-                ModalBottomSheet(onDismissRequest={ if(!busy)finish() },sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),dragHandle=null) {
+                ModalBottomSheet(onDismissRequest={ if(!busy && !checking)finish() },sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true,confirmValueChange={ it!=SheetValue.Hidden || (!checking && !busy) }),dragHandle=null) {
                     Box(Modifier.fillMaxWidth()) {
                         FunnelGlow(Modifier.align(Alignment.TopCenter))
                         Column(Modifier.fillMaxWidth()) {
@@ -106,8 +111,10 @@ class DeadlineNotificationSettingsActivity: AppCompatActivity() {
             } else { denied=true;busy=false }
         } catch(cause: Exception) { if(cause is CancellationException)throw cause;error="권한 상태를 확인하지 못했어요. 다시 시도해 주세요.";busy=false }
     } }
-    private fun complete() { lifecycleScope.launch {
-        busy=true
+    private fun complete() {
+        if(completing)return
+        completing=true;busy=true
+        lifecycleScope.launch {
         try {
             when(appDependencies.reminders.consent.complete(attempt)) {
                 "COMPLETED" -> { completed=true;denied=false;error=null }
@@ -115,8 +122,9 @@ class DeadlineNotificationSettingsActivity: AppCompatActivity() {
                 else -> { error="설정 요청이 취소되었어요. 시트를 닫고 다시 켜 주세요." }
             }
         } catch(cause: Exception) { if(cause is CancellationException)throw cause;denied=false;error="알림 설정을 저장하지 못했어요. 다시 시도해 주세요." }
-        finally { busy=false;checking=false }
-    } }
+        finally { completing=false;busy=false;checking=false }
+        }
+    }
     override fun onResume() {
         super.onResume()
         if(awaitingSettings) { awaitingSettings=false;complete() }

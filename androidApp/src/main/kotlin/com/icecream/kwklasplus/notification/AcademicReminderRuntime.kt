@@ -37,7 +37,14 @@ class AcademicReminderRuntime(private val context: Context) {
     suspend fun updateJobs() {
         val state=engine.snapshot();val scheduler=context.getSystemService(JobScheduler::class.java)
         if(engine.isReady() && state.ownerHash.isNotBlank() && state.deadlineEnabled) {
-            if(scheduler.getPendingJob(JOB)?.intervalMillis!=REFRESH_INTERVAL_MILLIS)scheduler.schedule(JobInfo.Builder(JOB,ComponentName(context,AcademicReminderJobService::class.java)).setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).setPeriodic(REFRESH_INTERVAL_MILLIS).setPersisted(true).setBackoffCriteria(15*60*1000L,JobInfo.BACKOFF_POLICY_EXPONENTIAL).build())
+            val pending=scheduler.getPendingJob(JOB)
+            if(pending==null || pending.intervalMillis!=REFRESH_INTERVAL_MILLIS || pending.flexMillis!=REFRESH_FLEX_MILLIS) {
+                scheduler.schedule(JobInfo.Builder(JOB,ComponentName(context,AcademicReminderJobService::class.java))
+                    .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                    .setPeriodic(REFRESH_INTERVAL_MILLIS,REFRESH_FLEX_MILLIS)
+                    .setPersisted(true)
+                    .setBackoffCriteria(REFRESH_FLEX_MILLIS,JobInfo.BACKOFF_POLICY_EXPONENTIAL).build())
+            }
         } else scheduler.cancel(JOB)
     }
     fun wrap(activity: Activity,fallback: BridgeCommandHandler)=ReminderBridgeHandler(consent,ReminderSettingsUi { attempt ->
@@ -48,6 +55,7 @@ class AcademicReminderRuntime(private val context: Context) {
     companion object {
         const val JOB=7311
         const val REFRESH_INTERVAL_MILLIS=60*60*1000L
+        const val REFRESH_FLEX_MILLIS=15*60*1000L
     }
 }
 class AcademicReminderJobService: JobService() {

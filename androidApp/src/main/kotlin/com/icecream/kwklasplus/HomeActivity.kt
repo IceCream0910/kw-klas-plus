@@ -950,7 +950,7 @@ class HomeActivity : AppCompatActivity() {
         val selectedTerm=yearHakgi
         val account=appPreferences.getString(AppPrefs.KW_ID,null)
         val version=withContext(Dispatchers.Main) { deadlineForWebview="";++deadlineRequestVersion }
-        val ticket=runCatching { appDependencies.reminders.engine.beginDeadlineRefresh() }.getOrNull()
+        val ticket=runCatching { appDependencies.reminders.engine.beginHomeDeadlineRefresh() }.getOrNull()
         val result=appDependencies.deadlineRepository.fetch(SecretValue.of(sessionId),KlasUserAgent.fromPlatform(WebSettings.getDefaultUserAgent(this)),selectedTerm,subjects)
         val accepted=withContext(Dispatchers.Main) {
             if(version!=deadlineRequestVersion || selectedTerm!=yearHakgi || account!=appPreferences.getString(AppPrefs.KW_ID,null))return@withContext false

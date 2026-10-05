@@ -58,7 +58,7 @@ class AndroidReminderPlatform(
         return if(manager.getNotificationChannel(channel)?.importance==NotificationManager.IMPORTANCE_NONE)"denied" else "authorized"
     }
     override suspend fun postDetailed(id: String,kind: String,generation: Long,additional: Boolean,message: ReminderMessage): Boolean {
-        if(permission(kind)!="authorized")return false
+        if(permission(kind)!="authorized" || ReminderTime.isQuietHours(System.currentTimeMillis()))return false
         val click=PendingIntent.getActivity(context,0,Intent(context,entryClass).apply { data=Uri.parse("kwklasplus-internal://notification/$id");putExtra("reminder_kind",kind);putExtra("reminder_generation",generation) },PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val n=Notification.Builder(context,"deadline_digest_v1")
             .setSmallIcon(smallIcon).setContentTitle(message.title).setContentText(message.body).setStyle(Notification.BigTextStyle().bigText(message.body)).setVisibility(Notification.VISIBILITY_PRIVATE)
