@@ -117,7 +117,7 @@ iOS 앱과 위젯 확장은 App Group의 `academic_session.lock`을 `flock`으�
 
 QR 출석, 앱 잠금, PIP, 위젯, 파일·외부 URL은 공통 요청/결과와 OS 실행을 분리합니다.
 
-DEADLINE 알림은 [ADR-010](adr/ADR-010-deadline-notifications.md)을 따릅니다. 캘린더 일정 알림은 제거하며 기존 CRUD·위젯은 유지합니다. ReminderEngine은 최신 전체 조회·60초 신선도, KST 항목별 하루 한 번 claim, 새 항목 추가 안내, 계정 generation/설정 revision/최신 request 검사를 소유합니다. 홈 피드는 새 DeadlineRepository 응답만 전달하며 같은 응답의 알림 projection으로 과목·종류·건수·남은 시간을 구성합니다. 실패 시 과거 feed로 fallback하지 않습니다.
+DEADLINE 알림은 [ADR-011](adr/ADR-011-deadline-notifications.md)을 따릅니다. 캘린더 일정 알림은 제거하며 기존 CRUD·위젯은 유지합니다. ReminderEngine은 최신 전체 조회·60초 신선도, KST 항목별 하루 한 번 claim, 새 항목 추가 안내, 계정 generation/설정 revision/최신 request 검사를 소유합니다. 홈 피드는 새 DeadlineRepository 응답만 전달하며 같은 응답의 알림 projection으로 과목·종류·건수·남은 시간을 구성합니다. 실패 시 과거 feed로 fallback하지 않습니다.
 
 Android·iOS는 KST 00:00~08:00에 발송하지 않는다. 공통 엔진과 OS 게시 adapter에서 검사하고 제한 시간 중 미게시 claim은 소비하지 않는다. 08:00 이후 다음 OS 갱신에서 최신 데이터를 다시 조회하며 고정 시각 예약은 없다.
 
@@ -136,6 +136,7 @@ Android NotificationManager/1시간 JobScheduler와 iOS UNUserNotificationCenter
 | 강의 재생·PIP | Android는 Activity PIP, iOS는 WKWebView HTML5 PIP를 사용합니다. iOS PIP 창의 ±10초 조작은 Android와 같지 않아요. [ADR-001](adr/ADR-001-ios-player-pip.md) |
 | 도서관 QR 위젯 | Android·iOS 모두 정적 아이콘에서 앱의 QR 화면을 엽니다. iOS 위젯에는 개인정보를 공유하지 않아요. [ADR-002](adr/ADR-002-ios-library-qr-widget.md) |
 | 학사 시간표·캘린더 위젯 | Android 구현은 [ADR-004](adr/ADR-004-android-academic-widgets.md)를 따릅니다. iOS WidgetKit 표시·딥링크는 [ADR-005](adr/ADR-005-ios-academic-widgets.md), iOS 17 캘린더 새로고침은 [ADR-006](adr/ADR-006-ios-widget-interactive-refresh.md)를 따릅니다. iOS 캘린더 새로고침은 SESSION 원문을 App Group에 두지 않고 Keychain Access Group의 SESSION·암호화 비밀번호만 확장과 공유합니다. |
+| iOS Liquid Glass | iOS 26 이상에서만 시스템 컴포넌트와 플로팅 오버레이에 glass를 적용하고, iOS 16~18과 Android 화면은 유지합니다. [ADR-010](adr/ADR-010-ios-liquid-glass.md) |
 
 Android 네이티브 화면은 compact(<600dp), medium(600~839dp), expanded(≥840dp)로 나눕니다. WebView 내부 레이아웃은 웹 앱이 맡아요. iOS에서는 safe area·키보드·Dynamic Type·회전 때문에 WKWebView holder를 새로 만들지 않도록 주의해 주세요.
 

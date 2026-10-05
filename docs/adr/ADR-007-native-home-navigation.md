@@ -2,7 +2,7 @@
 
 상태: Accepted (웹 저장소 동시 배포 대기)
 
-홈의 네 탭은 Android Compose와 iOS의 UIKit 시스템 `UITabBar`가 표시한다. iOS 26 이상에서 시스템 Liquid Glass 탭 바를 받으며, 세이프 에어리어 안의 고정 높이를 유지한다. iOS 26 미만의 클래식 탭 바는 아이콘·라벨을 세이프 에어리어에 두고 배경만 홈 인디케이터까지 연장한다. `WKWebView`는 한 `HomeView`에 고정하고 탭 선택만 바꾼다. `TabView`마다 WebView를 재부착하면 검은 화면과 세션 흐름 훼손이 발생하므로 사용하지 않는다. Android는 앱 Material 테마 색상의 반투명 플로팅 캡슐을 웹의 기존 gradual blur 위에 표시한다. 별도 캡처 blur를 실행하지 않는다. Android 탭 아이콘·라벨은 iOS의 피드·시간표·캘린더·전체와 맞추고, 선택된 아이콘·라벨에는 `primary`, 선택 캡슐에는 `surfaceContainer` 계열 색상을 사용한다. 선택 캡슐은 위치를 애니메이션한다. 탭을 실제로 바꿀 때만 각 플랫폼의 기존 `CLOCK_TICK` 햅틱을 실행한다.
+홈의 네 탭은 Android Compose와 iOS의 UIKit 시스템 `UITabBar`가 표시한다. iOS 26 이상에서 시스템 Liquid Glass 탭 바를 받으며, 고정 높이 60은 쓰지 않는다. iOS 26 미만의 클래식 탭 바는 아이콘·라벨을 `UITabBar` 고유 높이에 두고 배경만 홈 인디케이터까지 연장한다. `WKWebView`는 한 `HomeView`에 고정하고 탭 선택만 바꾼다. `TabView`마다 WebView를 재부착하면 검은 화면과 세션 흐름 훼손이 발생하므로 사용하지 않는다. Android는 앱 Material 테마 색상의 반투명 플로팅 캡슐을 웹의 기존 gradual blur 위에 표시한다. 별도 캡처 blur를 실행하지 않는다. Android 탭 아이콘·라벨은 iOS의 피드·시간표·캘린더·전체와 맞추고, 선택된 아이콘·라벨에는 `primary`, 선택 캡슐에는 `surfaceContainer` 계열 색상을 사용한다. 선택 캡슐은 위치를 애니메이션한다. 탭을 실제로 바꿀 때만 각 플랫폼의 기존 `CLOCK_TICK` 햅틱을 실행한다.
 
 네이티브 탭 선택은 공통 `NativeHomeTabScripts`가 고정된 탭 ID와 KLAS+ fallback URL만 받아 JS로 전달한다. 새 웹의 `window.klasNativeNavigate(tab)`은 Next.js `router.push`를 실행한다. 미배포 웹에서는 기존 URL 로딩으로 돌아간다. iOS는 JS 함수 존재 여부를 확인하고 없으면 기존 `WebViewHolder.load` 경로로 이동하여 navigation delegate 수명주기를 유지한다. 웹에서 시작한 탭 이동은 기존 Bridge v1 `changeTab`을 재사용하며, 이미 이동한 URL이면 네이티브 선택만 동기화한다. 새 Web→Native 메서드는 추가하지 않는다. 웹이 라우트 이동 후 `completePageLoad`를 호출해야 Native 화면 데이터가 다시 주입된다.
 

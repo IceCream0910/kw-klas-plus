@@ -1,6 +1,6 @@
 # DEADLINE WebView 토글 / Native 권한 시트 계약
 
-2026-10-03. ADR-010의 수정 설계를 따른다. Native 기준 7faa2f80490125e8bf46ed70b4511d696904b69d, Web 기준 bc5a173b9a55532e6d782b4e5c058a62e019cdd6. 캘린더 알림은 없다.
+2026-10-03. ADR-011의 수정 설계를 따른다. Native 기준 7faa2f80490125e8bf46ed70b4511d696904b69d, Web 기준 bc5a173b9a55532e6d782b4e5c058a62e019cdd6. 캘린더 알림은 없다.
 
 웹 설정에 마감 임박 알림 ON/OFF 스위치를 제공한다. OFF는 Native 저장 성공 후 반영한다. ON은 네이티브 설명 bottom sheet를 시작하며 허용/저장 완료 전에는 실제 enabled를 true로 표시하지 않는다. pending 동안 조작을 막고 시트 취소/거부/실패 시 실제 상태로 복귀한다. 웹에는 권한 CTA/OS prompt나 별도 상태 저장이 없다.
 

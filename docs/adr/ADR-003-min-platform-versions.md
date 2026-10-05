@@ -27,3 +27,4 @@
 
 - iOS 빌드 설정의 deployment target 단일 출처는 `Config.xcconfig`다.
 - 기여자 환경 표는 `CONTRIBUTING.md`가 `libs.versions.toml`·wrapper·xcconfig와 일치해야 한다.
+- CI의 iOS 빌드 기준은 `.github/workflows/ci.yml`의 Xcode 26.5다. iOS 27 SDK에만 있는 API는 `#if compiler(>=6.4)`로 감싸 Xcode 26.5에서도 빌드되게 하고, Xcode 27 동작은 로컬에서 검증한다. CI를 Xcode 27로 올릴 때는 GitHub 러너 정식 이미지 제공 여부와 Kotlin/Native 조합을 함께 검증한다.
