@@ -135,7 +135,7 @@ struct LoginFunnelView: View {
         .task(id: state.step) {
             if state.step == .appLock {
                 appLockEnabled = appLock.store.isEnabled()
-                if appLockEnabled { onContinue() }
+                if appLock.store.hasPassword() { onContinue() }
             } else if state.step == .notifications {
                 IosReminderRuntime.shared.readConsentState { consent in
                     guard state.step == .notifications else { return }
@@ -334,6 +334,11 @@ struct LoginFunnelView: View {
 
     private func configureAppLock() {
         guard state.step == .appLock, !appLockBusy, !notificationBusy else { return }
+        if appLock.store.hasPassword() {
+            appLockEnabled = appLock.store.isEnabled()
+            onContinue()
+            return
+        }
         appLockBusy = true
         appLock.presentOnboardingPasswordSetup { success in
             appLockBusy = false

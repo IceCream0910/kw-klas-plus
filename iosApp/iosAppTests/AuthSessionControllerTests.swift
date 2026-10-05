@@ -5,6 +5,39 @@ import XCTest
 
 @MainActor
 final class AuthSessionControllerTests: XCTestCase {
+    func testRetainedPinAfterLogoutSkipsRecommendationAndStillRequiresAgreements() {
+        let store = FakeFunnelStatusStore(value: "complete")
+        let controller = makeController(networkPath: FakeNetworkPathChecker(satisfied: true), funnelStatusStore: store, hasAppLockPassword: { true })
+        controller.handleHomeLogout()
+        XCTAssertEqual(controller.phase, .needsCredentials)
+        XCTAssertTrue(store.write("authenticating"))
+        controller.enterAuthenticated(initialDelayMillis: 0)
+        controller.skipLibrary()
+        XCTAssertEqual(controller.loginState.step, .notifications)
+        XCTAssertEqual(controller.phase, .setup)
+        XCTAssertEqual(store.read(), "setup")
+        XCTAssertFalse(controller.loginState.privacyAccepted)
+        controller.backFunnel()
+        XCTAssertEqual(controller.loginState.step, .library)
+        controller.skipLibrary()
+        controller.continueFunnel()
+        XCTAssertEqual(controller.loginState.step, .agreements)
+        controller.finishFunnel()
+        XCTAssertEqual(store.read(), "setup")
+    }
+
+    func testSavedLibrarySkipsRetainedPinWithoutChangingItsSetting() async {
+        let store = FakeFunnelStatusStore(value: "authenticating")
+        let controller = makeController(networkPath: FakeNetworkPathChecker(satisfied: true), funnelStatusStore: store, saveLibraryCredentials: { _, _, _, done in done(true) }, hasAppLockPassword: { true })
+        controller.enterAuthenticated(initialDelayMillis: 0)
+        controller.loginState.libraryPhone = "01012345678"
+        controller.loginState.libraryPassword = "fixture"
+        controller.saveLibrary()
+        await waitUntil { controller.loginState.step == .notifications }
+        XCTAssertEqual(controller.phase, .setup)
+        XCTAssertEqual(store.read(), "setup")
+    }
+
     func testBackFunnelUsesAvailablePreviousStep() {
         let controller = makeController(networkPath: FakeNetworkPathChecker(satisfied: true))
         controller.loginState.step = .complete
@@ -322,7 +355,8 @@ final class AuthSessionControllerTests: XCTestCase {
     private func makeController(
         networkPath: NetworkPathChecking,
         funnelStatusStore: FunnelStatusStoring? = nil,
-        saveLibraryCredentials: ((String, String, String, @escaping (Bool) -> Void) -> Void)? = nil
+        saveLibraryCredentials: ((String, String, String, @escaping (Bool) -> Void) -> Void)? = nil,
+        hasAppLockPassword: @escaping () -> Bool = { false }
     ) -> AuthSessionController {
         let suite = "com.icecream.kwklasplus.test.auth.network.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
@@ -331,7 +365,8 @@ final class AuthSessionControllerTests: XCTestCase {
             authRuntime: IosAuthRuntime.companion.create(defaults: defaults),
             networkPath: networkPath,
             funnelStatusStore: funnelStatusStore,
-            saveLibraryCredentials: saveLibraryCredentials
+            saveLibraryCredentials: saveLibraryCredentials,
+            hasAppLockPassword: hasAppLockPassword
         )
     }
 

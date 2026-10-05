@@ -123,6 +123,10 @@ final class AppLockController: ObservableObject {
     }
 
     func presentOnboardingPasswordSetup(completion: @escaping (Bool) -> Void) {
+        if store.hasPassword() {
+            completion(true)
+            return
+        }
         presentPasswordSetup { [self] success in
             guard success else { completion(false); return }
             store.setEnabled(enabled: true)
