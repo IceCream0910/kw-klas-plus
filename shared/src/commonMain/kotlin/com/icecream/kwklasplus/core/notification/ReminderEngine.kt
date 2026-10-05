@@ -159,9 +159,18 @@ class ReminderEngine(
             if(newItems.isEmpty())return@withLock
             val message=DeadlineReminderMessage.create(newItems,dispatchTime,seen.isNotEmpty())
             val posted=platform.postDetailed(batch,"deadline",old.generation,seen.isNotEmpty(),message)
-            if(!posted && ReminderTime.isQuietHours(clock.nowEpochMillis())) {
-                save(load().copy(claims=claims,deadlineStatus="QUIET_HOURS"))
-            } else save(load().copy(deadlineStatus=if(posted)"POST_ATTEMPTED" else "SCHEDULE_FAILED"))
+            if(posted) {
+                save(load().copy(deadlineStatus="POST_ATTEMPTED"))
+            } else {
+                save(load().copy(claims=claims,deadlineStatus="SCHEDULE_FAILED"))
+                val status=when {
+                    !deliveryGate.canPost() -> "FOREGROUND_SUPPRESSED"
+                    ReminderTime.isQuietHours(clock.nowEpochMillis()) -> "QUIET_HOURS"
+                    platform.permission("deadline") !in listOf("authorized","provisional") -> "PERMISSION_BLOCKED"
+                    else -> "SCHEDULE_FAILED"
+                }
+                if(status!="SCHEDULE_FAILED")save(load().copy(deadlineStatus=status))
+            }
         }
     }
 

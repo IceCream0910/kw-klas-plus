@@ -18,6 +18,9 @@ class ReminderEngineTest {
     private class Platform : ReminderPlatform {
         var allowed=true
         var onPermission: () -> Unit = {}
+        var onPost: () -> Unit = {}
+        var postSucceeds=true
+        var postAttempts=0
         val posted=mutableListOf<Pair<String,Boolean>>()
         val cancelled=mutableSetOf<String>()
         var cancelledAll=false
@@ -25,7 +28,11 @@ class ReminderEngineTest {
         override fun hash(value: String)=value
         override suspend fun permission(kind: String): String { onPermission();return if(allowed)"authorized" else "denied" }
         suspend fun post(id: String,kind: String,generation: Long,additional: Boolean): Boolean { posted+=id to additional;return true }
-        override suspend fun postDetailed(id: String,kind: String,generation: Long,additional: Boolean,message: ReminderMessage): Boolean { messages+=message;return post(id,kind,generation,additional) }
+        override suspend fun postDetailed(id: String,kind: String,generation: Long,additional: Boolean,message: ReminderMessage): Boolean {
+            postAttempts++;onPost()
+            if(!postSucceeds)return false
+            messages+=message;return post(id,kind,generation,additional)
+        }
         override suspend fun cancel(id: String) { cancelled+=id }
         override suspend fun cancelAll() { cancelledAll=true }
     }
@@ -44,6 +51,47 @@ class ReminderEngineTest {
         val engine=engine()
         suspend fun enable() { engine.setEnabled(true) }
         fun item(id: String)=ReminderDeadline(id,null,now+60*60*1000)
+    }
+    @Test fun failedOsPostDoesNotConsumeClaimAndNextRefreshRetries()=runBlocking {
+        val f=Fixture();f.enable();f.source.items=listOf(f.item("A"))
+        f.platform.postSucceeds=false;f.engine.refresh()
+        assertEquals(1,f.platform.postAttempts)
+        assertTrue(f.engine().snapshot().claims.isEmpty())
+        assertEquals("SCHEDULE_FAILED",f.engine.snapshot().deadlineStatus)
+        f.platform.postSucceeds=true;f.engine().refresh();f.engine().refresh()
+        assertEquals(2,f.platform.postAttempts)
+        assertEquals(listOf(false),f.platform.posted.map { it.second })
+    }
+    @Test fun refusedOsPostRestoresPreviousClaimsAndRecordsSuppressionReason()=runBlocking {
+        for(reason in listOf("FOREGROUND_SUPPRESSED","PERMISSION_BLOCKED","QUIET_HOURS")) {
+            val f=Fixture();f.enable();f.source.items=listOf(f.item("A"));f.engine.refresh()
+            val previous=f.engine.snapshot().claims
+            f.source.items+=f.item("B");f.platform.postSucceeds=false
+            f.platform.onPost={
+                when(reason) {
+                    "FOREGROUND_SUPPRESSED" -> f.background=false
+                    "PERMISSION_BLOCKED" -> f.platform.allowed=false
+                    else -> f.now=ReminderTime.parse("2026-10-03 00:00:00")!!
+                }
+            }
+            f.engine.refresh()
+            assertEquals(previous,f.engine().snapshot().claims)
+            assertEquals(reason,f.engine.snapshot().deadlineStatus)
+            f.platform.onPost={};f.platform.postSucceeds=true;f.platform.allowed=true;f.background=true
+            f.now=ReminderTime.parse("2026-10-02 10:00:00")!!
+            f.engine().refresh()
+            assertEquals(listOf(false,true),f.platform.posted.map { it.second })
+            assertEquals(setOf("user/B"),f.engine().snapshot().claims.last().keys)
+        }
+    }
+    @Test fun permissionReadFailureAfterRefusedPostStillRestoresClaim()=runBlocking {
+        val f=Fixture();f.enable();f.source.items=listOf(f.item("A"));f.platform.postSucceeds=false
+        f.platform.onPost={ f.platform.onPermission={ error("permission unavailable") } }
+        assertFailsWith<IllegalStateException> { f.engine.refresh() }
+        assertTrue(f.engine().snapshot().claims.isEmpty())
+        assertEquals("SCHEDULE_FAILED",f.engine.snapshot().deadlineStatus)
+        f.platform.onPost={};f.platform.onPermission={};f.platform.postSucceeds=true
+        f.engine().refresh();assertEquals(1,f.platform.posted.size)
     }
     @Test fun quietHoursDoNotConsumeClaimsAndEightAmRechecksLatestData()=runBlocking {
         val f=Fixture();f.enable()

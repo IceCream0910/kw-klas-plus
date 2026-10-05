@@ -26,6 +26,7 @@ interface ReminderStore {
 }
 interface ReminderPlatform {
     suspend fun permission(kind: String): String
+    // false는 OS에 게시하지 않은 확정 결과이며, 결과 불명 예외와 구분한다.
     suspend fun postDetailed(id: String, kind: String, generation: Long, additional: Boolean, message: ReminderMessage): Boolean
     suspend fun cancel(id: String)
     suspend fun cancelAll()
