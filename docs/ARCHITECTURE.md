@@ -127,7 +127,7 @@ Android·iOS는 KST 00:00~08:00에 발송하지 않는다. 공통 엔진과 OS �
 
 iOS 원장 읽기 실패는 STORAGE_FAILED로 전달하며 손상 JSON과 구분한다. 로그아웃은 pending BG 요청과 등록 callback을 취소한다. Android Job은 기존 interval·flex를 함께 검사해 1시간/15분 flex로 등록하고 BIND_JOB_SERVICE 권한을 유지한다.
 
-Android NotificationManager/1시간 JobScheduler와 iOS UNUserNotificationCenter/BGAppRefreshTask를 사용합니다. 미래 예약·정확 알람 권한은 없으며 갱신 실행 주기를 보장하지 않습니다. 기본값은 꺼짐이고 웹 ON/OFF 토글은 Native 상태를 읽고 해제 저장 또는 활성화 시트를 요청합니다. Android Compose/iOS SwiftUI bottom sheet의 권한 허용하기 CTA에서만 OS 권한 요청·ON 저장을 처리하며 완료 안내를 표시한 뒤 별도 닫기 버튼으로 닫습니다. 거부/취소/저장 실패는 ON으로 확정하지 않습니다. getDeadlineNotificationState/setDeadlineNotificationsEnabled(Boolean)를 추가하고 기존 opener를 호환 별칭으로 유지합니다. 기존 58개 메서드·콜백·DTO는 유지하고 새 메서드는 KLAS+ origin·main frame으로 제한합니다. 자세한 계약은 [WebView 계약](notifications/webview-implementation-contract.md)에 있습니다.
+Android NotificationManager/1시간 JobScheduler와 iOS UNUserNotificationCenter/BGAppRefreshTask를 사용합니다. 미래 예약·정확 알람 권한은 없으며 갱신 실행 주기를 보장하지 않습니다. 기본값은 꺼짐이고 웹 ON/OFF 토글은 Native 상태를 읽고 해제 저장 또는 활성화 시트를 요청합니다. Android Compose/iOS SwiftUI bottom sheet의 권한 허용하기 CTA에서만 OS 권한 요청·ON 저장을 처리하며 완료 안내를 표시한 뒤 별도 닫기 버튼으로 닫습니다. 거부/취소/저장 실패는 ON으로 확정하지 않습니다. getDeadlineNotificationState/setDeadlineNotificationsEnabled(Boolean)를 추가하고 기존 opener를 호환 별칭으로 유지합니다. 기존 58개 메서드·콜백·DTO는 유지하고 새 메서드는 KLAS+ origin·main frame으로 제한합니다. 자세한 계약은 [WebView 계약](adr/ADR-013-deadline-notifications-webview-contract.md)에 있습니다.
 
 원장은 백업 제외 academic_reminders_v1 파일이며 설치별 HMAC으로 계정·항목·배치 키를 저장합니다. 세션·과목명·원본 학번은 원장/로그/Intent/userInfo에 저장하지 않습니다. 과목명은 최신 메모리와 요청한 OS 본문에만 사용합니다. 이전 미출시 calendar 필드는 읽을 때 무시하고 저장에서 제거합니다. 세션 복구는 기존 HTTP 인증·SessionCoordinator checkpoint를 이용하며 캘린더 조회를 하지 않습니다. 로그아웃/계정 전환/해제는 표시 알림과 작업을 정리합니다.
 

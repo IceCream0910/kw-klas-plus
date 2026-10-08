@@ -15,5 +15,7 @@
 | [ADR-009](ADR-009-login-funnel.md) | 인증 후 설정을 포함한 로그인 퍼널 | Accepted; 약관 전문 및 실기기 검증 대기 |
 | [ADR-010](ADR-010-ios-liquid-glass.md) | iOS 26/27 Liquid Glass 적용 범위 | Accepted; 실기기 검증 대기 |
 | [ADR-011](ADR-011-deadline-notifications.md) | DEADLINE 최신 조회 알림·웹 토글/네이티브 권한 시트 | Accepted; DEADLINE 전용 구현·자동 검증, 실기기/배포 검증 대기 |
+| [ADR-012](ADR-012-deadline-notifications-native-implementation.md) | DEADLINE 알림 구현 구조 및 검증 기록 | ADR-011 구현 기록; 실기기/배포 검증 별도 |
+| [ADR-013](ADR-013-deadline-notifications-webview-contract.md) | DEADLINE WebView 토글·Native 권한 시트 계약 | ADR-011 구현 계약; 웹 호환 배포 검증 별도 |
 
 현재 코드의 모듈 경계는 [아키텍처](../ARCHITECTURE.md), M1~M7 당시 진행 상황은 [마이그레이션 기록](../kmp-migration/kmp_migration_tasks.md)에 있어요.

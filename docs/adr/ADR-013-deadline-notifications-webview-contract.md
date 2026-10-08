@@ -1,4 +1,4 @@
-# DEADLINE WebView 토글 / Native 권한 시트 계약
+# ADR-013: DEADLINE WebView 토글 / Native 권한 시트 계약
 
 2026-10-03. ADR-011의 수정 설계를 따른다. Native 기준 7faa2f80490125e8bf46ed70b4511d696904b69d, Web 기준 bc5a173b9a55532e6d782b4e5c058a62e019cdd6. 캘린더 알림은 없다.
 

@@ -68,7 +68,7 @@ Android 알림 small icon은 KLAS+ 앱 foreground의 K 모양과 + 요소를 배
 
 구 웹은 새 Native에서도 기존대로 동작한다. 새 웹은 capability가 없는 구 Native에서 진입점을 숨긴다. 롤백은 기능 비활성화·표시 알림/작업 취소를 포함한 패치와 웹 진입점 제거로 수행한다. 기존 인증·위젯 데이터는 삭제하지 않는다. 캘린더 알림 prototype은 출시하지 않았으므로 삭제 메서드를 호환 API로 유지하지 않는다. 장기 미실행에도 최신 원본 안내를 보장하려면 별도 원본 서버 연동과 APNs/FCM 설계가 필요하다.
 
-최종 구현/검증과 미검증 범위는 [구현 기록](../notifications/native-implementation.md)에 기록한다.
+최종 구현/검증과 미검증 범위는 [구현 기록](ADR-012-deadline-notifications-native-implementation.md)에 기록한다.
 
 시트 상단 종 아이콘은 제거하고 타이틀·설명·알림 카드 예시를 배치한다. 상단에는 움직이는 그라데이션 블러를 적용하며 모션 감소를 따른다. 완료 시트는 별도 닫기 버튼으로 닫는다. Android drag handle까지 배경을 공유하고 KLAS+ 커스텀 CTA를 사용한다. iOS는 설명·그래픽·버튼의 실측 높이로 SwiftUI/UIKit 시트를 조절하며 화면 높이를 넘으면 콘텐츠만 스크롤한다.
 
