@@ -51,7 +51,6 @@
 /* Begin PBXFileReference section */
 		A11B0002A5ED6EA33B3393BB /* iosAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A11C0002A5ED6EA33B3393BB /* iosAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		A11C000DA5ED6EA33B3393BB /* M6-011.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text.xctestplan; path = "M6-011.xctestplan"; sourceTree = "<group>"; };
 		F6F71C8CC4FEF251D6AD8B93 /* kw-klas-plus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "kw-klas-plus.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		WDG10002A5ED6EA33B3393BB /* LibraryQRWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LibraryQRWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -159,7 +158,6 @@
 				WDG10004A5ED6EA33B3393BB /* widgetExtension */,
 				A11B0003A5ED6EA33B3393BB /* iosAppTests */,
 				A11C0003A5ED6EA33B3393BB /* iosAppUITests */,
-				A11C000DA5ED6EA33B3393BB /* M6-011.xctestplan */,
 				BD53EF4F6008D2C1AA37C0C0 /* Products */,
 			);
 			sourceTree = "<group>";
