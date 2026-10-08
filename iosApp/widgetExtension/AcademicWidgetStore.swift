@@ -1,7 +1,7 @@
 import Foundation
 
 enum AcademicWidgetStore {
-    static let appGroup = "group.com.icecream.kwklasplus"
+    static let appGroup = "group.com.icecream.kwklasplus.Q2C928H69W"
     static let fileName = "academic_widget_display_v1.json"
     static let ownerKey = "academic_widget_owner"
 
