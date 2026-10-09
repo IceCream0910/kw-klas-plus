@@ -3,6 +3,10 @@ import SwiftUI
 @main
 struct iOSApp: App {
     @UIApplicationDelegateAdaptor(ReminderAppDelegate.self) private var reminderDelegate
+    init() {
+        SentryTelemetry.start()
+    }
+
     var body: some Scene {
         WindowGroup {
             Group {

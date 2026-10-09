@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5E1700010000000000000001 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 5E1700010000000000000002 /* Sentry */; };
 		WDG10008A5ED6EA33B3393BB /* LibraryQRWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = WDG10002A5ED6EA33B3393BB /* LibraryQRWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -112,6 +113,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5E1700010000000000000001 /* Sentry in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -185,6 +187,7 @@
 			);
 			name = iosApp;
 			packageProductDependencies = (
+				5E1700010000000000000002 /* Sentry */,
 			);
 			productName = iosApp;
 			productReference = F6F71C8CC4FEF251D6AD8B93 /* kw-klas-plus.app */;
@@ -294,6 +297,9 @@
 			);
 			mainGroup = FB9C2A42C4CEE990DBB140D8;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				5E1700010000000000000003 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BD53EF4F6008D2C1AA37C0C0 /* Products */;
 			projectDirPath = "";
@@ -829,6 +835,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		5E1700010000000000000003 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa.git";
+			requirement = {
+				kind = exactVersion;
+				version = 9.30.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		5E1700010000000000000002 /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5E1700010000000000000003 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B3F43505C841AEB9980E56A1 /* Project object */;
 }
