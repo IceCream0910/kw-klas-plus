@@ -18,4 +18,6 @@
 | [ADR-012](ADR-012-deadline-notifications-native-implementation.md) | DEADLINE 알림 구현 구조 및 검증 기록 | ADR-011 구현 기록; 실기기/배포 검증 별도 |
 | [ADR-013](ADR-013-deadline-notifications-webview-contract.md) | DEADLINE WebView 토글·Native 권한 시트 계약 | ADR-011 구현 계약; 웹 호환 배포 검증 별도 |
 
+| [ADR-014](ADR-014-native-sentry-observability.md) | Native Sentry 오류·운영 로그의 수집 경계 | Accepted; 실기기 crash·심볼 업로드 검증 별도 |
+
 현재 코드의 모듈 경계는 [아키텍처](../ARCHITECTURE.md), M1~M7 당시 진행 상황은 [마이그레이션 기록](../kmp-migration/kmp_migration_tasks.md)에 있어요.

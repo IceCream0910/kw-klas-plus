@@ -72,6 +72,12 @@ iOS 앱과 위젯 확장은 App Group의 `academic_session.lock`을 `flock`으�
 
 `kwPWD`·SESSION 토큰·도서관 비밀번호/키·잠금 hash/salt는 비밀로, `kwSESSION_timestamp`와 일반 설정은 분리해 저장합니다. 기존 Android 버전의 일반 sharedPreference에 저장된 `kwSESSION` 값은 공통 세션 API가 업그레이드 때 한 번 읽어 보안 저장소에 기록하고 재조회로 검증한 뒤 삭제합니다. 이때 `kwSESSION_timestamp`는 보안 세션에서도 쓰므로 유지합니다. 이전·검증에 실패하면 원문을 남겨 다음 시작에서 재시도하고, 보안 저장소 읽기에 실패하면 평문 fallback을 사용하지 않습니다. 새 세션은 일반 preferences에 미러링하지 않으며 `HomeActivity`의 네 읽기 경로도 공통 세션 API를 사용합니다. 로그아웃은 보안 세션과 잔존 `kwSESSION`을 모두 지웁니다. 롤백 시 구버전 앱이 새로 발급된 세션을 일반 preferences에서 읽을 수 없으므로 재로그인이 필요할 수 있습니다. 기존 키 이름은 [`LegacyPreferenceKeys`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/legacy/LegacyContracts.kt)에 있습니다.
 
+## 오류·운영 로그
+
+Android는 기존 `kw-klas-plus-android`, iOS 앱은 `kw-klas-plus-ios` Sentry 프로젝트를 사용한다. 플랫폼별 `SentryTelemetry`가 SDK 초기화를 한 번 소유하며 위젯 확장에는 SDK를 연결하지 않는다. Errors와 Logs만 사용하고 iOS 네트워크 자동 추적·실패 요청 수집·자동 breadcrumb·화면 캡처·view hierarchy를 끈다. Android의 기존 오류 SDK는 유지하되 자동 초기화를 끄고 Application에서 필터와 함께 초기화한다.
+
+로그는 고정 `TelemetryEvent`만 허용하며 전송 직전 사용자·scope·임의 속성을 제거하고 이벤트 이름·플랫폼·릴리스·환경만 다시 구성한다. 알림 갱신 실패 로그에는 계정·과목·알림 본문·예외 문자열을 포함하지 않는다. 오류 이벤트는 사용자·요청·message·extra·tags·breadcrumb과 임의 context를 제거하고 예외 값은 가리되 예외 타입·stack trace·앱/기기/OS/runtime 진단은 유지한다. SESSION·암호화 비밀번호·도서관 키·PIN·브리지 payload가 Sentry로 전송되지 않아야 하며 양 플랫폼 필터 회귀 테스트로 검증한다. iOS 검증용 오류 인자는 Debug에만 있고 XCTest host에서는 SDK를 시작하지 않는다. 수집 경계·예제·롤백은 [ADR-014](adr/ADR-014-native-sentry-observability.md)를 따른다.
+
 ## WebView·Native 브리지
 
 웹은 `KlasNativeBridge.*`를 호출하고 Bridge v1 `KlasNativeBridgeNative.postMessage`로 앱과 통신합니다. 구 Android 앱용 `window.Android` fallback은 [웹 adapter](https://github.com/IceCream0910/kw-klas-plus-webview)에만 있어요. 각 앱의 WebView holder는 생성·이동·폐기를 맡고, 공통 router는 HTTPS origin, main frame, 허용 메서드, 인자·크기·URL을 검증합니다. Bridge는 검증된 도메인(KLAS+ webview 페이지, 학교 공식 페이지)에서만 작동하도록 되어있습니다. JS 값은 JSON으로 직렬화하고 비밀은 로그에 남기지 마세요.
