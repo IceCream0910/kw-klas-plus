@@ -39,6 +39,12 @@ enum class LegacyWebCallback(
 }
 
 object LegacyWebScripts {
+    fun selectAcademicContext(yearSemester: String, subjectId: String): WebScript = WebScript(
+        "if(window===window.top&&window.location.origin==='https://klas.kw.ac.kr'){" +
+            "window.localStorage.setItem('selectYearhakgi',${JavaScriptEncoder.encodeText(yearSemester)});" +
+            "window.localStorage.setItem('selectSubj',${JavaScriptEncoder.encodeText(subjectId)});}",
+    )
+
     fun call(callback: LegacyWebCallback, vararg arguments: JavaScriptArgument): WebScript {
         require(arguments.size in callback.minimumArgumentCount..callback.maximumArgumentCount)
         val encodedArguments = arguments.joinToString(",") { JavaScriptEncoder.encode(it) }
@@ -55,6 +61,13 @@ object LegacyWebScripts {
 }
 
 object NativeHomeTabScripts {
+    fun searchData(json: String): WebScript = WebScript(
+        "window.receiveSearchData?.(${JavaScriptEncoder.encodeText(json)});",
+    )
+
+    fun closeSearch(): WebScript = WebScript("window.closeSearchOverlay?.();")
+    fun resetSearch(): WebScript = WebScript("window.dispatchEvent(new Event('klas-search-reset'));")
+
     private val tabs = setOf("feed", "timetable", "calendar", "menu")
 
     fun navigateIfAvailable(tab: String): WebScript {
