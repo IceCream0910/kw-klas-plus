@@ -1,5 +1,7 @@
 package com.icecream.kwklasplus.notification
 
+import com.icecream.kwklasplus.telemetry.SentryTelemetry
+import com.icecream.kwklasplus.telemetry.TelemetryEvent
 import android.app.Activity
 import android.app.job.*
 import android.content.*
@@ -39,11 +41,12 @@ class AcademicReminderRuntime(private val context: Context) {
         if(engine.isReady() && state.ownerHash.isNotBlank() && state.deadlineEnabled) {
             val pending=scheduler.getPendingJob(JOB)
             if(pending==null || pending.intervalMillis!=REFRESH_INTERVAL_MILLIS || pending.flexMillis!=REFRESH_FLEX_MILLIS) {
-                scheduler.schedule(JobInfo.Builder(JOB,ComponentName(context,AcademicReminderJobService::class.java))
+                val scheduled = scheduler.schedule(JobInfo.Builder(JOB,ComponentName(context,AcademicReminderJobService::class.java))
                     .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
                     .setPeriodic(REFRESH_INTERVAL_MILLIS,REFRESH_FLEX_MILLIS)
                     .setPersisted(true)
                     .setBackoffCriteria(REFRESH_FLEX_MILLIS,JobInfo.BACKOFF_POLICY_EXPONENTIAL).build())
+                if (scheduled == JobScheduler.RESULT_FAILURE) SentryTelemetry.log(TelemetryEvent.REMINDER_SCHEDULE_REJECTED)
             }
         } else scheduler.cancel(JOB)
     }
@@ -63,7 +66,7 @@ class AcademicReminderJobService: JobService() {
     private var job: Job?=null
     override fun onStartJob(params: JobParameters): Boolean {
         job=scope.launch {
-            val retry=try { appDependencies.reminders.engine.refresh();false } catch(cause: Exception) { if(cause is CancellationException)throw cause;true }
+            val retry=try { appDependencies.reminders.engine.refresh();false } catch(cause: Exception) { if(cause is CancellationException)throw cause;SentryTelemetry.log(TelemetryEvent.REMINDER_REFRESH_FAILED);true }
             jobFinished(params,retry)
         };return true
     }
