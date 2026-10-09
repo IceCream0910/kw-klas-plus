@@ -39,6 +39,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.gms.common.util.DeviceProperties.isTablet
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -122,11 +124,18 @@ class TaskViewActivity : AppCompatActivity() {
             transparentBackground = false,
             disableScrollBars = false
         )
-        webView.loadUrl(url)
+        val hasDocumentStartContext = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
+        if (hasDocumentStartContext) {
+            WebViewCompat.addDocumentStartJavaScript(
+                webView,
+                LegacyWebScripts.selectAcademicContext(yearHakgi.toString(), subj.toString()).reveal(),
+                setOf(AppUrls.KLAS_BASE),
+            )
+        }
         appDependencies.fileTransfer(this).attachTo(webView)
 
         var isOpenVideoAcitivity = false
-        var isScriptExecuted = false
+        var isScriptExecuted = hasDocumentStartContext
 
         if (url.contains("OnlineCntntsStdPage.do")) {
             isOpenVideoAcitivity = true
@@ -152,10 +161,12 @@ class TaskViewActivity : AppCompatActivity() {
                 hideLoading()
 
                 if (!isScriptExecuted) {
-                    webView.executeWebScript(LegacyWebScripts.setLocalStorage("selectYearhakgi", yearHakgi.toString()))
-                    webView.executeWebScript(LegacyWebScripts.setLocalStorage("selectSubj", subj.toString()))
-                    webView.reload()
                     isScriptExecuted = true
+                    webView.evaluateJavascript(LegacyWebScripts.setLocalStorage("selectYearhakgi", yearHakgi.toString()).reveal()) {
+                        webView.evaluateJavascript(LegacyWebScripts.setLocalStorage("selectSubj", subj.toString()).reveal()) {
+                            if (!isFinishing && !isDestroyed) webView.reload()
+                        }
+                    }
                 } else {
                     if(!isOpenVideoAcitivity && url.contains("OnlineCntntsStdPage.do")) {
                         webView.executeWebScript(LegacyWebScripts.setLocalStorage("selectYearhakgi", yearHakgi.toString()))
@@ -189,6 +200,7 @@ class TaskViewActivity : AppCompatActivity() {
         }
 
 
+        webView.loadUrl(url)
         webView.webChromeClient = object : WebChromeClient() {
             private var customView: View? = null
             private var customViewCallback: CustomViewCallback? = null
