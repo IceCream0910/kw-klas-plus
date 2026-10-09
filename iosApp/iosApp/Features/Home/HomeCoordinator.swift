@@ -56,6 +56,7 @@ final class HomeCoordinator: ObservableObject {
     @Published var isPageLoading = true
     @Published private(set) var refreshPhase: HomeRefreshPhase = .idle
     @Published var isWebBottomSheetOpen = false
+    @Published var isSearchOverlayOpen = false
     @Published var toastMessage: String?
     @Published var showYearHakgiPicker = false
     @Published var yearHakgiPickerIsUpdate = false
@@ -188,6 +189,7 @@ final class HomeCoordinator: ObservableObject {
 
     func switchToTab(_ tab: String) {
         if currentTab == tab && !currentTab.isEmpty { return }
+        isSearchOverlayOpen = false
         if Self.homeTab(fromUrl: homeHolder?.webView.url?.absoluteString ?? "") == tab {
             currentTab = tab
             return
@@ -303,6 +305,7 @@ final class HomeCoordinator: ObservableObject {
                       self.deadlineInjectionVersion == version, self.currentTab == "feed", self.yearHakgi == term else { return }
                 self.deadlineJson = json
                 holder.evaluate(IosWebCallbacks.shared.receiveDeadline(json: json))
+                holder.evaluate(IosWebCallbacks.shared.receiveSearchData(json: self.homeRuntime.searchDataJson()))
                 if status == "SESSION_EXPIRED" { self.bootstrapPhase = .sessionExpired }
                 else if status == "FAILED" { self.showToast("마감 정보를 새로 불러오지 못했습니다.") }
             }
@@ -585,7 +588,7 @@ final class HomeCoordinator: ObservableObject {
         idCardProbe?.cancel()
         idCardProbe = nil
         restoreIdCardBrightness()
-        if !isWebBottomSheetOpen {
+        if !isWebBottomSheetOpen && !isSearchOverlayOpen {
             homeHolder?.webView.allowsBackForwardNavigationGestures = true
         }
     }
@@ -695,6 +698,7 @@ final class HomeCoordinator: ObservableObject {
     }
 
     func dispose() {
+        isSearchOverlayOpen = false
         qrTask?.cancel()
         qrTask = nil
         qrScanLaunchGuard.release()
@@ -714,6 +718,8 @@ final class HomeCoordinator: ObservableObject {
     }
 
     func confirmLogout() {
+        homeHolder?.evaluate(IosWebCallbacks.shared.resetSearch())
+        isSearchOverlayOpen = false
         homeRuntime.logout { [weak self] in
             Task { @MainActor in
                 self?.dispose()
@@ -1040,6 +1046,33 @@ private extension String {
 }
 
 final class HomeBridgeHostAdapter: HomeBridgeHost {
+    func requestSearchData() {
+        Task { @MainActor in
+            guard let coordinator else { return }
+            coordinator.homeHolder?.evaluate(IosWebCallbacks.shared.receiveSearchData(json: coordinator.homeRuntime.searchDataJson()))
+            if let token = coordinator.sessionToken {
+                coordinator.homeHolder?.evaluate(IosWebCallbacks.shared.receiveToken(token: token.reveal()))
+            }
+        }
+    }
+
+    func setSearchOverlayOpen(open: Bool) {
+        Task { @MainActor in
+            coordinator?.isSearchOverlayOpen = open
+            coordinator?.homeHolder?.webView.allowsBackForwardNavigationGestures = !(open || coordinator?.isWebBottomSheetOpen == true)
+        }
+    }
+
+    func openSearchBoard(kind: String, term: String, courseId: String, boardNo: String, masterNo: String) {
+        Task { @MainActor in
+            guard let coordinator, coordinator.homeRuntime.canOpenSearchCourse(term: term, courseId: courseId),
+                  boardNo.range(of: "^[0-9]{1,20}$", options: .regularExpression) != nil,
+                  masterNo.range(of: "^[0-9A-Za-z_-]{1,64}$", options: .regularExpression) != nil else { return }
+            let paths = ["notice": "d052b8f845784c639f036b102fdc3023", "material": "6972896bfe72408eb72926780e85d041"]
+            guard let path = paths[kind] else { return }
+            coordinator.openBoardView(path: path, boardNumber: boardNo, masterNumber: masterNo, subjectId: courseId, yearSemester: term)
+        }
+    }
     weak var coordinator: HomeCoordinator?
 
     init(coordinator: HomeCoordinator) {
@@ -1110,7 +1143,7 @@ final class HomeBridgeHostAdapter: HomeBridgeHost {
         Task { @MainActor in
             coordinator?.endIdCardModalIfNeeded()
             coordinator?.isWebBottomSheetOpen = false
-            coordinator?.homeHolder?.webView.allowsBackForwardNavigationGestures = true
+            coordinator?.homeHolder?.webView.allowsBackForwardNavigationGestures = coordinator?.isSearchOverlayOpen != true
         }
     }
 

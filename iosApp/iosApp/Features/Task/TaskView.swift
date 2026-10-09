@@ -4,7 +4,6 @@ import SwiftUI
 @MainActor
 final class TaskScreenModel: ObservableObject {
     let holder: WebViewHolder
-    private var didInject = false
     let subjectId: String
     let yearSemester: String
     weak var coordinator: HomeCoordinator?
@@ -25,6 +24,7 @@ final class TaskScreenModel: ObservableObject {
             coordinator.openOnlineLectureList(subjectId: subjectId, yearSemester: yearSemester, replacingCurrent: true)
             return
         }
+        holder.addDocumentStartScript(LegacyWebScripts.shared.selectAcademicContext(yearSemester: yearSemester, subjectId: subjectId))
         holder.load(url)
     }
 
@@ -33,13 +33,6 @@ final class TaskScreenModel: ObservableObject {
     func handleNavigation(_ state: WebNavigationState) {
         guard case let .ready(url) = state.loadPhase else { return }
         holder.evaluate(KlasWebAutomationScripts.shared.styleContentPage(hideSubjectHeader: true))
-        if !didInject {
-            holder.evaluate(IosWebCallbacks.shared.setLocalStorage(key: "selectYearhakgi", value: yearSemester))
-            holder.evaluate(IosWebCallbacks.shared.setLocalStorage(key: "selectSubj", value: subjectId))
-            holder.reload()
-            didInject = true
-            return
-        }
         if url.contains("OnlineCntntsStdPage.do") {
             coordinator?.openOnlineLectureList(
                 subjectId: subjectId,
