@@ -4,6 +4,7 @@
 
 | 문서 | 결정 | 상태 |
 |---|---|---|
+| [ADR-012](ADR-012-unified-search.md) | 통합 검색 및 기존 Agent로 일회성 컨텍스트 전달 | 구현; 실제 KLAS·실기기 검증 대기 |
 | [ADR-001](ADR-001-ios-player-pip.md) | iOS 온라인 강의 WKWebView/PIP | Accepted; 실기기 검증 별도 |
 | [ADR-002](ADR-002-ios-library-qr-widget.md) | 개인정보를 공유하지 않는 도서관 QR 위젯 | Accepted |
 | [ADR-003](ADR-003-min-platform-versions.md) | Android/iOS 최소 지원 OS | Accepted |
