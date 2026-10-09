@@ -1,4 +1,5 @@
 import Shared
+import UIKit
 import WebKit
 import XCTest
 @testable import kw_klas_plus
@@ -268,32 +269,12 @@ final class IosBridgeMessageAdapterTests: XCTestCase {
 
     func testDisposeRemovesScriptMessageHandler() throws {
         let harness = try makeHarness(surface: .home, handler: AcceptingBridgeCommandHandler())
+        defer { harness.dispose() }
         harness.adapter.dispose()
-
-        let expectation = expectation(description: "post after dispose")
-        harness.webView.callAsyncJavaScript(
-            """
-            try {
-              await webkit.messageHandlers.KlasNativeBridgeNative.postMessage('{}');
-              return 'resolved';
-            } catch (e) {
-              return 'rejected';
-            }
-            """,
-            arguments: [:],
-            in: nil,
-            in: .page
-        ) { result in
-            switch result {
-            case .success(let value):
-                XCTAssertEqual(value as? String, "rejected")
-            case .failure:
-                break
-            }
-            expectation.fulfill()
-        }
-        wait(for: [expectation], timeout: 3)
-        harness.disposeWebViewOnly()
+        let result = try harness.evaluateBridge("""
+            return JSON.stringify({hasHandler: !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.KlasNativeBridgeNative)});
+            """)
+        XCTAssertEqual(result["hasHandler"] as? Bool, false)
     }
 
     // MARK: - Helpers
@@ -314,6 +295,8 @@ final class IosBridgeMessageAdapterTests: XCTestCase {
         adapter.install(into: configuration)
         let webView = WKWebView(frame: .init(x: 0, y: 0, width: 320, height: 480), configuration: configuration)
         let harness = BridgeTestHarness(webView: webView, adapter: adapter)
+        var ready = false
+        defer { if !ready { harness.dispose() } }
         try harness.loadHTML("<!doctype html><html><body>bridge</body></html>", baseURL: baseURL ?? trustedBaseURL)
         let probe = try harness.evaluateBridge(
             """
@@ -327,6 +310,7 @@ final class IosBridgeMessageAdapterTests: XCTestCase {
         XCTAssertEqual(probe["hasHandler"] as? Bool, true, "WK message handler missing")
         XCTAssertEqual(probe["hasTransport"] as? Bool, true, "WebKit transport shim missing")
         XCTAssertEqual(probe["hasAdapter"] as? Bool, true, "KlasNativeBridge adapter missing")
+        ready = true
         return harness
     }
 }
@@ -334,10 +318,16 @@ final class IosBridgeMessageAdapterTests: XCTestCase {
 private final class BridgeTestHarness {
     let webView: WKWebView
     let adapter: IosBridgeMessageAdapter
+    private let window: UIWindow
 
     init(webView: WKWebView, adapter: IosBridgeMessageAdapter) {
         self.webView = webView
         self.adapter = adapter
+        window = UIWindow(frame: webView.frame)
+        let controller = UIViewController()
+        window.rootViewController = controller
+        controller.view.addSubview(webView)
+        window.isHidden = false
     }
 
     func loadHTML(_ html: String, baseURL: URL, timeout: TimeInterval = 15) throws {
@@ -357,6 +347,7 @@ private final class BridgeTestHarness {
                 NSLocalizedDescriptionKey: "HTML load timed out after \(timeout)s",
             ])
         }
+        if let error = navigator.error { throw error }
     }
 
     func evaluateBridge(_ script: String, timeout: TimeInterval = 5) throws -> [String: Any] {
@@ -403,11 +394,14 @@ private final class BridgeTestHarness {
         webView.stopLoading()
         webView.navigationDelegate = nil
         webView.removeFromSuperview()
+        window.isHidden = true
+        window.rootViewController = nil
     }
 }
 
 private final class NavigationFinishWaiter: NSObject, WKNavigationDelegate {
     private let expectation: XCTestExpectation
+    private(set) var error: Error?
 
     init(expectation: XCTestExpectation) {
         self.expectation = expectation
@@ -418,10 +412,19 @@ private final class NavigationFinishWaiter: NSObject, WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        self.error = error
         expectation.fulfill()
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        self.error = error
+        expectation.fulfill()
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        error = NSError(domain: "BridgeTestHarness", code: 4, userInfo: [
+            NSLocalizedDescriptionKey: "Web content process terminated during HTML load",
+        ])
         expectation.fulfill()
     }
 }
