@@ -708,6 +708,9 @@ private final class FinishWaiter: NSObject, WKNavigationDelegate {
 }
 
 private final class RecordingHomeHost: HomeBridgeHost {
+    func requestSearchData() {}
+    func setSearchOverlayOpen(open: Bool) {}
+    func openSearchBoard(kind: String, term: String, courseId: String, boardNo: String, masterNo: String) {}
     func changeTab(tab: String) {}
     func evaluate(url: String, yearHakgi: String, subj: String) {}
     func openPage(url: String) {}
