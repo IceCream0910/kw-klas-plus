@@ -54,6 +54,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import com.icecream.kwklasplus.feature.auth.LoginFunnelStatus
+import com.icecream.kwklasplus.ui.navigation.shouldLoadHomeTab
 import com.icecream.kwklasplus.core.platform.SecureKey
 import com.icecream.kwklasplus.core.bridge.BridgeSurface
 import com.icecream.kwklasplus.platform.web.AndroidBridgeMessageAdapter
@@ -446,9 +447,8 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    fun switchToTab(tab: String) {
-        if (currentTab == tab && currentTab.isNotEmpty()) return
-        if (getCurrentTab() == tab) {
+    fun switchToTab(tab: String, forceReload: Boolean = false) {
+        if (!shouldLoadHomeTab(tab, currentTab, getCurrentTab(), forceReload)) {
             currentTab = tab
             return
         }
@@ -900,9 +900,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun reloadCurrentTab() {
-        val currentTabTemp = currentTab
-        currentTab = ""
-        switchToTab(currentTabTemp)
+        switchToTab(currentTab, forceReload = true)
     }
 
     fun reload() {
