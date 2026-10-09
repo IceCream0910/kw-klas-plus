@@ -15,6 +15,11 @@ class KlasNativeBridgeWebContractTest {
 
     private companion object {
         val activeWebMethods = setOf(
+            "requestSearchData",
+            "setSearchOverlayOpen",
+            "openSearchBoard",
+            "openSearchAgent",
+            "takeSearchContext",
             "changeAppTheme",
             "closeWebViewBottomSheet",
             "completePageLoad",
