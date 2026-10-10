@@ -92,7 +92,8 @@ class BridgeValidator(
         }
         validateContext(context)?.let { return rejected(it) }
 
-        if (request.method in com.icecream.kwklasplus.core.notification.ReminderBridgeContract.methods &&
+        if ((request.method in com.icecream.kwklasplus.core.notification.ReminderBridgeContract.methods ||
+                request.method in setOf("requestSearchData", "setSearchOverlayOpen", "openSearchBoard", "openSearchAgent", "takeSearchContext")) &&
             context.origin !in setOf("https://klasplus.yuntae.in", KLAS_PLUS_BASE)) return rejected(BridgeRejection.UNTRUSTED_ORIGIN)
         val method = LegacyBridgeCatalog.find(context.surface, request.method)
             ?: return rejected(BridgeRejection.UNKNOWN_METHOD)

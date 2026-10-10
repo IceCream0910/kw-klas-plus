@@ -3,8 +3,18 @@ package com.icecream.kwklasplus.core.bridge
 class IosHomeLegacyBridgeCommandHandler(
     private val host: HomeBridgeHost,
 ) : BridgeCommandHandler {
-    override suspend fun handle(command: ValidatedBridgeCommand) = command.execute {
+    override suspend fun handle(command: ValidatedBridgeCommand): BridgeHandlerResult {
+        if (command.methodId == BridgeMethodId.HOME_OPEN_SEARCH_AGENT) {
+            val id = com.icecream.kwklasplus.core.search.SearchAgentHandoff.offer(command.text(0))
+                ?: return BridgeHandlerResult.Failure(BridgeErrorCode.HANDLER_FAILURE)
+            host.openPage("${com.icecream.kwklasplus.core.legacy.KlasUrls.KLAS_PLUS_BASE}/agent?searchContext=$id")
+            return BridgeHandlerResult.Success()
+        }
+        return command.execute {
         when (command.methodId) {
+            BridgeMethodId.HOME_REQUEST_SEARCH_DATA -> host.requestSearchData()
+            BridgeMethodId.HOME_SET_SEARCH_OVERLAY_OPEN -> host.setSearchOverlayOpen(command.boolean(0))
+            BridgeMethodId.HOME_OPEN_SEARCH_BOARD -> host.openSearchBoard(command.text(0), command.text(1), command.text(2), command.text(3), command.text(4))
             BridgeMethodId.HOME_CHANGE_TAB -> host.changeTab(command.text(0))
             BridgeMethodId.HOME_EVALUATE -> host.evaluate(
                 command.text(0),
@@ -36,6 +46,7 @@ class IosHomeLegacyBridgeCommandHandler(
             else -> return@execute false
         }
         true
+        }
     }
 }
 
@@ -101,7 +112,11 @@ class IosLecturePlanLegacyBridgeCommandHandler(
 class IosLinkLegacyBridgeCommandHandler(
     private val host: LinkBridgeHost,
 ) : BridgeCommandHandler {
-    override suspend fun handle(command: ValidatedBridgeCommand) = command.execute {
+    override suspend fun handle(command: ValidatedBridgeCommand): BridgeHandlerResult {
+        if (command.methodId == BridgeMethodId.LINK_VIEW_TAKE_SEARCH_CONTEXT) return BridgeHandlerResult.Success(
+            BridgeValue.Text(com.icecream.kwklasplus.core.search.SearchAgentHandoff.take(command.text(0))),
+        )
+        return command.execute {
         when (command.methodId) {
             BridgeMethodId.LINK_VIEW_OPEN_PAGE -> host.openPage(command.text(0))
             BridgeMethodId.LINK_VIEW_OPEN_LECTURE_PLAN_PAGE -> host.openLecturePlanPage(command.text(0))
@@ -111,6 +126,7 @@ class IosLinkLegacyBridgeCommandHandler(
             else -> return@execute false
         }
         true
+        }
     }
 }
 

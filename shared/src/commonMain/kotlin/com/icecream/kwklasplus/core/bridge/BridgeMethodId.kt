@@ -9,6 +9,10 @@ enum class BridgeMethodId(
     BOARD_COMPLETE_PAGE_LOAD(BridgeSurface.BOARD, "completePageLoad"),
 
     HOME_CHANGE_TAB(BridgeSurface.HOME, "changeTab"),
+    HOME_REQUEST_SEARCH_DATA(BridgeSurface.HOME, "requestSearchData"),
+    HOME_OPEN_SEARCH_AGENT(BridgeSurface.HOME, "openSearchAgent"),
+    HOME_SET_SEARCH_OVERLAY_OPEN(BridgeSurface.HOME, "setSearchOverlayOpen"),
+    HOME_OPEN_SEARCH_BOARD(BridgeSurface.HOME, "openSearchBoard"),
     HOME_EVALUATE(BridgeSurface.HOME, "evaluate"),
     HOME_OPEN_PAGE(BridgeSurface.HOME, "openPage"),
     HOME_OPEN_EXTERNAL_PAGE(BridgeSurface.HOME, "openExternalPage"),
@@ -43,6 +47,7 @@ enum class BridgeMethodId(
     LECTURE_OPEN_QR_SCAN(BridgeSurface.LECTURE, "openQRScan"),
 
     LINK_VIEW_OPEN_PAGE(BridgeSurface.LINK_VIEW, "openPage"),
+    LINK_VIEW_TAKE_SEARCH_CONTEXT(BridgeSurface.LINK_VIEW, "takeSearchContext"),
     LINK_VIEW_OPEN_LECTURE_PLAN_PAGE(BridgeSurface.LINK_VIEW, "openLecturePlanPage"),
     LINK_VIEW_OPEN_WEB_VIEW_BOTTOM_SHEET(BridgeSurface.LINK_VIEW, "openWebViewBottomSheet"),
     LINK_VIEW_CLOSE_WEB_VIEW_BOTTOM_SHEET(BridgeSurface.LINK_VIEW, "closeWebViewBottomSheet"),

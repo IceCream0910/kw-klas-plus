@@ -1,6 +1,9 @@
 package com.icecream.kwklasplus.core.bridge
 
 interface HomeBridgeHost {
+    fun requestSearchData() {}
+    fun setSearchOverlayOpen(open: Boolean) {}
+    fun openSearchBoard(kind: String, term: String, courseId: String, boardNo: String, masterNo: String) {}
     fun changeTab(tab: String)
     fun evaluate(url: String, yearHakgi: String, subj: String)
     fun openPage(url: String)
