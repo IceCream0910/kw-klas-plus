@@ -60,7 +60,7 @@ class IosAcademicWidgetDisplayStore(
     }
 
     companion object {
-        const val APP_GROUP = "group.com.icecream.kwklasplus"
+        const val APP_GROUP = "group.com.icecream.kwklasplus.Q2C928H69W"
         const val DISPLAY_FILE = "academic_widget_display_v1.json"
         const val OWNER_KEY = "academic_widget_owner"
     }

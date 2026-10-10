@@ -1,5 +1,7 @@
 import SwiftUI
 
+#if DEBUG
+
 enum M6011UITestConfiguration {
     static let launchArgument = "-m6011-ui-test"
 
@@ -157,3 +159,4 @@ struct M6011FixtureRootView: View {
 private enum FixtureFocus: Hashable {
     case sheetButton
 }
+#endif
