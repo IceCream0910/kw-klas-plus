@@ -15,6 +15,14 @@ captures
 .externalNativeBuild
 .cxx
 iosApp/Configuration/Config.local.xcconfig
+DerivedData/
+*.xcarchive/
+*.xcresult/
+*.dSYM/
+*.ipa
+*.mobileprovision
+*.p12
+*.p8
 *.xcodeproj/*
 !*.xcodeproj/project.pbxproj
 !*.xcodeproj/xcshareddata/

@@ -87,7 +87,7 @@ struct LibraryQrSettingsSheet: View {
                 .frame(maxWidth: 640)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 20)
-                .padding(.top, 32)
+                .padding(.top, BottomSheetSpacing.topInset)
             }
             Button("저장", action: onSave)
                 .buttonStyle(KlasInverseButtonStyle(enabled: state.canSave))

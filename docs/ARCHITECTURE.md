@@ -27,6 +27,8 @@ flowchart LR
 
 ## 인증·세션·저장소
 
+iOS 배포 앱과 위젯의 App Group은 `group.com.icecream.kwklasplus.Q2C928H69W`다. entitlement, 공통 iOS 저장소, Swift 위젯 저장소가 같은 그룹을 사용하며 표시 캐시·세션 동시성 잠금·세대 표시만 공유한다. 기존 개발 그룹은 삭제하지 않고 새 배포 앱이 표시 캐시를 다시 생성한다. 공유 Keychain의 `academic-session` 계약은 유지한다. 앱·확장 모두 동일 그룹이 포함된 프로파일로 서명해야 하며 그룹 접근 실패를 프로세스 내부 저장소로 우회하지 않는다.
+
 로그인 순서와 오류 결과는 공통 `KlasHttpAuthDriver`가 다루고, HTTP/RSA 실행은 플랫폼 adapter가 맡습니다. `SessionLeaseManager`는 서버 `/session/info`로 세션 만료와 연장을 판단해요. 명시적으로 만료됐을 때만 SESSION을 지우고, 일시적인 네트워크·서버 오류라면 보존한 뒤 재시도합니다. 저장소와 WebView cookie의 동기화 순서는 `SessionCoordinator`가 맡습니다.
 
 암호화 비밀번호, SESSION, 도서관 키, 앱 잠금 hash/salt는 비밀로 다뤄주세요. Android 비밀은 Keystore 보호 저장소에, iOS 비밀은 Keychain에 둡니다. SESSION 원문은 일반 preferences에 새로 기록하지 않고 보안 저장소와 WebView cookie만 동기화합니다. iOS 17 캘린더 위젯 새로고침은 App Group 파일이 아니라 Keychain Access Group `$(AppIdentifierPrefix)com.icecream.kwklasplus.academic-session`에서 `SESSION_TOKEN`과 서버 암호화 KLAS 비밀번호만 메인 앱과 공유합니다. 각 타깃 `keychain-access-groups`의 첫 항목은 해당 타깃 App ID이고, 공유 키만 academic-session을 `kSecAttrAccessGroup`에 명시합니다. 공유 그룹을 쓸 수 없으면 SESSION·암호화 비밀번호는 기본 그룹에 넣지 않고 저장을 실패합니다. 앱 잠금 hash/salt와 도서관 비밀은 앱 App ID 그룹에 남기고, 확장은 WKWebView cookie를 만들지 않습니다. 확장 재인증 뒤에는 App Group의 cookie 동기화 필요 표시를 메인 앱이 `SessionCoordinator.restore()`로 소비합니다. 비밀 저장 파일은 백업·기기 이전에서 제외해요. 평문 비밀번호는 저장하거나 로그에 남기지 마세요. 앱 잠금(PIN·생체인식) 설정은 기기 설정이므로 로그아웃 후에도 유지합니다.
@@ -45,7 +47,7 @@ iOS 앱과 위젯 확장은 App Group의 `academic_session.lock`을 `flock`으�
 | 서버가 세션 만료를 명시함 | 세션과 cookie를 지운 뒤 재인증 경로로 돌아갑니다. 네트워크 오류·timeout·서버 오류만으로는 비밀을 지우지 않아요. |
 | 로그아웃·계정 변경 | 세션·cookie·계정 자격증명을 정책대로 정리하되 기기 잠금 설정은 유지합니다. 로그아웃 전 시작한 위젯 재인증은 완료되어도 세션·cookie를 다시 만들지 못합니다. |
 
-신규 수동 로그인은 학번 → 비밀번호 → 공통 HTTP KLAS 인증 → 선택적 중앙도서관 출입증 → 선택적 앱 잠금 설정 → 선택적 마감 할 일 알림 설정 → 개인정보 처리방침·이용약관 동의 → 완료 순서로 진행합니다. 인증 실패는 비밀번호 단계로 돌아가며, 인증 성공 후에는 설정이 완료되기 전까지 홈을 열지 않습니다. Android 일반 설정 키 `login_funnel_status`는 `not_started`, `authenticating`, `setup`, `complete` 중 하나로 저장합니다. 앱 프로세스 시작 시 이 키가 없는 기존 설치는 `kwID` 계정 식별자가 있으면 한 번만 `complete`로, 없으면 `not_started`로 이전합니다. 이전 기록에 실패해 키가 여전히 없더라도 홈과 QR 위젯은 차단합니다. `complete`만 홈·위젯을 허용하고, `authenticating` 또는 `setup` 상태에서 앱이 재시작되면 남은 퍼널을 표시합니다. 실제 KLAS 인증·세션 관찰은 기존 `LoginUseCase`와 `SessionCoordinator`를 사용합니다. 자세한 결정과 이용약관 URL은 [ADR-009](adr/ADR-009-login-funnel.md)를 따릅니다.
+신규 수동 로그인은 학번 → 비밀번호 → 공통 HTTP KLAS 인증 → 개인정보 처리방침·이용약관 필수 동의 → 완료 안내(약 2초 후 자동 이동) → 홈 순서로 진행합니다. 인증 실패는 비밀번호 단계로 돌아가며, 인증 성공 후에도 필수 동의 저장 전에는 홈을 열지 않습니다. 기존 `setup` 상태의 재진입 위치는 필수 동의이며 선택 설정을 거치지 않습니다. Android 일반 설정 키 `login_funnel_status`는 `not_started`, `authenticating`, `setup`, `complete` 중 하나로 저장합니다. 앱 프로세스 시작 시 이 키가 없는 기존 설치는 `kwID` 계정 식별자가 있으면 한 번만 `complete`로, 없으면 `not_started`로 이전합니다. 이전 기록에 실패해 키가 여전히 없더라도 홈과 QR 위젯은 차단합니다. `complete`만 홈·위젯을 허용하고, `authenticating` 또는 `setup` 상태에서 앱이 재시작되면 남은 퍼널을 표시합니다. 실제 KLAS 인증·세션 관찰은 기존 `LoginUseCase`와 `SessionCoordinator`를 사용합니다. 자세한 결정과 이용약관 URL은 [ADR-009](adr/ADR-009-login-funnel.md)를 따릅니다.
 
 출입증 전화번호는 기존 `library_phone` 값이 있으면 재사용합니다. Android는 새 번호를 직접 입력하며 전화번호 읽기 권한을 요청하지 않습니다. iOS는 회선 번호를 직접 읽는 공개 API가 없어 전화번호 자동 완성과 직접 입력을 사용합니다. 사용자가 출입증 저장을 선택할 때에만 기존 `library_phone` 키에 기록합니다.
 
@@ -71,6 +73,12 @@ iOS 앱과 위젯 확장은 App Group의 `academic_session.lock`을 `flock`으�
 | 신규 로그인 퍼널 | `login_funnel_status`(일반 설정) |
 
 `kwPWD`·SESSION 토큰·도서관 비밀번호/키·잠금 hash/salt는 비밀로, `kwSESSION_timestamp`와 일반 설정은 분리해 저장합니다. 기존 Android 버전의 일반 sharedPreference에 저장된 `kwSESSION` 값은 공통 세션 API가 업그레이드 때 한 번 읽어 보안 저장소에 기록하고 재조회로 검증한 뒤 삭제합니다. 이때 `kwSESSION_timestamp`는 보안 세션에서도 쓰므로 유지합니다. 이전·검증에 실패하면 원문을 남겨 다음 시작에서 재시도하고, 보안 저장소 읽기에 실패하면 평문 fallback을 사용하지 않습니다. 새 세션은 일반 preferences에 미러링하지 않으며 `HomeActivity`의 네 읽기 경로도 공통 세션 API를 사용합니다. 로그아웃은 보안 세션과 잔존 `kwSESSION`을 모두 지웁니다. 롤백 시 구버전 앱이 새로 발급된 세션을 일반 preferences에서 읽을 수 없으므로 재로그인이 필요할 수 있습니다. 기존 키 이름은 [`LegacyPreferenceKeys`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/legacy/LegacyContracts.kt)에 있습니다.
+
+## 오류·운영 로그
+
+Android는 기존 `kw-klas-plus-android`, iOS 앱은 `kw-klas-plus-ios` Sentry 프로젝트를 사용한다. 플랫폼별 `SentryTelemetry`가 SDK 초기화를 한 번 소유하며 위젯 확장에는 SDK를 연결하지 않는다. Errors와 Logs만 사용하고 iOS 네트워크 자동 추적·실패 요청 수집·자동 breadcrumb·화면 캡처·view hierarchy를 끈다. Android의 기존 오류 SDK는 유지하되 자동 초기화를 끄고 Application에서 필터와 함께 초기화한다.
+
+로그는 고정 `TelemetryEvent`만 허용하며 전송 직전 사용자·scope·임의 속성을 제거하고 이벤트 이름·플랫폼·릴리스·환경만 다시 구성한다. 알림 갱신 실패 로그에는 계정·과목·알림 본문·예외 문자열을 포함하지 않는다. 오류 이벤트는 사용자·요청·message·extra·tags·breadcrumb과 임의 context를 제거하고 예외 값은 가리되 예외 타입·stack trace·앱/기기/OS/runtime 진단은 유지한다. SESSION·암호화 비밀번호·도서관 키·PIN·브리지 payload가 Sentry로 전송되지 않아야 하며 양 플랫폼 필터 회귀 테스트로 검증한다. iOS 검증용 오류 인자는 Debug에만 있고 XCTest host에서는 SDK를 시작하지 않는다. 수집 경계·예제·롤백은 [ADR-014](adr/ADR-014-native-sentry-observability.md)를 따른다.
 
 ## WebView·Native 브리지
 
@@ -127,7 +135,7 @@ Android·iOS는 KST 00:00~08:00에 발송하지 않는다. 공통 엔진과 OS �
 
 iOS 원장 읽기 실패는 STORAGE_FAILED로 전달하며 손상 JSON과 구분한다. 로그아웃은 pending BG 요청과 등록 callback을 취소한다. Android Job은 기존 interval·flex를 함께 검사해 1시간/15분 flex로 등록하고 BIND_JOB_SERVICE 권한을 유지한다.
 
-Android NotificationManager/1시간 JobScheduler와 iOS UNUserNotificationCenter/BGAppRefreshTask를 사용합니다. 미래 예약·정확 알람 권한은 없으며 갱신 실행 주기를 보장하지 않습니다. 기본값은 꺼짐이고 웹 ON/OFF 토글은 Native 상태를 읽고 해제 저장 또는 활성화 시트를 요청합니다. Android Compose/iOS SwiftUI bottom sheet의 권한 허용하기 CTA에서만 OS 권한 요청·ON 저장을 처리하며 완료 안내를 표시한 뒤 별도 닫기 버튼으로 닫습니다. 거부/취소/저장 실패는 ON으로 확정하지 않습니다. getDeadlineNotificationState/setDeadlineNotificationsEnabled(Boolean)를 추가하고 기존 opener를 호환 별칭으로 유지합니다. 기존 58개 메서드·콜백·DTO는 유지하고 새 메서드는 KLAS+ origin·main frame으로 제한합니다. 자세한 계약은 [WebView 계약](notifications/webview-implementation-contract.md)에 있습니다.
+Android NotificationManager/1시간 JobScheduler와 iOS UNUserNotificationCenter/BGAppRefreshTask를 사용합니다. 미래 예약·정확 알람 권한은 없으며 갱신 실행 주기를 보장하지 않습니다. 기본값은 꺼짐이고 웹 ON/OFF 토글은 Native 상태를 읽고 해제 저장 또는 활성화 시트를 요청합니다. Android Compose/iOS SwiftUI bottom sheet의 권한 허용하기 CTA에서만 OS 권한 요청·ON 저장을 처리하며 완료 안내를 표시한 뒤 별도 닫기 버튼으로 닫습니다. 거부/취소/저장 실패는 ON으로 확정하지 않습니다. getDeadlineNotificationState/setDeadlineNotificationsEnabled(Boolean)를 추가하고 기존 opener를 호환 별칭으로 유지합니다. 기존 58개 메서드·콜백·DTO는 유지하고 새 메서드는 KLAS+ origin·main frame으로 제한합니다. 자세한 계약은 [WebView 계약](adr/ADR-013-deadline-notifications-webview-contract.md)에 있습니다.
 
 원장은 백업 제외 academic_reminders_v1 파일이며 설치별 HMAC으로 계정·항목·배치 키를 저장합니다. 세션·과목명·원본 학번은 원장/로그/Intent/userInfo에 저장하지 않습니다. 과목명은 최신 메모리와 요청한 OS 본문에만 사용합니다. 이전 미출시 calendar 필드는 읽을 때 무시하고 저장에서 제거합니다. 세션 복구는 기존 HTTP 인증·SessionCoordinator checkpoint를 이용하며 캘린더 조회를 하지 않습니다. 로그아웃/계정 전환/해제는 표시 알림과 작업을 정리합니다.
 
@@ -154,4 +162,4 @@ Android 네이티브 화면은 compact(<600dp), medium(600~839dp), expanded(≥8
 
 이 변경을 롤백할 때에는 수정 커밋을 되돌립니다. 새 비밀 저장 키나 데이터 이전은 없으며, 세대·잠금 파일은 삭제하지 않아도 됩니다. 이전 앱은 이 파일을 사용하지 않아 위젯 동시 실행의 보호가 사라집니다.
 
-온보딩은 앱 잠금과 마감 할 일 알림을 별도 단계에서 안내하며 각각 건너뛰고 필수 약관 동의로 이동할 수 있습니다. 앱 잠금은 기존 Native 비밀번호 설정 화면을, 알림은 기존 Native 권한 안내 시트를 재사용합니다. iOS는 setup 상태의 앱 잠금 단계에서 요청한 set/change 앱 잠금 화면만 표시하고, 자동 unlock·홈 진입은 complete gate를 유지합니다. 인증 후 `setup`에서는 계정 범위의 알림 설정 저장만 허용하며 `ReminderIdentity.canConfigure`가 이 경계를 나타냅니다. 조회·발송·OS 백그라운드 작업 등록은 기존 `ready`와 `complete` 조건을 유지합니다. 권한 요청은 사용자의 CTA로만 시작하며 거부·취소·저장 실패 시 재시도 또는 나중에를 선택할 수 있습니다.
+선택 설정은 인증과 필수 동의 이후에 안내합니다. 첫 마감 데이터 조회 성공에는 알림, 전체 메뉴 첫 진입에는 출입증, 설정 화면 또는 두 번째 홈 실행에는 앱 잠금을 안내하며 이미 설정된 기능은 생략합니다. `setup_prompt_seen_*` 일반 설정은 설치별 표시 이력이며 실제 노출 시 기록합니다. 하단 안내는 배경 터치를 막지 않는 작은 오버레이이며 X로 닫을 수 있습니다. 앱 잠금과 알림의 상태 조회는 다른 단계를 자동 진행시키지 않습니다. 추천 알림 설정은 저장 성공 후 toast로 알리고 닫으며 일반 설정의 완료 시트는 유지합니다. 기존 `login_funnel_status`·브리지 메서드·권한 CTA 및 인증 저장 경계는 유지합니다.

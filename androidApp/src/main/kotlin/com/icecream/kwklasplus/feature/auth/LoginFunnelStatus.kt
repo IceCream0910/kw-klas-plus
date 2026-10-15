@@ -19,7 +19,7 @@ internal object LoginFunnelStatus {
     }
 
     fun initialStep(status: String?): LoginFunnelStep = when (status) {
-        SETUP -> LoginFunnelStep.Library
+        SETUP -> LoginFunnelStep.Agreements
         AUTHENTICATING -> LoginFunnelStep.Password
         else -> LoginFunnelStep.StudentId
     }

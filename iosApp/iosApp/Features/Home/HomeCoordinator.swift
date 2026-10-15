@@ -56,6 +56,7 @@ final class HomeCoordinator: ObservableObject {
     @Published var isPageLoading = true
     @Published private(set) var refreshPhase: HomeRefreshPhase = .idle
     @Published var isWebBottomSheetOpen = false
+    let contextualSetup: ContextualSetup
     @Published var isSearchOverlayOpen = false
     @Published var toastMessage: String?
     @Published var showYearHakgiPicker = false
@@ -87,7 +88,13 @@ final class HomeCoordinator: ObservableObject {
     private(set) var timetableJson = ""
     private(set) var deadlineJson = ""
     private var deadlineInjectionVersion = 0
-    @Published private(set) var currentTab = ""
+    @Published private(set) var currentTab = "" {
+        didSet {
+            if currentTab == "menu" && oldValue != "menu" {
+                contextualSetup.offer(.library, configured: libraryService.hasConfiguredCredentials())
+            }
+        }
+    }
 
     private let routeFactory = AppRouteFactory(
         webPolicy: ExternalNavigationPolicy(maximumLength: 2048)
@@ -115,7 +122,7 @@ final class HomeCoordinator: ObservableObject {
     private var didStart = false
     private var releaseQrGuardOnDismiss = false
     private var idCardProbe: IdCardQrFetcher?
-    private var isIdCardModalActive = false
+    @Published private(set) var isIdCardModalActive = false
     private var idCardOriginalBrightness: CGFloat?
     private var resignActiveObserver: NSObjectProtocol?
     private weak var settingsWebHolder: WebViewHolder?
@@ -139,8 +146,10 @@ final class HomeCoordinator: ObservableObject {
         qrScanner: IosQrScanner? = nil,
         attendanceRepository: AttendanceRepository? = nil,
         prepareCheckIn: ((QrPreparationRequest, SecretValue) async -> QrPreparationResult)? = nil,
-        checkIn: ((QrAttendancePayload, SecretValue, SecretValue) async -> QrCheckInResult)? = nil
+        checkIn: ((QrAttendancePayload, SecretValue, SecretValue) async -> QrCheckInResult)? = nil,
+        contextualSetup: ContextualSetup? = nil
     ) {
+        self.contextualSetup = contextualSetup ?? ContextualSetup()
         let dependencies = authRuntime.dependencies
         self.homeRuntime = IosHomeRuntime.companion.create(
             dependencies: dependencies,
@@ -303,6 +312,11 @@ final class HomeCoordinator: ObservableObject {
             homeRuntime.refreshFeed(yearHakgi: term, userAgent: Self.platformUserAgent()) { [weak self, weak holder] status, json in
                 guard let self, let holder, self.homeHolder === holder,
                       self.deadlineInjectionVersion == version, self.currentTab == "feed", self.yearHakgi == term else { return }
+                if status == "READY" {
+                    IosReminderRuntime.shared.readConsentState { [weak self] state in
+                        self?.contextualSetup.offer(.notifications, configured: state?.enabled == true)
+                    }
+                }
                 self.deadlineJson = json
                 holder.evaluate(IosWebCallbacks.shared.receiveDeadline(json: json))
                 holder.evaluate(IosWebCallbacks.shared.receiveSearchData(json: self.homeRuntime.searchDataJson()))
@@ -503,6 +517,11 @@ final class HomeCoordinator: ObservableObject {
         path.append(HomeDestination.settings)
     }
 
+    func synchronizeLockSettings(_ settings: AppLockSettings) {
+        settingsWebHolder?.evaluate(IosWebCallbacks.shared.appLockSettingChanged(settings: settings))
+        settingsWebHolder?.evaluate(IosWebCallbacks.shared.requestSettingsReload())
+    }
+
     func attachSettingsWebView(_ holder: WebViewHolder) {
         settingsWebHolder = holder
     }
@@ -547,6 +566,7 @@ final class HomeCoordinator: ObservableObject {
     }
 
     func requestIdCardQRValue() {
+        contextualSetup.dismiss()
         isIdCardModalActive = true
         captureIdCardBrightness()
         UIScreen.main.brightness = 1.0

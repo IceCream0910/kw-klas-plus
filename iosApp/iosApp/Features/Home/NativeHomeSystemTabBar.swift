@@ -1,7 +1,14 @@
 import SwiftUI
 import UIKit
 
+struct HomeSystemTabBarHeightKey: SwiftUI.PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
 enum HomeSystemTabBarMetrics {
+    static var horizontalInset: CGFloat { fillsHomeIndicator ? 16 : 20 }
+    static var suggestionGap: CGFloat { horizontalInset }
     static var fillsHomeIndicator: Bool {
         if #available(iOS 26.0, *) {
             return false

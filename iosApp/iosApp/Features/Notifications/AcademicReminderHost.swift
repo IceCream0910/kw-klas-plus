@@ -42,9 +42,11 @@ final class AcademicReminderHost: NSObject, IosReminderHost, UNUserNotificationC
                 guard !completed else { return }
                 completed = true
                 self.logDeliveryState()
+                if result != "ok" { SentryTelemetry.log(.reminderRefreshFailed) }
                 refresh.setTaskCompleted(success: result == "ok")
             }
             refresh.expirationHandler = {
+                SentryTelemetry.log(.reminderRefreshExpired)
                 run.cancel()
                 DispatchQueue.main.async {
                     guard !completed else { return }
@@ -136,6 +138,7 @@ final class AcademicReminderHost: NSObject, IosReminderHost, UNUserNotificationC
                     request.earliestBeginDate = nextDate
                     do { try BGTaskScheduler.shared.submit(request) }
                     catch {
+                        SentryTelemetry.log(.reminderScheduleRejected)
                         #if DEBUG
                         NSLog("[DeadlineReminder] background request rejected: %ld", (error as NSError).code)
                         #endif

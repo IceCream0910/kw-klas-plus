@@ -122,6 +122,15 @@ final class AppLockController: ObservableObject {
         present(store.hasPassword() ? .change : .set, disabling: false, completion: completion)
     }
 
+    func presentContextualPasswordSetup(completion: @escaping (Bool) -> Void) {
+        present(store.hasPassword() ? .verify : .set, disabling: false) { [weak self] success in
+            guard let self, success else { completion(false); return }
+            self.store.setEnabled(enabled: true)
+            self.store.isUnlocked = true
+            completion(self.store.isEnabled() && self.store.hasPassword())
+        }
+    }
+
     func presentOnboardingPasswordSetup(completion: @escaping (Bool) -> Void) {
         if store.hasPassword() {
             completion(true)

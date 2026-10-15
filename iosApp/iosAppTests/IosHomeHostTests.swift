@@ -5,6 +5,34 @@ import XCTest
 @testable import kw_klas_plus
 
 final class IosHomeHostTests: XCTestCase {
+    @MainActor
+    func testContextualLockSetupSynchronizesSettingsCallbackAndVisibilityReload() throws {
+        let coordinator = makeHomeCoordinator()
+        let holder = WebViewHolder()
+        defer { holder.dispose(); coordinator.dispose() }
+        try loadHTML(holder.webView, """
+            <html><body><script>
+            window.settingsReloads = 0;
+            window.onAppLockSettingChanged = value => { window.lockSettings = value; };
+            document.addEventListener('visibilitychange', () => { window.settingsReloads += 1; });
+            </script></body></html>
+            """, baseURL: URL(string: "https://klasplus.yuntae.in/settings")!)
+        coordinator.attachSettingsWebView(holder)
+        coordinator.synchronizeLockSettings(AppLockSettings(enabled: true, biometricEnabled: true, hasPassword: true))
+        let synced = expectation(description: "잠금 상태와 기존 Web 설정 재조회 동기화")
+        holder.webView.evaluateJavaScript("({settings: window.lockSettings, reloads: window.settingsReloads})") { value, error in
+            XCTAssertNil(error)
+            let result = value as? [String: Any]
+            let settings = result?["settings"] as? [String: Any]
+            XCTAssertEqual(settings?["enabled"] as? Bool, true)
+            XCTAssertEqual(settings?["biometric"] as? Bool, true)
+            XCTAssertEqual(settings?["hasPassword"] as? Bool, true)
+            XCTAssertEqual(result?["reloads"] as? Int, 1)
+            synced.fulfill()
+        }
+        wait(for: [synced], timeout: 5)
+    }
+
     func testWebViewUserAgentUsesIosAppToken() {
         let token = WebViewHolder.iosAppUserAgentToken
         XCTAssertTrue(token.hasPrefix("iOSApp_v"), token)

@@ -33,7 +33,21 @@ Android 빌드와 공통/Android JVM 테스트:
 ./gradlew :shared:testAndroidHostTest :androidApp:testDebugUnitTest
 ```
 
-Windows에서는 `.\gradlew.bat`를 쓰세요. iOS는 macOS에서 [`iosApp.xcodeproj`](iosApp/iosApp.xcodeproj)를 열고 `:shared:iosSimulatorArm64Test`와 Xcode 테스트를 실행합니다. 기기 서명에는 [예제 설정](iosApp/Configuration/Config.local.xcconfig.example)을 개인 `Config.local.xcconfig`로 복사해 `TEAM_ID`를 넣으세요. 로컬 설정·서명 키·비밀값은 커밋하지 마세요.
+Windows에서는 `.\gradlew.bat`를 쓰세요. iOS는 macOS에서 [`iosApp.xcodeproj`](iosApp/iosApp.xcodeproj)를 열고 `:shared:iosSimulatorArm64Test`와 Xcode `iosAppUnitTests` 스킴의 테스트를 실행합니다.
+
+### iOS 로컬 서명
+
+[예제 설정](iosApp/Configuration/Config.local.xcconfig.example)을 복사하고, Xcode → Settings → Accounts에 추가한 계정으로 서명할 수 있는 팀의 `TEAM_ID`를 입력하세요.
+
+```sh
+cp iosApp/Configuration/Config.local.xcconfig.example iosApp/Configuration/Config.local.xcconfig
+```
+
+앱·위젯·테스트 타깃은 이 로컬 `TEAM_ID`를 함께 사용합니다. 공유 `Config.xcconfig`의 `TEAM_ID`는 비워 두며, Git에서 제외되는 `Config.local.xcconfig`와 서명 키·비밀값은 커밋하지 마세요.
+
+배포용 Bundle ID는 앱 `com.icecream.kwklasplus`, 위젯 `com.icecream.kwklasplus.libraryqr`로 고정되어 있고 Team ID를 붙이지 않습니다. App Group은 `group.com.icecream.kwklasplus.Q2C928H69W`입니다. 실기기에서 로그인·계정 저장·위젯을 검증하려면 해당 식별자를 사용할 수 있는 팀의 서명과 App Group·공유 Keychain 권한이 포함된 프로비저닝 프로파일이 필요합니다.
+
+별도 Apple 개발팀에서는 `TEAM_ID`만 바꿔서 위 식별자와 그룹을 사용할 수 있다고 가정하지 마세요. 독립적인 기기 테스트에는 자신의 팀에 등록한 앱·위젯 ID와 App Group, 양 타깃의 entitlement 및 Kotlin·Swift 저장소의 그룹 참조를 함께 맞춰야 합니다. 현재 이 값들을 모두 로컬 설정으로 바꾸는 기능은 제공하지 않습니다. 서명 없는 컴파일 확인이나 시뮬레이터 테스트 결과만으로 실기기의 Keychain·App Group 동작을 검증했다고 간주하지 마세요. 상세 계약은 [ADR-003의 로컬 서명 항목](docs/adr/ADR-003-min-platform-versions.md#로컬-서명)을 확인하세요.
 
 ## 작업 절차와 검증
 

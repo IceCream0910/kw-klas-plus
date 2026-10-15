@@ -1,4 +1,4 @@
-# DEADLINE 알림 구현 구조 및 검증
+# ADR-012: DEADLINE 알림 구현 구조 및 검증
 
 ## 기준과 범위
 
@@ -6,7 +6,7 @@
 - PR 기준: Native `3ece7bcee32beff9f2f01e1a8807ffa5f5754376` (`main`)
 - WebView 기준: `bc5a173b9a55532e6d782b4e5c058a62e019cdd6` + 별도 저장소의 알림 토글·브리지 작업 트리 변경. 호환 배포가 완료된 SHA는 아니다.
 
-[ADR-011](../adr/ADR-011-deadline-notifications.md)을 따른다. 캘린더 일정 알림은 구현 범위에서 제외하며 기존 캘린더 CRUD·위젯을 유지한다. 온라인 강의·과제·팀프로젝트의 미완료 항목 중 24시간 안에 마감되는 항목만 안내한다. APNs/FCM 서버 푸시나 미래 시각 예약 대신 최신 조회 직후 OS 로컬 알림을 게시한다.
+[ADR-011](ADR-011-deadline-notifications.md)을 따른다. 캘린더 일정 알림은 구현 범위에서 제외하며 기존 캘린더 CRUD·위젯을 유지한다. 온라인 강의·과제·팀프로젝트의 미완료 항목 중 24시간 안에 마감되는 항목만 안내한다. APNs/FCM 서버 푸시나 미래 시각 예약 대신 최신 조회 직후 OS 로컬 알림을 게시한다.
 
 ## 구현 구조
 
@@ -35,7 +35,7 @@
 
 ## 설정 UI와 WebView 계약
 
-웹 설정에는 ON/OFF 토글만 제공한다. ON은 Native 시트를 시작하고 실제 허용·저장 성공 전에는 ON으로 확정하지 않는다. OFF는 Native 저장 및 정리 성공 후 반영한다. capability가 없는 구 앱에는 새 진입점을 표시하지 않으며 새 알림 메서드는 구 Android fallback을 사용하지 않는다. 상세 호출·콜백은 [WebView 구현 계약](webview-implementation-contract.md)을 따른다.
+웹 설정에는 ON/OFF 토글만 제공한다. ON은 Native 시트를 시작하고 실제 허용·저장 성공 전에는 ON으로 확정하지 않는다. OFF는 Native 저장 및 정리 성공 후 반영한다. capability가 없는 구 앱에는 새 진입점을 표시하지 않으며 새 알림 메서드는 구 Android fallback을 사용하지 않는다. 상세 호출·콜백은 [WebView 구현 계약](ADR-013-deadline-notifications-webview-contract.md)을 따른다.
 
 권한은 Native 시트의 명시적 CTA에서 요청한다. 이미 authorized/provisional이면 요청 단계를 생략한다. 거부 시 안내와 시스템 설정 이동을 제공하고 복귀 후 재검사한다. 완료 시 타이틀·짧은 설명·알림 카드 예시를 표시하고 별도 닫기 버튼으로 닫는다. 상단에는 종 아이콘 없이 그라데이션 블러를 적용한다. Android handle까지 같은 배경을 적용하고 CTA는 KLAS+ 버튼 스타일을 사용한다. iOS는 설명·그래픽·버튼 실측 높이에 따라 시트를 조절하며 최대 높이를 넘으면 콘텐츠를 스크롤하고 닫기를 하단에 고정한다.
 

@@ -57,6 +57,10 @@ struct StartupRootView: View {
         .environmentObject(appLock)
         .environmentObject(libraryQr)
         .libraryQrHost(libraryQr, colorScheme: lockColorScheme)
+        .overlay {
+            AppUpdatePrompt(enabled: isSessionAuthenticated && !shouldHideHome && appLock.mode == nil
+                && libraryQr.presentedSheet == nil && !libraryQr.addWidgetAlertPresented)
+        }
         .alert(blockedAlertTitle, isPresented: blockedAlertPresented) {
             blockedAlertButtons
         } message: {

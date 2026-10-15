@@ -10,6 +10,7 @@ class MainApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        com.icecream.kwklasplus.telemetry.SentryTelemetry.start(this)
         LoginFunnelStatus.migrateLegacyInstall(appPreferences)
         dependencies.academicWidgets.start()
         

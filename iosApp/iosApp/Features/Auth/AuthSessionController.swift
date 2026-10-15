@@ -190,7 +190,7 @@ final class AuthSessionController: ObservableObject {
             loginState.error = nil
             loginState.step = loginState.step == .appLock ? .notifications : .agreements
         case .complete:
-            finishFunnel()
+            break
         default:
             break
         }
@@ -214,9 +214,9 @@ final class AuthSessionController: ObservableObject {
                 loginState.onboardingVisible = true
             }
         case .password: loginState.step = .studentId
-        case .agreements: loginState.step = .notifications
+        case .agreements: break
         case .notifications: loginState.step = hasAppLockPassword() ? .library : .appLock
-        case .appLock: loginState.step = .library
+        case .appLock: loginState.step = .agreements
         case .complete: loginState.step = .agreements
         default: break
         }
@@ -266,6 +266,8 @@ final class AuthSessionController: ObservableObject {
             return
         }
         guard funnelStatusStore.write("complete") else {
+            loginState.step = .agreements
+            loginState.error = "설정 완료 상태를 저장하지 못했어요. 다시 시도해주세요."
             showToast("설정 완료 상태를 저장하지 못했습니다. 다시 시도해 주세요.")
             return
         }
@@ -489,7 +491,7 @@ final class AuthSessionController: ObservableObject {
             status = funnelStatusStore.read()
         }
         if status == "setup" {
-            loginState.step = .library
+            loginState.step = .agreements
             loginState.onboardingVisible = false
             loginState.password = ""
             if loginState.libraryPhone.isEmpty {

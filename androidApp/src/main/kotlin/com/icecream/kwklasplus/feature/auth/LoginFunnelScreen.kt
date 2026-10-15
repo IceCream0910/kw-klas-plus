@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,11 +36,16 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -59,6 +65,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -112,15 +119,27 @@ internal fun LoginFunnelScreen(
     onConfigureAppLock: () -> Unit = {},
 ) {
     val step = state.step
+    androidx.compose.runtime.LaunchedEffect(step) {
+        if (step == LoginFunnelStep.Complete) {
+            kotlinx.coroutines.delay(2_000)
+            onFinish()
+        }
+    }
     val focusManager = LocalFocusManager.current
+    val keyboardInsets = WindowInsets.ime
+    val density = LocalDensity.current
+    val keyboardVisible by remember(keyboardInsets, density) {
+        derivedStateOf { keyboardInsets.getBottom(density) > 0 }
+    }
+    val isLoginInput = step == LoginFunnelStep.StudentId || step == LoginFunnelStep.Password
     val stepNumber = when (step) {
         LoginFunnelStep.StudentId -> 1
         LoginFunnelStep.Password, LoginFunnelStep.Authenticating -> 2
         LoginFunnelStep.Library -> 3
-        LoginFunnelStep.Agreements -> 6
+        LoginFunnelStep.Agreements -> 3
         LoginFunnelStep.AppLock -> 4
         LoginFunnelStep.Notifications -> 5
-        LoginFunnelStep.Complete -> 7
+        LoginFunnelStep.Complete -> 3
     }
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         FunnelGlow(Modifier.align(Alignment.TopCenter))
@@ -128,10 +147,10 @@ internal fun LoginFunnelScreen(
             modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding().testTag("login_form"),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Column(Modifier.widthIn(max = 600.dp).fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp)) {
+            Column(Modifier.widthIn(max = 600.dp).fillMaxWidth().padding(horizontal = 20.dp, vertical = if (isLoginInput) 4.dp else 16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if ((step == LoginFunnelStep.StudentId && canReturnToOnboarding) ||
-                        step == LoginFunnelStep.Password || step == LoginFunnelStep.Agreements || step == LoginFunnelStep.AppLock || step == LoginFunnelStep.Notifications || step == LoginFunnelStep.Complete) {
+                        step == LoginFunnelStep.Password || step == LoginFunnelStep.AppLock || step == LoginFunnelStep.Notifications) {
                         IconButton(onClick = onBack, modifier = Modifier.offset(x = (-12).dp).testTag("funnel_back")) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "이전 단계", tint = MaterialTheme.colorScheme.onBackground)
                         }
@@ -139,7 +158,7 @@ internal fun LoginFunnelScreen(
                         Spacer(Modifier.height(48.dp))
                     }
                     Spacer(Modifier.weight(1f))
-                    Text("$stepNumber / 7", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("$stepNumber / 3", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             AnimatedContent(
@@ -167,45 +186,56 @@ internal fun LoginFunnelScreen(
                             LoginFunnelStep.AppLock -> FunnelArtwork.Lock
                             LoginFunnelStep.Notifications -> FunnelArtwork.Notification
                             else -> FunnelArtwork.Agreement
-                        }, plain = true)
+                        }, modifier = if (isLoginInput) Modifier.height(48.dp) else Modifier, plain = true)
                     }
                     when (current) {
                         LoginFunnelStep.StudentId -> {
                             val focusRequester = remember { FocusRequester() }
                             LaunchedEffect(Unit) { focusRequester.requestFocus() }
-                            FunnelHeading("학번을 입력해주세요.", "ⓘ 입력한 정보는 학교 공식 KLAS 서버로만 전송되며, KLAS+ 서버에는 별도로 저장되지 않습니다.")
-                            OutlinedTextField(
-                                value = state.studentId,
-                                onValueChange = onStudentIdChange,
-                                shape = KlasControlShape,
-                                label = { Text("학번") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).testTag("login_student_id"),
-                            )
+                            FunnelHeading("학번을 입력해주세요.", "로그인 정보는 이 기기에서 학교 KLAS 서버로 직접 전달되며 KLAS+ 서버에 저장되지 않아요.", loginInfo = true)
+                            LoginInputViewport(keyboardVisible = keyboardVisible, error = null) {
+                                OutlinedTextField(
+                                    value = state.studentId,
+                                    onValueChange = onStudentIdChange,
+                                    shape = KlasControlShape,
+                                    label = { Text("학번") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).testTag("login_student_id"),
+                                )
+                            }
                             TextButton(onClick = onFindId) { Text("학번이 생각나지 않나요?") }
                         }
                         LoginFunnelStep.Password -> {
-                            FunnelHeading("KLAS 비밀번호를 입력해주세요.", "ⓘ 입력한 정보는 학교 공식 KLAS 서버로만 전송되며, KLAS+ 서버에는 별도로 저장되지 않습니다.")
+                            FunnelHeading("KLAS 비밀번호를 입력해주세요.", "로그인 정보는 이 기기에서 학교 KLAS 서버로 직접 전달되며 KLAS+ 서버에 저장되지 않아요.", loginInfo = true)
                             val focusRequester = remember { FocusRequester() }
                             LaunchedEffect(Unit) { focusRequester.requestFocus() }
                             var revealed by remember { mutableStateOf(false) }
-                            OutlinedTextField(
-                                value = state.password,
-                                onValueChange = onPasswordChange,
-                                shape = KlasControlShape,
-                                label = { Text("비밀번호") },
-                                visualTransformation = if (revealed) VisualTransformation.None else PasswordVisualTransformation(),
-                                trailingIcon = { IconButton(onClick = { revealed = !revealed }) {
-                                    Icon(if (revealed) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                                        contentDescription = if (revealed) "비밀번호 숨기기" else "비밀번호 표시")
-                                } },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).testTag("login_password"),
-                            )
+                            LoginInputViewport(keyboardVisible = keyboardVisible, error = state.error) {
+                                OutlinedTextField(
+                                    value = state.password,
+                                    onValueChange = onPasswordChange,
+                                    shape = KlasControlShape,
+                                    label = { Text("비밀번호") },
+                                    visualTransformation = if (revealed) VisualTransformation.None else PasswordVisualTransformation(),
+                                    trailingIcon = { IconButton(onClick = { revealed = !revealed }) {
+                                        Icon(if (revealed) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                                            contentDescription = if (revealed) "비밀번호 숨기기" else "비밀번호 표시")
+                                    } },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).testTag("login_password"),
+                                )
+                                state.error?.let {
+                                    Text(
+                                        it,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                                    )
+                                }
+                            }
                             TextButton(onClick = onFindPassword) { Text("비밀번호를 잊어버렸나요?") }
-                            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                         }
                         LoginFunnelStep.Authenticating -> {
                             Spacer(Modifier.height(56.dp))
@@ -241,7 +271,7 @@ internal fun LoginFunnelScreen(
                             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                         }
                         LoginFunnelStep.Agreements -> {
-                            FunnelHeading("약관에 동의해주세요.", "KLAS+를 사용하기 위해 아래 약관에 필수로 동의해야 해요.\n개인정보는 자체 서버에 저장되지 않고 안전하게 처리되며, 서비스 개선을 위해 사용 데이터가 수집돼요.")
+                            FunnelHeading("약관에 동의해주세요.", "로그인되었어요. 필수 약관에 동의하면 바로 과제와 시간표를 확인할 수 있어요.\n서비스 개선을 위한 사용 데이터 수집 내용도 확인해주세요.")
                             Row(
                                 modifier = Modifier.fillMaxWidth().clickable { onPrivacyChange(!state.privacyAccepted) },
                                 verticalAlignment = Alignment.CenterVertically,
@@ -270,7 +300,7 @@ internal fun LoginFunnelScreen(
                             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                         }
                         LoginFunnelStep.AppLock -> {
-                            FunnelHeading("앱 잠금을 설정할 수 있어요.", "비밀번호와 생체인증으로 앱을 잠글 수 있어요. 앱 잠금을 설정하지 않으면 자동 로그인이 적용되어 별도 인증없이 앱을 실행하면 KLAS에 접근할 수 있어요. 건너뛰어도 나중에 설정에서 다시 잠글 수 있어요.")
+                            FunnelHeading("보안을 강화해보세요.", "비밀번호와 생체인증으로 앱을 잠글 수 있어요. 앱 잠금을 설정하지 않으면 자동 로그인이 적용되어 별도 인증없이 앱을 실행하면 KLAS에 접근할 수 있어요. 건너뛰어도 나중에 설정에서 다시 잠글 수 있어요.")
                             if (state.appLockEnabled) Text("앱 잠금 설정 완료", color = MaterialTheme.colorScheme.primary)
                             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                         }
@@ -291,8 +321,8 @@ internal fun LoginFunnelScreen(
                     }
                 }
             }
-            if (step != LoginFunnelStep.Authenticating) {
-                Column(Modifier.widthIn(max = 600.dp).fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp)) {
+            if (step != LoginFunnelStep.Authenticating && step != LoginFunnelStep.Complete) {
+                Column(Modifier.widthIn(max = 600.dp).fillMaxWidth().padding(horizontal = 20.dp, vertical = if (isLoginInput) 8.dp else 20.dp)) {
                     val enabled = when (step) {
                         LoginFunnelStep.StudentId -> state.studentId.length == LoginUiState.STUDENT_ID_LENGTH
                         LoginFunnelStep.Password -> state.password.isNotEmpty()
@@ -341,11 +371,30 @@ internal fun LoginFunnelScreen(
 }
 
 @Composable
-private fun FunnelHeading(title: String, description: String) {
+private fun FunnelHeading(title: String, description: String, loginInfo: Boolean = false) {
     Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
     Spacer(Modifier.height(8.dp))
     Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    Spacer(Modifier.height(24.dp))
+    if (loginInfo) LoginSecurityInfo()
+    Spacer(Modifier.height(if (loginInfo) 12.dp else 24.dp))
+}
+
+@Composable
+private fun LoginInputViewport(keyboardVisible: Boolean, error: String?, content: @Composable () -> Unit) {
+    val requester = remember { BringIntoViewRequester() }
+    LaunchedEffect(keyboardVisible) {
+        if (keyboardVisible) {
+            androidx.compose.runtime.withFrameNanos { }
+            requester.bringIntoView()
+        }
+    }
+    LaunchedEffect(error) {
+        if (error != null) {
+            androidx.compose.runtime.withFrameNanos { }
+            requester.bringIntoView()
+        }
+    }
+    Column(Modifier.fillMaxWidth().bringIntoViewRequester(requester)) { content() }
 }
 
 @Composable
@@ -363,5 +412,34 @@ private fun CompletionCheck() {
         Icon(Icons.Default.CheckCircle, contentDescription = "완료 축하 애니메이션 다시 재생",
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(80.dp).graphicsLayer { scaleX = scale.value; scaleY = scale.value })
+    }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun LoginSecurityInfo() {
+    var visible by remember { mutableStateOf(false) }
+    val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    TextButton(
+        onClick = { focus.clearFocus(); keyboard?.hide(); visible = true },
+        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+        modifier = Modifier.testTag("login_security_link"),
+    ) { Text("로그인은 어떻게 처리되나요?") }
+    if (visible) androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = { visible = false },
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text("로그인은 어떻게 처리되나요?", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("학번과 비밀번호는 이 기기에서 학교 KLAS 서버로 직접 전달돼요. KLAS+ 서버에는 로그인 정보를 저장하지 않아요.")
+            Text("자동 로그인을 위해 학교가 반환한 암호화된 비밀번호와 세션은 이 기기의 Android Keystore로 보호되는 보안 저장소에 보관해요. 평문 비밀번호는 저장하거나 로그에 남기지 않아요.")
+            Button(
+                onClick = { visible = false },
+                shape = KlasControlShape,
+                colors = klasInverseButtonColors(),
+                modifier = Modifier.fillMaxWidth().height(KlasButtonHeight).testTag("login_security_close"),
+            ) { Text("닫기") }
+        }
     }
 }
