@@ -10,6 +10,10 @@ object LegacyBridgeCatalog {
             method("openPage", string), method("openExternalLink", string), method("completePageLoad"),
         ),
         BridgeSurface.HOME to listOf(
+            method("requestSearchData"),
+            method("openSearchAgent", string),
+            method("setSearchOverlayOpen", boolean),
+            method("openSearchBoard", string, string, string, string, string),
             method("changeTab", string),
             method("evaluate", string, string, string),
             method("openPage", string),
@@ -50,6 +54,7 @@ object LegacyBridgeCatalog {
             method("openQRScan"),
         ),
         BridgeSurface.LINK_VIEW to listOf(
+            method("takeSearchContext", string),
             method("openPage", string),
             method("openLecturePlanPage", string),
             method("openWebViewBottomSheet"),

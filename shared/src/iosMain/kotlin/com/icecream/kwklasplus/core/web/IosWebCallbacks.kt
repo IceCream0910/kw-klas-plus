@@ -3,6 +3,9 @@ package com.icecream.kwklasplus.core.web
 import com.icecream.kwklasplus.core.lock.AppLockSettings
 
 object IosWebCallbacks {
+    fun receiveSearchData(json: String): WebScript = NativeHomeTabScripts.searchData(json)
+    fun closeSearch(): WebScript = NativeHomeTabScripts.closeSearch()
+    fun resetSearch(): WebScript = NativeHomeTabScripts.resetSearch()
     fun navigateHomeTab(tab: String, fallbackUrl: String): WebScript =
         NativeHomeTabScripts.navigate(tab, fallbackUrl)
 

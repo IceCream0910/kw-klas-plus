@@ -21,6 +21,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import platform.Foundation.NSUserDefaults
+import platform.Foundation.NSUUID
+import com.icecream.kwklasplus.core.search.SearchBatch
+import com.icecream.kwklasplus.core.search.SearchSnapshot
 
 sealed interface HomeBootstrapResult {
     class Ready(
@@ -43,6 +46,13 @@ class IosHomeRuntime(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
 ) {
     private var bootstrapRequestVersion=0L
+    private var searchScope = NSUUID().UUIDString
+    private var searchGeneration = 0L
+    private var searchSnapshot: SearchSnapshot? = null
+    fun searchDataJson(): String = (searchSnapshot?.takeIf { it.term == currentYearHakgi() }
+        ?: SearchSnapshot(searchScope, currentYearHakgi(), searchGeneration, emptyList())).encode()
+    fun canOpenSearchCourse(term: String, courseId: String): Boolean = term == currentYearHakgi() &&
+        searchSnapshot?.let { it.term == term && it.batches.any { batch -> batch.courseId == courseId } } == true
     fun bootstrapHome(userAgent: String, onResult: (HomeBootstrapResult) -> Unit) {
         val request=++bootstrapRequestVersion
         scope.launch {
@@ -99,9 +109,13 @@ class IosHomeRuntime(
     }
 
     fun logout(onDone: () -> Unit) {
+        searchSnapshot = null
+        searchScope = NSUUID().UUIDString
+        ++searchGeneration
         ++bootstrapRequestVersion
         ++feedRequestVersion
         scope.launch {
+            com.icecream.kwklasplus.core.search.SearchAgentHandoff.clear()
             runCatching { com.icecream.kwklasplus.core.notification.IosReminderRuntime.clear() }
             academicWidgets?.clear()
             runCatching { dependencies.sessionCoordinator.expire() }
@@ -199,8 +213,11 @@ class IosHomeRuntime(
     ): String {
         val account=dependencies.stringPreference(LegacyPreferenceKeys.KW_ID)
         val ticket=runCatching { com.icecream.kwklasplus.core.notification.IosReminderRuntime.beginDeadlineRefresh() }.getOrNull()
-        val result=dependencies.deadlineRepository.fetch(session,userAgent,yearHakgi,subjects)
+        val generation = ++searchGeneration
+        val batches = mutableListOf<SearchBatch>()
+        val result=dependencies.deadlineRepository.fetch(session,userAgent,yearHakgi,subjects) { batches.add(it) }
         if(account!=dependencies.stringPreference(LegacyPreferenceKeys.KW_ID) || yearHakgi!=dependencies.stringPreference(LegacyPreferenceKeys.YEAR_HAKGI))return ""
+        if (generation == searchGeneration) searchSnapshot = SearchSnapshot(searchScope, yearHakgi, generation, batches)
         runCatching { com.icecream.kwklasplus.core.notification.IosReminderRuntime.acceptHomeDeadlines(ticket,result) }
         return when(result) {
             is DeadlinesResult.Success -> DeadlinesWebCodec().encode(result.subjects)

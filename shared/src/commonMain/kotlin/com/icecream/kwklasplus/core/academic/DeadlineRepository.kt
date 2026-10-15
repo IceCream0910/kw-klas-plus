@@ -8,6 +8,8 @@ import com.icecream.kwklasplus.core.network.KlasAuthenticatedTransport
 import com.icecream.kwklasplus.core.network.KlasUserAgent
 import com.icecream.kwklasplus.core.security.SecretValue
 import com.icecream.kwklasplus.core.session.Clock
+import com.icecream.kwklasplus.core.search.SearchBatch
+import com.icecream.kwklasplus.core.search.SearchProjection
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -68,11 +70,12 @@ class DeadlineRepository(
         userAgent: KlasUserAgent,
         yearSemester: String,
         subjects: List<AcademicSubject>,
+        onSearchBatch: (SearchBatch) -> Unit = {},
     ): DeadlinesResult = coroutineScope {
         val startedAt = clock.nowEpochMillis()
         if (yearSemester.isBlank()) return@coroutineScope DeadlinesResult.MalformedResponse
         val results = subjects.map { subject ->
-            async { fetchSubject(session, userAgent, yearSemester, subject) }
+            async { fetchSubject(session, userAgent, yearSemester, subject, onSearchBatch) }
         }.awaitAll()
         val failure = results.firstOrNull { it !is SubjectDeadlineResult.Success }
         if (failure != null) failure.toPublicResult()
@@ -88,6 +91,7 @@ class DeadlineRepository(
         userAgent: KlasUserAgent,
         yearSemester: String,
         subject: AcademicSubject,
+        onSearchBatch: (SearchBatch) -> Unit,
     ): SubjectDeadlineResult {
         val requestBody = buildJsonObject {
             put("selectChangeYn", "Y")
@@ -100,6 +104,7 @@ class DeadlineRepository(
             userAgent,
             requestBody,
         )
+        publishSearch(subject, "onlineLecture", online, onSearchBatch)
         if (online !is ArrayResult.Success) return online.toSubjectResult()
         val tasks = fetchArray(
             AuthenticatedKlasEndpoint.TASK_DEADLINES,
@@ -107,6 +112,7 @@ class DeadlineRepository(
             userAgent,
             requestBody,
         )
+        publishSearch(subject, "task", tasks, onSearchBatch)
         if (tasks !is ArrayResult.Success) return tasks.toSubjectResult()
         val teamTasks = fetchArray(
             AuthenticatedKlasEndpoint.TEAM_TASK_DEADLINES,
@@ -114,6 +120,7 @@ class DeadlineRepository(
             userAgent,
             requestBody,
         )
+        publishSearch(subject, "teamTask", teamTasks, onSearchBatch)
         if (teamTasks !is ArrayResult.Success) return teamTasks.toSubjectResult()
 
         val projections = listOf(
@@ -134,6 +141,14 @@ class DeadlineRepository(
             )
         } catch (_: MalformedDeadlineException) {
             SubjectDeadlineResult.MalformedResponse
+        }
+    }
+
+    private fun publishSearch(subject: AcademicSubject, kind: String, result: ArrayResult, publish: (SearchBatch) -> Unit) {
+        runCatching {
+            val now = clock.nowEpochMillis()
+            publish(if (result is ArrayResult.Success) SearchProjection.parse(subject.id, subject.name, kind, result.body, now)
+            else SearchBatch(subject.id, subject.name, kind, if (result == ArrayResult.SessionExpired) "loginRequired" else "failed", now, emptyList()))
         }
     }
 

@@ -12,7 +12,16 @@ class HomeLegacyBridgeCommandHandler(
     private val delegate: HomeBridgeDelegate,
 ) : BridgeCommandHandler {
     override suspend fun handle(command: ValidatedBridgeCommand): BridgeHandlerResult {
+        if (command.methodId == BridgeMethodId.HOME_OPEN_SEARCH_AGENT) {
+            val id = com.icecream.kwklasplus.core.search.SearchAgentHandoff.offer(command.text(0))
+                ?: return BridgeHandlerResult.Failure(BridgeErrorCode.HANDLER_FAILURE)
+            delegate.openPage("${com.icecream.kwklasplus.core.legacy.KlasUrls.KLAS_PLUS_BASE}/agent?searchContext=$id")
+            return BridgeHandlerResult.Success()
+        }
         when (command.methodId) {
+            BridgeMethodId.HOME_REQUEST_SEARCH_DATA -> delegate.requestSearchData()
+            BridgeMethodId.HOME_SET_SEARCH_OVERLAY_OPEN -> delegate.setSearchOverlayOpen(command.boolean(0))
+            BridgeMethodId.HOME_OPEN_SEARCH_BOARD -> delegate.openSearchBoard(command.text(0), command.text(1), command.text(2), command.text(3), command.text(4))
             BridgeMethodId.HOME_CHANGE_TAB -> delegate.changeTab(command.text(0))
             BridgeMethodId.HOME_EVALUATE -> delegate.evaluate(
                 command.text(0),

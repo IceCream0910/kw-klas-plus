@@ -63,6 +63,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import com.icecream.kwklasplus.feature.auth.LoginFunnelStatus
+import com.icecream.kwklasplus.ui.navigation.shouldLoadHomeTab
 import com.icecream.kwklasplus.core.platform.SecureKey
 import com.icecream.kwklasplus.core.bridge.BridgeSurface
 import com.icecream.kwklasplus.platform.web.AndroidBridgeMessageAdapter
@@ -72,6 +73,9 @@ import com.icecream.kwklasplus.platform.web.CalendarBottomSheetImeCoordinator
 import com.icecream.kwklasplus.platform.navigation.openLectureRoute
 import com.icecream.kwklasplus.platform.navigation.openWebRoute
 import com.icecream.kwklasplus.platform.navigation.openTaskRoute
+import com.icecream.kwklasplus.platform.navigation.openBoardViewRoute
+import com.icecream.kwklasplus.core.search.SearchBatch
+import com.icecream.kwklasplus.core.search.SearchSnapshot
 import com.icecream.kwklasplus.core.platform.openValidatedExternalDestination
 import com.google.android.gms.common.util.DeviceProperties.isTablet
 import com.google.android.material.datepicker.MaterialDatePicker
@@ -191,6 +195,26 @@ class HomeActivity : AppCompatActivity() {
     private lateinit var webViewContainer: FrameLayout
     internal var currentTab by mutableStateOf("") // "feed", "timetable", "calendar", "menu"
     private var deadlineForWebview: String = ""
+    private val searchScope = java.util.UUID.randomUUID().toString()
+    private var searchSnapshot: SearchSnapshot? = null
+    var isSearchOverlayOpen by mutableStateOf(false)
+
+    fun publishSearchData() {
+        val snapshot = searchSnapshot?.takeIf { it.term == yearHakgi } ?: SearchSnapshot(searchScope, yearHakgi, deadlineRequestVersion, emptyList())
+        webView.executeWebScript(NativeHomeTabScripts.searchData(snapshot.encode()))
+    }
+
+    fun openSearchBoard(kind: String, term: String, courseId: String, boardNo: String, masterNo: String) {
+        val snapshot = searchSnapshot ?: return
+        if (term != yearHakgi || snapshot.term != term || snapshot.batches.none { it.courseId == courseId }) return
+        if (!Regex("[0-9]{1,20}").matches(boardNo) || !Regex("[0-9A-Za-z_-]{1,64}").matches(masterNo)) return
+        val path = when (kind) {
+            "notice" -> "d052b8f845784c639f036b102fdc3023"
+            "material" -> "6972896bfe72408eb72926780e85d041"
+            else -> return
+        }
+        openBoardViewRoute(path, boardNo, masterNo, courseId, term, sessionIdForOtherClass)
+    }
     private var deadlineRequestVersion=0L
     private var feedInjectionVersion=0L
     private var timetableForWebview: String = ""
@@ -292,6 +316,8 @@ class HomeActivity : AppCompatActivity() {
             override fun handleOnBackPressed() {
                 if (isOpenWebViewBottomSheet) {
                     webView.executeWebScript(KlasWebAutomationScripts.closeBottomSheet())
+                } else if (isSearchOverlayOpen) {
+                    webView.executeWebScript(NativeHomeTabScripts.closeSearch())
                 } else {
                     if (System.currentTimeMillis() > backPressedTime + 2000) {
                         backPressedTime = System.currentTimeMillis()
@@ -347,7 +373,7 @@ class HomeActivity : AppCompatActivity() {
                         applyImePadding = false,
                         drawBehindNavigationBar = true,
                     )
-                    if (!isInitialPageLoading && currentTab.isNotEmpty() && !isOpenWebViewBottomSheet &&
+                    if (!isInitialPageLoading && currentTab.isNotEmpty() && !isOpenWebViewBottomSheet && !isSearchOverlayOpen &&
                         !isIdCardModalActive && bottomNavigationSize.height > 0 &&
                         (contextualSetup.suggestion != SetupSuggestion.Library || currentTab == "menu") &&
                         (!com.icecream.kwklasplus.manager.AppLockManager.isAppLockEnabled(this@HomeActivity) ||
@@ -356,7 +382,7 @@ class HomeActivity : AppCompatActivity() {
                             Modifier.align(Alignment.BottomCenter)
                                 .padding(bottom = with(density) { bottomNavigationSize.height.toDp() }), verticalPadding = 0.dp)
                     }
-                    if (!isInitialPageLoading && currentTab.isNotEmpty() && !isOpenWebViewBottomSheet) {
+                    if (!isInitialPageLoading && currentTab.isNotEmpty() && !isOpenWebViewBottomSheet && !isSearchOverlayOpen) {
                         Box(Modifier.align(Alignment.BottomCenter).onSizeChanged { bottomNavigationSize = it }) {
                             NativeHomeNavigation(currentTab, ::selectNativeTab)
                         }
@@ -520,9 +546,8 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    fun switchToTab(tab: String) {
-        if (currentTab == tab && currentTab.isNotEmpty()) return
-        if (getCurrentTab() == tab) {
+    fun switchToTab(tab: String, forceReload: Boolean = false) {
+        if (!shouldLoadHomeTab(tab, currentTab, getCurrentTab(), forceReload)) {
             currentTab = tab
             if (tab == "menu") offerSetup(SetupSuggestion.Library)
             return
@@ -530,6 +555,7 @@ class HomeActivity : AppCompatActivity() {
         if (tab != "calendar") {
             calendarBottomSheetImeCoordinator?.setActive(false)
         }
+        isSearchOverlayOpen = false
         currentTab = tab
         if (tab == "menu") offerSetup(SetupSuggestion.Library)
         val url = when (tab) {
@@ -978,9 +1004,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun reloadCurrentTab() {
-        val currentTabTemp = currentTab
-        currentTab = ""
-        switchToTab(currentTabTemp)
+        switchToTab(currentTab, forceReload = true)
     }
 
     fun reload() {
@@ -1029,11 +1053,14 @@ class HomeActivity : AppCompatActivity() {
         val account=appPreferences.getString(AppPrefs.KW_ID,null)
         val version=withContext(Dispatchers.Main) { deadlineForWebview="";++deadlineRequestVersion }
         val ticket=runCatching { appDependencies.reminders.engine.beginHomeDeadlineRefresh() }.getOrNull()
-        val result=appDependencies.deadlineRepository.fetch(SecretValue.of(sessionId),KlasUserAgent.fromPlatform(WebSettings.getDefaultUserAgent(this)),selectedTerm,subjects)
+        val searchBatches = java.util.Collections.synchronizedList(mutableListOf<SearchBatch>())
+        val result=appDependencies.deadlineRepository.fetch(SecretValue.of(sessionId),KlasUserAgent.fromPlatform(WebSettings.getDefaultUserAgent(this)),selectedTerm,subjects) { searchBatches.add(it) }
         val accepted=withContext(Dispatchers.Main) {
             if(version!=deadlineRequestVersion || selectedTerm!=yearHakgi || account!=appPreferences.getString(AppPrefs.KW_ID,null))return@withContext false
             if (result is DeadlinesResult.Success) offerSetup(SetupSuggestion.Notifications)
             deadlineForWebview=if(result is DeadlinesResult.Success)DeadlinesWebCodec().encode(result.subjects) else "[]"
+            searchSnapshot = SearchSnapshot(searchScope, selectedTerm, version, searchBatches.toList())
+            publishSearchData()
             if(result==DeadlinesResult.SessionExpired)showSessionExpiredDialog()
             else if(result !is DeadlinesResult.Success)Toast.makeText(this@HomeActivity,"마감 정보를 새로 불러오지 못했습니다.",Toast.LENGTH_SHORT).show()
             true
@@ -1298,7 +1325,12 @@ class HomeActivity : AppCompatActivity() {
         builder.setTitle("로그아웃")
             .setMessage("정말 로그아웃할까요?")
             .setPositiveButton("확인") { _, _ ->
+                ++deadlineRequestVersion
+                searchSnapshot = null
+                isSearchOverlayOpen = false
+                webView.executeWebScript(NativeHomeTabScripts.resetSearch())
                 lifecycleScope.launch {
+                    com.icecream.kwklasplus.core.search.SearchAgentHandoff.clear()
                     runCatching { appDependencies.reminders.logout() }
                     appDependencies.sessionKeepAlive.onSessionCleared()
                     appDependencies.sessionCoordinator.expire()
@@ -1399,6 +1431,14 @@ class HomeActivity : AppCompatActivity() {
 }
 
 class HomeBridgeDelegate(private val homeActivity: HomeActivity) {
+    fun requestSearchData() = homeActivity.runOnUiThread {
+        homeActivity.publishSearchData()
+        homeActivity.webView.executeWebScript(LegacyWebScripts.call(LegacyWebCallback.RECEIVE_TOKEN, JavaScriptArgument.Text(homeActivity.sessionIdForOtherClass)))
+    }
+    fun setSearchOverlayOpen(open: Boolean) = homeActivity.runOnUiThread { homeActivity.isSearchOverlayOpen = open }
+    fun openSearchBoard(kind: String, term: String, courseId: String, boardNo: String, masterNo: String) = homeActivity.runOnUiThread {
+        homeActivity.openSearchBoard(kind, term, courseId, boardNo, masterNo)
+    }
     fun changeTab(tab: String) {
         homeActivity.runOnUiThread {
             homeActivity.switchToTab(tab)

@@ -4,6 +4,8 @@ KLAS+는 KMP 공통 코어 위에 Android Compose와 iOS SwiftUI 앱을 얹습�
 
 ## 모듈과 의존 방향
 
+통합 검색은 기존 학습 응답에서 추출한 최소 DTO를 웹으로 전달하며 검색·제한된 메타데이터 캐시는 WebView가 소유합니다. 신규 검색 브리지는 KLAS+ origin의 최상위 프레임에만 노출합니다. 검색 오버레이는 기존 Agent UI를 공유하며, 질문과 검색 결과 컨텍스트를 별도로 표시하고 사용자가 전송하기 전에는 AI 요청을 시작하지 않습니다. 기존 `/agent` 이동에는 Native 메모리의 60초 일회성 컨텍스트 전달 계약도 유지합니다. 계약·캐시 무효화·검증 범위·롤백은 [ADR-012](adr/ADR-012-unified-search.md)를 따릅니다. 기존 SESSION 저장 경로는 변경하지 않습니다.
+
 | 모듈 | 소유권 |
 |---|---|
 | `shared/commonMain` | Ktor API/DTO, 인증·세션·도메인 정책, repository/use case, 플랫폼 중립 상태, URL·브리지 명령/이벤트 모델과 port |

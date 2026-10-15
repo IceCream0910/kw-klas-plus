@@ -72,7 +72,11 @@ class LectureLegacyBridgeCommandHandler(
 class LinkLegacyBridgeCommandHandler(
     private val delegate: LinkBridgeDelegate,
 ) : BridgeCommandHandler {
-    override suspend fun handle(command: ValidatedBridgeCommand) = command.execute {
+    override suspend fun handle(command: ValidatedBridgeCommand): BridgeHandlerResult {
+        if (command.methodId == BridgeMethodId.LINK_VIEW_TAKE_SEARCH_CONTEXT) return BridgeHandlerResult.Success(
+            BridgeValue.Text(com.icecream.kwklasplus.core.search.SearchAgentHandoff.take(command.text(0))),
+        )
+        return command.execute {
         when (command.methodId) {
             BridgeMethodId.LINK_VIEW_OPEN_PAGE -> delegate.openPage(command.text(0))
             BridgeMethodId.LINK_VIEW_OPEN_LECTURE_PLAN_PAGE -> delegate.openLecturePlanPage(
@@ -84,6 +88,7 @@ class LinkLegacyBridgeCommandHandler(
             else -> return@execute false
         }
         true
+        }
     }
 }
 

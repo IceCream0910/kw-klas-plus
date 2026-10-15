@@ -216,7 +216,7 @@ private struct ContextualSetupOverlay: View {
                (kind != .library || coordinator.currentTab == "menu"),
                appLock.mode == nil, libraryQr.presentedSheet == nil, !coordinator.isIdCardModalActive,
                bottomNavigationHeight > 0,
-               !coordinator.showOptionsMenu, !coordinator.showYearHakgiPicker, !coordinator.isWebBottomSheetOpen {
+               !coordinator.showOptionsMenu, !coordinator.showYearHakgiPicker, !coordinator.isWebBottomSheetOpen, !coordinator.isSearchOverlayOpen {
                 SetupSuggestionCard(kind: kind, onClose: setup.dismiss, onAction: {
                     setup.dismiss()
                     switch kind {

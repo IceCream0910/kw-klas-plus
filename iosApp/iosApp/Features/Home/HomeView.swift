@@ -34,7 +34,7 @@ struct HomeView: View {
         .webSurfaceTopBackground()
         .toolbar(.hidden, for: .navigationBar)
         .overlay(alignment: .bottom) {
-            if !coordinator.isPageLoading && !coordinator.isWebBottomSheetOpen {
+            if !coordinator.isPageLoading && !coordinator.isWebBottomSheetOpen && !coordinator.isSearchOverlayOpen {
                 NativeHomeSystemTabBar(
                     selectedTab: coordinator.currentTab,
                     onSelect: coordinator.selectNativeTab
