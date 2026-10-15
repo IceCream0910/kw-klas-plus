@@ -26,8 +26,8 @@ class LoginFunnelStatusTest {
     }
 
     @Test
-    fun unfinishedSetupReturnsToLibraryAndBlocksHome() {
-        assertEquals(LoginFunnelStep.Library, LoginFunnelStatus.initialStep(LoginFunnelStatus.SETUP))
+    fun unfinishedSetupReturnsToAgreementsAndBlocksHome() {
+        assertEquals(LoginFunnelStep.Agreements, LoginFunnelStatus.initialStep(LoginFunnelStatus.SETUP))
         assertTrue(LoginFunnelStatus.blocksHome(LoginFunnelStatus.SETUP))
     }
 

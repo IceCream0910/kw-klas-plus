@@ -81,9 +81,7 @@ class LoginActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 appLockEnabled = AppLockManager.isAppLockEnabled(this@LoginActivity)
-                if (funnelStep == LoginFunnelStep.AppLock && AppLockManager.hasPassword(this@LoginActivity)) continueFunnel()
                 deadlineNotificationsEnabled = appDependencies.reminders.consent.state().enabled
-                if (funnelStep == LoginFunnelStep.Notifications && deadlineNotificationsEnabled) continueFunnel()
             } catch (cause: Exception) {
                 if (cause is CancellationException) throw cause
                 funnelError = "추천 설정을 확인하지 못했어요. 다시 시도해 주세요."
@@ -152,6 +150,10 @@ class LoginActivity : AppCompatActivity() {
                 LoginFunnelStep.Library, LoginFunnelStep.Agreements, LoginFunnelStep.AppLock, LoginFunnelStep.Notifications,
                 LoginFunnelStep.Complete,
             )) funnelStep = LoginFunnelStatus.initialStep(persistedStatus)
+        if (persistedStatus == LoginFunnelStatus.SETUP) {
+            funnelStep = LoginFunnelStep.Agreements
+            onboardingVisible = false
+        }
         privacyAccepted = savedInstanceState?.getBoolean(STATE_PRIVACY_ACCEPTED) ?: false
         termsAccepted = savedInstanceState?.getBoolean(STATE_TERMS_ACCEPTED) ?: false
         canReturnToOnboarding = savedInstanceState?.getBoolean(STATE_CAN_RETURN_TO_ONBOARDING) ?: false
@@ -326,7 +328,7 @@ class LoginActivity : AppCompatActivity() {
                                 return@launch
                             }
                             AcademicWidgets.renderAll(this@LoginActivity)
-                            funnelStep = LoginFunnelStep.Library
+                            funnelStep = LoginFunnelStep.Agreements
                             funnelError = null
                         }
                         is LoginResult.UserActionRequired -> failLogin(
@@ -383,7 +385,7 @@ class LoginActivity : AppCompatActivity() {
                     funnelStep = if (funnelStep == LoginFunnelStep.AppLock) LoginFunnelStep.Notifications else LoginFunnelStep.Agreements
                 } else funnelError = "설정 상태를 확인하지 못했어요. 다시 시도해 주세요."
             }
-            LoginFunnelStep.Complete -> finishFunnel()
+            LoginFunnelStep.Complete -> Unit
             else -> Unit
         }
     }
@@ -412,7 +414,7 @@ class LoginActivity : AppCompatActivity() {
                 funnelStep
             }
             LoginFunnelStep.Password -> LoginFunnelStep.StudentId
-            LoginFunnelStep.Agreements -> LoginFunnelStep.Notifications
+            LoginFunnelStep.Agreements -> LoginFunnelStep.Agreements
             LoginFunnelStep.AppLock -> LoginFunnelStep.Library
             LoginFunnelStep.Complete -> LoginFunnelStep.Agreements
             else -> funnelStep
@@ -473,6 +475,7 @@ class LoginActivity : AppCompatActivity() {
             return
         }
         if (!appPreferences.edit().putString(LoginFunnelStatus.KEY, LoginFunnelStatus.COMPLETE).commit()) {
+            funnelStep = LoginFunnelStep.Agreements
             funnelError = "설정 완료 상태를 저장하지 못했어요. 다시 시도해 주세요."
             return
         }

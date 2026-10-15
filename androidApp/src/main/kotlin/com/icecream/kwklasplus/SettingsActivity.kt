@@ -1,5 +1,14 @@
 package com.icecream.kwklasplus
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import com.icecream.kwklasplus.feature.auth.ContextualSetup
+import com.icecream.kwklasplus.feature.auth.SetupSuggestion
+import com.icecream.kwklasplus.feature.auth.SetupSuggestionCard
+
 import android.R.attr.data
 import android.app.Activity
 import android.content.Intent
@@ -46,6 +55,8 @@ import com.icecream.kwklasplus.ui.web.ComposeWebViewHost
 
 
 class SettingsActivity : AppCompatActivity() {
+    private var enablingFromSuggestion = false
+    private val contextualSetup by lazy { ContextualSetup(appPreferences) }
     var appVersion: String = ""
     lateinit var webView: WebView
     lateinit var sharedPreferences: SharedPreferences
@@ -69,20 +80,32 @@ class SettingsActivity : AppCompatActivity() {
             Toast.makeText(this, "인증이 취소되었습니다.", Toast.LENGTH_SHORT).show()
         } else {
             val disabling = isDisablingProcess
+            val enabling = enablingFromSuggestion
             lifecycleScope.launch {
                 try {
                     if (disabling) {
                         AppLockManager.setAppLockEnabled(this@SettingsActivity, false)
                         Toast.makeText(this@SettingsActivity, "앱 잠금이 비활성화되고 비밀번호가 초기화되었습니다.", Toast.LENGTH_SHORT).show()
                     }
+                    if (enabling && AppLockManager.hasPassword(this@SettingsActivity)) {
+                        AppLockManager.setAppLockEnabled(this@SettingsActivity, true)
+                        AppLockManager.isUnlocked = true
+                    }
                     hasPasswordCache = AppLockManager.hasPassword(this@SettingsActivity)
                     webView.executeWebScript(LegacyWebScripts.appLockSettingChanged(currentAppLockSettings()))
+                    webView.evaluateJavascript("document.dispatchEvent(new Event('visibilitychange'));", null)
                 } catch (_: Exception) {
                     Toast.makeText(this@SettingsActivity, "앱 잠금 설정을 변경하지 못했어요.", Toast.LENGTH_SHORT).show()
                 }
             }
         }
         isDisablingProcess = false
+        enablingFromSuggestion = false
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putBoolean("enabling_from_suggestion", enablingFromSuggestion)
+        super.onSaveInstanceState(outState)
     }
 
     override fun onResume() {
@@ -92,6 +115,7 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enablingFromSuggestion = savedInstanceState?.getBoolean("enabling_from_suggestion") ?: false
         sharedPreferences = appPreferences
         currentAppTheme = sharedPreferences.getString(AppPrefs.APP_THEME, "system").toString()
         savedYearHakgi = sharedPreferences.getString(AppPrefs.YEAR_HAKGI, "").toString()
@@ -108,12 +132,25 @@ class SettingsActivity : AppCompatActivity() {
         webSurface = AndroidWebSurface(webView)
         setContent {
             KlasPlusTheme {
-                ComposeWebViewHost(
-                    webView = webView,
-                    isLoading = false,
-                    title = "설정",
-                )
+                Box(Modifier.fillMaxSize()) {
+                    ComposeWebViewHost(
+                        webView = webView,
+                        isLoading = false,
+                        title = "설정",
+                    )
+                    SetupSuggestionCard(contextualSetup, {
+                        lifecycleScope.launch {
+                            enablingFromSuggestion = true
+                            val mode = if (AppLockManager.hasPassword(this@SettingsActivity)) "VERIFY" else "SET"
+                            lockSetupLauncher.launch(Intent(this@SettingsActivity, LockActivity::class.java).putExtra("MODE", mode))
+                        }
+                    }, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
+                }
             }
+        }
+        lifecycleScope.launch {
+            try { contextualSetup.offer(SetupSuggestion.AppLock, AppLockManager.isAppLockEnabled(this@SettingsActivity)) }
+            catch (cause: Exception) { if (cause is kotlinx.coroutines.CancellationException) throw cause }
         }
         val bridgeDelegate = SettingsBridgeDelegate(this)
         webView.configureAppWebView(

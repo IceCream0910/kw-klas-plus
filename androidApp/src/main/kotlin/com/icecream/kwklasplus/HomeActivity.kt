@@ -1,5 +1,14 @@
 package com.icecream.kwklasplus
 
+import com.icecream.kwklasplus.feature.auth.ContextualSetup
+import com.icecream.kwklasplus.feature.auth.SetupSuggestion
+import com.icecream.kwklasplus.feature.auth.SetupSuggestionCard
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
+
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.SharedPreferences
@@ -214,6 +223,59 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
+    private var bottomNavigationSize by mutableStateOf(IntSize.Zero)
+    private val contextualSetup by lazy { ContextualSetup(appPreferences) }
+    private val contextualLockSetup = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            lifecycleScope.launch {
+                if (com.icecream.kwklasplus.manager.AppLockManager.hasPassword(this@HomeActivity)) {
+                    com.icecream.kwklasplus.manager.AppLockManager.setAppLockEnabled(this@HomeActivity, true)
+                    com.icecream.kwklasplus.manager.AppLockManager.isUnlocked = true
+                    Toast.makeText(this@HomeActivity, "앱 잠금이 설정되었어요.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun offerSetup(kind: SetupSuggestion) {
+        lifecycleScope.launch {
+            try {
+                val configured = when (kind) {
+                    SetupSuggestion.Notifications -> appDependencies.reminders.consent.state().enabled
+                    SetupSuggestion.Library -> !appPreferences.getString(AppPrefs.LIBRARY_STD_NUMBER, null).isNullOrBlank() &&
+                        !appPreferences.getString(AppPrefs.LIBRARY_PHONE, null).isNullOrBlank() &&
+                        !encryptedPreferences.getString(AppPrefs.LIBRARY_PASSWORD, null).isNullOrBlank()
+                    SetupSuggestion.AppLock -> com.icecream.kwklasplus.manager.AppLockManager.isAppLockEnabled(this@HomeActivity)
+                }
+                contextualSetup.offer(kind, configured)
+            } catch (cause: Exception) {
+                if (cause is kotlinx.coroutines.CancellationException) throw cause
+            }
+        }
+    }
+
+    private fun openSuggestedSetup(kind: SetupSuggestion) {
+        when (kind) {
+            SetupSuggestion.Library -> LibraryQRSettingsBottomSheetDialog().show(supportFragmentManager, LibraryQRSettingsBottomSheetDialog.TAG)
+            SetupSuggestion.AppLock -> lifecycleScope.launch {
+                val mode = if (com.icecream.kwklasplus.manager.AppLockManager.hasPassword(this@HomeActivity)) "VERIFY" else "SET"
+                contextualLockSetup.launch(Intent(this@HomeActivity, LockActivity::class.java).putExtra("MODE", mode))
+            }
+            SetupSuggestion.Notifications -> lifecycleScope.launch {
+                try {
+                    appDependencies.reminders.consent.request(true, com.icecream.kwklasplus.core.notification.ReminderSettingsUi { attempt ->
+                        startActivity(Intent(this@HomeActivity, com.icecream.kwklasplus.notification.DeadlineNotificationSettingsActivity::class.java)
+                            .putExtra("consent_attempt", attempt).putExtra("contextual_setup", true))
+                        true
+                    })
+                } catch (cause: Exception) {
+                    if (cause is kotlinx.coroutines.CancellationException) throw cause
+                    Toast.makeText(this@HomeActivity, "알림 설정을 시작하지 못했어요. 설정에서 다시 시도해주세요.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (redirectToLoginIfSetupIncomplete()) return
@@ -276,6 +338,7 @@ class HomeActivity : AppCompatActivity() {
         window.isNavigationBarContrastEnforced = false
         setContent {
             KlasPlusTheme {
+                val density = LocalDensity.current
                 Box(Modifier.fillMaxSize()) {
                     ComposePlatformViewHost(
                         contentView = webViewContainer,
@@ -284,8 +347,17 @@ class HomeActivity : AppCompatActivity() {
                         applyImePadding = false,
                         drawBehindNavigationBar = true,
                     )
+                    if (!isInitialPageLoading && currentTab.isNotEmpty() && !isOpenWebViewBottomSheet &&
+                        !isIdCardModalActive && bottomNavigationSize.height > 0 &&
+                        (contextualSetup.suggestion != SetupSuggestion.Library || currentTab == "menu") &&
+                        (!com.icecream.kwklasplus.manager.AppLockManager.isAppLockEnabled(this@HomeActivity) ||
+                            com.icecream.kwklasplus.manager.AppLockManager.isUnlocked)) {
+                        SetupSuggestionCard(contextualSetup, ::openSuggestedSetup,
+                            Modifier.align(Alignment.BottomCenter)
+                                .padding(bottom = with(density) { bottomNavigationSize.height.toDp() }), verticalPadding = 0.dp)
+                    }
                     if (!isInitialPageLoading && currentTab.isNotEmpty() && !isOpenWebViewBottomSheet) {
-                        Box(Modifier.align(Alignment.BottomCenter)) {
+                        Box(Modifier.align(Alignment.BottomCenter).onSizeChanged { bottomNavigationSize = it }) {
                             NativeHomeNavigation(currentTab, ::selectNativeTab)
                         }
                     }
@@ -306,6 +378,8 @@ class HomeActivity : AppCompatActivity() {
         }
         initSubjectList(sessionId)
         initLoadingDialog()
+        ContextualSetup.recordLaunch(appPreferences)
+        if (appPreferences.getInt(ContextualSetup.LAUNCH_COUNT, 0) >= 2) offerSetup(SetupSuggestion.AppLock)
         showLibrarySettingsIfRequested()
 
         // Play In-app Update
@@ -450,12 +524,14 @@ class HomeActivity : AppCompatActivity() {
         if (currentTab == tab && currentTab.isNotEmpty()) return
         if (getCurrentTab() == tab) {
             currentTab = tab
+            if (tab == "menu") offerSetup(SetupSuggestion.Library)
             return
         }
         if (tab != "calendar") {
             calendarBottomSheetImeCoordinator?.setActive(false)
         }
         currentTab = tab
+        if (tab == "menu") offerSetup(SetupSuggestion.Library)
         val url = when (tab) {
             "feed" -> "${AppUrls.KLAS_PLUS_BASE}/feed?yearHakgi=${yearHakgi}"
             "timetable" -> "${AppUrls.KLAS_PLUS_BASE}/timetableTab?yearHakgi=${yearHakgi}"
@@ -488,6 +564,7 @@ class HomeActivity : AppCompatActivity() {
         }
         if (tab != "calendar") calendarBottomSheetImeCoordinator?.setActive(false)
         currentTab = tab
+        if (tab == "menu") offerSetup(SetupSuggestion.Library)
         webView.executeWebScript(NativeHomeTabScripts.navigate(tab, url))
         webView.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
     }
@@ -517,6 +594,7 @@ class HomeActivity : AppCompatActivity() {
 
         hideLoading()
         currentTab = getCurrentTab()
+        if (currentTab == "menu") offerSetup(SetupSuggestion.Library)
 
         when (currentTab) {
             "feed" -> sendDeadlineAndTimetableToWebView()
@@ -954,6 +1032,7 @@ class HomeActivity : AppCompatActivity() {
         val result=appDependencies.deadlineRepository.fetch(SecretValue.of(sessionId),KlasUserAgent.fromPlatform(WebSettings.getDefaultUserAgent(this)),selectedTerm,subjects)
         val accepted=withContext(Dispatchers.Main) {
             if(version!=deadlineRequestVersion || selectedTerm!=yearHakgi || account!=appPreferences.getString(AppPrefs.KW_ID,null))return@withContext false
+            if (result is DeadlinesResult.Success) offerSetup(SetupSuggestion.Notifications)
             deadlineForWebview=if(result is DeadlinesResult.Success)DeadlinesWebCodec().encode(result.subjects) else "[]"
             if(result==DeadlinesResult.SessionExpired)showSessionExpiredDialog()
             else if(result !is DeadlinesResult.Success)Toast.makeText(this@HomeActivity,"마감 정보를 새로 불러오지 못했습니다.",Toast.LENGTH_SHORT).show()
@@ -1087,6 +1166,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
     fun requestIdCardQRValue() {
+        contextualSetup.dismiss()
         isIdCardModalActive = true
         updateSecurityAndBrightness(true)
         var idCardQR = "pending"

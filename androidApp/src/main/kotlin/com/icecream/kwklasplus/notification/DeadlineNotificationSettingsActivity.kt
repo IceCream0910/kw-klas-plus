@@ -117,7 +117,13 @@ class DeadlineNotificationSettingsActivity: AppCompatActivity() {
         lifecycleScope.launch {
         try {
             when(appDependencies.reminders.consent.complete(attempt)) {
-                "COMPLETED" -> { completed=true;denied=false;error=null }
+                "COMPLETED" -> {
+                    completed=true;denied=false;error=null
+                    if (intent.getBooleanExtra("contextual_setup", false)) {
+                        android.widget.Toast.makeText(this@DeadlineNotificationSettingsActivity, "마감 알림이 설정되었어요.", android.widget.Toast.LENGTH_SHORT).show()
+                        finish()
+                    }
+                }
                 "PERMISSION_DENIED" -> denied=true
                 else -> { error="설정 요청이 취소되었어요. 시트를 닫고 다시 켜 주세요." }
             }

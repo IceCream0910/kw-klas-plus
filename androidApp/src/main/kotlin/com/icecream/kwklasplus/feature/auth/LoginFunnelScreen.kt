@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -112,15 +113,21 @@ internal fun LoginFunnelScreen(
     onConfigureAppLock: () -> Unit = {},
 ) {
     val step = state.step
+    androidx.compose.runtime.LaunchedEffect(step) {
+        if (step == LoginFunnelStep.Complete) {
+            kotlinx.coroutines.delay(2_000)
+            onFinish()
+        }
+    }
     val focusManager = LocalFocusManager.current
     val stepNumber = when (step) {
         LoginFunnelStep.StudentId -> 1
         LoginFunnelStep.Password, LoginFunnelStep.Authenticating -> 2
         LoginFunnelStep.Library -> 3
-        LoginFunnelStep.Agreements -> 6
+        LoginFunnelStep.Agreements -> 3
         LoginFunnelStep.AppLock -> 4
         LoginFunnelStep.Notifications -> 5
-        LoginFunnelStep.Complete -> 7
+        LoginFunnelStep.Complete -> 3
     }
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         FunnelGlow(Modifier.align(Alignment.TopCenter))
@@ -131,7 +138,7 @@ internal fun LoginFunnelScreen(
             Column(Modifier.widthIn(max = 600.dp).fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if ((step == LoginFunnelStep.StudentId && canReturnToOnboarding) ||
-                        step == LoginFunnelStep.Password || step == LoginFunnelStep.Agreements || step == LoginFunnelStep.AppLock || step == LoginFunnelStep.Notifications || step == LoginFunnelStep.Complete) {
+                        step == LoginFunnelStep.Password || step == LoginFunnelStep.AppLock || step == LoginFunnelStep.Notifications) {
                         IconButton(onClick = onBack, modifier = Modifier.offset(x = (-12).dp).testTag("funnel_back")) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "이전 단계", tint = MaterialTheme.colorScheme.onBackground)
                         }
@@ -139,7 +146,7 @@ internal fun LoginFunnelScreen(
                         Spacer(Modifier.height(48.dp))
                     }
                     Spacer(Modifier.weight(1f))
-                    Text("$stepNumber / 7", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("$stepNumber / 3", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             AnimatedContent(
@@ -173,7 +180,7 @@ internal fun LoginFunnelScreen(
                         LoginFunnelStep.StudentId -> {
                             val focusRequester = remember { FocusRequester() }
                             LaunchedEffect(Unit) { focusRequester.requestFocus() }
-                            FunnelHeading("학번을 입력해주세요.", "ⓘ 입력한 정보는 학교 공식 KLAS 서버로만 전송되며, KLAS+ 서버에는 별도로 저장되지 않습니다.")
+                            FunnelHeading("학번을 입력해주세요.", "로그인 정보는 이 기기에서 학교 KLAS 서버로 직접 전달되며 KLAS+ 서버에 저장되지 않아요.", loginInfo = true)
                             OutlinedTextField(
                                 value = state.studentId,
                                 onValueChange = onStudentIdChange,
@@ -186,7 +193,7 @@ internal fun LoginFunnelScreen(
                             TextButton(onClick = onFindId) { Text("학번이 생각나지 않나요?") }
                         }
                         LoginFunnelStep.Password -> {
-                            FunnelHeading("KLAS 비밀번호를 입력해주세요.", "ⓘ 입력한 정보는 학교 공식 KLAS 서버로만 전송되며, KLAS+ 서버에는 별도로 저장되지 않습니다.")
+                            FunnelHeading("KLAS 비밀번호를 입력해주세요.", "로그인 정보는 이 기기에서 학교 KLAS 서버로 직접 전달되며 KLAS+ 서버에 저장되지 않아요.", loginInfo = true)
                             val focusRequester = remember { FocusRequester() }
                             LaunchedEffect(Unit) { focusRequester.requestFocus() }
                             var revealed by remember { mutableStateOf(false) }
@@ -204,8 +211,15 @@ internal fun LoginFunnelScreen(
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).testTag("login_password"),
                             )
+                            state.error?.let {
+                                Text(
+                                    it,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                                )
+                            }
                             TextButton(onClick = onFindPassword) { Text("비밀번호를 잊어버렸나요?") }
-                            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                         }
                         LoginFunnelStep.Authenticating -> {
                             Spacer(Modifier.height(56.dp))
@@ -241,7 +255,7 @@ internal fun LoginFunnelScreen(
                             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                         }
                         LoginFunnelStep.Agreements -> {
-                            FunnelHeading("약관에 동의해주세요.", "KLAS+를 사용하기 위해 아래 약관에 필수로 동의해야 해요.\n개인정보는 자체 서버에 저장되지 않고 안전하게 처리되며, 서비스 개선을 위해 사용 데이터가 수집돼요.")
+                            FunnelHeading("약관에 동의해주세요.", "로그인되었어요. 필수 약관에 동의하면 바로 과제와 시간표를 확인할 수 있어요.\n서비스 개선을 위한 사용 데이터 수집 내용도 확인해주세요.")
                             Row(
                                 modifier = Modifier.fillMaxWidth().clickable { onPrivacyChange(!state.privacyAccepted) },
                                 verticalAlignment = Alignment.CenterVertically,
@@ -270,7 +284,7 @@ internal fun LoginFunnelScreen(
                             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                         }
                         LoginFunnelStep.AppLock -> {
-                            FunnelHeading("앱 잠금을 설정할 수 있어요.", "비밀번호와 생체인증으로 앱을 잠글 수 있어요. 앱 잠금을 설정하지 않으면 자동 로그인이 적용되어 별도 인증없이 앱을 실행하면 KLAS에 접근할 수 있어요. 건너뛰어도 나중에 설정에서 다시 잠글 수 있어요.")
+                            FunnelHeading("보안을 강화해보세요.", "비밀번호와 생체인증으로 앱을 잠글 수 있어요. 앱 잠금을 설정하지 않으면 자동 로그인이 적용되어 별도 인증없이 앱을 실행하면 KLAS에 접근할 수 있어요. 건너뛰어도 나중에 설정에서 다시 잠글 수 있어요.")
                             if (state.appLockEnabled) Text("앱 잠금 설정 완료", color = MaterialTheme.colorScheme.primary)
                             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                         }
@@ -291,7 +305,7 @@ internal fun LoginFunnelScreen(
                     }
                 }
             }
-            if (step != LoginFunnelStep.Authenticating) {
+            if (step != LoginFunnelStep.Authenticating && step != LoginFunnelStep.Complete) {
                 Column(Modifier.widthIn(max = 600.dp).fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp)) {
                     val enabled = when (step) {
                         LoginFunnelStep.StudentId -> state.studentId.length == LoginUiState.STUDENT_ID_LENGTH
@@ -341,10 +355,11 @@ internal fun LoginFunnelScreen(
 }
 
 @Composable
-private fun FunnelHeading(title: String, description: String) {
+private fun FunnelHeading(title: String, description: String, loginInfo: Boolean = false) {
     Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
     Spacer(Modifier.height(8.dp))
     Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (loginInfo) LoginSecurityInfo()
     Spacer(Modifier.height(24.dp))
 }
 
@@ -363,5 +378,30 @@ private fun CompletionCheck() {
         Icon(Icons.Default.CheckCircle, contentDescription = "완료 축하 애니메이션 다시 재생",
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(80.dp).graphicsLayer { scaleX = scale.value; scaleY = scale.value })
+    }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun LoginSecurityInfo() {
+    var visible by remember { mutableStateOf(false) }
+    val focus = LocalFocusManager.current
+    TextButton(
+        onClick = { focus.clearFocus(); visible = true },
+        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+        modifier = Modifier.testTag("login_security_link"),
+    ) { Text("로그인은 어떻게 처리되나요?") }
+    if (visible) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { visible = false }) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text("로그인은 어떻게 처리되나요?", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("학번과 비밀번호는 이 기기에서 학교 KLAS 서버로 직접 전달돼요. KLAS+ 서버에는 로그인 정보를 저장하지 않아요.")
+            Text("자동 로그인을 위해 학교가 반환한 암호화된 비밀번호와 세션은 이 기기의 Android Keystore로 보호되는 보안 저장소에 보관해요. 평문 비밀번호는 저장하거나 로그에 남기지 않아요.")
+            Button(
+                onClick = { visible = false },
+                shape = KlasControlShape,
+                colors = klasInverseButtonColors(),
+                modifier = Modifier.fillMaxWidth().height(KlasButtonHeight).testTag("login_security_close"),
+            ) { Text("닫기") }
+        }
     }
 }

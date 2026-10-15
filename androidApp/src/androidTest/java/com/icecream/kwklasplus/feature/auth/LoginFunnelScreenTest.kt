@@ -13,6 +13,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -22,6 +23,44 @@ import org.junit.Test
 
 class LoginFunnelScreenTest {
     @get:Rule val rule = createComposeRule()
+
+    @Test
+    fun completionEntersHomeAfterDelayWithoutCta() {
+        var finished = 0
+        rule.mainClock.autoAdvance = false
+        rule.setContent {
+            KlasPlusTheme {
+                LoginFunnelScreen(
+                    state = funnelState(LoginFunnelStep.Complete),
+                    onStudentIdChange = {}, onPasswordChange = {}, onLibraryPasswordChange = {}, onLibraryPhoneChange = {},
+                    onPrivacyChange = {}, onTermsChange = {}, onContinue = {}, onConfigureAppLock = {}, onConfigureNotifications = {},
+                    onBack = {}, onSaveLibrary = {}, onSkipLibrary = {}, onPrivacyDetails = {}, onTermsDetails = {}, onFindId = {}, onFindPassword = {}, onFinish = { finished++ },
+                )
+            }
+        }
+        rule.mainClock.advanceTimeByFrame()
+        rule.onNodeWithTag("login_submit").assertDoesNotExist()
+        rule.mainClock.advanceTimeBy(1_800)
+        rule.runOnIdle { org.junit.Assert.assertEquals(0, finished) }
+        rule.mainClock.advanceTimeBy(400)
+        rule.runOnIdle { org.junit.Assert.assertEquals(1, finished) }
+        rule.mainClock.autoAdvance = true
+    }
+
+    @Test
+    fun loginSecurityLinkFollowsExplanationAndSheetClosesFromFooter() {
+        rule.setContent {
+            KlasPlusTheme { funnel(funnelState(LoginFunnelStep.StudentId), {}, onContinue = {}) }
+        }
+        val description = rule.onNodeWithText("로그인 정보는 이 기기에서 학교 KLAS 서버로 직접 전달되며 KLAS+ 서버에 저장되지 않아요.")
+            .fetchSemanticsNode().boundsInRoot
+        val link = rule.onNodeWithTag("login_security_link")
+        org.junit.Assert.assertTrue(link.fetchSemanticsNode().boundsInRoot.top >= description.bottom)
+        link.performClick()
+        rule.onNodeWithTag("login_security_close").assertIsDisplayed().performClick()
+        rule.onNodeWithTag("login_security_close").assertDoesNotExist()
+        rule.onNodeWithTag("login_student_id").assertIsDisplayed()
+    }
 
     @Test
     fun studentIdAndPasswordAreSeparateSteps() {
@@ -46,25 +85,20 @@ class LoginFunnelScreenTest {
     }
 
     @Test
-    fun skippingLibraryOffersRecommendationsBeforeConsent() {
-        var state by mutableStateOf(funnelState(LoginFunnelStep.Library).copy(studentId = "2020123456"))
+    fun authenticatedSetupShowsAgreementsWithoutOptionalStages() {
+        var completed = 0
+        val initialStep = LoginFunnelStatus.initialStep(LoginFunnelStatus.SETUP)
+        var state by mutableStateOf(funnelState(initialStep))
         rule.setContent {
             KlasPlusTheme {
-                funnel(
-                    state = state,
-                    update = { state = it },
-                    onContinue = { state = state.copy(step = if (state.step == LoginFunnelStep.AppLock) LoginFunnelStep.Notifications else LoginFunnelStep.Agreements) },
-                    onSkipLibrary = { state = state.copy(step = LoginFunnelStep.AppLock) },
-                )
+                funnel(state, { state = it }, onContinue = { completed++ })
             }
         }
-        rule.onNodeWithTag("funnel_skip_library").performClick()
-        rule.onNodeWithTag("funnel_skip_app_lock").performClick()
-        rule.onNodeWithTag("funnel_skip_notifications").performClick()
-        rule.onNodeWithTag("login_submit").assertIsEnabled()
-        rule.onNodeWithTag("login_agreement").performClick()
-        rule.onNodeWithTag("login_terms_agreement").performClick()
-        rule.onNodeWithTag("login_submit").assertIsEnabled()
+        rule.onNodeWithTag("funnel_skip_library").assertDoesNotExist()
+        rule.onNodeWithTag("funnel_skip_app_lock").assertDoesNotExist()
+        rule.onNodeWithTag("funnel_skip_notifications").assertDoesNotExist()
+        rule.onNodeWithTag("login_submit").performClick()
+        rule.runOnIdle { org.junit.Assert.assertEquals(1, completed) }
     }
 
     @Test
