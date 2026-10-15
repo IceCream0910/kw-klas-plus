@@ -144,3 +144,7 @@ struct KlasCheckboxToggleStyle: ToggleStyle {
         }
     }
 }
+
+enum BottomSheetSpacing {
+    static let topInset: CGFloat = 40
+}

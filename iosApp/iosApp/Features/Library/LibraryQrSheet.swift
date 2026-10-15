@@ -124,7 +124,7 @@ struct LibraryQrSheet: View {
                             .buttonStyle(KlasInverseButtonStyle())
                     }
                 }
-                .padding(20)
+                .padding(.horizontal, 20).padding(.bottom, 20).padding(.top, BottomSheetSpacing.topInset)
                 .frame(maxWidth: 640)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: geometry.size.height)

@@ -74,8 +74,7 @@ struct SelectionBottomSheet: View {
                 optionButton(index: index, option: option)
             }
         }
-        .padding(20)
-        .padding(.top, (title != nil || description != nil) ? 20 : 0)
+        .padding(.horizontal, 20).padding(.bottom, 20).padding(.top, BottomSheetSpacing.topInset)
         .frame(maxWidth: 640)
         .frame(maxWidth: .infinity)
     }
