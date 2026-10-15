@@ -1,5 +1,10 @@
 package com.icecream.kwklasplus.feature.auth
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -10,6 +15,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import android.graphics.Bitmap
 import java.io.File
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -60,6 +66,34 @@ class LoginFunnelScreenTest {
         rule.onNodeWithTag("login_security_close").assertIsDisplayed().performClick()
         rule.onNodeWithTag("login_security_close").assertDoesNotExist()
         rule.onNodeWithTag("login_student_id").assertIsDisplayed()
+    }
+
+    @Test
+    fun passwordFailureKeepsInputAndErrorVisibleInShortViewport() {
+        var state by mutableStateOf(funnelState(LoginFunnelStep.Password))
+        val message = "KLAS 인증에 실패했어요. 학번과 비밀번호를 확인해 주세요."
+        var keyboardBottom = 0
+        var hideKeyboard: () -> Unit = {}
+        rule.setContent {
+            val focus = androidx.compose.ui.platform.LocalFocusManager.current
+            val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+            keyboardBottom = androidx.compose.foundation.layout.WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current)
+            hideKeyboard = { focus.clearFocus(); keyboard?.hide() }
+            KlasPlusTheme {
+                Box(Modifier.height(420.dp)) { funnel(state, { state = it }, onContinue = {}) }
+            }
+        }
+        rule.runOnIdle { hideKeyboard() }
+        rule.waitUntil(5_000) { keyboardBottom == 0 }
+        rule.runOnIdle { state = state.copy(error = message) }
+        rule.waitUntil(5_000) { rule.onNodeWithText(message).isDisplayed() }
+        rule.onNodeWithTag("login_password").assertIsDisplayed()
+        rule.onNodeWithText(message).assertIsDisplayed()
+        val field = rule.onNodeWithTag("login_password").fetchSemanticsNode().boundsInRoot
+        val error = rule.onNodeWithText(message).fetchSemanticsNode().boundsInRoot
+        val submit = rule.onNodeWithTag("login_submit").fetchSemanticsNode().boundsInRoot
+        org.junit.Assert.assertTrue(error.top >= field.bottom)
+        org.junit.Assert.assertTrue(error.bottom <= submit.top)
     }
 
     @Test
