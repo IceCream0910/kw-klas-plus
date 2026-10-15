@@ -17,10 +17,10 @@ enum LoginFunnelStep: Int, Equatable {
         case .studentId: 1
         case .password, .authenticating: 2
         case .library: 3
-        case .agreements: 6
+        case .agreements: 3
         case .appLock: 4
         case .notifications: 5
-        case .complete: 7
+        case .complete: 3
         }
     }
 }
@@ -45,6 +45,7 @@ struct LoginFunnelView: View {
     @State private var notificationBusy = false
     @State private var notificationError = ""
     @State private var showPassword = false
+    @State private var showLoginInfo = false
     @State private var completionScale: CGFloat = 0.6
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var focusedField: Field?
@@ -60,11 +61,11 @@ struct LoginFunnelView: View {
                     Color.clear.frame(width: 40, height: 40)
                 }
                 Spacer()
-                Text("\(state.step.progress) / 7")
+                Text("\(state.step.progress) / 3")
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(KlasTheme.onSurfaceVariant)
             }
-            ProgressView(value: Double(state.step.progress), total: 7)
+            ProgressView(value: Double(state.step.progress), total: 3)
                 .tint(KlasTheme.primary)
                 .padding(.top, 8)
 
@@ -98,7 +99,7 @@ struct LoginFunnelView: View {
                 .scrollDismissesKeyboard(.interactively)
             }
 
-            if state.step != .authenticating {
+            if state.step != .authenticating && state.step != .complete {
                 primaryAction
                     .buttonStyle(KlasInverseButtonStyle(enabled: canContinue))
                 if state.step == .appLock || state.step == .notifications {
@@ -133,14 +134,18 @@ struct LoginFunnelView: View {
             }
         )
         .task(id: state.step) {
+            if state.step == .complete {
+                do { try await Task.sleep(nanoseconds: 2_000_000_000) } catch { return }
+                guard !Task.isCancelled, state.step == .complete else { return }
+                onFinish()
+                return
+            }
             if state.step == .appLock {
                 appLockEnabled = appLock.store.isEnabled()
-                if appLock.store.hasPassword() { onContinue() }
             } else if state.step == .notifications {
                 IosReminderRuntime.shared.readConsentState { consent in
                     guard state.step == .notifications else { return }
                     deadlineNotificationsEnabled = consent?.enabled == true
-                    if deadlineNotificationsEnabled && consent?.ready == true { onContinue() }
                 }
             }
             try? await Task.sleep(nanoseconds: 180_000_000)
@@ -157,6 +162,9 @@ struct LoginFunnelView: View {
                 deadlineNotificationsEnabled = true
                 onContinue()
             }
+        }
+        .sheet(isPresented: $showLoginInfo) {
+            LoginSecurityInfoView { showLoginInfo = false }
         }
         .accessibilityIdentifier("login_form")
     }
@@ -195,7 +203,7 @@ struct LoginFunnelView: View {
 
     private var studentIdContent: some View {
         VStack(alignment: .leading, spacing: 12) {
-            heading("학번을 입력해주세요.", "ⓘ 입력한 정보는 학교 공식 KLAS 서버로만 전송되며, KLAS+ 서버에는 별도로 저장되지 않습니다.")
+            heading("학번을 입력해주세요.", "로그인 정보는 이 기기에서 학교 KLAS 서버로 직접 전달되며 KLAS+ 서버에 저장되지 않아요.")
             KlasOutlinedTextField(
                 label: "학번",
                 text: Binding(get: { state.studentId }, set: onStudentIdChange),
@@ -213,28 +221,35 @@ struct LoginFunnelView: View {
 
     private var passwordContent: some View {
         VStack(alignment: .leading, spacing: 12) {
-            heading("KLAS 비밀번호를 입력해주세요.", "ⓘ 입력한 정보는 학교 공식 KLAS 서버로만 전송되며, KLAS+ 서버에는 별도로 저장되지 않습니다.")
-            KlasOutlinedTextField(
-                label: "비밀번호", text: $state.password,
-                focusedField: $focusedField, field: .password,
-                textContentType: .password, isSecure: !showPassword,
-                submitLabel: .done, accessibilityId: "login_password",
-                onSubmit: { if canContinue { onContinue() } }
-            ) {
-                Button { showPassword.toggle() } label: {
-                    Image(systemName: showPassword ? "eye.slash" : "eye")
-                        .foregroundStyle(KlasTheme.onSurfaceVariant)
+            heading("KLAS 비밀번호를 입력해주세요.", "로그인 정보는 이 기기에서 학교 KLAS 서버로 직접 전달되며 KLAS+ 서버에 저장되지 않아요.")
+            VStack(alignment: .leading, spacing: 8) {
+                KlasOutlinedTextField(
+                    label: "비밀번호", text: $state.password,
+                    focusedField: $focusedField, field: .password,
+                    textContentType: .password, isSecure: !showPassword,
+                    submitLabel: .done, accessibilityId: "login_password",
+                    onSubmit: { if canContinue { onContinue() } }
+                ) {
+                    Button { showPassword.toggle() } label: {
+                        Image(systemName: showPassword ? "eye.slash" : "eye")
+                            .foregroundStyle(KlasTheme.onSurfaceVariant)
+                    }
+                    .accessibilityLabel(showPassword ? "비밀번호 숨기기" : "비밀번호 표시")
                 }
-                .accessibilityLabel(showPassword ? "비밀번호 숨기기" : "비밀번호 표시")
+                if let error = state.error {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 12)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             Button("비밀번호를 잊어버렸나요?") { onOpenURL(KlasTheme.findPasswordURL) }
                 .font(.subheadline)
                 .frame(height: 40)
                 .padding(.horizontal, 8)
                 .buttonStyle(KlasTextLinkButtonStyle())
-            if let error = state.error {
-                Text(error).foregroundStyle(.red).font(.footnote)
-            }
         }
     }
 
@@ -270,7 +285,7 @@ struct LoginFunnelView: View {
 
     private var agreementsContent: some View {
         VStack(alignment: .leading, spacing: 20) {
-            heading("약관에 동의해주세요.", "KLAS+를 사용하기 위해 아래 약관에 필수로 동의해야 해요.\n개인정보는 자체 서버에 저장되지 않고 안전하게 처리되며, 서비스 개선을 위해 사용 데이터가 수집돼요.")
+            heading("약관에 동의해주세요.", "로그인되었어요. 필수 약관에 동의하면 바로 과제와 시간표를 확인할 수 있어요.\n서비스 개선을 위한 사용 데이터 수집 내용도 확인해주세요.")
             HStack(spacing: 12) {
                 Toggle("[필수] 개인정보 처리방침 확인 및 동의", isOn: $state.privacyAccepted)
                     .toggleStyle(KlasCheckboxToggleStyle())
@@ -289,12 +304,13 @@ struct LoginFunnelView: View {
                 Button("보기") { onOpenURL(KlasTheme.termsURL) }
                     .font(.footnote)
             }
+            if let error = state.error { Text(error).font(.footnote).foregroundStyle(.red) }
         }
     }
 
     private var appLockContent: some View {
         VStack(alignment: .leading, spacing: 12) {
-            heading("앱 잠금을 설정할 수 있어요.", "비밀번호와 생체인증으로 앱을 잠글 수 있어요. 앱 잠금을 설정하지 않으면 자동 로그인이 적용되어 별도 인증없이 앱을 실행하면 KLAS에 접근할 수 있어요. 건너뛰어도 나중에 설정에서 다시 잠글 수 있어요.")
+            heading("보안을 강화해보세요.", "비밀번호와 생체인증으로 앱을 잠글 수 있어요. 앱 잠금을 설정하지 않으면 자동 로그인이 적용되어 별도 인증없이 앱을 실행하면 KLAS에 접근할 수 있어요. 건너뛰어도 나중에 설정에서 다시 잠글 수 있어요.")
             if appLockEnabled { Label("앱 잠금 설정 완료", systemImage: "checkmark.circle.fill").foregroundStyle(KlasTheme.primary) }
             if let error = state.error { Text(error).font(.footnote).foregroundStyle(.red) }
         }
@@ -412,6 +428,9 @@ struct LoginFunnelView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title).font(.title3.bold()).foregroundStyle(KlasTheme.onBackground)
             Text(description).font(.footnote).foregroundStyle(KlasTheme.onSurfaceVariant)
+            if state.step == .studentId || state.step == .password {
+                Button("로그인은 어떻게 처리되나요?") { focusedField = nil; showLoginInfo = true }.font(.footnote)
+            }
         }
         .padding(.bottom, 12)
     }
@@ -429,7 +448,7 @@ struct LoginFunnelView: View {
 
     private var canNavigateBack: Bool {
         (state.step == .studentId && canReturnToOnboarding) ||
-            state.step == .password || state.step == .agreements || state.step == .appLock || state.step == .notifications || state.step == .complete
+            state.step == .password || state.step == .appLock || state.step == .notifications
     }
 
     private var primaryTitle: String {
@@ -443,5 +462,40 @@ struct LoginFunnelView: View {
         case .complete: "홈으로 가기"
         case .authenticating: "다음"
         }
+    }
+}
+
+private struct LoginSecurityHeightKey: SwiftUI.PreferenceKey {
+    static var defaultValue: CGFloat = 320
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
+struct LoginSecurityInfoView: View {
+    let onClose: () -> Void
+    @State private var contentHeight: CGFloat = 320
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("로그인은 어떻게 처리되나요?").font(.headline.bold())
+                Text("학번과 비밀번호는 이 기기에서 학교 KLAS 서버로 직접 전달돼요. KLAS+ 서버에는 로그인 정보를 저장하지 않아요.")
+                Text("자동 로그인을 위해 학교가 반환한 암호화된 비밀번호와 세션은 이 기기의 Keychain에 보관해요. 평문 비밀번호는 저장하거나 로그에 남기지 않아요.")
+                Button("닫기", action: onClose)
+                    .frame(maxWidth: .infinity)
+                    .buttonStyle(KlasInverseButtonStyle(enabled: true))
+                    .accessibilityIdentifier("login_security_close")
+            }
+            .font(.subheadline)
+            .foregroundStyle(KlasTheme.onBackground)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 24).padding(.top, BottomSheetSpacing.topInset).padding(.bottom, 20)
+            .background { GeometryReader { proxy in Color.clear.preference(key: LoginSecurityHeightKey.self, value: proxy.size.height) } }
+        }
+        .background(KlasTheme.surface)
+        .onPreferenceChange(LoginSecurityHeightKey.self) { contentHeight = $0 }
+        .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.height(contentHeight), .large])
+        .presentationDragIndicator(.visible)
+        .accessibilityIdentifier("login_security_info")
     }
 }

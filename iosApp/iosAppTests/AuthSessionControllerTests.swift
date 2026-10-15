@@ -5,79 +5,42 @@ import XCTest
 
 @MainActor
 final class AuthSessionControllerTests: XCTestCase {
-    func testRetainedPinAfterLogoutSkipsRecommendationAndStillRequiresAgreements() {
-        let store = FakeFunnelStatusStore(value: "complete")
-        let controller = makeController(networkPath: FakeNetworkPathChecker(satisfied: true), funnelStatusStore: store, hasAppLockPassword: { true })
-        controller.handleHomeLogout()
-        XCTAssertEqual(controller.phase, .needsCredentials)
-        XCTAssertTrue(store.write("authenticating"))
+    func testAuthenticationRequiresOnlyAgreementsRegardlessOfRetainedPin() {
+        for hasPin in [true, false] {
+            let store = FakeFunnelStatusStore(value: "authenticating")
+            let controller = makeController(networkPath: FakeNetworkPathChecker(satisfied: true), funnelStatusStore: store, hasAppLockPassword: { hasPin })
+            controller.enterAuthenticated(initialDelayMillis: 0)
+            XCTAssertEqual(controller.loginState.step, .agreements)
+            XCTAssertEqual(controller.phase, .setup)
+            controller.finishFunnel()
+            XCTAssertEqual(store.read(), "setup")
+            controller.continueFunnel()
+            XCTAssertEqual(controller.loginState.step, .complete)
+            controller.continueFunnel()
+            XCTAssertEqual(store.read(), "setup")
+            controller.finishFunnel()
+            XCTAssertEqual(store.read(), "complete")
+            XCTAssertEqual(controller.phase, .authenticated)
+        }
+    }
+
+    func testInterruptedSetupResumesAgreementsWithoutOptionalSteps() {
+        let store = FakeFunnelStatusStore(value: "setup")
+        let controller = makeController(networkPath: FakeNetworkPathChecker(satisfied: true), funnelStatusStore: store)
         controller.enterAuthenticated(initialDelayMillis: 0)
-        controller.skipLibrary()
-        XCTAssertEqual(controller.loginState.step, .notifications)
-        XCTAssertEqual(controller.phase, .setup)
-        XCTAssertEqual(store.read(), "setup")
-        XCTAssertFalse(controller.loginState.privacyAccepted)
         controller.backFunnel()
-        XCTAssertEqual(controller.loginState.step, .library)
-        controller.skipLibrary()
-        controller.continueFunnel()
         XCTAssertEqual(controller.loginState.step, .agreements)
-        controller.finishFunnel()
-        XCTAssertEqual(store.read(), "setup")
-    }
-
-    func testSavedLibrarySkipsRetainedPinWithoutChangingItsSetting() async {
-        let store = FakeFunnelStatusStore(value: "authenticating")
-        let controller = makeController(networkPath: FakeNetworkPathChecker(satisfied: true), funnelStatusStore: store, saveLibraryCredentials: { _, _, _, done in done(true) }, hasAppLockPassword: { true })
-        controller.enterAuthenticated(initialDelayMillis: 0)
-        controller.loginState.libraryPhone = "01012345678"
-        controller.loginState.libraryPassword = "fixture"
-        controller.saveLibrary()
-        await waitUntil { controller.loginState.step == .notifications }
         XCTAssertEqual(controller.phase, .setup)
-        XCTAssertEqual(store.read(), "setup")
     }
 
-    func testBackFunnelUsesAvailablePreviousStep() {
+    func testBackFromPasswordStillReturnsToStudentId() {
         let controller = makeController(networkPath: FakeNetworkPathChecker(satisfied: true))
-        controller.loginState.step = .complete
+        controller.loginState.step = .password
         controller.backFunnel()
-        XCTAssertEqual(controller.loginState.step, .agreements)
-        controller.backFunnel()
-        XCTAssertEqual(controller.loginState.step, .notifications)
-        controller.backFunnel()
-        XCTAssertEqual(controller.loginState.step, .appLock)
-        controller.backFunnel()
-        XCTAssertEqual(controller.loginState.step, .library)
-        controller.backFunnel()
-        XCTAssertEqual(controller.loginState.step, .library)
-
-        controller.loginState.step = .studentId
+        XCTAssertEqual(controller.loginState.step, .studentId)
         controller.beginFunnelFromOnboarding()
         controller.backFunnel()
         XCTAssertTrue(controller.loginState.onboardingVisible)
-    }
-
-    func testLockAndNotificationsCanBeSkippedBeforeRequiredAgreements() {
-        let store = FakeFunnelStatusStore(value: "authenticating")
-        let controller = makeController(networkPath: FakeNetworkPathChecker(satisfied: true), funnelStatusStore: store)
-        controller.enterAuthenticated(initialDelayMillis: 0)
-        controller.skipLibrary()
-        XCTAssertEqual(controller.loginState.step, .appLock)
-        XCTAssertFalse(controller.loginState.privacyAccepted)
-        controller.continueFunnel()
-        XCTAssertEqual(controller.loginState.step, .notifications)
-        XCTAssertFalse(controller.loginState.privacyAccepted)
-        controller.continueFunnel()
-        XCTAssertEqual(controller.loginState.step, .agreements)
-        XCTAssertEqual(store.read(), "setup")
-        controller.finishFunnel()
-        XCTAssertEqual(store.read(), "setup")
-        controller.continueFunnel()
-        XCTAssertEqual(controller.loginState.step, .complete)
-        XCTAssertEqual(store.read(), "setup")
-        controller.finishFunnel()
-        XCTAssertEqual(store.read(), "complete")
     }
 
     func testCompletedStudentIdDoesNotAutoAdvanceAgainAfterBack() {
@@ -133,6 +96,7 @@ final class AuthSessionControllerTests: XCTestCase {
         controller.loginState.studentId = "2020123456"
         controller.loginState.libraryPhone = "01012345678"
         controller.loginState.libraryPassword = "lib-pass"
+        controller.loginState.step = .library
 
         controller.saveLibrary()
         await waitUntil { controller.loginState.error != nil }
@@ -183,6 +147,7 @@ final class AuthSessionControllerTests: XCTestCase {
         )
         controller.enterAuthenticated(initialDelayMillis: 0)
         XCTAssertEqual(controller.phase, .setup)
+        XCTAssertEqual(controller.loginState.step, .agreements)
         controller.loginState.step = .complete
         controller.loginState.privacyAccepted = true
         controller.loginState.termsAccepted = true

@@ -6,6 +6,7 @@ struct DeadlineNotificationSettingsView: View {
     let attempt: Int64
     var onCompleted: (() -> Void)? = nil
     var onHeightChange: ((CGFloat) -> Void)? = nil
+    var showsCompletion = true
     @Environment(\.dismiss) private var dismiss
     @State private var busy = false
     @State private var denied = false
@@ -80,6 +81,7 @@ struct DeadlineNotificationSettingsView: View {
                 withAnimation { completed = true }
                 AcademicReminderHost.shared.scheduleRefresh()
                 onCompleted?()
+                if !showsCompletion { dismiss() }
 
             case "PERMISSION_DENIED": denied = true
             case "STORAGE_FAILED": denied = false; error = "알림 설정을 저장하지 못했어요. 다시 시도해 주세요."
@@ -98,7 +100,7 @@ struct DeadlineNotificationSheetLayout<Content: View, Actions: View>: View {
     @State private var actionsHeight: CGFloat = 50
 
     private var sheetHeight: CGFloat {
-        max(200, contentHeight + (showsActions ? actionsHeight + 16 : 0) + 56)
+        max(200, contentHeight + (showsActions ? actionsHeight + 16 : 0) + BottomSheetSpacing.topInset + 28)
     }
 
     var body: some View {
@@ -124,7 +126,7 @@ struct DeadlineNotificationSheetLayout<Content: View, Actions: View>: View {
                     }
             }
         }
-        .padding(28)
+        .padding(.horizontal, 28).padding(.top, BottomSheetSpacing.topInset).padding(.bottom, 28)
         .background { ZStack(alignment: .top) { KlasTheme.background; FunnelGlow() } }
         .presentationDetents([.height(sheetHeight)])
         .presentationDragIndicator(.visible)

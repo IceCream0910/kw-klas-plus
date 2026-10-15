@@ -30,10 +30,19 @@ final class SettingsScreenModel: ObservableObject {
         holder.evaluate(IosWebCallbacks.shared.receiveTheme(theme: coordinator.theme))
         holder.evaluate(IosWebCallbacks.shared.receiveYearHakgi(value: coordinator.yearHakgi))
         holder.evaluate(IosWebCallbacks.shared.receiveVersion(version: coordinator.appVersion))
+        notifyLockSettingsChanged()
     }
 
     func currentLockSettingsJson() -> String {
         appLock.store.currentSettings().toLegacyJson()
+    }
+
+    func configureContextualAppLock() {
+        appLock.presentContextualPasswordSetup { [weak self] success in
+            guard let self else { return }
+            self.handleLockSetupResult(success: success, disabling: false)
+            if success { self.coordinator.showToast("앱 잠금이 설정되었어요.") }
+        }
     }
 
     func setAppLockEnabled(enabled: Bool) {
@@ -151,6 +160,7 @@ final class SettingsHostAdapter: SettingsBridgeHost {
 struct SettingsView: View {
     @StateObject private var model: SettingsScreenModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
 
     init(coordinator: HomeCoordinator, appLock: AppLockController) {
         _model = StateObject(
@@ -163,6 +173,31 @@ struct SettingsView: View {
             if model.holder.goBack() { return }
             dismiss()
         }
+        .overlay(alignment: .bottom) {
+            SettingsLockSuggestion(setup: model.coordinator.contextualSetup, appLock: model.appLock,
+                isActive: scenePhase == .active, onAction: model.configureContextualAppLock)
+                .padding(.bottom, 16)
+        }
         .accessibilityIdentifier("settings_view")
+    }
+}
+
+struct SettingsLockSuggestion: View {
+    @ObservedObject var setup: ContextualSetup
+    @ObservedObject var appLock: AppLockController
+    let isActive: Bool
+    let onAction: () -> Void
+
+    var body: some View {
+        Group {
+            if setup.suggestion == .appLock, !appLock.store.isEnabled(), appLock.mode == nil, isActive {
+                SetupSuggestionCard(kind: .appLock, onClose: setup.dismiss) {
+                    setup.dismiss()
+                    onAction()
+                }
+                .onAppear { setup.displayed(.appLock) }
+            }
+        }
+        .onAppear { setup.offer(.appLock, configured: appLock.store.isEnabled(), replaceCurrent: true) }
     }
 }

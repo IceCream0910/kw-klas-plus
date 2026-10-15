@@ -40,6 +40,9 @@ struct HomeView: View {
                     onSelect: coordinator.selectNativeTab
                 )
                 .homeSystemTabBarPlacement()
+                .background { GeometryReader { proxy in
+                    Color.clear.preference(key: HomeSystemTabBarHeightKey.self, value: proxy.size.height)
+                } }
             }
         }
         .overlay {

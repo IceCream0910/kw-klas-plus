@@ -7,6 +7,7 @@ struct HomeRootView: View {
     @EnvironmentObject private var libraryQr: LibraryQrController
     @EnvironmentObject private var academicWidgets: AcademicWidgetOpenController
     @Environment(\.scenePhase) private var scenePhase
+    @State private var bottomNavigationHeight: CGFloat = 0
     private let onSessionExpired: () -> Void
 
     init(
@@ -34,6 +35,10 @@ struct HomeRootView: View {
             coordinator.libraryQr = libraryQr
             academicWidgets.attach { coordinator.openWidgetTab($0) }
             coordinator.start()
+            if NSClassFromString("XCTestCase") == nil { ContextualSetup.recordLaunch() }
+            if coordinator.contextualSetup.isSecondLaunch {
+                coordinator.contextualSetup.offer(.appLock, configured: appLock.store.isEnabled())
+            }
             academicWidgets.consumeIfPossible(isAuthenticated: true, appLock: appLock)
             coordinator.onForeground()
         }
@@ -43,6 +48,11 @@ struct HomeRootView: View {
             }
         }
         .homeOverlays(coordinator)
+        .onPreferenceChange(HomeSystemTabBarHeightKey.self) { bottomNavigationHeight = $0 }
+        .overlay(alignment: .bottom) {
+            ContextualSetupOverlay(setup: coordinator.contextualSetup, coordinator: coordinator, appLock: appLock, libraryQr: libraryQr,
+                bottomNavigationHeight: bottomNavigationHeight)
+        }
     }
 
     @ViewBuilder
@@ -189,5 +199,47 @@ struct HomeSessionExpiredView: View {
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(KlasTheme.background.ignoresSafeArea())
+    }
+}
+
+private struct ContextualSetupOverlay: View {
+    @ObservedObject var setup: ContextualSetup
+    @ObservedObject var coordinator: HomeCoordinator
+    @ObservedObject var appLock: AppLockController
+    @ObservedObject var libraryQr: LibraryQrController
+    let bottomNavigationHeight: CGFloat
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var completedAttempt: Int64?
+    var body: some View {
+        Group {
+            if let kind = setup.suggestion, coordinator.bootstrapPhase == .ready, scenePhase == .active, coordinator.path.isEmpty,
+               (kind != .library || coordinator.currentTab == "menu"),
+               appLock.mode == nil, libraryQr.presentedSheet == nil, !coordinator.isIdCardModalActive,
+               bottomNavigationHeight > 0,
+               !coordinator.showOptionsMenu, !coordinator.showYearHakgiPicker, !coordinator.isWebBottomSheetOpen {
+                SetupSuggestionCard(kind: kind, onClose: setup.dismiss, onAction: {
+                    setup.dismiss()
+                    switch kind {
+                    case .library: libraryQr.presentSettingsFromHome()
+                    case .appLock: appLock.presentContextualPasswordSetup { success in
+                        coordinator.synchronizeLockSettings(appLock.store.currentSettings())
+                        if success { coordinator.showToast("앱 잠금이 설정되었어요.") }
+                    }
+                    case .notifications: setup.configureNotifications(onFailure: coordinator.showToast)
+                    }
+                }, horizontalInset: HomeSystemTabBarMetrics.horizontalInset)
+                .padding(.bottom, bottomNavigationHeight + HomeSystemTabBarMetrics.suggestionGap)
+                .onAppear { setup.displayed(kind) }
+            }
+        }
+        .sheet(item: $setup.notificationAttempt, onDismiss: {
+            if let completedAttempt { IosReminderRuntime.shared.cancelConsent(attempt: completedAttempt) }
+            completedAttempt = nil
+        }) { attempt in
+            DeadlineNotificationSettingsView(attempt: attempt.id, onCompleted: {
+                coordinator.showToast("마감 알림이 설정되었어요.")
+            }, showsCompletion: false)
+            .onAppear { completedAttempt = attempt.id }
+        }
     }
 }
