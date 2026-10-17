@@ -15,6 +15,7 @@ class KlasNativeBridgeWebContractTest {
 
     private companion object {
         val activeWebMethods = setOf(
+            "requestKlasApi", "readKlasApiChunk", "cancelKlasApi",
             "requestSearchData",
             "setSearchOverlayOpen",
             "openSearchBoard",

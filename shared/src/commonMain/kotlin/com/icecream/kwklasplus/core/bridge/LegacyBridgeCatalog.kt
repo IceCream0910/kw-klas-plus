@@ -89,7 +89,11 @@ object LegacyBridgeCatalog {
             method("receiveVideoURL", string),
             method("performHapticFeedback", string),
         ),
-    )
+    ).mapValues { (_, methods) -> methods + listOf(
+        method("requestKlasApi", string, string, string),
+        method("readKlasApiChunk", string, string),
+        method("cancelKlasApi", string),
+    ) }
 
     fun find(surface: BridgeSurface, name: String): LegacyBridgeMethod? =
         methods[surface]?.firstOrNull { it.name == name }

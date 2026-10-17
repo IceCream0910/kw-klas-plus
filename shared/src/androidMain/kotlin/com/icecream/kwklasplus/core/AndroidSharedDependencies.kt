@@ -47,6 +47,15 @@ class AndroidSharedDependencies(
     private val applicationContext = context.applicationContext
     private val network = AndroidCoreNetworkDependencies()
 
+    val klasApiCore by lazy {
+        com.icecream.kwklasplus.core.network.KlasApiCore(
+            network.klasApiClient,
+            { secureStore.read(com.icecream.kwklasplus.core.platform.SecureKey.SESSION_TOKEN) },
+            { KlasUserAgent.fromPlatform("KLAS+ Android") },
+            { preferences.getString("yearHakgi", null) },
+        )
+    }
+
     val authRepository: KlasAuthRepository get() = network.authRepository
     val attendanceRepository: AttendanceRepository get() = network.attendanceRepository
     val academicRepository: AcademicRepository get() = network.academicRepository

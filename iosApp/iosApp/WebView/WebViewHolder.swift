@@ -19,6 +19,7 @@ final class WebViewHolder: NSObject, ObservableObject {
     @Published private(set) var shareableFileURL: URL?
 
     private var _webView: WKWebView?
+    private var navigationGeneration = 0
     private var bridgeAdapter: IosBridgeMessageAdapter?
     private var javaScriptAlertCompletion: (() -> Void)?
     private var javaScriptConfirmCompletion: ((Bool) -> Void)?
@@ -173,8 +174,16 @@ final class WebViewHolder: NSObject, ObservableObject {
             completion?(nil)
             return
         }
-        webView.evaluateJavaScript(script.reveal()) { result, _ in
-            completion?(result)
+        if script.hasNativeApiAlternative() {
+            let view = webView
+            let documentURL = view.url
+            let generation = navigationGeneration
+            view.evaluateJavaScript("window.__klasNativeApi === true") { [weak self, weak view] enabled, _ in
+                guard self?.isDisposed == false, self?.navigationGeneration == generation, let view, view.url == documentURL else { completion?(nil); return }
+                view.evaluateJavaScript(script.revealForNativeApi(enabled: enabled as? Bool == true)) { result, _ in completion?(result) }
+            }
+        } else {
+            webView.evaluateJavaScript(script.reveal()) { result, _ in completion?(result) }
         }
     }
 
@@ -362,6 +371,8 @@ final class WebViewHolder: NSObject, ObservableObject {
     }
 
     func navigationDidStart(url: String?) {
+        navigationGeneration += 1
+        bridgeAdapter?.resetForNavigation()
         guard !isDisposed, let view = _webView else { return }
         if loadingLocalPdf {
             loadingLocalPdf = false

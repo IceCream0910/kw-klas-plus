@@ -4,16 +4,18 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.launch
 
 object IosBridgeRouting {
+    private val dependencies by lazy { com.icecream.kwklasplus.core.IosSharedDependencies() }
     private val codec = BridgeJsonCodec()
 
     fun createRouter(
         handler: BridgeCommandHandler,
         synchronousHandler: SynchronousBridgeCommandHandler? = null,
     ): JsonBridgeRouter = JsonBridgeRouter(
-        BridgeRouter(handler, synchronousHandler),
+        BridgeRouter(KlasApiBridgeHandler(dependencies.klasApiCore, handler), synchronousHandler),
         codec,
     )
 
@@ -35,6 +37,8 @@ class IosBridgeRouteScope {
             callback(router.route(payload, context))
         }
     }
+
+    fun reset() { scope.coroutineContext.cancelChildren() }
 
     fun dispose() {
         scope.cancel()

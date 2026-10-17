@@ -19,6 +19,10 @@ fun interface BridgeCommandHandler {
     suspend fun handle(command: ValidatedBridgeCommand): BridgeHandlerResult
 }
 
+interface ResettableBridgeCommandHandler : BridgeCommandHandler {
+    fun reset()
+}
+
 fun interface SynchronousBridgeCommandHandler {
     fun handle(command: ValidatedBridgeCommand): BridgeHandlerResult
 }
@@ -59,6 +63,8 @@ class BridgeRouter(
     private val synchronousHandler: SynchronousBridgeCommandHandler? = null,
     private val validator: BridgeValidator = BridgeValidator(),
 ) {
+    fun reset() { (handler as? ResettableBridgeCommandHandler)?.reset() }
+
     fun validateContext(context: BridgeContext): BridgeResponse.Failure? =
         validator.validateContext(context)?.let {
             BridgeResponse.Failure(BridgeValidator.CURRENT_VERSION, null, it.toErrorCode())

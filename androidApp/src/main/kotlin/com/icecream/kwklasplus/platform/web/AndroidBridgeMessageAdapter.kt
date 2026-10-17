@@ -1,6 +1,9 @@
 package com.icecream.kwklasplus.platform.web
 
 import android.webkit.WebView
+import com.icecream.kwklasplus.BuildConfig
+import com.icecream.kwklasplus.appDependencies
+import com.icecream.kwklasplus.core.bridge.KlasApiBridgeHandler
 import androidx.webkit.WebMessageCompat
 import androidx.webkit.ScriptHandler
 import androidx.webkit.WebViewCompat
@@ -32,7 +35,7 @@ class AndroidBridgeMessageAdapter(
 ) {
     private val codec = BridgeJsonCodec()
     private val router = JsonBridgeRouter(
-        BridgeRouter(handler, synchronousHandler),
+        BridgeRouter(KlasApiBridgeHandler(webView.context.appDependencies.klasApiCore, handler), synchronousHandler),
         codec,
     )
     private val allowedOrigins = if (surface == BridgeSurface.VIDEO) {
@@ -40,7 +43,9 @@ class AndroidBridgeMessageAdapter(
     } else {
         ALLOWED_ORIGINS
     }
+    private var navigationGeneration = 0L
     private var installed = false
+    private var apiIdentityScriptHandler: ScriptHandler? = null
     private var adapterScriptHandler: ScriptHandler? = null
 
     fun install(): BridgeAdapterAvailability {
@@ -64,15 +69,21 @@ class AndroidBridgeMessageAdapter(
                 return@addWebMessageListener
             }
             val origin = "${sourceOrigin.scheme}://${sourceOrigin.authority}"
+            val generation = navigationGeneration
             scope.launch {
-                replyProxy.postMessage(
-                    router.route(
+                val response = router.route(
                         payload,
                         BridgeContext(surface, origin, isMainFrame, payloadSizeBytes = 0),
-                    ),
-                )
+                    )
+                if (navigationGeneration == generation) replyProxy.postMessage(response)
             }
         }
+        adapters[webView] = java.lang.ref.WeakReference(this)
+        apiIdentityScriptHandler = WebViewCompat.addDocumentStartJavaScript(
+            webView,
+            KlasNativeBridgeScripts.installApiAppIdentity("android", BuildConfig.VERSION_CODE).reveal(),
+            setOf("https://klasplus.yuntae.in", KLAS_PLUS_BASE),
+        )
         adapterScriptHandler = WebViewCompat.addDocumentStartJavaScript(
             webView,
             KlasNativeBridgeScripts.installAdapter().reveal(),
@@ -82,8 +93,17 @@ class AndroidBridgeMessageAdapter(
         return BridgeAdapterAvailability.INSTALLED
     }
 
+    private fun resetForNavigation() {
+        navigationGeneration++
+        router.reset()
+    }
+
     fun dispose() {
+        resetForNavigation()
+        adapters.remove(webView)
         if (!installed) return
+        apiIdentityScriptHandler?.remove()
+        apiIdentityScriptHandler = null
         adapterScriptHandler?.remove()
         adapterScriptHandler = null
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
@@ -93,6 +113,10 @@ class AndroidBridgeMessageAdapter(
     }
 
     companion object {
+        private val adapters = java.util.WeakHashMap<WebView, java.lang.ref.WeakReference<AndroidBridgeMessageAdapter>>()
+        fun resetForNavigation(view: WebView) { adapters[view]?.get()?.resetForNavigation() }
+        fun navigationGeneration(view: WebView): Long? = adapters[view]?.get()?.navigationGeneration
+
         const val NATIVE_OBJECT_NAME = "KlasNativeBridgeNative"
         val ALLOWED_ORIGINS = setOf(
             KLAS_BASE,

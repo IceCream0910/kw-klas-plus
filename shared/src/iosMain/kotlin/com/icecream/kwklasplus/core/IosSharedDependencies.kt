@@ -66,6 +66,15 @@ class IosSharedDependencies(
     private val longRunningClient by lazy { createIosKlasHttpClient(timeoutMillis = 30_000) }
     private val libraryClient by lazy { createIosKlasHttpClient(timeoutMillis = 10_000) }
 
+    val klasApiCore by lazy {
+        com.icecream.kwklasplus.core.network.KlasApiCore(
+            httpClient,
+            { secureStore.read(com.icecream.kwklasplus.core.platform.SecureKey.SESSION_TOKEN) },
+            { KlasUserAgent.fromPlatform("KLAS+ iOS") },
+            { defaults.stringForKey("yearHakgi") },
+        )
+    }
+
     val authRepository: KlasAuthRepository by lazy { KlasAuthRepository(httpClient) }
 
     val academicRepository: AcademicRepository by lazy {

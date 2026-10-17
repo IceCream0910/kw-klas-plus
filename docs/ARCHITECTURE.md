@@ -94,9 +94,15 @@ Android는 기존 `kw-klas-plus-android`, iOS 앱은 `kw-klas-plus-ios` Sentry �
 
 로컬 테스트에서 `KlasUrls.KLAS_PLUS_BASE`를 HTTP IP 주소로 임시 지정한 경우에는 그 정확한 scheme·host·port만 홈 URL 및 Bridge v1 origin으로 추가 허용합니다. Android는 Debug·Release 모두 cleartext 트래픽을 차단합니다. iOS는 기존 Debug Info.plist에서만 웹 콘텐츠의 평문 HTTP 로드를 허용하며 Release에서는 차단합니다. 운영 도메인은 테스트 주소를 지정해도 계속 허용합니다. 테스트 설정을 배포용 URL로 사용하지 마세요.
 
+### Native KLAS API 전송
+
+Android 빌드 34·iOS 빌드 2부터 WebView `nativeApp.js`의 `klasApi` 분기로 기존 KLAS 요청을 Native에 전달한다. 하위 빌드는 서버 API를 유지하며 양 경로 모두 KLAS core의 호스트·endpoint 제한을 사용한다. Native `KlasApiCore`는 보안 저장소의 SESSION으로 HTTPS `klas.kw.ac.kr`에만 요청하며 redirect를 자동 추적하지 않는다. 기존 인증·저장 키·학교 WebView·플레이어 경로는 유지한다.
+
+모든 surface의 `requestKlasApi(operationId, endpoint, payloadJson)`, `readKlasApiChunk(responseId, index)`, `cancelKlasApi(operationId)`는 정확한 KLAS+ origin·top-level frame에만 허용한다. 응답은 4 MiB 제한과 분할 전달, 문서·계정·학기 변경 시 폐기를 적용한다. 지원 웹에는 토큰 callback의 첫 인자를 null로 전달하고 `klasSessionToken`을 제거하며 구 웹은 기존 계약을 유지한다. 쓰기 timeout은 결과 불명으로 분리하고 자동 재전송·proxy fallback을 하지 않는다. 위협·오류·집계 계약·구 버전 호환과 롤백은 [ADR-015](adr/ADR-015-native-klas-api.md)를 따른다.
+
 ### Web → Native 메서드
 
-현재 카탈로그는 7개 surface, 66개 명령입니다. 아래 이름은 공개 계약이므로 오타처럼 보이는 `evaluteKLASScript`도 바꾸지 마세요. 정확한 인자 개수·타입은 [`LegacyBridgeCatalog`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/LegacyBridgeCatalog.kt), typed 대응은 [`BridgeMethodId`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/BridgeMethodId.kt)가 기준입니다.
+현재 카탈로그는 7개 surface, 92개 명령입니다. 아래 이름은 공개 계약이므로 오타처럼 보이는 `evaluteKLASScript`도 바꾸지 마세요. 정확한 인자 개수·타입은 [`LegacyBridgeCatalog`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/LegacyBridgeCatalog.kt), typed 대응은 [`BridgeMethodId`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/bridge/BridgeMethodId.kt)가 기준입니다.
 
 | Surface | 메서드 |
 |---|---|

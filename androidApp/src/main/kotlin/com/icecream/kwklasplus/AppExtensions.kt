@@ -126,7 +126,14 @@ fun syncSessionCookie(sessionId: String) {
 }
 
 fun WebView.executeWebScript(script: WebScript) {
-    evaluateJavascript(script.reveal(), null)
+    if (script.hasNativeApiAlternative()) {
+        val documentUrl = url
+        val generation = com.icecream.kwklasplus.platform.web.AndroidBridgeMessageAdapter.navigationGeneration(this)
+        evaluateJavascript("window.__klasNativeApi === true") { enabled ->
+            if (url != documentUrl || generation != com.icecream.kwklasplus.platform.web.AndroidBridgeMessageAdapter.navigationGeneration(this)) return@evaluateJavascript
+            evaluateJavascript(script.revealForNativeApi(enabled == "true"), null)
+        }
+    } else evaluateJavascript(script.reveal(), null)
 }
 
 fun String.isTrustedAppWebUrl(): Boolean = TrustedOriginPolicy().isTrustedUrl(this)

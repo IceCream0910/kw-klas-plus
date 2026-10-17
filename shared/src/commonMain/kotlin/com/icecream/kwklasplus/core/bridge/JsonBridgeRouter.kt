@@ -4,6 +4,8 @@ class JsonBridgeRouter(
     private val router: BridgeRouter,
     private val codec: BridgeJsonCodec = BridgeJsonCodec(),
 ) {
+    fun reset() = router.reset()
+
     fun preflight(payload: String, context: BridgeContext): String? {
         router.validateContext(context.copy(payloadSizeBytes = 0))?.let { return codec.encodeResponse(it) }
         router.validateContext(context.copy(payloadSizeBytes = router.measurePayload(payload)))

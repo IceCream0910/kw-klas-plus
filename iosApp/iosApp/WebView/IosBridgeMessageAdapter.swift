@@ -58,7 +58,14 @@ final class IosBridgeMessageAdapter: NSObject {
         return .installed
     }
 
+    func resetForNavigation() {
+        router.reset()
+        routeScope.reset()
+    }
+
     func dispose() {
+        resetForNavigation()
+
         guard !disposed else { return }
         disposed = true
         if installed {
