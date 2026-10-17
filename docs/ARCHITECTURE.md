@@ -96,7 +96,7 @@ Android는 기존 `kw-klas-plus-android`, iOS 앱은 `kw-klas-plus-ios` Sentry �
 
 ### Native KLAS API 전송
 
-Android 빌드 34·iOS 빌드 2부터 WebView `nativeApp.js`의 `klasApi` 분기로 기존 KLAS 요청을 Native에 전달한다. 하위 빌드는 서버 API를 유지하며 양 경로 모두 KLAS core의 호스트·endpoint 제한을 사용한다. Native `KlasApiCore`는 보안 저장소의 SESSION으로 HTTPS `klas.kw.ac.kr`에만 요청하며 redirect를 자동 추적하지 않는다. 기존 인증·저장 키·학교 WebView·플레이어 경로는 유지한다.
+Android 빌드 34·iOS 빌드 2부터 WebView `nativeApp.js`의 `klasApi` 분기로 기존 KLAS 요청을 Native에 전달한다. 하위 빌드는 서버 API를 유지하며 양 경로 모두 KLAS core의 호스트 제한을 사용한다. Native `KlasApiCore`는 보안 저장소의 SESSION으로 HTTPS `klas.kw.ac.kr`에만 요청하며 redirect를 자동 추적하지 않는다. 기존 인증·저장 키·학교 WebView·플레이어 경로는 유지한다.
 
 모든 surface의 `requestKlasApi(operationId, endpoint, payloadJson)`, `readKlasApiChunk(responseId, index)`, `cancelKlasApi(operationId)`는 정확한 KLAS+ origin·top-level frame에만 허용한다. 응답은 4 MiB 제한과 분할 전달, 문서·계정·학기 변경 시 폐기를 적용한다. 지원 웹에는 토큰 callback의 첫 인자를 null로 전달하고 `klasSessionToken`을 제거하며 구 웹은 기존 계약을 유지한다. 쓰기 timeout은 결과 불명으로 분리하고 자동 재전송·proxy fallback을 하지 않는다. 위협·오류·집계 계약·구 버전 호환과 롤백은 [ADR-015](adr/ADR-015-native-klas-api.md)를 따른다.
 
@@ -169,3 +169,5 @@ Android 네이티브 화면은 compact(<600dp), medium(600~839dp), expanded(≥8
 이 변경을 롤백할 때에는 수정 커밋을 되돌립니다. 새 비밀 저장 키나 데이터 이전은 없으며, 세대·잠금 파일은 삭제하지 않아도 됩니다. 이전 앱은 이 파일을 사용하지 않아 위젯 동시 실행의 보호가 사라집니다.
 
 선택 설정은 인증과 필수 동의 이후에 안내합니다. 첫 마감 데이터 조회 성공에는 알림, 전체 메뉴 첫 진입에는 출입증, 설정 화면 또는 두 번째 홈 실행에는 앱 잠금을 안내하며 이미 설정된 기능은 생략합니다. `setup_prompt_seen_*` 일반 설정은 설치별 표시 이력이며 실제 노출 시 기록합니다. 하단 안내는 배경 터치를 막지 않는 작은 오버레이이며 X로 닫을 수 있습니다. 앱 잠금과 알림의 상태 조회는 다른 단계를 자동 진행시키지 않습니다. 추천 알림 설정은 저장 성공 후 toast로 알리고 닫으며 일반 설정의 완료 시트는 유지합니다. 기존 `login_funnel_status`·브리지 메서드·권한 CTA 및 인증 저장 경계는 유지합니다.
+
+Endpoint 확장: Native와 서버 core는 endpoint 목록을 유지하지 않는다. HTTPS klas.kw.ac.kr의 새 GET·JSON POST 경로와 query를 웹 배포만으로 추가한다. 사용자정보·비표준 포트·fragment·역슬래시·제어문자·dot segment·인코딩된 path와 redirect를 차단한다. 모든 POST는 경로에 관계없이 중복 억제와 네트워크/timeout 결과 불명 정책을 적용한다. query의 percent encoding은 허용한다.

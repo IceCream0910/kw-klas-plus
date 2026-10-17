@@ -15,15 +15,28 @@ class KlasApiCoreTest {
     private fun api(engine: MockEngine, session: suspend () -> SecretValue? = { token }) =
         KlasApiCore(HttpClient(engine), session, { KlasUserAgent.fromPlatform("fixture") })
 
-    @Test fun unregisteredHostsPathsAndNestedPayloadsNeverReachNetwork() = runBlocking {
+    @Test fun unsafeUrlsAndNestedPayloadsNeverReachNetwork() = runBlocking {
         var requests = 0
         val core = api(MockEngine { requests++; respond("{}") })
-        for (path in listOf("https://evil.test$endpoint", "https://klas.kw.ac.kr.evil.test$endpoint", "https://klas.kw.ac.kr:444$endpoint", "/unknown.do", "$endpoint?next=evil", "//$endpoint", "/std/../$endpoint")) {
+        for (path in listOf("https://evil.test$endpoint", "https://klas.kw.ac.kr.evil.test$endpoint", "https://klas.kw.ac.kr:444$endpoint", "//$endpoint", "/std/../$endpoint")) {
             assertEquals("INVALID_ENDPOINT", assertIs<KlasApiResult.Failure>(core.request(path, "{}")).code)
         }
         assertEquals("INVALID_PAYLOAD", assertIs<KlasApiResult.Failure>(core.request(endpoint, "[1]")).code)
         assertEquals("INVALID_PAYLOAD", assertIs<KlasApiResult.Failure>(core.request(endpoint, "{\"x\":".repeat(100) + "0" + "}".repeat(100))).code)
         assertEquals(0, requests)
+    }
+
+    @Test fun newEndpointsAndQueriesDoNotNeedNativeRegistration() = runBlocking {
+        val core = api(MockEngine { request ->
+            assertEquals("/new/feature.do", request.url.encodedPath)
+            assertEquals("새 기능", request.url.parameters["q"])
+            assertEquals(HttpMethod.Post, request.method)
+            respond("{}")
+        })
+        assertIs<KlasApiResult.Success>(core.request("https://klas.kw.ac.kr/new/feature.do?q=%EC%83%88%20%EA%B8%B0%EB%8A%A5", "{}"))
+        for (path in listOf("https://klas.kw.ac.kr@evil.test/a", "/%2e%2e/a", "/a/..", "/a\\evil", "/a#x")) {
+            assertNull(KlasApiContract.path(path))
+        }
     }
 
     @Test fun nativeSessionIsUsedAndResponseShapeIsNotProjected() = runBlocking {
@@ -67,7 +80,7 @@ class KlasApiCoreTest {
     @Test fun mutationTimeoutIsNotRetriedAndDoesNotClaimFailure() = runBlocking {
         var count = 0
         val core = api(MockEngine { request -> count++; throw HttpRequestTimeoutException(request) })
-        val result = core.request("/std/ads/admst/MySchdulSave.do", "{}")
+        val result = core.request("/new/action.do", "{}")
         assertEquals("OUTCOME_UNKNOWN", assertIs<KlasApiResult.Failure>(result).code)
         assertEquals(1, count)
     }
@@ -91,7 +104,7 @@ class KlasApiCoreTest {
         assertEquals(BridgeValue.Text("RESPONSE_EXPIRED"), removed.value["error"])
     }
 
-    @Test fun pageReaderUsesGetOnlyForRegisteredKlasPages() = runBlocking {
+    @Test fun pageReaderSupportsNewKlasPages() = runBlocking {
         var count = 0
         val html = "<main>학적 정보</main>"
         val core = api(MockEngine { request ->
@@ -100,7 +113,7 @@ class KlasApiCoreTest {
             assertEquals("klas.kw.ac.kr", request.url.host)
             respond(html)
         })
-        val result = assertIs<KlasApiResult.Success>(core.request("page:/std/cps/inqire/AtnlcScreStdPage.do", "null"))
+        val result = assertIs<KlasApiResult.Success>(core.request("page:/new/page.do?term=2026", "null"))
         assertEquals(html, kotlinx.serialization.json.Json.parseToJsonElement(result.body).let { (it as kotlinx.serialization.json.JsonPrimitive).content })
         assertEquals("INVALID_ENDPOINT", assertIs<KlasApiResult.Failure>(core.request("page://evil.test/", "null")).code)
         assertEquals(1, count)
