@@ -28,6 +28,7 @@ class AndroidAppDependencies(context: Context) {
         libraryEncryptedPreferences = applicationContext.libraryEncryptedCachePreferences,
     )
 
+    val klasApiCore get() = shared.klasApiCore
     val authRepository get() = shared.authRepository
     val attendanceRepository get() = shared.attendanceRepository
     val academicRepository get() = shared.academicRepository

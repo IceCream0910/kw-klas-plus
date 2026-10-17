@@ -3,8 +3,10 @@ package com.icecream.kwklasplus.core.web
 import com.icecream.kwklasplus.core.lock.AppLockSettings
 import com.icecream.kwklasplus.core.legacy.KlasUrls
 
-class WebScript internal constructor(private val source: String) {
+class WebScript internal constructor(private val source: String, private val nativeApiSource: String? = null) {
     fun reveal(): String = source
+    fun hasNativeApiAlternative(): Boolean = nativeApiSource != null
+    fun revealForNativeApi(enabled: Boolean): String = if (enabled) nativeApiSource ?: source else source
 
     override fun toString(): String = "[WEB_SCRIPT_REDACTED]"
 }
@@ -48,11 +50,16 @@ object LegacyWebScripts {
     fun call(callback: LegacyWebCallback, vararg arguments: JavaScriptArgument): WebScript {
         require(arguments.size in callback.minimumArgumentCount..callback.maximumArgumentCount)
         val encodedArguments = arguments.joinToString(",") { JavaScriptEncoder.encode(it) }
-        return WebScript("${callback.functionPath}($encodedArguments);")
+        val nativeApiArguments = if (callback == LegacyWebCallback.RECEIVE_TOKEN || callback == LegacyWebCallback.RECEIVE_DATA) {
+            arguments.mapIndexed { index, value -> if (index == 0) JavaScriptArgument.Null else value }
+                .joinToString(",") { JavaScriptEncoder.encode(it) }
+        } else null
+        return WebScript("${callback.functionPath}($encodedArguments);", nativeApiArguments?.let { "${callback.functionPath}($it);" })
     }
 
     fun setLocalStorage(key: String, value: String): WebScript = WebScript(
         "window.localStorage.setItem(${JavaScriptEncoder.encodeText(key)},${JavaScriptEncoder.encodeText(value)});",
+        if (key == "klasSessionToken") "window.localStorage.removeItem('klasSessionToken');" else null,
     )
 
     fun appLockSettingChanged(settings: AppLockSettings): WebScript = WebScript(

@@ -27,6 +27,18 @@ final class IosBridgeMessageAdapterTests: XCTestCase {
         XCTAssertEqual(result["ok"] as? Bool, true)
     }
 
+    func testNativeApiRejectsUnregisteredEndpointThroughWebKit() throws {
+        let harness = try makeHarness(surface: .home, handler: AcceptingBridgeCommandHandler())
+        defer { harness.dispose() }
+        let result = try harness.evaluateBridge(
+            """
+            const result = await window.KlasNativeBridge.requestKlasApi('invalid-endpoint', 'https://attacker.invalid/data', '{}');
+            return JSON.stringify(result);
+            """
+        )
+        XCTAssertEqual(result["error"] as? String, "INVALID_ENDPOINT")
+    }
+
     func testAsyncHandlerResultResolvesAfterDelay() throws {
         let harness = try makeHarness(
             surface: .home,

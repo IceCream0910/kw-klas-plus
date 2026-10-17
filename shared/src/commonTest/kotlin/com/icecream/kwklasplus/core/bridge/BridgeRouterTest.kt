@@ -107,9 +107,9 @@ class BridgeRouterTest {
             }
         }
 
-        assertEquals(71, received.size)
-        assertEquals(71, received.distinct().size)
-        assertEquals(71, BridgeMethodId.entries.size)
+        assertEquals(92, received.size)
+        assertEquals(92, received.distinct().size)
+        assertEquals(92, BridgeMethodId.entries.size)
     }
 
     private fun request(method: String, vararg arguments: BridgeValue) = BridgeRequest(

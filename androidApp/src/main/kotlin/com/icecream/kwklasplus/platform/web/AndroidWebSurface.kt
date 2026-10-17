@@ -105,6 +105,7 @@ open class AndroidWebSurfaceClient(
 ) : WebViewClient() {
     override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
         super.onPageStarted(view, url, favicon)
+        view?.let(AndroidBridgeMessageAdapter::resetForNavigation)
         url?.let(surface::onPageStarted)
     }
 

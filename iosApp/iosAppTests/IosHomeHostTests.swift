@@ -560,6 +560,31 @@ final class IosHomeHostTests: XCTestCase {
     }
 
     @MainActor
+    func testNativeApiContextOmitsSessionFromCallback() throws {
+        let holder = WebViewHolder.withLegacyBridge(
+            surface: .home,
+            handler: IosHomeLegacyBridgeCommandHandler(host: RecordingHomeHost())
+        )
+        defer { holder.dispose() }
+        let html = """
+        <!doctype html><html><body><script>
+        window.__klasNativeApi = true;
+        window.__token = 'unset';
+        window.receiveToken = function(value) { window.__token = value; };
+        </script></body></html>
+        """
+        try loadHTML(holder.webView, html, baseURL: URL(string: "https://klasplus.yuntae.in/")!, timeout: 15)
+        let done = expectation(description: "native context")
+        holder.evaluate(IosWebCallbacks.shared.receiveToken(token: "must-not-reach-web")) { _ in
+            holder.webView.evaluateJavaScript("window.__token === null") { result, _ in
+                XCTAssertEqual(result as? Bool, true)
+                done.fulfill()
+            }
+        }
+        waitForExpectations(timeout: 15)
+    }
+
+    @MainActor
     func testRequestIdCardQRValueDoesNotShowUnavailableToast() async {
         let suite = "com.icecream.kwklasplus.test.idcard.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!

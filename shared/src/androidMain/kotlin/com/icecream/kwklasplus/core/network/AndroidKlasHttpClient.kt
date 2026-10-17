@@ -21,6 +21,8 @@ class AndroidCoreNetworkDependencies {
     private val longRunningClient by lazy { createAndroidKlasHttpClient(timeoutMillis = 30_000) }
     private val libraryClient by lazy { createAndroidKlasHttpClient(timeoutMillis = 10_000) }
 
+    val klasApiClient get() = defaultClient
+
     val reminderTransport by lazy { KlasSessionHttpClient(defaultClient) }
     val authRepository: KlasAuthRepository by lazy { KlasAuthRepository(defaultClient) }
     val sessionLeaseGateway by lazy { KlasSessionLeaseHttpGateway(defaultClient) }

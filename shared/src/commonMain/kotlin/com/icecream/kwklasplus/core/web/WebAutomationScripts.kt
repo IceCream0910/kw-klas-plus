@@ -372,6 +372,15 @@ object KlasNativeBridgeScripts {
     const val NATIVE_OBJECT_NAME = "KlasNativeBridgeNative"
     const val DEFAULT_BRIDGE_TIMEOUT_MILLIS = 15_000
 
+    fun installApiAppIdentity(platform: String, build: Int): WebScript {
+        require(platform in setOf("android", "ios") && build > 0)
+        val identity = kotlinx.serialization.json.buildJsonObject {
+            put("platform", kotlinx.serialization.json.JsonPrimitive(platform))
+            put("version", kotlinx.serialization.json.JsonPrimitive(build))
+        }
+        return WebScript("if(window===window.top)window.__klasNativeApiApp=$identity;")
+    }
+
     fun installWebKitTransport(): WebScript = WebScript(
         "(function(global){if(global.KlasNativeBridgeNative&&global.KlasNativeBridgeNative.__klasWebKitTransport)return;" +
             "function nativeHandler(){var handlers=global.webkit&&global.webkit.messageHandlers;" +
