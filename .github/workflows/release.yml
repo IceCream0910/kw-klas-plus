@@ -1,18 +1,9 @@
 name: Release validation
 
 on:
-  pull_request:
-    branches:
-      - release
-      - 'release/**'
   push:
     branches:
-      - release
-      - 'release/**'
-  merge_group:
-    branches:
-      - release
-      - 'release/**'
+      - main
   workflow_dispatch:
 
 concurrency:
