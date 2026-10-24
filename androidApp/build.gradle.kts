@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeCompiler)
+    id("io.sentry.android.gradle") version "6.24.0"
 }
 
 kotlin {
@@ -98,4 +99,21 @@ android {
             useLegacyPackaging = true
         }
     }
+}
+
+sentry {
+    org.set("yun-taein")
+    projectName.set("kw-klas-plus-android")
+    includeProguardMapping.set(true)
+    val autoUpload = providers.gradleProperty("sentryAutoUpload").map(String::toBoolean).orElse(false)
+    autoUploadProguardMapping.set(autoUpload)
+    uploadNativeSymbols.set(true)
+    autoUploadNativeSymbols.set(autoUpload)
+    includeNativeSources.set(false)
+    includeSourceContext.set(false)
+    ignoredBuildTypes.set(setOf("debug"))
+    autoInstallation { enabled.set(false) }
+    tracingInstrumentation { enabled.set(false) }
+    runtimeOptimizations { enabled.set(false) }
+    telemetry.set(false)
 }
