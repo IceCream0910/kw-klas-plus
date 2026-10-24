@@ -37,7 +37,12 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build release APK and AAB
-        run: ./gradlew :androidApp:assembleRelease :androidApp:bundleRelease --stacktrace
+        run: >-
+          ./gradlew :androidApp:assembleRelease :androidApp:bundleRelease
+          -PsentryAutoUpload=false
+          -x :androidApp:uploadSentryProguardMappingsRelease
+          -x :androidApp:uploadSentryNativeSymbolsForRelease
+          --stacktrace
 
       - name: Verify ProGuard UUID and mapping artifacts
         shell: python
