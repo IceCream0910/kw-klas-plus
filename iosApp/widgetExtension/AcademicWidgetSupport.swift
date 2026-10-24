@@ -1,5 +1,7 @@
 import Foundation
 import SwiftUI
+import WidgetKit
+import UIKit
 
 struct AcademicCalendarBar {
     let event: AcademicWidgetEvent
@@ -204,7 +206,11 @@ enum AcademicWidgetCopy {
 
 enum AcademicWidgetPalette {
     static func background(_ scheme: ColorScheme) -> Color {
-        Color(hex: scheme == .dark ? "#111214" : "#FFFFFF")
+        let traits = UITraitCollection(traitsFrom: [
+            UITraitCollection(userInterfaceStyle: scheme == .dark ? .dark : .light),
+            UITraitCollection(userInterfaceLevel: .base)
+        ])
+        return Color(uiColor: UIColor.systemBackground.resolvedColor(with: traits))
     }
 
     static func text(_ scheme: ColorScheme) -> Color {
@@ -334,14 +340,57 @@ enum AcademicWidgetTimeline {
     }
 }
 
+struct AcademicWidgetStyle {
+    let colorScheme: ColorScheme
+    let renderingMode: WidgetRenderingMode
+
+    var isAccented: Bool { renderingMode == .accented }
+    var text: Color { isAccented ? .white : AcademicWidgetPalette.text(colorScheme) }
+    var secondary: Color { isAccented ? .white : AcademicWidgetPalette.secondary(colorScheme) }
+    var sunday: Color { isAccented ? .white : AcademicWidgetPalette.sunday(colorScheme) }
+    var todayText: Color { isAccented ? .white : AcademicWidgetPalette.background(colorScheme) }
+
+    func event(_ value: String, seed: String) -> Color {
+        isAccented ? .white : AcademicWidgetPalette.event(value, seed: seed)
+    }
+
+    func subjectInk(_ color: AcademicWidgetSubjectColor) -> Color {
+        isAccented ? .white : AcademicWidgetPalette.ink(color, dark: colorScheme == .dark)
+    }
+}
+
+struct AcademicWidgetCard: ViewModifier {
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    let fill: Color
+    let cornerRadius: CGFloat
+    var style: RoundedCornerStyle = .circular
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: style)
+        if renderingMode == .accented {
+            content
+                .clipShape(shape)
+                .overlay {
+                    shape.strokeBorder(.white, lineWidth: 1)
+                        .widgetAccentable()
+                        .accessibilityHidden(true)
+                }
+        } else {
+            content.background(fill).clipShape(shape)
+        }
+    }
+}
+
 struct AcademicWidgetChrome: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
     func body(content: Content) -> some View {
         if #available(iOS 17.0, *) {
             content.containerBackground(for: .widget) {
-                Color.clear
+                AcademicWidgetPalette.background(colorScheme)
             }
         } else {
-            content
+            content.background(AcademicWidgetPalette.background(colorScheme))
         }
     }
 }

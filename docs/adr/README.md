@@ -21,5 +21,6 @@
 
 | [ADR-015](ADR-015-native-klas-api.md) | KLAS API Native bridge·구 빌드 서버 호환 | 구현; 실제 KLAS·실기기 검증 대기 |
 | [ADR-014](ADR-014-native-sentry-observability.md) | Native Sentry 오류·운영 로그의 수집 경계 | Accepted; 실기기 crash·심볼 업로드 검증 별도 |
+| [ADR-016](ADR-016-ios-widget-rendering.md) | 학사 위젯 Clear/Tinted의 콘텐츠·배경·강조 그룹 | 구현; 실제 홈 화면·실기기 검증 대기 |
 
 현재 코드의 모듈 경계는 [아키텍처](../ARCHITECTURE.md), M1~M7 당시 진행 상황은 [마이그레이션 기록](../kmp-migration/kmp_migration_tasks.md)에 있어요.

@@ -154,6 +154,8 @@ Android NotificationManager/1시간 JobScheduler와 iOS UNUserNotificationCenter
 | 학사 시간표·캘린더 위젯 | Android 구현은 [ADR-004](adr/ADR-004-android-academic-widgets.md)를 따릅니다. iOS WidgetKit 표시·딥링크는 [ADR-005](adr/ADR-005-ios-academic-widgets.md), iOS 17 캘린더 새로고침은 [ADR-006](adr/ADR-006-ios-widget-interactive-refresh.md)를 따릅니다. iOS 캘린더 새로고침은 SESSION 원문을 App Group에 두지 않고 Keychain Access Group의 SESSION·암호화 비밀번호만 확장과 공유합니다. |
 | iOS Liquid Glass | iOS 26 이상에서만 시스템 컴포넌트와 플로팅 오버레이에 glass를 적용하고, iOS 16~18과 Android 화면은 유지합니다. [ADR-010](adr/ADR-010-ios-liquid-glass.md) |
 
+iOS 학사 위젯은 `widgetRenderingMode`의 `.accented`에서 투명 콘텐츠 배경과 일정·수업·오늘 날짜의 윤곽선을 사용한다. iOS 17 이상 배경은 시스템이 관리하는 `containerBackground`에 두며 iOS 16은 기존 배경을 유지한다. 일반 Light/Dark 팔레트와 갱신·딥링크·저장 계약은 유지한다. 강조 그룹과 검증 범위는 [ADR-016](adr/ADR-016-ios-widget-rendering.md)을 따른다.
+
 Android 네이티브 화면은 compact(<600dp), medium(600~839dp), expanded(≥840dp)로 나눕니다. WebView 내부 레이아웃은 웹 앱이 맡아요. iOS에서는 safe area·키보드·Dynamic Type·회전 때문에 WKWebView holder를 새로 만들지 않도록 주의해 주세요.
 
 ## 최초 온보딩
