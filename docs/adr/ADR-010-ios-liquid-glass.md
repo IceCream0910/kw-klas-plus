@@ -29,7 +29,7 @@ iOS 27 SDK로 빌드하면 `UIDesignRequiresCompatibility`가 무시되어 표�
 - `VideoPlayerOverlay`: 재생·이동·PIP·배속 버튼은 플레이어 컨트롤 패널의 surface 배경을 유지합니다. `Slider`는 시스템 컨트롤의 Liquid Glass와 기존 tint 대비를 수동으로 확인했고, 코드는 바꾸지 않습니다.
 - 로그인 `Toggle`은 `KlasCheckboxToggleStyle`로 그린 커스텀 체크박스라 glass 적용 대상이 아니며 바꾸지 않습니다. `ProgressView`는 기존 tint와 주변 배경의 대비를 수동으로 확인했고, 별도 glass surface는 두지 않습니다.
 - 도서관 QR 시트는 `presentationBackground` 없이 콘텐츠 `.background(KlasTheme.surface)`만 사용합니다. 배경 변경은 실기기에서 QR 대비와 quiet zone을 비교한 뒤 결정합니다.
-- 학사 시간표·캘린더 위젯의 Clear/Tinted는 후속 [#81 / ADR-016](ADR-016-ios-widget-rendering.md)에서 구현합니다. 이 ADR의 변경은 위젯 코드를 바꾸지 않으며 도서관 QR 위젯은 기존 렌더링을 유지합니다.
+- 학사 시간표·캘린더 위젯의 Clear/Tinted는 후속 [#81 / ADR-005의 Clear/Tinted 항목](ADR-005-ios-academic-widgets.md#cleartinted-렌더링-대응-81)에서 구현합니다. 이 ADR의 변경은 위젯 코드를 바꾸지 않으며 도서관 QR 위젯은 기존 렌더링을 유지합니다.
 - 앱 아이콘 Icon Composer 전환은 디자인 리소스가 필요해 후속 작업으로 둡니다.
 
 ## 롤백

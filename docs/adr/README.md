@@ -9,7 +9,7 @@
 | [ADR-002](ADR-002-ios-library-qr-widget.md) | 개인정보를 공유하지 않는 도서관 QR 위젯 | Accepted |
 | [ADR-003](ADR-003-min-platform-versions.md) | Android/iOS 최소 지원 OS | Accepted |
 | [ADR-004](ADR-004-android-academic-widgets.md) | Android 학사 시간표·캘린더 위젯 | 구현 기준; 실기기 검증 대기 |
-| [ADR-005](ADR-005-ios-academic-widgets.md) | iOS 학사 WidgetKit 확장 | Accepted; 후속 새로고침은 [ADR-006](ADR-006-ios-widget-interactive-refresh.md) |
+| [ADR-005](ADR-005-ios-academic-widgets.md) | iOS 학사 WidgetKit 확장 | Accepted; 새로고침은 [ADR-006](ADR-006-ios-widget-interactive-refresh.md), Clear/Tinted는 구현 후 실기기 검증 대기 |
 | [ADR-006](ADR-006-ios-widget-interactive-refresh.md) | iOS 17 캘린더 위젯 AppIntent 새로고침 | Accepted; 실기기 검증 별도 |
 | [ADR-007](ADR-007-native-home-navigation.md) | 네이티브 홈 하단 탐색과 웹 라우터 연결 | Accepted; 웹 저장소 동시 배포 대기 |
 | [ADR-008](ADR-008-native-onboarding.md) | 네이티브 최초 온보딩 | Accepted; 실기기 검증 대기 |
@@ -21,6 +21,5 @@
 
 | [ADR-015](ADR-015-native-klas-api.md) | KLAS API Native bridge·구 빌드 서버 호환 | 구현; 실제 KLAS·실기기 검증 대기 |
 | [ADR-014](ADR-014-native-sentry-observability.md) | Native Sentry 오류·운영 로그의 수집 경계 | Accepted; 실기기 crash·심볼 업로드 검증 별도 |
-| [ADR-016](ADR-016-ios-widget-rendering.md) | 학사 위젯 Clear/Tinted의 콘텐츠·배경·강조 그룹 | 구현; 실제 홈 화면·실기기 검증 대기 |
 
 현재 코드의 모듈 경계는 [아키텍처](../ARCHITECTURE.md), M1~M7 당시 진행 상황은 [마이그레이션 기록](../kmp-migration/kmp_migration_tasks.md)에 있어요.
