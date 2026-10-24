@@ -44,8 +44,13 @@ struct AcademicCalendarProvider: TimelineProvider {
 
 struct AcademicCalendarWidgetView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.widgetRenderingMode) private var renderingMode
     @Environment(\.widgetFamily) private var family
     let entry: AcademicWidgetEntry
+
+    private var style: AcademicWidgetStyle {
+        AcademicWidgetStyle(colorScheme: colorScheme, renderingMode: renderingMode)
+    }
 
     var body: some View {
         let placeholder = AcademicWidgetPlaceholder.calendar(load: entry.load, now: entry.date)
@@ -62,7 +67,6 @@ struct AcademicCalendarWidgetView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(AcademicWidgetPalette.background(colorScheme))
         .widgetURL(AcademicWidgetURL.calendar)
         .modifier(AcademicWidgetChrome())
     }
@@ -71,11 +75,11 @@ struct AcademicCalendarWidgetView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(AcademicWidgetCopy.monthTitle(entry.date))
                 .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(AcademicWidgetPalette.text(colorScheme))
+                .foregroundStyle(style.text)
             Spacer()
             Text(text)
                 .font(.system(size: 13))
-                .foregroundStyle(AcademicWidgetPalette.secondary(colorScheme))
+                .foregroundStyle(style.secondary)
                 .multilineTextAlignment(.leading)
             Spacer()
         }
@@ -89,34 +93,35 @@ struct AcademicCalendarWidgetView: View {
         return VStack(alignment: .leading, spacing: 4) {
             Text(AcademicWidgetCopy.fullDate(entry.date))
                 .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(AcademicWidgetPalette.text(colorScheme))
+                .foregroundStyle(style.text)
                 .lineLimit(1)
             if agenda.todayCount == 0 {
                 Text("오늘 일정이 없어요")
                     .font(.system(size: 13))
-                    .foregroundStyle(AcademicWidgetPalette.secondary(colorScheme))
+                    .foregroundStyle(style.secondary)
                     .padding(.top, 4)
             }
             if agenda.date != AcademicWidgetCopy.todayString(from: entry.date),
                let next = AcademicWidgetCopy.date(from: agenda.date) {
                 Text(AcademicWidgetCopy.fullDate(next))
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(AcademicWidgetPalette.secondary(colorScheme))
+                    .foregroundStyle(style.secondary)
                     .padding(.top, 6)
             }
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(agenda.events.prefix(family == .systemSmall ? 2 : 4), id: \.id) { event in
                     HStack(alignment: .center, spacing: 8) {
                         Capsule()
-                            .fill(AcademicWidgetPalette.event(event.color, seed: event.id))
+                            .fill(style.event(event.color, seed: event.id))
+                            .widgetAccentable()
                             .frame(width: 3)
                         Text(AcademicWidgetLayoutPolicy.eventTime(event))
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(AcademicWidgetPalette.secondary(colorScheme))
+                            .foregroundStyle(style.secondary)
                             .frame(width: 40, alignment: .leading)
                         Text(event.title)
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(AcademicWidgetPalette.text(colorScheme))
+                            .foregroundStyle(style.text)
                             .lineLimit(1)
                     }
                     .frame(height: 22)
@@ -145,12 +150,12 @@ struct AcademicCalendarWidgetView: View {
         return VStack(alignment: .leading, spacing: 6) {
             Text(AcademicWidgetCopy.monthTitle(entry.date))
                 .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(AcademicWidgetPalette.text(colorScheme))
+                .foregroundStyle(style.text)
             HStack(spacing: 0) {
                 ForEach(Array(weekdayLabels.enumerated()), id: \.offset) { index, label in
                     Text(label)
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(index == 0 ? AcademicWidgetPalette.sunday(colorScheme) : AcademicWidgetPalette.secondary(colorScheme))
+                        .foregroundStyle(index == 0 ? style.sunday : style.secondary)
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -166,11 +171,19 @@ struct AcademicCalendarWidgetView: View {
                         let isToday = day == todayDay
                         Text("\(day)")
                             .font(.system(size: 11, weight: isToday ? .bold : .regular))
-                            .foregroundStyle(isToday ? AcademicWidgetPalette.background(colorScheme) : AcademicWidgetPalette.text(colorScheme))
+                            .foregroundStyle(isToday ? style.todayText : style.text)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(isToday ? AcademicWidgetPalette.text(colorScheme) : Color.clear)
+                            .background(isToday && !style.isAccented ? style.text : Color.clear)
                             .clipShape(Capsule())
+                            .overlay {
+                                if isToday && style.isAccented {
+                                    Capsule().strokeBorder(.white, lineWidth: 1.5)
+                                        .widgetAccentable()
+                                        .accessibilityHidden(true)
+                                }
+                            }
+                            .accessibilityLabel(isToday ? "오늘, \(day)일" : "\(day)일")
                             .position(x: x + 16, y: y + 10)
                     }
                     ForEach(Array(bars.enumerated()), id: \.offset) { _, bar in
@@ -182,8 +195,10 @@ struct AcademicCalendarWidgetView: View {
                             .lineLimit(1)
                             .padding(.horizontal, 4)
                             .frame(width: cellW * CGFloat(bar.span) - 4, height: 12, alignment: .leading)
-                            .background(AcademicWidgetPalette.event(bar.event.color, seed: bar.event.id))
-                            .clipShape(RoundedRectangle(cornerRadius: 3))
+                            .modifier(AcademicWidgetCard(
+                                fill: AcademicWidgetPalette.event(bar.event.color, seed: bar.event.id),
+                                cornerRadius: 3
+                            ))
                             .offset(x: x, y: y)
                     }
                 }
@@ -196,7 +211,7 @@ struct AcademicCalendarWidgetView: View {
         HStack {
             Text(status)
                 .font(.system(size: 9))
-                .foregroundStyle(AcademicWidgetPalette.secondary(colorScheme))
+                .foregroundStyle(style.secondary)
                 .lineLimit(1)
             Spacer()
             refreshControl
@@ -224,7 +239,8 @@ struct AcademicCalendarWidgetView: View {
     private var refreshIcon: some View {
         Image(systemName: "arrow.clockwise")
             .font(.system(size: 16, weight: .semibold))
-            .foregroundStyle(AcademicWidgetPalette.secondary(colorScheme))
+            .foregroundStyle(style.secondary)
+            .widgetAccentable()
             .frame(width: 24, height: 24)
     }
 }
