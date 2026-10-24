@@ -1,0 +1,139 @@
+name: Release validation
+
+on:
+  pull_request:
+    branches:
+      - release
+      - 'release/**'
+  push:
+    branches:
+      - release
+      - 'release/**'
+  merge_group:
+    branches:
+      - release
+      - 'release/**'
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  android-release:
+    name: Android release build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build release APK and AAB
+        run: ./gradlew :androidApp:assembleRelease :androidApp:bundleRelease --stacktrace
+
+      - name: Verify ProGuard UUID and mapping artifacts
+        shell: python
+        run: |
+          from pathlib import Path
+          from uuid import UUID
+          from zipfile import ZipFile
+
+          root = Path('androidApp/build')
+          mapping = root / 'outputs/mapping/release/mapping.txt'
+          assert mapping.is_file() and mapping.stat().st_size > 0, 'Missing R8 mapping'
+          generated = root / 'intermediates/sentry/release/proguard-uuid/sentry-proguard-uuid.properties'
+          expected = generated.read_text().strip().split('=', 1)[1]
+          UUID(expected)
+          for pattern, entry in [
+              ('outputs/apk/release/*.apk', 'assets/sentry-debug-meta.properties'),
+              ('outputs/bundle/release/*.aab', 'base/assets/sentry-debug-meta.properties'),
+          ]:
+              artifacts = list(root.glob(pattern))
+              assert len(artifacts) == 1, f'Expected one artifact: {pattern}'
+              with ZipFile(artifacts[0]) as archive:
+                  properties = dict(
+                      line.split('=', 1)
+                      for line in archive.read(entry).decode().splitlines()
+                      if '=' in line and not line.startswith('#')
+                  )
+              assert properties.get('io.sentry.ProguardUuids') == expected, 'ProGuard UUID mismatch'
+              print(f'{artifacts[0].name}: ProGuard UUID {expected}')
+
+      - name: Upload Android release artifacts for manual symbol upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            androidApp/build/outputs/apk/release/*.apk
+            androidApp/build/outputs/bundle/release/*.aab
+            androidApp/build/outputs/mapping/release/
+            androidApp/build/outputs/native-debug-symbols/release/
+            androidApp/build/intermediates/sentry/release/proguard-uuid/
+            androidApp/build/intermediates/assets/release/injectSentryDebugMetaPropertiesIntoAssetsRelease/sentry-debug-meta.properties
+
+  ios-release:
+    name: iOS release build
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.5.app/Contents/Developer
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Verify Xcode
+        run: xcodebuild -version
+
+      - name: Archive iOS Release for device
+        run: >-
+          xcodebuild
+          -project iosApp/iosApp.xcodeproj
+          -scheme iosApp
+          -configuration Release
+          -destination 'generic/platform=iOS'
+          -archivePath '${{ runner.temp }}/ios-release.xcarchive'
+          -derivedDataPath '${{ runner.temp }}/ios-release-derived-data'
+          CODE_SIGNING_ALLOWED=NO
+          archive
+
+      - name: Verify app, widget and debug symbols
+        shell: bash
+        run: |
+          archive='${{ runner.temp }}/ios-release.xcarchive'
+          test -d "$archive/Products/Applications/kw-klas-plus.app"
+          test -d "$archive/Products/Applications/kw-klas-plus.app/PlugIns/LibraryQRWidget.appex"
+          test -n "$(find "$archive/dSYMs" -name '*.dSYM' -print -quit)"
+
+      - name: Upload unsigned iOS archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-${{ github.sha }}
+          path: ${{ runner.temp }}/ios-release.xcarchive
+          if-no-files-found: error
+          retention-days: 30
