@@ -24,6 +24,7 @@
 - 커밋되는 `Config.xcconfig`의 `TEAM_ID`는 비운다. `Info.plist`에는 비밀·Team ID를 넣지 않는다.
 - App Store 등록 앱 ID는 `com.icecream.kwklasplus`, 위젯 확장은 `com.icecream.kwklasplus.libraryqr`로 고정하며 Team ID를 붙이지 않는다. 앱과 확장은 같은 로컬 `TEAM_ID`로 서명한다. Apple Developer에서 두 ID에 App Group `group.com.icecream.kwklasplus.Q2C928H69W`를 연결하고 공유 Keychain entitlement가 포함된 프로파일을 사용한다. 이전 개발용 번들 ID와는 별도 앱이므로 기존 개발 설치의 기본 Keychain 그룹 데이터는 자동 이전되지 않는다.
 - 2026-10-08 배포팀에서 기존 `group.com.icecream.kwklasplus` 등록이 불가능하여 팀 전용 그룹으로 변경했다. 기존 개발 앱의 그룹 파일·설정은 삭제하지 않으며 새 앱에서는 위젯 표시 데이터를 다시 생성한다. 그룹에 SESSION 원문을 저장하지 않는 정책과 공유 Keychain 그룹은 유지한다. 롤백 시 앱·확장 entitlement와 Kotlin·Swift의 그룹 참조를 함께 되돌린다.
+- 배포 Bundle ID와 App Group의 단일 출처는 `Config.xcconfig`의 `APP_BUNDLE_IDENTIFIER`, `APP_GROUP_IDENTIFIER`다. 위젯·테스트 Bundle ID는 앱 ID에 `.libraryqr`, `.tests`, `.uitests`를 붙인다. 앱·확장 entitlement는 `$(APP_GROUP_IDENTIFIER)`를 쓰고, 앱·위젯 `Info.plist`의 `KLASAppGroupIdentifier`로 Kotlin `IosAcademicWidgetDisplayStore.APP_GROUP`과 Swift `AcademicWidgetStore.appGroup`에 같은 값을 전달한다. App Group 식별자는 비밀이 아니며 서명된 entitlement에도 포함된다. 값이 없거나 `group.`으로 시작하지 않으면 배포 그룹을 사용한다. 배포 팀이 아닌 기여자는 `Config.local.xcconfig`에서만 두 값을 덮어써 별도 앱으로 실기기 테스트한다. 커밋되는 기본값을 바꾸지 않으므로 배포 빌드의 식별자는 변경 전과 같다. 롤백은 이 분리 커밋을 되돌려 고정 문자열로 복원한다.
 
 ## 결과
 
