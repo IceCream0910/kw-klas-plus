@@ -21,6 +21,8 @@
 			</array>
 		</dict>
 	</array>
+	<key>KLASAppGroupIdentifier</key>
+	<string>$(APP_GROUP_IDENTIFIER)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoadsInWebContent</key>

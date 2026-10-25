@@ -1,7 +1,13 @@
 import Foundation
 
 enum AcademicWidgetStore {
-    static let appGroup = "group.com.icecream.kwklasplus.Q2C928H69W"
+    static let releaseAppGroup = "group.com.icecream.kwklasplus.Q2C928H69W"
+    static let appGroup: String = {
+        let configured = (Bundle.main.object(forInfoDictionaryKey: "KLASAppGroupIdentifier") as? String)?
+            .trimmingCharacters(in: .whitespaces)
+        guard let configured, configured.hasPrefix("group.") else { return releaseAppGroup }
+        return configured
+    }()
     static let fileName = "academic_widget_display_v1.json"
     static let ownerKey = "academic_widget_owner"
 

@@ -2,6 +2,7 @@ package com.icecream.kwklasplus.core.academic
 
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
+import platform.Foundation.NSBundle
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSFileProtectionCompleteUntilFirstUserAuthentication
 import platform.Foundation.NSFileProtectionKey
@@ -60,8 +61,15 @@ class IosAcademicWidgetDisplayStore(
     }
 
     companion object {
-        const val APP_GROUP = "group.com.icecream.kwklasplus.Q2C928H69W"
+        const val RELEASE_APP_GROUP = "group.com.icecream.kwklasplus.Q2C928H69W"
+        const val APP_GROUP_INFO_KEY = "KLASAppGroupIdentifier"
+        val APP_GROUP: String by lazy {
+            resolveAppGroup(NSBundle.mainBundle.objectForInfoDictionaryKey(APP_GROUP_INFO_KEY) as? String)
+        }
         const val DISPLAY_FILE = "academic_widget_display_v1.json"
         const val OWNER_KEY = "academic_widget_owner"
+
+        internal fun resolveAppGroup(configured: String?): String =
+            configured?.trim()?.takeIf { it.startsWith("group.") } ?: RELEASE_APP_GROUP
     }
 }

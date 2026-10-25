@@ -2,7 +2,10 @@
 TEAM_ID=
 
 PRODUCT_NAME=kw-klas-plus
-PRODUCT_BUNDLE_IDENTIFIER=com.icecream.kwklasplus
+// 배포 식별자. 다른 Apple 팀의 실기기 테스트는 Config.local.xcconfig에서만 덮어쓴다.
+APP_BUNDLE_IDENTIFIER=com.icecream.kwklasplus
+APP_GROUP_IDENTIFIER=group.com.icecream.kwklasplus.Q2C928H69W
+PRODUCT_BUNDLE_IDENTIFIER=$(APP_BUNDLE_IDENTIFIER)
 
 CURRENT_PROJECT_VERSION=2
 MARKETING_VERSION=2.0.0
