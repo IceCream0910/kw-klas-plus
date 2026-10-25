@@ -78,17 +78,31 @@ final class HomeTabControllerTests: XCTestCase {
         XCTAssertNil(holder.webView.superview)
     }
 
-    func testWebViewStaysInsideTopAndSideSafeArea() throws {
+    func testWebViewStartsBelowStatusBarAndExtendsBehindTabBars() throws {
         let holder = WebViewHolder()
         let controller = try makeHostedController(holder: holder, initialTab: "feed")
         let content = try XCTUnwrap(controller.selectedViewController)
-        content.view.layoutIfNeeded()
+        controller.view.layoutIfNeeded()
 
-        let insets = content.view.safeAreaInsets
-        XCTAssertGreaterThan(insets.top, 0)
-        XCTAssertEqual(holder.webView.frame.minY, insets.top, accuracy: 0.5)
+        let statusBarInset = controller.view.safeAreaInsets.top
+        let sideInsets = content.view.safeAreaInsets
+        XCTAssertGreaterThan(statusBarInset, 0)
+        XCTAssertEqual(holder.webView.frame.minY, statusBarInset, accuracy: 0.5)
         XCTAssertEqual(holder.webView.frame.maxY, content.view.bounds.maxY, accuracy: 0.5)
-        XCTAssertEqual(holder.webView.frame.width, content.view.bounds.width - insets.left - insets.right, accuracy: 0.5)
+        XCTAssertEqual(holder.webView.frame.width, content.view.bounds.width - sideInsets.left - sideInsets.right, accuracy: 0.5)
+    }
+
+    func testWebViewTopStaysBelowStatusBarAcrossTabSwitches() throws {
+        let holder = WebViewHolder()
+        let controller = try makeHostedController(holder: holder, initialTab: "feed")
+
+        for tab in HomeTabController.tabIDs {
+            controller.select(tab)
+            pumpRunLoop()
+            controller.view.layoutIfNeeded()
+            let frame = holder.webView.convert(holder.webView.bounds, to: controller.view)
+            XCTAssertEqual(frame.minY, controller.view.safeAreaInsets.top, accuracy: 0.5, "탭 \(tab)")
+        }
     }
 
     func testUsesTabBarModeWithoutSidebar() throws {

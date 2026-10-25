@@ -109,8 +109,9 @@ final class HomeTabController: UITabBarController, UITabBarControllerDelegate {
         webView.translatesAutoresizingMaskIntoConstraints = false
         content.view.addSubview(webView)
         let guide = content.view.safeAreaLayoutGuide
+        // 탭 화면 safe area에는 iPad 상단 탭 바 높이가 포함되므로 위쪽은 상태 바 기준에 맞춰 탭 바가 웹 헤더 위에 뜨게 한다
         NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: guide.topAnchor),
+            webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             webView.leadingAnchor.constraint(equalTo: guide.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: guide.trailingAnchor),
             webView.bottomAnchor.constraint(equalTo: content.view.bottomAnchor)
