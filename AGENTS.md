@@ -77,6 +77,7 @@
 - 공통 로직: `commonTest` 및 Android/iOS 타깃 테스트
 - Android UI/플랫폼: JVM 테스트 + instrumentation + 실기기 수동 검증
 - iOS UI/플랫폼: simulator 테스트 + Keychain/생체인식/PIP/Widget이 필요한 실기기 검증
+  - iOS 앱 테스트는 CI와 같이 시뮬레이터 1대에서 실행한다. 공유 스킴의 `parallelizable`을 `NO`로 유지하고 `xcodebuild` 명령에는 `-parallel-testing-enabled NO`를 붙인다. 병렬 테스트는 시뮬레이터를 여러 대 복제해 로컬 자원을 과다하게 쓴다.
 - 브리지: Native 메서드 스키마 테스트 + Web 저장소의 호출/콜백 계약 테스트
 - 인증: 신규 로그인, 저장 자격증명 로그인, 유효 세션 즉시 진입, 만료 세션 재로그인, CAPTCHA/임시 비밀번호, 로그아웃, 앱 데이터 업그레이드
 - 계약·플랫폼 차이 변경: Native·Web 계약 테스트와 관련 ADR을 갱신하고 PR에 검증 증거를 기록
