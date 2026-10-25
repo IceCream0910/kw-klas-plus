@@ -1,9 +1,13 @@
 import SwiftUI
 import UIKit
 
+// nil은 탭 바가 보이지 않는 상태, 0은 탭 바가 하단을 가리지 않는 상태(iPad 상단 탭 바)
 struct HomeSystemTabBarHeightKey: SwiftUI.PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+    static var defaultValue: CGFloat?
+    static func reduce(value: inout CGFloat?, nextValue: () -> CGFloat?) {
+        guard let next = nextValue() else { return }
+        value = max(value ?? 0, next)
+    }
 }
 
 enum HomeSystemTabBarMetrics {

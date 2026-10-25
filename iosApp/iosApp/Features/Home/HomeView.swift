@@ -4,23 +4,14 @@ import SwiftUI
 struct HomeView: View {
     @ObservedObject var holder: WebViewHolder
     @ObservedObject var coordinator: HomeCoordinator
+    @State private var containerTabBarHeight: CGFloat = 0
 
     var body: some View {
         ZStack {
             if holder.isDisposed {
                 Color.clear
             } else {
-                WebViewContainer(webView: holder.webView)
-                    .webSurfaceLayout()
-                    .accessibilityLabel("KLAS+")
-                    .accessibilityHidden(
-                        coordinator.isPageLoading
-                            || coordinator.showYearHakgiPicker
-                            || coordinator.showOptionsMenu
-                            || coordinator.showDatePicker
-                            || holder.javaScriptAlertMessage != nil
-                            || holder.downloadProgress != nil
-                    )
+                webSurface
             }
             if coordinator.isPageLoading {
                 KlasLoadingView(message: "불러오는 중")
@@ -34,7 +25,7 @@ struct HomeView: View {
         .webSurfaceTopBackground()
         .toolbar(.hidden, for: .navigationBar)
         .overlay(alignment: .bottom) {
-            if !coordinator.isPageLoading && !coordinator.isWebBottomSheetOpen && !coordinator.isSearchOverlayOpen {
+            if !usesSystemTabContainer && !isTabBarHidden {
                 NativeHomeSystemTabBar(
                     selectedTab: coordinator.currentTab,
                     onSelect: coordinator.selectNativeTab
@@ -65,6 +56,50 @@ struct HomeView: View {
             coordinator.endIdCardModalIfNeeded()
         }
         .accessibilityIdentifier("home_view")
+    }
+
+    private var isTabBarHidden: Bool {
+        coordinator.isPageLoading || coordinator.isWebBottomSheetOpen || coordinator.isSearchOverlayOpen
+    }
+
+    private var isWebAccessibilityHidden: Bool {
+        coordinator.isPageLoading
+            || coordinator.showYearHakgiPicker
+            || coordinator.showOptionsMenu
+            || coordinator.showDatePicker
+            || holder.javaScriptAlertMessage != nil
+            || holder.downloadProgress != nil
+    }
+
+    private var usesSystemTabContainer: Bool {
+        guard #available(iOS 18.0, *) else { return false }
+        return true
+    }
+
+    @ViewBuilder
+    private var webSurface: some View {
+        if #available(iOS 18.0, *) {
+            HomeTabContainer(
+                webView: holder.webView,
+                selectedTab: coordinator.currentTab,
+                isTabBarHidden: isTabBarHidden,
+                isWebAccessibilityHidden: isWebAccessibilityHidden,
+                onSelect: coordinator.selectNativeTab,
+                onBottomNavigationHeightChange: { containerTabBarHeight = $0 }
+            )
+            .id(holder.creationID)
+            .ignoresSafeArea()
+            .preference(key: HomeSystemTabBarHeightKey.self, value: isTabBarHidden ? nil : containerTabBarHeight)
+        } else {
+            overlayTabWebSurface
+        }
+    }
+
+    private var overlayTabWebSurface: some View {
+        WebViewContainer(webView: holder.webView)
+            .webSurfaceLayout()
+            .accessibilityLabel("KLAS+")
+            .accessibilityHidden(isWebAccessibilityHidden)
     }
 
     private func updateScrollBounce(for tab: String) {
