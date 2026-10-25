@@ -105,6 +105,17 @@ final class HomeTabControllerTests: XCTestCase {
         }
     }
 
+    func testTabsCannotBeRemovedOrReorderedByUser() throws {
+        let controller = try makeHostedController(holder: WebViewHolder(), initialTab: "feed")
+
+        XCTAssertEqual(controller.tabs.map(\.identifier), HomeTabController.tabIDs)
+        for tab in controller.tabs {
+            XCTAssertEqual(tab.preferredPlacement, .fixed, tab.identifier)
+            XCTAssertFalse(tab.allowsHiding, tab.identifier)
+            XCTAssertFalse(tab.isHidden, tab.identifier)
+        }
+    }
+
     func testUsesTabBarModeWithoutSidebar() throws {
         let controller = try makeHostedController(holder: WebViewHolder(), initialTab: "feed")
 

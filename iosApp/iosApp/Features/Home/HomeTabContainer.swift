@@ -128,12 +128,15 @@ final class HomeTabController: UITabBarController, UITabBarControllerDelegate {
     }
 
     private func makeTab(id: String, title: String, systemImage: String) -> UITab {
-        UITab(title: title, image: UIImage(systemName: systemImage), identifier: id) { [weak self] tab in
+        let tab = UITab(title: title, image: UIImage(systemName: systemImage), identifier: id) { [weak self] tab in
             HomeTabContentViewController(
                 onAppearing: { self?.attachWebView(to: $0) },
                 onSafeAreaChange: { self?.reportBottomNavigationHeight(from: $0) }
             )
         }
+        // iPad 탭 바를 길게 눌러 편집할 때 탭을 지우거나 옮기지 못하게 한다
+        tab.preferredPlacement = .fixed
+        return tab
     }
 }
 
