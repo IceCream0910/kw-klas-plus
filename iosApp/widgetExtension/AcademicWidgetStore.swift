@@ -1,11 +1,11 @@
 import Foundation
 
 enum AcademicWidgetStore {
-    static let releaseAppGroup = "group.com.icecream.kwklasplus.Q2C928H69W"
-    static let appGroup: String = {
-        let configured = (Bundle.main.object(forInfoDictionaryKey: "KLASAppGroupIdentifier") as? String)?
-            .trimmingCharacters(in: .whitespaces)
-        guard let configured, configured.hasPrefix("group.") else { return releaseAppGroup }
+    static let appGroup: String? = {
+        guard let configured = (Bundle.main.object(forInfoDictionaryKey: "KLASAppGroupIdentifier") as? String)?
+            .trimmingCharacters(in: .whitespaces),
+              configured.hasPrefix("group.")
+        else { return nil }
         return configured
     }()
     static let fileName = "academic_widget_display_v1.json"
@@ -18,7 +18,8 @@ enum AcademicWidgetStore {
     }
 
     static func load() -> LoadResult {
-        guard let defaults = UserDefaults(suiteName: appGroup),
+        guard let appGroup,
+              let defaults = UserDefaults(suiteName: appGroup),
               let marker = defaults.string(forKey: ownerKey),
               !marker.isEmpty,
               let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup)

@@ -17,10 +17,11 @@ struct AcademicCalendarRefreshIntent: AppIntent {
 
 enum AcademicCalendarRefreshBridge {
     static func refresh() async {
+        guard let dependencies = IosSharedDependencies.companion.createForWidgetExtension() else { return }
         await withCheckedContinuation { continuation in
             let reloader = AcademicCalendarIntentReloader()
             IosAcademicWidgetCalendarRefresh.companion.create(
-                dependencies: IosSharedDependencies.companion.createForWidgetExtension(),
+                dependencies: dependencies,
                 tokenEncryptor: IosRsaLoginTokenEncryptor(),
                 reloader: reloader
             ).refresh(userAgent: userAgent) {

@@ -16,7 +16,7 @@ import platform.Foundation.stringWithContentsOfFile
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 class IosAcademicWidgetDisplayStore(
     private val fileManager: NSFileManager = NSFileManager.defaultManager,
-    private val defaults: NSUserDefaults? = NSUserDefaults(suiteName = APP_GROUP),
+    private val defaults: NSUserDefaults? = APP_GROUP?.let { NSUserDefaults(suiteName = it) },
     private val containerPath: String? = null,
 ) {
     fun read(): AcademicWidgetDisplay? {
@@ -55,21 +55,20 @@ class IosAcademicWidgetDisplayStore(
     @OptIn(ExperimentalForeignApi::class)
     private fun filePath(): String? {
         val root = containerPath
-            ?: fileManager.containerURLForSecurityApplicationGroupIdentifier(APP_GROUP)?.path
+            ?: APP_GROUP?.let { fileManager.containerURLForSecurityApplicationGroupIdentifier(it)?.path }
             ?: return null
         return "$root/$DISPLAY_FILE"
     }
 
     companion object {
-        const val RELEASE_APP_GROUP = "group.com.icecream.kwklasplus.Q2C928H69W"
         const val APP_GROUP_INFO_KEY = "KLASAppGroupIdentifier"
-        val APP_GROUP: String by lazy {
+        val APP_GROUP: String? by lazy {
             resolveAppGroup(NSBundle.mainBundle.objectForInfoDictionaryKey(APP_GROUP_INFO_KEY) as? String)
         }
         const val DISPLAY_FILE = "academic_widget_display_v1.json"
         const val OWNER_KEY = "academic_widget_owner"
 
-        internal fun resolveAppGroup(configured: String?): String =
-            configured?.trim()?.takeIf { it.startsWith("group.") } ?: RELEASE_APP_GROUP
+        internal fun resolveAppGroup(configured: String?): String? =
+            configured?.trim()?.takeIf { it.startsWith("group.") }
     }
 }
