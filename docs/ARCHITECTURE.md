@@ -27,7 +27,7 @@ flowchart LR
 
 ## 인증·세션·저장소
 
-iOS 배포 앱과 위젯의 App Group은 `group.com.icecream.kwklasplus.Q2C928H69W`다. entitlement, 공통 iOS 저장소, Swift 위젯 저장소가 같은 그룹을 사용하며 표시 캐시·세션 동시성 잠금·세대 표시만 공유한다. 기존 개발 그룹은 삭제하지 않고 새 배포 앱이 표시 캐시를 다시 생성한다. 공유 Keychain의 `academic-session` 계약은 유지한다. 앱·확장 모두 동일 그룹이 포함된 프로파일로 서명해야 하며 그룹 접근 실패를 프로세스 내부 저장소로 우회하지 않는다.
+iOS 배포 앱과 위젯의 App Group은 `group.com.icecream.kwklasplus.Q2C928H69W`다. `Config.xcconfig`의 `APP_GROUP_IDENTIFIER`가 단일 출처이며 entitlement와 앱·위젯 `Info.plist`의 `KLASAppGroupIdentifier`를 거쳐 공통 iOS 저장소, Swift 위젯 저장소가 같은 그룹을 사용한다. 다른 팀의 로컬 실기기 테스트만 `Config.local.xcconfig`에서 덮어쓴다. 이 그룹은 표시 캐시·세션 동시성 잠금·세대 표시만 공유한다. 기존 개발 그룹은 삭제하지 않고 새 배포 앱이 표시 캐시를 다시 생성한다. 공유 Keychain의 `academic-session` 계약은 유지한다. 앱·확장 모두 동일 그룹이 포함된 프로파일로 서명해야 하며 그룹 접근 실패를 프로세스 내부 저장소로 우회하지 않는다.
 
 로그인 순서와 오류 결과는 공통 `KlasHttpAuthDriver`가 다루고, HTTP/RSA 실행은 플랫폼 adapter가 맡습니다. `SessionLeaseManager`는 서버 `/session/info`로 세션 만료와 연장을 판단해요. 명시적으로 만료됐을 때만 SESSION을 지우고, 일시적인 네트워크·서버 오류라면 보존한 뒤 재시도합니다. 저장소와 WebView cookie의 동기화 순서는 `SessionCoordinator`가 맡습니다.
 

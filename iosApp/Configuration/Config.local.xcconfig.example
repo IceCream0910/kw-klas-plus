@@ -3,3 +3,8 @@
 //
 // Apple Developer Team ID (Xcode → Signing & Capabilities의 Team)
 TEAM_ID = YOUR_TEAM_ID
+
+// 배포 팀이 아닌 개인 팀으로 실기기 테스트할 때만 주석을 풀고 자신의 팀에 등록한 값으로 바꾼다.
+// 위젯·테스트 Bundle ID는 APP_BUNDLE_IDENTIFIER 뒤에 .libraryqr/.tests/.uitests가 붙는다.
+// APP_BUNDLE_IDENTIFIER = com.example.kwklasplus
+// APP_GROUP_IDENTIFIER = group.com.example.kwklasplus

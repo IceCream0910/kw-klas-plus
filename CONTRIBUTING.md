@@ -37,17 +37,35 @@ Windows에서는 `.\gradlew.bat`를 쓰세요. iOS는 macOS에서 [`iosApp.xcode
 
 ### iOS 로컬 서명
 
-[예제 설정](iosApp/Configuration/Config.local.xcconfig.example)을 복사하고, Xcode → Settings → Accounts에 추가한 계정으로 서명할 수 있는 팀의 `TEAM_ID`를 입력하세요.
+먼저 [예제 설정](iosApp/Configuration/Config.local.xcconfig.example)을 복사하세요. `Config.local.xcconfig`는 Git에서 제외되며, 이 파일과 서명 키·비밀값은 커밋하지 마세요.
 
 ```sh
 cp iosApp/Configuration/Config.local.xcconfig.example iosApp/Configuration/Config.local.xcconfig
 ```
 
-앱·위젯·테스트 타깃은 이 로컬 `TEAM_ID`를 함께 사용합니다. 공유 `Config.xcconfig`의 `TEAM_ID`는 비워 두며, Git에서 제외되는 `Config.local.xcconfig`와 서명 키·비밀값은 커밋하지 마세요.
+서명할 Apple 팀에 따라 설정이 달라요.
 
-배포용 Bundle ID는 앱 `com.icecream.kwklasplus`, 위젯 `com.icecream.kwklasplus.libraryqr`로 고정되어 있고 Team ID를 붙이지 않습니다. App Group은 `group.com.icecream.kwklasplus.Q2C928H69W`입니다. 실기기에서 로그인·계정 저장·위젯을 검증하려면 해당 식별자를 사용할 수 있는 팀의 서명과 App Group·공유 Keychain 권한이 포함된 프로비저닝 프로파일이 필요합니다.
+| 상황 | `Config.local.xcconfig` | 설치되는 앱 |
+|---|---|---|
+| 시뮬레이터만 사용 | 수정 불필요 | 배포 식별자 그대로 |
+| 배포 팀 멤버 | `TEAM_ID`만 배포 팀 ID로 입력 | 배포 앱과 같은 식별자 |
+| 자기 팀(Personal Team 포함)으로 실기기 테스트 | `TEAM_ID`, `APP_BUNDLE_IDENTIFIER`, `APP_GROUP_IDENTIFIER` 입력 | 배포 앱과 별도 앱 |
 
-별도 Apple 개발팀에서는 `TEAM_ID`만 바꿔서 위 식별자와 그룹을 사용할 수 있다고 가정하지 마세요. 독립적인 기기 테스트에는 자신의 팀에 등록한 앱·위젯 ID와 App Group, 양 타깃의 entitlement 및 Kotlin·Swift 저장소의 그룹 참조를 함께 맞춰야 합니다. 현재 이 값들을 모두 로컬 설정으로 바꾸는 기능은 제공하지 않습니다. 서명 없는 컴파일 확인이나 시뮬레이터 테스트 결과만으로 실기기의 Keychain·App Group 동작을 검증했다고 간주하지 마세요. 상세 계약은 [ADR-003의 로컬 서명 항목](docs/adr/ADR-003-min-platform-versions.md#로컬-서명)을 확인하세요.
+서명 에러가 나도 Xcode의 Signing & Capabilities 화면에서 Team을 직접 고르지 마세요. 고른 Team ID가 `project.pbxproj`에 기록되어 다른 작업자의 `TEAM_ID` 설정을 덮어씁니다. 이런 변경이 생기면 커밋하지 말고 되돌리세요.
+
+배포용 Bundle ID는 앱 `com.icecream.kwklasplus`, 위젯 `com.icecream.kwklasplus.libraryqr`이고 App Group은 `group.com.icecream.kwklasplus.Q2C928H69W`입니다. 이 식별자는 배포 팀에 등록되어 있어 다른 팀에서는 `TEAM_ID`만 바꿔서 사용할 수 없습니다.
+
+자기 팀으로 실기기 테스트할 때는 Xcode → Settings → Accounts에 계정을 추가하고, 그 팀이 등록할 수 있는 고유한 값을 넣으세요. Bundle ID와 App Group은 Apple 전체에서 한 팀만 등록할 수 있으므로 자신의 이름 등으로 구분하세요.
+
+```
+TEAM_ID = ABCDE12345
+APP_BUNDLE_IDENTIFIER = com.yourname.kwklasplus
+APP_GROUP_IDENTIFIER = group.com.yourname.kwklasplus
+```
+
+위젯·테스트 Bundle ID(`.libraryqr`, `.tests`, `.uitests`), 양 타깃 entitlement의 App Group, 앱·위젯 `Info.plist`의 `KLASAppGroupIdentifier`가 함께 바뀌고 Kotlin·Swift 저장소는 이 값을 읽어요. 공유 Keychain 그룹 `academic-session`에는 서명한 팀의 접두사가 자동으로 붙어요. 이렇게 설치한 앱은 배포 앱과 Keychain·App Group 데이터를 공유하지 않으며, Personal Team 프로파일은 Apple 정책에 따라 7일마다 만료되므로 Xcode에서 다시 실행해 갱신하세요.
+
+서명 없는 컴파일 확인이나 시뮬레이터 테스트 결과만으로 실기기의 Keychain·App Group 동작을 검증했다고 간주하지 마세요. 상세 계약은 [ADR-003의 로컬 서명 항목](docs/adr/ADR-003-min-platform-versions.md#로컬-서명)을 확인하세요.
 
 ## 작업 절차와 검증
 

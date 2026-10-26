@@ -30,8 +30,10 @@ class IosSessionMutationGuard(
 
     override suspend fun acquire() {
         check(descriptor == -1)
-        val directory = containerPath ?: NSFileManager.defaultManager
-            .containerURLForSecurityApplicationGroupIdentifier(IosAcademicWidgetDisplayStore.APP_GROUP)?.path
+        val directory = containerPath
+            ?: IosAcademicWidgetDisplayStore.APP_GROUP?.let {
+                NSFileManager.defaultManager.containerURLForSecurityApplicationGroupIdentifier(it)?.path
+            }
             ?: error("Shared session container unavailable")
         val fd = open("$directory/academic_session.lock", O_CREAT or O_RDWR, 384)
         check(fd >= 0) { "Shared session lock unavailable" }

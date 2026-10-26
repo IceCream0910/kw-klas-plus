@@ -158,7 +158,7 @@ class IosSharedDependencies(
             when {
                 sharedDefaults != null -> sharedDefaults
                 widgetExtension -> defaults
-                else -> NSUserDefaults(suiteName = IosAcademicWidgetDisplayStore.APP_GROUP)
+                else -> IosAcademicWidgetDisplayStore.APP_GROUP?.let { NSUserDefaults(suiteName = it) }
             }
         )
     }
@@ -282,10 +282,9 @@ class IosSharedDependencies(
             sharedDefaults = defaults,
         )
 
-        fun createForWidgetExtension(): IosSharedDependencies {
-            val shared = requireNotNull(
-                NSUserDefaults(suiteName = com.icecream.kwklasplus.core.academic.IosAcademicWidgetDisplayStore.APP_GROUP),
-            )
+        fun createForWidgetExtension(): IosSharedDependencies? {
+            val group = com.icecream.kwklasplus.core.academic.IosAcademicWidgetDisplayStore.APP_GROUP ?: return null
+            val shared = NSUserDefaults(suiteName = group) ?: return null
             return IosSharedDependencies(
                 defaults = shared,
                 cookieStoreOverride = null,

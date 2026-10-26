@@ -4,7 +4,7 @@ import com.icecream.kwklasplus.core.legacy.LegacyPreferenceKeys
 import platform.Foundation.NSUserDefaults
 
 class IosAcademicWidgetSharedFlags(
-    private val defaults: NSUserDefaults? = NSUserDefaults(suiteName = IosAcademicWidgetDisplayStore.APP_GROUP),
+    private val defaults: NSUserDefaults? = IosAcademicWidgetDisplayStore.APP_GROUP?.let { NSUserDefaults(suiteName = it) },
 ) {
     fun revision(): Long = defaults?.stringForKey(REVISION_KEY)?.toLongOrNull() ?: 0L
 
