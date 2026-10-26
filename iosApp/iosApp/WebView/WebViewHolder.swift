@@ -246,7 +246,15 @@ final class WebViewHolder: NSObject, ObservableObject {
     }
 
     func load(_ urlString: String) {
-        guard !isDisposed, let url = URL(string: urlString) else { return }
+        guard !isDisposed else { return }
+        guard let url = URL(string: urlString) else {
+            navigationState = WebNavigationState(
+                loadPhase: .failed(url: urlString, category: .unknown),
+                canGoBack: _webView?.canGoBack ?? false,
+                canGoForward: _webView?.canGoForward ?? false
+            )
+            return
+        }
         loadRequest(URLRequest(url: url))
     }
 

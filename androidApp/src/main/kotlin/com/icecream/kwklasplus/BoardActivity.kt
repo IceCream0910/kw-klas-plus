@@ -17,6 +17,7 @@ import android.webkit.WebViewClient
 import com.icecream.kwklasplus.core.web.JavaScriptArgument
 import com.icecream.kwklasplus.core.web.LegacyWebCallback
 import com.icecream.kwklasplus.core.web.LegacyWebScripts
+import com.icecream.kwklasplus.core.web.ProductWebUrls
 import android.widget.Toast
 import android.content.pm.ActivityInfo
 import android.net.MailTo
@@ -125,11 +126,11 @@ class BoardActivity : AppCompatActivity() {
         appDependencies.fileTransfer(this).attachTo(webView)
 
         if(type == "list") {
-            webView.loadUrl("${AppUrls.KLAS_PLUS_BASE}/boardList?title=$title")
+            webView.loadUrl(ProductWebUrls.boardList(title))
         } else if(type == "view"){
             boardNo = intent.getStringExtra("boardNo").toString()
             masterNo = intent.getStringExtra("masterNo").toString()
-            webView.loadUrl("${AppUrls.KLAS_PLUS_BASE}/boardView?boardNo=$boardNo&masterNo=$masterNo")
+            webView.loadUrl(ProductWebUrls.boardView(boardNo, masterNo))
         } else {
             var builder = MaterialAlertDialogBuilder(this)
             builder.setTitle("안내")
