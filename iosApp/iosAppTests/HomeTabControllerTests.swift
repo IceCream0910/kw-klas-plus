@@ -134,17 +134,66 @@ final class HomeTabControllerTests: XCTestCase {
         }
     }
 
+    func testInjectsWindowControlsInsetAndRestoresItAfterDocumentReload() throws {
+        let holder = WebViewHolder()
+        var layout = HomeHeaderLayout(windowControlsInset: 72)
+        let controller = try makeHostedController(holder: holder, initialTab: "feed", measureHeaderLayout: { _ in layout })
+        controller.view.layoutIfNeeded()
+
+        loadPage(in: holder)
+        XCTAssertEqual(waitForCSSVariable(HomeHeaderLayout.windowControlsInsetProperty, in: holder.webView, toBe: "72px"), "72px")
+
+        loadPage(in: holder)
+        XCTAssertEqual(waitForCSSVariable(HomeHeaderLayout.windowControlsInsetProperty, in: holder.webView, toBe: "72px"), "72px")
+
+        layout = HomeHeaderLayout()
+        controller.view.setNeedsLayout()
+        controller.view.layoutIfNeeded()
+        XCTAssertEqual(waitForCSSVariable(HomeHeaderLayout.windowControlsInsetProperty, in: holder.webView, toBe: "0px"), "0px")
+    }
+
+    func testInjectsTopBarRowOnlyWhileSystemTopRowExists() throws {
+        let holder = WebViewHolder()
+        var layout = HomeHeaderLayout(topBarHeight: 44)
+        let controller = try makeHostedController(holder: holder, initialTab: "feed", measureHeaderLayout: { _ in layout })
+        controller.view.layoutIfNeeded()
+
+        loadPage(in: holder)
+        XCTAssertEqual(waitForCSSVariable(HomeHeaderLayout.topBarTopProperty, in: holder.webView, toBe: "0px"), "0px")
+        XCTAssertEqual(waitForCSSVariable(HomeHeaderLayout.topBarHeightProperty, in: holder.webView, toBe: "44px"), "44px")
+
+        layout = HomeHeaderLayout()
+        controller.view.setNeedsLayout()
+        controller.view.layoutIfNeeded()
+        XCTAssertEqual(waitForCSSVariable(HomeHeaderLayout.topBarTopProperty, in: holder.webView, toBe: ""), "")
+        XCTAssertEqual(waitForCSSVariable(HomeHeaderLayout.topBarHeightProperty, in: holder.webView, toBe: ""), "")
+    }
+
+    func testDoesNotInjectHeaderLayoutWithoutSystemControls() throws {
+        let holder = WebViewHolder()
+        let controller = try makeHostedController(holder: holder, initialTab: "feed", measureHeaderLayout: { _ in HomeHeaderLayout() })
+        controller.view.layoutIfNeeded()
+
+        loadPage(in: holder)
+
+        for property in [HomeHeaderLayout.windowControlsInsetProperty, HomeHeaderLayout.topBarTopProperty, HomeHeaderLayout.topBarHeightProperty] {
+            XCTAssertEqual(waitForCSSVariable(property, in: holder.webView, toBe: "", timeout: 0.5), "", property)
+        }
+    }
+
     private func makeHostedController(
         holder: WebViewHolder,
         initialTab: String,
         onHeightChange: @escaping (CGFloat) -> Void = { _ in },
+        measureHeaderLayout: @escaping (UIViewController) -> HomeHeaderLayout = HomeTabController.measuredHeaderLayout,
         onSelect: @escaping (String) -> Void = { _ in }
     ) throws -> HomeTabController {
         let controller = HomeTabController(
             webView: holder.webView,
             initialTab: initialTab,
             onSelect: onSelect,
-            onBottomNavigationHeightChange: onHeightChange
+            onBottomNavigationHeightChange: onHeightChange,
+            measureHeaderLayout: measureHeaderLayout
         )
         let window = UIWindow(frame: UIScreen.main.bounds)
         window.rootViewController = controller
@@ -152,6 +201,27 @@ final class HomeTabControllerTests: XCTestCase {
         self.window = window
         pumpRunLoop()
         return controller
+    }
+
+    private func loadPage(in holder: WebViewHolder) {
+        holder.loadHTML("<html><body>home</body></html>", baseURL: URL(string: "https://klasplus.yuntae.in/feed")!)
+        let deadline = Date().addingTimeInterval(5)
+        repeat { pumpRunLoop() } while holder.webView.isLoading && Date() < deadline
+    }
+
+    private func waitForCSSVariable(_ property: String, in webView: WKWebView, toBe expected: String, timeout: TimeInterval = 5) -> String? {
+        let script = "getComputedStyle(document.documentElement).getPropertyValue('\(property)').trim()"
+        var value: String?
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            var finished = false
+            webView.evaluateJavaScript(script) { result, _ in
+                value = result as? String
+                finished = true
+            }
+            while !finished && Date() < deadline { pumpRunLoop() }
+        } while value != expected && Date() < deadline
+        return value
     }
 
     private func countWebViews(in root: UIView) -> Int {
