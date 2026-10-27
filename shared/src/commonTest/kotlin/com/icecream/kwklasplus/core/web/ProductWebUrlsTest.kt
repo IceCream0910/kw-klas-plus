@@ -33,7 +33,7 @@ class ProductWebUrlsTest {
     @Test
     fun boardAndTaskUrlsMatchAndroidActivities() {
         assertEquals(
-            "${KlasUrls.KLAS_PLUS_BASE}/boardList?title=공지",
+            "${KlasUrls.KLAS_PLUS_BASE}/boardList?title=%EA%B3%B5%EC%A7%80",
             ProductWebUrls.boardList("공지"),
         )
         assertEquals(
@@ -45,6 +45,22 @@ class ProductWebUrlsTest {
             ProductWebUrls.task("/std/lis/evltn/TaskStdPage.do"),
         )
         assertEquals("${KlasUrls.KLAS_PLUS_BASE}/notReady", ProductWebUrls.notReady())
+    }
+
+    @Test
+    fun boardQueryValuesArePercentEncoded() {
+        assertEquals(
+            "${KlasUrls.KLAS_PLUS_BASE}/boardList?title=%EA%B0%95%EC%9D%98%20%EA%B3%B5%EC%A7%80%EC%82%AC%ED%95%AD",
+            ProductWebUrls.boardList("강의 공지사항"),
+        )
+        assertEquals(
+            "${KlasUrls.KLAS_PLUS_BASE}/boardList?title=Q%26A%20C%23%201%2B1%20100%25",
+            ProductWebUrls.boardList("Q&A C# 1+1 100%"),
+        )
+        assertEquals(
+            "${KlasUrls.KLAS_PLUS_BASE}/boardView?boardNo=1%262&masterNo=a%23b",
+            ProductWebUrls.boardView("1&2", "a#b"),
+        )
     }
 
     @Test

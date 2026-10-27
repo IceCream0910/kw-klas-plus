@@ -384,7 +384,7 @@ final class IosHomeHostTests: XCTestCase {
         )
         XCTAssertEqual(
             ProductWebUrls.shared.boardList(title: "공지"),
-            "\(base)/boardList?title=공지"
+            "\(base)/boardList?title=%EA%B3%B5%EC%A7%80"
         )
         XCTAssertEqual(
             ProductWebUrls.shared.task(path: "/std/lis/evltn/TaskStdPage.do"),
