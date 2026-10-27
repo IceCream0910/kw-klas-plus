@@ -127,6 +127,8 @@ Android 빌드 34·iOS 빌드 2부터 WebView `nativeApp.js`의 `klasApi` 분기
 
 홈 화면의 네이티브 하단 탭(`feed`, `timetable`, `calendar`, `menu`)은 `window.klasNativeNavigate(tab)`을 호출합니다. 웹은 이를 받아 기존 탭 경로로 `router.push`하고, 이동 후 기존 `changeTab(tab)`으로 네이티브 선택 상태를 동기화하며 `completePageLoad`로 화면 데이터를 다시 요청합니다. 웹에 함수가 없는 구버전에서는 검증된 KLAS+ 탭 URL로 이동합니다. Android는 `location.assign`, iOS는 기존 `WebViewHolder.load` 경로를 사용합니다. 웹의 기존 bottom navigation은 새 앱 배포가 확인된 후 제거하고, 구 앱에는 유지해야 합니다. 네이티브 탭은 홈 WebView에만 표시합니다.
 
+iPadOS 26 이상 iOS 홈 WebView에는 헤더 배치용 CSS 변수를 `<html>` 인라인 스타일로 주입하고, 창 크기가 바뀌거나 문서를 새로 읽을 때 다시 넣습니다. `--klas-window-controls-inset-left`는 창 제어 버튼과 창 모서리를 피해 헤더를 시작할 수 있는 왼쪽 위치(px)입니다. 전체 화면에서도 모서리 때문에 10px 안팎의 값이 올 수 있어 웹은 `max()`로 기존 여백과 비교해 적용합니다. `--klas-top-bar-top`·`--klas-top-bar-height`는 iPad 상단 탭 바나 창 제어 버튼이 놓이는 줄의 WebView 기준 위치와 높이이며, 웹 헤더 줄을 이 줄에 맞춰 창 제어 버튼·탭 바·헤더 버튼을 한 줄에 둡니다. 탭 바가 아래에 있는 전체 화면이거나 이 줄이 상태 바와 겹치면 두 변수를 지우고 기존 헤더 배치를 씁니다. 변수가 없으면 웹은 기존 배치를 쓰므로 구버전 앱·Android·브라우저와 배포 순서에 묶이지 않습니다. 값은 JS 인자로 전달하고 스크립트 문자열에 이어 붙이지 않습니다.
+
 숫자는 인자 수입니다. `appLogin.setInitial`은 현재 제품의 기본 HTTP 인증이 아니라 보존된 iOS WebView 인증 경로에서 사용하며, `window.pageReload`는 공통 스크립트에 정의돼 있지만 현재 제품 화면의 호출은 확인되지 않았습니다. JS 문자열은 [`LegacyWebScripts`](../shared/src/commonMain/kotlin/com/icecream/kwklasplus/core/web/WebScript.kt)로 이스케이프해요. `window.receiveSubjList`처럼 과거 패리티 표에만 있는 항목은 현행 callback 목록으로 취급하지 않습니다.
 
 ## 플랫폼 기능과 ADR
