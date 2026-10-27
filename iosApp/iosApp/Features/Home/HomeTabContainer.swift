@@ -117,6 +117,9 @@ final class HomeTabController: UITabBarController, UITabBarControllerDelegate {
             webView.bottomAnchor.constraint(equalTo: content.view.bottomAnchor)
         ])
         content.setContentScrollView(webView.scrollView, for: .bottom)
+        if #available(iOS 26.0, *) {
+            webView.scrollView.topEdgeEffect.isHidden = true
+        }
     }
 
     fileprivate func reportBottomNavigationHeight(from content: UIViewController) {
