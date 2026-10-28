@@ -181,6 +181,42 @@ final class HomeTabControllerTests: XCTestCase {
         }
     }
 
+    func testWindowedLayoutKeepsWindowControlsInsetAndTopRow() {
+        let layout = HomeTabController.resolvedHeaderLayout(
+            cornerAdaptedLeftInset: 86.4,
+            safeAreaInsets: UIEdgeInsets(top: 0, left: 0, bottom: 20, right: 0),
+            statusBarBottom: 0,
+            hasTopTabBar: false,
+            isWindowed: true
+        )
+
+        XCTAssertEqual(layout, HomeHeaderLayout(windowControlsInset: 87, topBarHeight: 44))
+    }
+
+    func testFullScreenWithTopTabBarDropsCornerInset() {
+        let layout = HomeTabController.resolvedHeaderLayout(
+            cornerAdaptedLeftInset: 10,
+            safeAreaInsets: UIEdgeInsets(top: 24, left: 0, bottom: 20, right: 0),
+            statusBarBottom: 24,
+            hasTopTabBar: true,
+            isWindowed: false
+        )
+
+        XCTAssertEqual(layout, HomeHeaderLayout(windowControlsInset: 0, topBarHeight: 44))
+    }
+
+    func testStaleWindowedInsetsAfterSwitchingToFullScreenRestoreDefaultHeader() {
+        let layout = HomeTabController.resolvedHeaderLayout(
+            cornerAdaptedLeftInset: 86,
+            safeAreaInsets: UIEdgeInsets(top: 0, left: 0, bottom: 20, right: 0),
+            statusBarBottom: 24,
+            hasTopTabBar: true,
+            isWindowed: false
+        )
+
+        XCTAssertEqual(layout, HomeHeaderLayout())
+    }
+
     private func makeHostedController(
         holder: WebViewHolder,
         initialTab: String,

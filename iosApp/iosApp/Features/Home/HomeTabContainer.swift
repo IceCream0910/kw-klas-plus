@@ -122,7 +122,6 @@ final class HomeTabController: UITabBarController, UITabBarControllerDelegate {
         applyHeaderLayout()
     }
 
-    /// 창 제어 버튼 여백은 창 모서리까지 피하는 값이라 전체 화면에서도 작은 값이 나온다. 웹은 기존 여백과 큰 쪽을 쓴다.
     static func measuredHeaderLayout(in controller: UIViewController) -> HomeHeaderLayout {
         guard #available(iOS 26.0, *), let view = controller.viewIfLoaded else { return HomeHeaderLayout() }
         let adapted = view.edgeInsets(for: .safeArea(cornerAdaptation: .horizontal)).left
@@ -136,10 +135,31 @@ final class HomeTabController: UITabBarController, UITabBarControllerDelegate {
         let statusBarBottom = scene.flatMap { scene in
             scene.statusBarManager.map { view.convert($0.statusBarFrame, from: scene.coordinateSpace).maxY }
         } ?? 0
-        let rowClearsStatusBar = isWindowed || view.safeAreaInsets.top >= statusBarBottom
+        return resolvedHeaderLayout(
+            cornerAdaptedLeftInset: adapted,
+            safeAreaInsets: view.safeAreaInsets,
+            statusBarBottom: statusBarBottom,
+            hasTopTabBar: hasTopTabBar,
+            isWindowed: isWindowed
+        )
+    }
+
+    static func resolvedHeaderLayout(
+        cornerAdaptedLeftInset: CGFloat,
+        safeAreaInsets: UIEdgeInsets,
+        statusBarBottom: CGFloat,
+        hasTopTabBar: Bool,
+        isWindowed: Bool
+    ) -> HomeHeaderLayout {
+        let rowClearsStatusBar = isWindowed || safeAreaInsets.top >= statusBarBottom
+        // 창 모드에서 전체 화면으로 바꾼 직후에는 창 제어 버튼 여백이 창 모드 값으로 남는다.
+        // 전체 화면의 창 제어 버튼은 헤더 줄과 겹치지 않으므로 창 모드에서만 넣는다
+        let windowControlsInset = isWindowed
+            ? max(0, (cornerAdaptedLeftInset - safeAreaInsets.left).rounded(.up))
+            : 0
         // 이 줄의 높이를 알려 주는 공개 API가 없어 iPadOS 26 실측값을 쓴다
         return HomeHeaderLayout(
-            windowControlsInset: max(0, (adapted - view.safeAreaInsets.left).rounded(.up)),
+            windowControlsInset: windowControlsInset,
             topBarHeight: (hasTopTabBar || isWindowed) && rowClearsStatusBar ? 44 : nil
         )
     }
