@@ -7,7 +7,7 @@ struct HomeRootView: View {
     @EnvironmentObject private var libraryQr: LibraryQrController
     @EnvironmentObject private var academicWidgets: AcademicWidgetOpenController
     @Environment(\.scenePhase) private var scenePhase
-    @State private var bottomNavigationHeight: CGFloat = 0
+    @State private var bottomNavigationHeight: CGFloat?
     private let onSessionExpired: () -> Void
 
     init(
@@ -207,7 +207,7 @@ private struct ContextualSetupOverlay: View {
     @ObservedObject var coordinator: HomeCoordinator
     @ObservedObject var appLock: AppLockController
     @ObservedObject var libraryQr: LibraryQrController
-    let bottomNavigationHeight: CGFloat
+    let bottomNavigationHeight: CGFloat?
     @Environment(\.scenePhase) private var scenePhase
     @State private var completedAttempt: Int64?
     var body: some View {
@@ -215,7 +215,7 @@ private struct ContextualSetupOverlay: View {
             if let kind = setup.suggestion, coordinator.bootstrapPhase == .ready, scenePhase == .active, coordinator.path.isEmpty,
                (kind != .library || coordinator.currentTab == "menu"),
                appLock.mode == nil, libraryQr.presentedSheet == nil, !coordinator.isIdCardModalActive,
-               bottomNavigationHeight > 0,
+               let bottomNavigationHeight,
                !coordinator.showOptionsMenu, !coordinator.showYearHakgiPicker, !coordinator.isWebBottomSheetOpen, !coordinator.isSearchOverlayOpen {
                 SetupSuggestionCard(kind: kind, onClose: setup.dismiss, onAction: {
                     setup.dismiss()
