@@ -34,6 +34,26 @@ struct HomeTabContainer: UIViewControllerRepresentable {
     }
 }
 
+/// 홈 웹 헤더가 창 제어 버튼·상단 탭 바와 한 줄에 놓이도록 주입하는 값
+struct HomeHeaderLayout: Equatable {
+    static let windowControlsInsetProperty = "--klas-window-controls-inset-left"
+    static let topBarTopProperty = "--klas-top-bar-top"
+    static let topBarHeightProperty = "--klas-top-bar-height"
+
+    var windowControlsInset: CGFloat = 0
+    /// 상단 탭 바나 창 제어 버튼이 놓이는 줄의 높이. 이 줄이 없거나 상태 바와 겹치면 nil이다.
+    var topBarHeight: CGFloat?
+
+    var cssValues: [String: Any] {
+        [
+            Self.windowControlsInsetProperty: "\(Int(windowControlsInset))px",
+            // WebView 위쪽이 이 줄의 위쪽과 같은 safe area 기준이다
+            Self.topBarTopProperty: topBarHeight == nil ? NSNull() : "0px",
+            Self.topBarHeightProperty: topBarHeight.map { "\(Int($0))px" } ?? NSNull()
+        ]
+    }
+}
+
 // 탭마다 WebView를 만들지 않고 선택된 탭 화면으로 같은 WKWebView를 옮긴다
 @available(iOS 18.0, *)
 final class HomeTabController: UITabBarController, UITabBarControllerDelegate {
@@ -44,16 +64,21 @@ final class HomeTabController: UITabBarController, UITabBarControllerDelegate {
     var onBottomNavigationHeightChange: (CGFloat) -> Void
     private var isSelectingProgrammatically = false
     private var reportedBottomNavigationHeight: CGFloat?
+    private let measureHeaderLayout: (UIViewController) -> HomeHeaderLayout
+    private var headerLayout = HomeHeaderLayout()
+    private var loadingObservation: NSKeyValueObservation?
 
     init(
         webView: WKWebView,
         initialTab: String,
         onSelect: @escaping (String) -> Void,
-        onBottomNavigationHeightChange: @escaping (CGFloat) -> Void = { _ in }
+        onBottomNavigationHeightChange: @escaping (CGFloat) -> Void = { _ in },
+        measureHeaderLayout: @escaping (UIViewController) -> HomeHeaderLayout = HomeTabController.measuredHeaderLayout
     ) {
         self.webView = webView
         self.onSelect = onSelect
         self.onBottomNavigationHeightChange = onBottomNavigationHeightChange
+        self.measureHeaderLayout = measureHeaderLayout
         super.init(nibName: nil, bundle: nil)
         tabs = [
             makeTab(id: "feed", title: "피드", systemImage: "square.grid.2x2"),
@@ -71,6 +96,14 @@ final class HomeTabController: UITabBarController, UITabBarControllerDelegate {
         tabBar.tintColor = UIColor(KlasTheme.primary)
         tabBar.unselectedItemTintColor = UIColor(KlasTheme.onSurfaceVariant)
         select(initialTab)
+        // 전체 문서를 다시 읽으면 주입한 CSS 변수가 사라지므로 로드가 끝날 때마다 다시 넣는다
+        loadingObservation = webView.observe(\.isLoading, options: [.new]) { [weak self] webView, _ in
+            guard !webView.isLoading else { return }
+            MainActor.assumeIsolated {
+                guard let self, self.headerLayout != HomeHeaderLayout() else { return }
+                self.applyHeaderLayout()
+            }
+        }
     }
 
     @available(*, unavailable)
@@ -79,6 +112,56 @@ final class HomeTabController: UITabBarController, UITabBarControllerDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(KlasTheme.background)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let layout = measureHeaderLayout(self)
+        guard layout != headerLayout else { return }
+        headerLayout = layout
+        applyHeaderLayout()
+    }
+
+    static func measuredHeaderLayout(in controller: UIViewController) -> HomeHeaderLayout {
+        guard #available(iOS 26.0, *), let view = controller.viewIfLoaded else { return HomeHeaderLayout() }
+        let adapted = view.edgeInsets(for: .safeArea(cornerAdaptation: .horizontal)).left
+        let traits = controller.traitCollection
+        let hasTopTabBar = traits.userInterfaceIdiom == .pad && traits.horizontalSizeClass == .regular
+        // 창 모드를 알려 주는 공개 API가 없어 창 크기가 화면 크기와 다르면 창 모드로 본다.
+        // 창 모드에서는 탭 바가 아래로 가도 창 제어 버튼 줄이 위에 남는다
+        let scene = view.window?.windowScene
+        let isWindowed = view.window.map { $0.bounds.size != scene?.screen.bounds.size } ?? false
+        // 창 모드에서 전체 화면으로 바꾸면 safe area가 상태 바를 빼지 않는 경우가 있어, 그때는 헤더를 상태 바 아래 기존 위치에 둔다
+        let statusBarBottom = scene.flatMap { scene in
+            scene.statusBarManager.map { view.convert($0.statusBarFrame, from: scene.coordinateSpace).maxY }
+        } ?? 0
+        return resolvedHeaderLayout(
+            cornerAdaptedLeftInset: adapted,
+            safeAreaInsets: view.safeAreaInsets,
+            statusBarBottom: statusBarBottom,
+            hasTopTabBar: hasTopTabBar,
+            isWindowed: isWindowed
+        )
+    }
+
+    static func resolvedHeaderLayout(
+        cornerAdaptedLeftInset: CGFloat,
+        safeAreaInsets: UIEdgeInsets,
+        statusBarBottom: CGFloat,
+        hasTopTabBar: Bool,
+        isWindowed: Bool
+    ) -> HomeHeaderLayout {
+        let rowClearsStatusBar = isWindowed || safeAreaInsets.top >= statusBarBottom
+        // 창 모드에서 전체 화면으로 바꾼 직후에는 창 제어 버튼 여백이 창 모드 값으로 남는다.
+        // 전체 화면의 창 제어 버튼은 헤더 줄과 겹치지 않으므로 창 모드에서만 넣는다
+        let windowControlsInset = isWindowed
+            ? max(0, (cornerAdaptedLeftInset - safeAreaInsets.left).rounded(.up))
+            : 0
+        // 이 줄의 높이를 알려 주는 공개 API가 없어 iPadOS 26 실측값을 쓴다
+        return HomeHeaderLayout(
+            windowControlsInset: windowControlsInset,
+            topBarHeight: (hasTopTabBar || isWindowed) && rowClearsStatusBar ? 44 : nil
+        )
     }
 
     func select(_ tabID: String) {
@@ -120,6 +203,24 @@ final class HomeTabController: UITabBarController, UITabBarControllerDelegate {
         if #available(iOS 26.0, *) {
             webView.scrollView.topEdgeEffect.isHidden = true
         }
+        if headerLayout != HomeHeaderLayout() {
+            applyHeaderLayout()
+        }
+    }
+
+    private func applyHeaderLayout() {
+        guard isViewLoaded, webView.isDescendant(of: view) else { return }
+        webView.callAsyncJavaScript(
+            """
+            const style = document.documentElement.style;
+            for (const [name, value] of Object.entries(values)) {
+                if (value === null) { style.removeProperty(name); } else { style.setProperty(name, value); }
+            }
+            """,
+            arguments: ["values": headerLayout.cssValues],
+            in: nil,
+            in: .page
+        )
     }
 
     fileprivate func reportBottomNavigationHeight(from content: UIViewController) {
