@@ -9,7 +9,7 @@ struct HomeTabContainer: UIViewControllerRepresentable {
     let isTabBarHidden: Bool
     let isWebAccessibilityHidden: Bool
     let onSelect: (String) -> Void
-    let onBottomNavigationHeightChange: (CGFloat) -> Void
+    let onBottomNavigationHeightChange: (CGFloat?) -> Void
 
     func makeUIViewController(context: Context) -> HomeTabController {
         HomeTabController(
@@ -61,8 +61,9 @@ final class HomeTabController: UITabBarController, UITabBarControllerDelegate {
 
     let webView: WKWebView
     var onSelect: (String) -> Void
-    var onBottomNavigationHeightChange: (CGFloat) -> Void
+    var onBottomNavigationHeightChange: (CGFloat?) -> Void
     private var isSelectingProgrammatically = false
+    private var hasReportedBottomNavigationHeight = false
     private var reportedBottomNavigationHeight: CGFloat?
     private let measureHeaderLayout: (UIViewController) -> HomeHeaderLayout
     private var headerLayout = HomeHeaderLayout()
@@ -72,7 +73,7 @@ final class HomeTabController: UITabBarController, UITabBarControllerDelegate {
         webView: WKWebView,
         initialTab: String,
         onSelect: @escaping (String) -> Void,
-        onBottomNavigationHeightChange: @escaping (CGFloat) -> Void = { _ in },
+        onBottomNavigationHeightChange: @escaping (CGFloat?) -> Void = { _ in },
         measureHeaderLayout: @escaping (UIViewController) -> HomeHeaderLayout = HomeTabController.measuredHeaderLayout
     ) {
         self.webView = webView
@@ -116,6 +117,7 @@ final class HomeTabController: UITabBarController, UITabBarControllerDelegate {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        reportBottomNavigationHeight()
         let layout = measureHeaderLayout(self)
         guard layout != headerLayout else { return }
         headerLayout = layout
@@ -125,8 +127,7 @@ final class HomeTabController: UITabBarController, UITabBarControllerDelegate {
     static func measuredHeaderLayout(in controller: UIViewController) -> HomeHeaderLayout {
         guard #available(iOS 26.0, *), let view = controller.viewIfLoaded else { return HomeHeaderLayout() }
         let adapted = view.edgeInsets(for: .safeArea(cornerAdaptation: .horizontal)).left
-        let traits = controller.traitCollection
-        let hasTopTabBar = traits.userInterfaceIdiom == .pad && traits.horizontalSizeClass == .regular
+        let hasTopTabBar = hasTopTabBar(controller.traitCollection)
         // 창 모드를 알려 주는 공개 API가 없어 창 크기가 화면 크기와 다르면 창 모드로 본다.
         // 창 모드에서는 탭 바가 아래로 가도 창 제어 버튼 줄이 위에 남는다
         let scene = view.window?.windowScene
@@ -142,6 +143,10 @@ final class HomeTabController: UITabBarController, UITabBarControllerDelegate {
             hasTopTabBar: hasTopTabBar,
             isWindowed: isWindowed
         )
+    }
+
+    static func hasTopTabBar(_ traits: UITraitCollection) -> Bool {
+        traits.userInterfaceIdiom == .pad && traits.horizontalSizeClass == .regular
     }
 
     static func resolvedHeaderLayout(
@@ -223,19 +228,39 @@ final class HomeTabController: UITabBarController, UITabBarControllerDelegate {
         )
     }
 
-    fileprivate func reportBottomNavigationHeight(from content: UIViewController) {
-        guard content === selectedViewController, isViewLoaded else { return }
-        let height = max(0, content.view.safeAreaInsets.bottom - view.safeAreaInsets.bottom)
-        guard height != reportedBottomNavigationHeight else { return }
+    // 탭 화면 safe area는 탭 바가 다시 나타날 때 늦게 갱신될 수 있어 탭 바의 실제 위치로 잰다
+    fileprivate func reportBottomNavigationHeight() {
+        guard isViewLoaded else { return }
+        let height = Self.bottomNavigationHeight(
+            tabBarFrame: isTabBarHidden || tabBar.isHidden ? nil : tabBar.convert(tabBar.bounds, to: view),
+            isTabBarAtTop: Self.hasTopTabBar(traitCollection),
+            containerBounds: view.bounds,
+            bottomSafeAreaInset: view.safeAreaInsets.bottom
+        )
+        guard !hasReportedBottomNavigationHeight || height != reportedBottomNavigationHeight else { return }
+        hasReportedBottomNavigationHeight = true
         reportedBottomNavigationHeight = height
         onBottomNavigationHeightChange(height)
+    }
+
+    /// 하단 safe area 위로 탭 바가 차지하는 높이. 탭 바가 숨겨졌으면 nil, 위쪽에 있으면 0이다.
+    static func bottomNavigationHeight(
+        tabBarFrame: CGRect?,
+        isTabBarAtTop: Bool,
+        containerBounds: CGRect,
+        bottomSafeAreaInset: CGFloat
+    ) -> CGFloat? {
+        guard let tabBarFrame, !tabBarFrame.isEmpty, tabBarFrame.minY < containerBounds.maxY else { return nil }
+        // iPad 상단 탭 바는 별도 뷰가 그리고 tabBar 프레임은 아래쪽에 남아 있어 위치로 판단하지 않는다
+        guard !isTabBarAtTop else { return 0 }
+        return max(0, (containerBounds.maxY - bottomSafeAreaInset - tabBarFrame.minY).rounded(.up))
     }
 
     private func makeTab(id: String, title: String, systemImage: String) -> UITab {
         let tab = UITab(title: title, image: UIImage(systemName: systemImage), identifier: id) { [weak self] tab in
             HomeTabContentViewController(
                 onAppearing: { self?.attachWebView(to: $0) },
-                onSafeAreaChange: { self?.reportBottomNavigationHeight(from: $0) }
+                onSafeAreaChange: { _ in self?.reportBottomNavigationHeight() }
             )
         }
         // iPad 탭 바를 길게 눌러 편집할 때 탭을 지우거나 옮기지 못하게 한다

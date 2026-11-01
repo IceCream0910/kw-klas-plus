@@ -1,3 +1,4 @@
+import SwiftUI
 import UIKit
 import WebKit
 import XCTest
@@ -123,15 +124,91 @@ final class HomeTabControllerTests: XCTestCase {
     }
 
     func testReportsTabBarHeightAboveBottomSafeArea() throws {
-        var heights: [CGFloat] = []
+        var heights: [CGFloat?] = []
         let controller = try makeHostedController(holder: WebViewHolder(), initialTab: "feed", onHeightChange: { heights.append($0) })
         let content = try XCTUnwrap(controller.selectedViewController)
         let expected = content.view.safeAreaInsets.bottom - controller.view.safeAreaInsets.bottom
 
-        XCTAssertEqual(try XCTUnwrap(heights.last), max(0, expected), accuracy: 0.5)
+        XCTAssertEqual(try XCTUnwrap(heights.last ?? nil), max(0, expected), accuracy: 0.5)
         if controller.traitCollection.horizontalSizeClass == .compact {
             XCTAssertGreaterThan(expected, 0)
         }
+    }
+
+    func testReportsNilWhileTabBarIsHiddenAndHeightAgainAfterItReappears() throws {
+        var heights: [CGFloat?] = []
+        let controller = try makeHostedController(holder: WebViewHolder(), initialTab: "feed", onHeightChange: { heights.append($0) })
+        guard controller.traitCollection.horizontalSizeClass == .compact else { throw XCTSkip("하단 탭 바가 있는 폭에서만 검증한다") }
+        let visibleHeight = try XCTUnwrap(heights.last ?? nil)
+
+        controller.setTabBarHiddenIfNeeded(true)
+        waitUntil { heights.last == .some(nil) }
+        XCTAssertEqual(heights.last, .some(nil))
+
+        controller.setTabBarHiddenIfNeeded(false)
+        waitUntil { (heights.last ?? nil) != nil }
+        XCTAssertEqual(try XCTUnwrap(heights.last ?? nil), visibleHeight, accuracy: 0.5)
+    }
+
+    func testSwiftUIHostedTabBarNeverPublishesHiddenHeightWhenItReappears() throws {
+        let holder = WebViewHolder()
+        let state = HostedTabBarState()
+        let root = NavigationStack {
+            HostedHomeTabSurface(state: state, webView: holder.webView)
+                .toolbar(.hidden, for: .navigationBar)
+        }
+        .onPreferenceChange(HomeSystemTabBarHeightKey.self) { state.published.append($0) }
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = UIHostingController(rootView: root)
+        window.makeKeyAndVisible()
+        self.window = window
+        waitUntil { !state.published.isEmpty }
+        guard window.traitCollection.horizontalSizeClass == .compact else { throw XCTSkip("하단 탭 바가 있는 폭에서만 검증한다") }
+        XCTAssertNil(state.published.last ?? nil)
+
+        state.isTabBarHidden = false
+        waitUntil { ((state.published.last ?? nil) ?? 0) > 0 }
+
+        let visible = state.published.compactMap { $0 }
+        XCTAssertFalse(visible.isEmpty)
+        XCTAssertTrue(visible.allSatisfy { $0 > 0 }, "탭 바가 다시 보일 때 측정 전 높이를 내보냈다: \(state.published)")
+    }
+
+    func testBottomNavigationHeightFromTabBarFrame() {
+        let bounds = CGRect(x: 0, y: 0, width: 402, height: 874)
+        let bottomBar = CGRect(x: 0, y: 791, width: 402, height: 83)
+
+        XCTAssertEqual(
+            HomeTabController.bottomNavigationHeight(
+                tabBarFrame: bottomBar, isTabBarAtTop: false, containerBounds: bounds, bottomSafeAreaInset: 34
+            ),
+            49
+        )
+        XCTAssertNil(
+            HomeTabController.bottomNavigationHeight(
+                tabBarFrame: nil, isTabBarAtTop: false, containerBounds: bounds, bottomSafeAreaInset: 34
+            )
+        )
+        XCTAssertNil(
+            HomeTabController.bottomNavigationHeight(
+                tabBarFrame: bottomBar.offsetBy(dx: 0, dy: 83), isTabBarAtTop: false, containerBounds: bounds, bottomSafeAreaInset: 34
+            ),
+            "화면 밖으로 내려간 탭 바는 숨겨진 것으로 본다"
+        )
+        XCTAssertEqual(
+            HomeTabController.bottomNavigationHeight(
+                tabBarFrame: bottomBar, isTabBarAtTop: true, containerBounds: bounds, bottomSafeAreaInset: 34
+            ),
+            0,
+            "iPad 상단 탭 바는 하단을 가리지 않는다"
+        )
+    }
+
+    func testToastSitsAboveHomeTabBar() {
+        XCTAssertEqual(ToastBanner.bottomOffset(homeBottomNavigationHeight: nil), 36)
+        XCTAssertEqual(ToastBanner.bottomOffset(homeBottomNavigationHeight: 0), 36)
+        XCTAssertEqual(ToastBanner.bottomOffset(homeBottomNavigationHeight: 49), 49 + HomeSystemTabBarMetrics.suggestionGap)
     }
 
     func testInjectsWindowControlsInsetAndRestoresItAfterDocumentReload() throws {
@@ -220,7 +297,7 @@ final class HomeTabControllerTests: XCTestCase {
     private func makeHostedController(
         holder: WebViewHolder,
         initialTab: String,
-        onHeightChange: @escaping (CGFloat) -> Void = { _ in },
+        onHeightChange: @escaping (CGFloat?) -> Void = { _ in },
         measureHeaderLayout: @escaping (UIViewController) -> HomeHeaderLayout = HomeTabController.measuredHeaderLayout,
         onSelect: @escaping (String) -> Void = { _ in }
     ) throws -> HomeTabController {
@@ -264,7 +341,39 @@ final class HomeTabControllerTests: XCTestCase {
         (root is WKWebView ? 1 : 0) + root.subviews.reduce(0) { $0 + countWebViews(in: $1) }
     }
 
+    private func waitUntil(timeout: TimeInterval = 2, _ condition: () -> Bool) {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat { pumpRunLoop() } while !condition() && Date() < deadline
+    }
+
     private func pumpRunLoop() {
         RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+    }
+}
+
+@MainActor
+private final class HostedTabBarState: ObservableObject {
+    @Published var isTabBarHidden = true
+    var published: [CGFloat?] = []
+}
+
+// HomeView처럼 SwiftUI 상태가 탭 바 숨김을 바꾸고 측정값을 preference로 내보낸다
+@available(iOS 18.0, *)
+private struct HostedHomeTabSurface: View {
+    @ObservedObject var state: HostedTabBarState
+    let webView: WKWebView
+    @State private var height: CGFloat?
+
+    var body: some View {
+        HomeTabContainer(
+            webView: webView,
+            selectedTab: "feed",
+            isTabBarHidden: state.isTabBarHidden,
+            isWebAccessibilityHidden: false,
+            onSelect: { _ in },
+            onBottomNavigationHeightChange: { height = $0 }
+        )
+        .ignoresSafeArea()
+        .preference(key: HomeSystemTabBarHeightKey.self, value: state.isTabBarHidden ? nil : height)
     }
 }

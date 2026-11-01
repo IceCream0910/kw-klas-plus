@@ -4,7 +4,7 @@ import SwiftUI
 struct HomeView: View {
     @ObservedObject var holder: WebViewHolder
     @ObservedObject var coordinator: HomeCoordinator
-    @State private var containerTabBarHeight: CGFloat = 0
+    @State private var containerTabBarHeight: CGFloat?
 
     var body: some View {
         ZStack {

@@ -126,6 +126,12 @@ struct HomeOverlayModifier: ViewModifier {
 enum ToastBanner {
     private static var activeToastHosting: UIViewController?
     private static var activeDismissTask: Task<Void, Never>?
+    /// 홈 화면이 보이는 동안 하단 탭 바가 하단 safe area 위로 차지하는 높이
+    static var homeBottomNavigationHeight: CGFloat?
+
+    static func bottomOffset(homeBottomNavigationHeight: CGFloat?) -> CGFloat {
+        max(36, (homeBottomNavigationHeight ?? 0) + HomeSystemTabBarMetrics.suggestionGap)
+    }
 
     static func show(_ message: String) {
         guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
@@ -168,7 +174,10 @@ enum ToastBanner {
         window.addSubview(toastView)
         NSLayoutConstraint.activate([
             toastView.centerXAnchor.constraint(equalTo: window.centerXAnchor),
-            toastView.bottomAnchor.constraint(equalTo: window.safeAreaLayoutGuide.bottomAnchor, constant: -36),
+            toastView.bottomAnchor.constraint(
+                equalTo: window.safeAreaLayoutGuide.bottomAnchor,
+                constant: -bottomOffset(homeBottomNavigationHeight: homeBottomNavigationHeight)
+            ),
             toastView.leadingAnchor.constraint(greaterThanOrEqualTo: window.leadingAnchor, constant: 24),
             toastView.trailingAnchor.constraint(lessThanOrEqualTo: window.trailingAnchor, constant: -24),
         ])
