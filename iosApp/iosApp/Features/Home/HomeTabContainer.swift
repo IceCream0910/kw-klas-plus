@@ -16,17 +16,24 @@ struct HomeTabContainer: UIViewControllerRepresentable {
             webView: webView,
             initialTab: selectedTab,
             onSelect: onSelect,
-            onBottomNavigationHeightChange: onBottomNavigationHeightChange
+            onBottomNavigationHeightChange: deferredBottomNavigationHeightChange
         )
     }
 
     func updateUIViewController(_ controller: HomeTabController, context: Context) {
         controller.onSelect = onSelect
-        controller.onBottomNavigationHeightChange = onBottomNavigationHeightChange
+        controller.onBottomNavigationHeightChange = deferredBottomNavigationHeightChange
         controller.select(selectedTab)
         controller.setTabBarHiddenIfNeeded(isTabBarHidden)
         webView.accessibilityLabel = "KLAS+"
         webView.accessibilityElementsHidden = isWebAccessibilityHidden
+    }
+
+    // 탭 바 표시를 바꾸면 SwiftUI 갱신 중에 레이아웃이 돌며 높이가 보고된다.
+    // 갱신 중 바꾼 SwiftUI 상태는 반영되지 않으므로 갱신이 끝난 뒤 전달한다
+    private var deferredBottomNavigationHeightChange: (CGFloat?) -> Void {
+        let onChange = onBottomNavigationHeightChange
+        return { height in DispatchQueue.main.async { onChange(height) } }
     }
 
     static func dismantleUIViewController(_ controller: HomeTabController, coordinator: ()) {
