@@ -88,8 +88,9 @@ final class HomeTabController: UITabBarController, UITabBarControllerDelegate {
         ]
         // 탭이 네 개뿐이라 iPad에서도 sidebar 없이 탭 바만 쓴다
         mode = .tabBar
+        // WebView 당겨서 새로고침과 충돌해 최상단에서도 다시 펼쳐지지 않는 경우가 있어 축소하지 않는다
         if #available(iOS 26.0, *) {
-            tabBarMinimizeBehavior = .onScrollDown
+            tabBarMinimizeBehavior = .never
         }
         delegate = self
         tabBar.accessibilityIdentifier = "native_home_navigation"

@@ -122,6 +122,13 @@ final class HomeTabControllerTests: XCTestCase {
         XCTAssertEqual(controller.mode, .tabBar)
     }
 
+    func testTabBarDoesNotMinimizeOnScroll() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("iOS 26 이상에서만 탭 바 축소를 지원한다") }
+        let controller = try makeHostedController(holder: WebViewHolder(), initialTab: "feed")
+
+        XCTAssertEqual(controller.tabBarMinimizeBehavior, .never)
+    }
+
     func testReportsTabBarHeightAboveBottomSafeArea() throws {
         var heights: [CGFloat] = []
         let controller = try makeHostedController(holder: WebViewHolder(), initialTab: "feed", onHeightChange: { heights.append($0) })
