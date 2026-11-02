@@ -48,11 +48,20 @@ struct HomeRootView: View {
             }
         }
         .homeOverlays(coordinator)
-        .onPreferenceChange(HomeSystemTabBarHeightKey.self) { bottomNavigationHeight = $0 }
+        .onPreferenceChange(HomeSystemTabBarHeightKey.self) { height in
+            bottomNavigationHeight = height
+            updateToastBottomNavigationHeight()
+        }
+        .onChange(of: coordinator.path.isEmpty) { _ in updateToastBottomNavigationHeight() }
+        .onDisappear { ToastBanner.homeBottomNavigationHeight = nil }
         .overlay(alignment: .bottom) {
             ContextualSetupOverlay(setup: coordinator.contextualSetup, coordinator: coordinator, appLock: appLock, libraryQr: libraryQr,
                 bottomNavigationHeight: bottomNavigationHeight)
         }
+    }
+
+    private func updateToastBottomNavigationHeight() {
+        ToastBanner.homeBottomNavigationHeight = coordinator.path.isEmpty ? bottomNavigationHeight : nil
     }
 
     @ViewBuilder
