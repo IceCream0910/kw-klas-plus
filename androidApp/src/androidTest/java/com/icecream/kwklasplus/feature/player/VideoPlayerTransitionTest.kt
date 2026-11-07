@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit
 import com.icecream.kwklasplus.VideoPlayerActivity
 import com.icecream.kwklasplus.VideoBridgeDelegate
 import com.icecream.kwklasplus.core.demo.DemoSession
+import com.icecream.kwklasplus.core.demo.DemoPlayer
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
 import org.junit.Test
@@ -27,11 +28,21 @@ class VideoPlayerTransitionTest {
         try {
             val intent = Intent(ApplicationProvider.getApplicationContext(), VideoPlayerActivity::class.java)
             ActivityScenario.launch<VideoPlayerActivity>(intent).use { scenario ->
-                scenario.onActivity { activity -> VideoBridgeDelegate(activity).requestOnlineLecture("{}") }
+                val requestedUrls = mutableListOf<String>()
+                lateinit var bridge: VideoBridgeDelegate
+                scenario.onActivity { activity ->
+                    activity.listWebView.stopLoading()
+                    activity.listWebView.loadUrl("about:blank")
+                    bridge = VideoBridgeDelegate(activity, loadDemoPlayer = requestedUrls::add)
+                    bridge.requestOnlineLecture("{}")
+                }
                 InstrumentationRegistry.getInstrumentation().waitForIdleSync()
                 scenario.onActivity { activity ->
                     assertTrue(activity.ownsPlayback())
-                    VideoBridgeDelegate(activity).receivePlayerStates("25", "120", "false", "true", "false")
+                    assertEquals(1, requestedUrls.size)
+                    assertTrue(DemoPlayer.isPlayerUrl(requestedUrls.single()))
+                    assertTrue(activity.VideoWebView.url == null || activity.VideoWebView.url == "about:blank")
+                    bridge.receivePlayerStates("25", "120", "false", "true", "false")
                 }
                 InstrumentationRegistry.getInstrumentation().waitForIdleSync()
                 scenario.onActivity { activity ->

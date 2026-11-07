@@ -965,7 +965,10 @@ class VideoPlayerActivity : AppCompatActivity() {
 
 }
 
-class VideoBridgeDelegate(private val videoPlayerActivity: VideoPlayerActivity) {
+class VideoBridgeDelegate(
+    private val videoPlayerActivity: VideoPlayerActivity,
+    private val loadDemoPlayer: (String) -> Unit = { videoPlayerActivity.VideoWebView.loadUrl(it) },
+) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val playerBridgeCodec = PlayerBridgeCodec()
 
@@ -1003,7 +1006,7 @@ class VideoBridgeDelegate(private val videoPlayerActivity: VideoPlayerActivity) 
                     videoPlayerActivity.hasPlaybackSession = false
                     videoPlayerActivity.playerUiState = VideoPlayerUiState()
                     videoPlayerActivity.lastPlaytime = DemoPlaybackState.position.toFloat()
-                    videoPlayerActivity.VideoWebView.loadUrl(DemoPlayer.URL + "?start=" + DemoPlaybackState.position)
+                    loadDemoPlayer(DemoPlayer.URL + "?start=" + DemoPlaybackState.position)
                     videoPlayerActivity.playerUiState = videoPlayerActivity.playerUiState.copy(lectureName = "프로그래밍 시작하기 · 데모")
                     videoPlayerActivity.isPlayerVisible = true
                     videoPlayerActivity.videoPlayerLayout.visibility = View.VISIBLE

@@ -76,3 +76,11 @@ xcodebuild -xctestrun "$DEMO_XCTESTRUN" \
 이전 CI의 PiP 테스트는 WebKit 프로세스 시작이 지연되며 60초 실행 제한을 넘었다. 로그에는 같은 시점의 네트워크 프로세스 시작 지연(66초)과 뒤이은 CAPTCHA 테스트 타임아웃도 있었다. 상태 전이 단위 테스트에서 실제 학교 영상 URL/제목 요청을 시작하지 않고 재생 상태를 직접 준비하도록 바꿨다. 각 테스트의 WebView를 명시적으로 정리하고 PiP 복원은 단일 `Task.yield()` 대신 실제 경로 변경을 기다린다. 실제 영상 제어는 별도 MP4 fixture/명시적 실배포 테스트로 계속 검증한다. 플레이어 모델 해제 시 영상 WebView도 정리한다.
 
 CI와 같은 단일 시뮬레이터와 60/120초 실행 제한으로 iOS 앱 전체 테스트 실행: 258개, 1개 skip, 실패 0개. PiP와 CAPTCHA 테스트 모두 통과했다. 로그 `/private/tmp/demo-review-ios-full.log` 및 `/private/tmp/demo-review-instrumentation.log`.
+
+## Android CI 데모 재생 테스트 격리
+
+CI run `42392858476`의 iOS 작업은 통과했다. Android 빌드/JVM 테스트도 통과했으나 instrumentation XML에서 `VideoPlayerTransitionTest.demoLectureAcquiresPlaybackAndAcceptsStateCallbacks`가 프로세스 크래시로 실패했다. 종료 단계의 `stop: Not implemented`가 원인은 아니며, 진단 logcat에는 Activity 종료 직후 Chromium `libmonochrome_64.so`의 SIGSEGV가 기록됐다.
+
+해당 테스트는 실제 원격 MP4를 열면서 재생 상태를 Native 콜백으로 직접 주입하고 곧바로 Activity를 닫고 있었다. 재생 소유권·상태 콜백 테스트에서 영상 로드를 recording 대역으로 주입하고 요청 URL의 개수/신뢰 경로와 Native 상태 반영을 검증하도록 변경했다. 기본 동작은 같은 WebView URL 로드이며 실제 앱의 재생 경로는 유지한다. 목록 WebView도 테스트에서는 초기 로드를 중단한다.
+
+로컬 읽기 전용 에뮬레이터에서 수정된 실패 테스트 1개 단독 통과. 전체 실행 중 기존 약관 UI 테스트가 한 번 실패했으나 동일 테스트 단독 재실행은 통과했고 관련 코드는 변경하지 않았다. 테스트 필터가 0개를 반환한 실행은 검증 결과에 포함하지 않는다.
