@@ -13,7 +13,7 @@ fun createKlasHttpClient(
     engine: HttpClientEngine,
     timeoutMillis: Long = 15_000,
     cookieStorage: CookiesStorage? = null,
-): HttpClient = HttpClient(engine) {
+): HttpClient = HttpClient(com.icecream.kwklasplus.core.demo.DemoHttpEngine(engine)) {
     expectSuccess = false
     install(HttpTimeout) {
         requestTimeoutMillis = timeoutMillis

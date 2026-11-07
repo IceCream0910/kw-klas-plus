@@ -6,6 +6,28 @@ import XCTest
 
 final class IosHomeHostTests: XCTestCase {
     @MainActor
+    func testDeployedDemoAlertReturnsToJavaScriptWithoutBlockingWebInput() throws {
+        XCTAssertTrue(DemoSession.shared.begin(accountId: "0000000000", password: "KlasplusDemo!123"))
+        defer { DemoSession.shared.end() }
+        let holder = WebViewHolder()
+        defer { holder.dispose() }
+        try loadHTML(holder.webView, """
+            <html><body><button id="next" onclick="window.clicked=true">Next</button></body></html>
+            """, baseURL: URL(string: "https://klasplus.yuntae.in/lectureHome")!)
+        let resumed = expectation(description: "배포 웹의 alert 이후 JS 실행과 클릭 복원")
+        holder.webView.evaluateJavaScript("""
+            alert('데모 모드에서는 학교 페이지를 사용할 수 없어요.');
+            document.getElementById('next').click(); window.clicked;
+            """) { value, error in
+                XCTAssertNil(error)
+                XCTAssertEqual(value as? Bool, true)
+                XCTAssertNil(holder.javaScriptAlertMessage)
+                resumed.fulfill()
+            }
+        wait(for: [resumed], timeout: 10)
+    }
+
+    @MainActor
     func testContextualLockSetupSynchronizesSettingsCallbackAndVisibilityReload() throws {
         let coordinator = makeHomeCoordinator()
         let holder = WebViewHolder()

@@ -79,6 +79,7 @@ class ReminderEngine(
         true
     }
     suspend fun refresh()=refreshMutex.withLock {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) return@withLock
         val ticket=beginDeadlineRefresh()
         val state=snapshot()
         if(!isReady() || state.ownerHash.isBlank() || !state.deadlineEnabled)return@withLock

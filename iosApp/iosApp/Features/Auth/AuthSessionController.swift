@@ -91,6 +91,7 @@ final class AuthSessionController: ObservableObject {
     }
 
     func handleHomeLogout() {
+        if DemoSession.shared.active { authRuntime.endDemo() }
         authRuntime.stopSessionKeepAlive()
         activeCredential = nil
         loginState = LoginUiState(
@@ -127,6 +128,13 @@ final class AuthSessionController: ObservableObject {
 
     func start() {
         startTask?.cancel()
+        if authRuntime.restoreDemo() {
+            WebViewHolder.prepareDemoNetworkRules { [weak self] ready in
+                guard let self else { return }
+                self.phase = ready ? .authenticated : .blocked(.storageFailure)
+            }
+            return
+        }
         phase = .checkingNetwork
         startTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -142,6 +150,24 @@ final class AuthSessionController: ObservableObject {
 
     func submitLogin() {
         guard !loginState.password.isEmpty else { return }
+        if DemoSession.shared.isDemoAccount(accountId: loginState.studentId) {
+            let password = loginState.password
+            loginState.password = ""
+            guard authRuntime.beginDemo(accountId: loginState.studentId, password: password) else {
+                loginState.error = "학번 또는 비밀번호를 확인해 주세요."
+                return
+            }
+            activeCredential = nil
+            WebViewHolder.prepareDemoNetworkRules { [weak self] ready in
+                guard let self, DemoSession.shared.active else { return }
+                if ready { self.phase = .authenticated }
+                else {
+                    self.authRuntime.endDemo()
+                    self.loginState.error = "데모 환경을 준비하지 못했어요. 다시 시도해 주세요."
+                }
+            }
+            return
+        }
         if loginState.studentId.count != LoginUiState.studentIdLength {
             loginState.error = "학번을 확인해 주세요."
             return

@@ -52,6 +52,7 @@ class IosAcademicWidgets(
     }
 
     fun recordTimetable(term: String, entries: List<TimetableEntry>) {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) return
         refreshIdentity()
         val owner = owner()
         if (owner.isBlank() || identityTerm() != term) return
@@ -63,6 +64,7 @@ class IosAcademicWidgets(
     }
 
     suspend fun syncCalendar(userAgent: String): Boolean = syncMutex.withLock {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) return@withLock false
         refreshIdentity()
         val owner = owner()
         val term = identityTerm()
@@ -100,6 +102,14 @@ class IosAcademicWidgets(
     }
 
     fun refreshIdentity() {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) {
+            if (!com.icecream.kwklasplus.core.demo.DemoSession.hasSession) { store.clearDemo(); reloader?.reload(); return }
+            val formatter = NSDateFormatter().apply { dateFormat = "yyyy-MM-dd"; timeZone = NSTimeZone.localTimeZone; locale = NSLocale(localeIdentifier = "en_US_POSIX") }
+            store.writeDemo(AcademicWidgetDisplayFactory.from(com.icecream.kwklasplus.core.demo.DemoWidgetFixtures.snapshot(owner(), currentMillis(), formatter.stringFromDate(NSDate()))))
+            reloader?.reload()
+            return
+        }
+        store.clearDemo()
         flags?.writeIdentity(
             preferences(LegacyPreferenceKeys.KW_ID),
             preferences(LegacyPreferenceKeys.YEAR_HAKGI),
@@ -207,6 +217,18 @@ class IosAcademicWidgets(
     }
 
     companion object {
+        private var demoLifecycleInstalled = false
+
+        fun installDemoLifecycle(reloader: AcademicWidgetTimelineReloader) {
+            if (demoLifecycleInstalled) return
+            demoLifecycleInstalled = true
+            val store = IosAcademicWidgetDisplayStore()
+            com.icecream.kwklasplus.core.demo.DemoSession.onEnd {
+                store.clearDemo()
+                reloader.reload()
+            }
+        }
+
         fun create(
             dependencies: IosSharedDependencies,
             tokenEncryptor: LoginTokenEncryptor?,

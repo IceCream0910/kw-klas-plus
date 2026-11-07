@@ -20,11 +20,11 @@ enum AcademicWidgetStore {
     static func load() -> LoadResult {
         guard let appGroup,
               let defaults = UserDefaults(suiteName: appGroup),
-              let marker = defaults.string(forKey: ownerKey),
+              let marker = defaults.string(forKey: defaults.bool(forKey: "academic_widget_demo") ? "academic_widget_demo_owner" : ownerKey),
               !marker.isEmpty,
               let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup)
         else { return .missing }
-        let file = container.appendingPathComponent(fileName)
+        let file = container.appendingPathComponent(defaults.bool(forKey: "academic_widget_demo") ? "academic_widget_demo_v1.json" : fileName)
         guard FileManager.default.fileExists(atPath: file.path) else { return .missing }
         do {
             let json = try String(contentsOf: file, encoding: .utf8)

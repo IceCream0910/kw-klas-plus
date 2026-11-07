@@ -120,6 +120,7 @@ final class AcademicReminderHost: NSObject, IosReminderHost, UNUserNotificationC
         BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.taskId)
     }
     func scheduleRefresh() {
+        if DemoSession.shared.active { return }
         refreshScheduleVersion += 1
         let version = refreshScheduleVersion
         IosReminderRuntime.shared.isEnabled { enabled in
@@ -224,6 +225,22 @@ final class AcademicReminderHost: NSObject, IosReminderHost, UNUserNotificationC
             DispatchQueue.main.async { done(error == nil ? "ok" : "failed") }
         }
     }
+    func cancelDemo() {
+        center.removePendingNotificationRequests(withIdentifiers: ["klas_demo_test"])
+        center.removeDeliveredNotifications(withIdentifiers: ["klas_demo_test"])
+    }
+    func postDemo(done: @escaping (String) -> Void) {
+        guard DemoSession.shared.active else { done("cancelled"); return }
+        let content = UNMutableNotificationContent()
+        content.title = "KLAS+ 데모 알림"
+        content.body = "테스트 알림이 도착했어요. 실제 할 일과는 관계없는 예시 알림이에요."
+        content.sound = .default
+        content.userInfo = ["kind": "demo", "generation": DemoSession.shared.generation]
+        center.add(UNNotificationRequest(identifier: "klas_demo_test", content: content,
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false))) { error in
+            DispatchQueue.main.async { done(error == nil ? "ok" : "failed") }
+        }
+    }
     private func content(generation: Int64, title: String, body: String) -> UNMutableNotificationContent {
         let c = UNMutableNotificationContent()
         c.title = title
@@ -290,7 +307,11 @@ final class AcademicReminderHost: NSObject, IosReminderHost, UNUserNotificationC
     }
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([])
+        let info = notification.request.content.userInfo
+        if info["kind"] as? String == "demo", DemoSession.shared.active,
+           (info["generation"] as? NSNumber)?.int64Value == DemoSession.shared.generation {
+            completionHandler([.banner, .sound, .list])
+        } else { completionHandler([]) }
     }
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void) {

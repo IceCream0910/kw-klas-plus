@@ -173,6 +173,11 @@ class HomeActivity : AppCompatActivity() {
     private fun showLibrarySettingsIfRequested() {
         if (!::webView.isInitialized) return
         if (isFinishing || intent.action != ACTION_OPEN_LIBRARY_SETTINGS) return
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) {
+            intent.action = null
+            openWebRoute("${AppUrls.KLAS_PLUS_BASE}/demo?feature=qr", null)
+            return
+        }
         if (com.icecream.kwklasplus.manager.AppLockManager.isAppLockEnabled(this) &&
             !com.icecream.kwklasplus.manager.AppLockManager.isUnlocked
         ) return
@@ -262,6 +267,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun offerSetup(kind: SetupSuggestion) {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) return
         lifecycleScope.launch {
             try {
                 val configured = when (kind) {
@@ -695,7 +701,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun setupDefaultWebViewClient() {
-        webView.webViewClient = object : WebViewClient() {
+        webView.webViewClient = object : com.icecream.kwklasplus.platform.web.DemoWebViewClient() {
             override fun onPageStarted(
                 view: WebView?,
                 url: String?,
@@ -732,7 +738,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun setupTimetableWebViewClient() {
-        webView.webViewClient = object : WebViewClient() {
+        webView.webViewClient = object : com.icecream.kwklasplus.platform.web.DemoWebViewClient() {
             override fun onPageStarted(
                 view: WebView?,
                 url: String?,
@@ -762,7 +768,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun setupCalendarWebViewClient() {
-        webView.webViewClient = object : WebViewClient() {
+        webView.webViewClient = object : com.icecream.kwklasplus.platform.web.DemoWebViewClient() {
             override fun onPageStarted(
                 view: WebView?,
                 url: String?,
@@ -1052,7 +1058,7 @@ class HomeActivity : AppCompatActivity() {
         val selectedTerm=yearHakgi
         val account=appPreferences.getString(AppPrefs.KW_ID,null)
         val version=withContext(Dispatchers.Main) { deadlineForWebview="";++deadlineRequestVersion }
-        val ticket=runCatching { appDependencies.reminders.engine.beginHomeDeadlineRefresh() }.getOrNull()
+        val ticket=if (com.icecream.kwklasplus.core.demo.DemoSession.active) null else runCatching { appDependencies.reminders.engine.beginHomeDeadlineRefresh() }.getOrNull()
         val searchBatches = java.util.Collections.synchronizedList(mutableListOf<SearchBatch>())
         val result=appDependencies.deadlineRepository.fetch(SecretValue.of(sessionId),KlasUserAgent.fromPlatform(WebSettings.getDefaultUserAgent(this)),selectedTerm,subjects) { searchBatches.add(it) }
         val accepted=withContext(Dispatchers.Main) {
@@ -1193,6 +1199,11 @@ class HomeActivity : AppCompatActivity() {
     }
 
     fun requestIdCardQRValue() {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) {
+            webView.executeWebScript(LegacyWebScripts.call(LegacyWebCallback.RECEIVE_ID_CARD_QR,
+                JavaScriptArgument.Text("KLASPLUS-DEMO-NOT-VALID"), JavaScriptArgument.Text("KLASPLUS-DEMO-NOT-VALID")))
+            return
+        }
         contextualSetup.dismiss()
         isIdCardModalActive = true
         updateSecurityAndBrightness(true)
@@ -1310,6 +1321,10 @@ class HomeActivity : AppCompatActivity() {
     }
 
     fun openLibraryQRModal() {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) {
+            openWebRoute("${AppUrls.KLAS_PLUS_BASE}/demo?feature=qr", null)
+            return
+        }
         val modal = LibraryQRModal.newInstance(false)
         modal.setStyle(DialogFragment.STYLE_NORMAL, R.style.RoundCornerBottomSheetDialogTheme)
         modal.show(supportFragmentManager, LibraryQRModal.TAG)
@@ -1325,6 +1340,13 @@ class HomeActivity : AppCompatActivity() {
         builder.setTitle("로그아웃")
             .setMessage("정말 로그아웃할까요?")
             .setPositiveButton("확인") { _, _ ->
+                if (com.icecream.kwklasplus.core.demo.DemoSession.active) {
+                    appPreferences.edit().clear().commit()
+                    com.icecream.kwklasplus.core.demo.DemoSession.end()
+                    finish()
+                    startActivity(Intent(this, LoginActivity::class.java))
+                    return@setPositiveButton
+                }
                 ++deadlineRequestVersion
                 searchSnapshot = null
                 isSearchOverlayOpen = false

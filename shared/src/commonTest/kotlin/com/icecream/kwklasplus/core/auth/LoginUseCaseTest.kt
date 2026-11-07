@@ -16,6 +16,18 @@ import kotlin.test.assertNull
 
 class LoginUseCaseTest {
     @Test
+    fun reservedDemoAccountNeverUsesRealCredentialPreparation() = runLoginTest {
+        var encryptionCalls = 0
+        val useCase = useCase(encryptionApi = PasswordEncryptionApi { _, _ ->
+            encryptionCalls++
+            PasswordEncryptionResult.Failure(AuthFailure.Network)
+        })
+        val result = useCase.login("0000000000", PlainPassword.of("wrong"))
+        assertIs<LoginResult.Failed>(result)
+        assertEquals(AuthFailure.InvalidCredentials, result.failure)
+        assertEquals(0, encryptionCalls)
+    }
+    @Test
     fun encryptsStoresAndAuthenticatesWithoutExposingPlainPassword() = runLoginTest {
         val credentialStore = FakeCredentialStore()
         val sessionStore = FakeSessionStore()

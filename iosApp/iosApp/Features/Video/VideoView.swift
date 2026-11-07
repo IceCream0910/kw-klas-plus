@@ -116,13 +116,14 @@ final class VideoScreenModel: ObservableObject {
         guard !didStart else { return }
         didStart = true
         listHolder.load(KlasUrls.shared.ONLINE_LECTURE)
-        klasHolder.load(KlasUrls.shared.KLAS_ONLINE_CONTENTS)
+        if !DemoSession.shared.active { klasHolder.load(KlasUrls.shared.KLAS_ONLINE_CONTENTS) }
     }
 
     deinit {
         titleFetchTask?.cancel()
         listHolder.dispose()
         klasHolder.dispose()
+        videoHolder.dispose()
         IosPlaybackAudioSession.deactivate()
     }
 
@@ -143,6 +144,14 @@ final class VideoScreenModel: ObservableObject {
     }
 
     func requestOnlineLecture(json: String) {
+        if DemoSession.shared.active {
+            uiState.lectureName = "프로그래밍 시작하기 · 데모"
+            lastPlaytime = Float(DemoPlaybackState.shared.position)
+            videoHolder.load(DemoPlayer.shared.URL + "?start=\(DemoPlaybackState.shared.position)")
+            isPlayerVisible = true
+            showingKlas = false
+            return
+        }
         if !isKlasLoaded {
             coordinator.showToast("아직 강의 정보를 불러오는 중이에요. 몇 초 후에 다시 시도해주세요.")
             return
@@ -232,6 +241,7 @@ final class VideoScreenModel: ObservableObject {
             isPlaying: isPlaying,
             isFullscreen: isFullscreen
         )
+        if DemoSession.shared.active { DemoPlaybackState.shared.record(position: Double(state.currentSeconds), duration: Double(state.durationSeconds)) }
         self.duration = state.durationSeconds
         self.isFullscreen = state.isFullscreen
         if !state.isFullscreen {
@@ -313,9 +323,13 @@ final class VideoScreenModel: ObservableObject {
 
     func handleVideoNavigation(_ state: WebNavigationState) {
         guard case let .ready(url) = state.loadPhase else { return }
-        guard originPolicy.isTrustedVideoUrl(url: url) else { return }
+        guard originPolicy.isTrustedVideoUrl(url: url) || (DemoSession.shared.active && DemoPlayer.shared.isPlayerUrl(url: url)) else { return }
         IosPlaybackAudioSession.activate()
-        evaluateVideo(PlayerWebScripts.shared.monitorState())
+        if DemoSession.shared.active {
+            evaluateVideo(DemoPlayer.shared.installController())
+        } else {
+            evaluateVideo(PlayerWebScripts.shared.monitorState())
+        }
         hideController()
         refreshPictureInPictureSupport()
     }
@@ -443,7 +457,7 @@ final class VideoScreenModel: ObservableObject {
         lastOnlineContentRequest = nil
         pendingOnlineContentScript = nil
         isKlasLoaded = false
-        klasHolder.load(KlasUrls.shared.KLAS_ONLINE_CONTENTS)
+        if !DemoSession.shared.active { klasHolder.load(KlasUrls.shared.KLAS_ONLINE_CONTENTS) }
     }
 
     func restorePlayerAfterPictureInPicture() {

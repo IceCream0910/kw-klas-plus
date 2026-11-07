@@ -34,7 +34,15 @@ class AndroidExternalNavigator(
 fun Context.openValidatedExternalDestination(
     rawValue: String,
     policy: ExternalNavigationPolicy = ExternalNavigationPolicy(),
-): PlatformActionResult = when (val resolution = policy.resolve(rawValue)) {
+): PlatformActionResult {
+    if (com.icecream.kwklasplus.core.demo.DemoSession.active && com.icecream.kwklasplus.core.demo.DemoWebScripts.isSchoolUrl(rawValue)) {
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            android.widget.Toast.makeText(this, "데모 모드에서는 학교 페이지를 사용할 수 없어요.", android.widget.Toast.LENGTH_LONG).show()
+        }
+        return PlatformActionResult.Failed("demo_school_page_unavailable")
+    }
+    return when (val resolution = policy.resolve(rawValue)) {
     is ExternalNavigationResolution.Allowed -> AndroidExternalNavigator(this).openNow(resolution.destination)
     ExternalNavigationResolution.Rejected -> PlatformActionResult.Failed("invalid_external_destination")
+}
 }

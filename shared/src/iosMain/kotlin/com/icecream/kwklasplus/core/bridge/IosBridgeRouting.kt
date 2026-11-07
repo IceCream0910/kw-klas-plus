@@ -14,8 +14,9 @@ object IosBridgeRouting {
     fun createRouter(
         handler: BridgeCommandHandler,
         synchronousHandler: SynchronousBridgeCommandHandler? = null,
+        presentDemoScript: (String) -> Unit = {},
     ): JsonBridgeRouter = JsonBridgeRouter(
-        BridgeRouter(KlasApiBridgeHandler(dependencies.klasApiCore, handler), synchronousHandler),
+        BridgeRouter(com.icecream.kwklasplus.core.demo.DemoBridgeCommandHandler(KlasApiBridgeHandler(dependencies.klasApiCore, handler), presentDemoScript), synchronousHandler),
         codec,
     )
 

@@ -28,6 +28,9 @@ class AndroidLibraryService(
         phoneNumber: String,
         password: String,
     ): LibraryQrResult = withContext(Dispatchers.IO) {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) return@withContext LibraryQrResult.Success(
+            LibraryQrData(mapOf("qr_code" to "KLASPLUS-DEMO-NOT-VALID")),
+        )
         try {
             repository.getQrData(
                 LibraryCredentials(studentNumber, phoneNumber, SecretValue.of(password)),

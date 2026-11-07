@@ -33,6 +33,7 @@ class ExternalNavigationPolicy(
         rawValue: String,
         schemeSpecificPart: String,
     ): ExternalNavigationResolution {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active && com.icecream.kwklasplus.core.demo.DemoWebScripts.isSchoolUrl(rawValue)) return ExternalNavigationResolution.Rejected
         if (!schemeSpecificPart.startsWith("//")) return ExternalNavigationResolution.Rejected
         val authority = schemeSpecificPart.drop(2).substringBefore('/').substringBefore('?').substringBefore('#')
         if (authority.isEmpty() || authority.contains('@')) return ExternalNavigationResolution.Rejected

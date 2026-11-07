@@ -116,6 +116,9 @@ class SessionLeaseManager(
     private val operationMutex = Mutex()
 
     override suspend fun maintain(): SessionLeaseResult = operationMutex.withLock {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) return@withLock if (!com.icecream.kwklasplus.core.demo.DemoSession.hasSession) SessionLeaseResult.Missing else SessionLeaseResult.Active(
+            SessionLeaseInfo(60, 60, 7200), 1_800_000, false,
+        )
         val session = when (val restored = sessionCoordinator.restore()) {
             is SessionResult.Active -> restored.session
             SessionResult.Missing -> return@withLock SessionLeaseResult.Missing
