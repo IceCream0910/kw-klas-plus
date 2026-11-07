@@ -10,7 +10,7 @@
 
 `DemoSession`의 토큰·세대·fixture 상태는 메모리에 둔다. 데모 로그인 여부는 Android `klasplus_demo` preferences와 iOS `com.icecream.kwklasplus.demo` UserDefaults suite의 `demo_session_active`에 기록해 명시적 로그아웃 전까지 복원한다. 비밀번호와 가상 SESSION을 영속 저장하지 않는다. 프로세스 재시작 시 로그인 상태는 복원하지만 가상 과제·캘린더·재생 위치는 초기화한다.
 
-일반 계정 자격증명·SESSION·학교 cookie·기존 키는 보존한다. 공통 `SessionCoordinator`와 세션 유지 정책은 데모에서 가상 세션만 사용한다. Android 화면 설정은 별도 preferences를 사용한다. iOS는 데모 defaults·메모리 SecureStore·no-op cookie store가 있는 dependencies로 교체하고 로그아웃 시 원래 dependencies를 복원한다. 로그아웃은 세션 세대를 증가시켜 늦은 브리지 응답을 무효화하고 fixture·데모 로그인 기록·테스트 알림·데모 위젯 표시를 정리한다.
+일반 계정 자격증명·SESSION·학교 cookie·기존 키는 보존한다. 공통 `SessionCoordinator`와 세션 유지 정책은 데모에서 가상 세션만 사용한다. Android 화면 설정은 별도 preferences를 사용한다. 프로세스 수명의 `AndroidAppDependencies`에 주입하는 계정 preferences는 항상 `AppPrefs.MAIN`으로 고정하고, 화면용 `appPreferences`만 데모 여부에 따라 선택한다. 위젯 runtime도 같은 일반 계정 preferences를 관찰하며 데모 종료 시 일반 계정 identity를 다시 반영한다. iOS는 데모 defaults·메모리 SecureStore·no-op cookie store가 있는 dependencies로 교체하고 로그아웃 시 원래 dependencies를 복원한다. 로그아웃은 세션 세대를 증가시켜 늦은 브리지 응답을 무효화하고 fixture·데모 로그인 기록·테스트 알림·데모 위젯 표시를 정리한다.
 
 ## Native 요청과 WebView 경계
 
@@ -31,7 +31,7 @@
 - 앱 잠금·생체인식은 실제 기기 설정이다. 기존 보안 저장소를 사용하고 데모 로그아웃으로 해제하지 않는다.
 - 마감 알림은 기존 Native 동의 UI와 별도 메모리 ledger를 사용한다. 허용 뒤 5초 후 OS 로컬 테스트 알림을 보내며 일반 계정 알림을 취소하지 않는다. Native 동의 attempt는 음수로 구분해 세션 종료 뒤 일반 동의 요청을 완료하지 못하게 한다.
 - QR 스캐너·출석 repository를 재사용하고 `KLASPLUS-DEMO-ATTENDANCE`만 수락한다. 웹의 `/demo/attendance-qr.svg`를 다른 화면에 표시해 시연한다. 도서관 출입증은 실사용 불가능한 샘플이며 실제 도서관 자격증명을 읽거나 변경하지 않는다.
-- 위젯은 기존 렌더러를 재사용한다. iOS는 별도 App Group 데모 표시 파일/marker, Android는 메모리 snapshot을 사용해 일반 캐시를 보존한다. iOS 확장 새로고침도 데모 중 실제 계정 세션에 접근하지 않는다.
+- 위젯은 기존 렌더러를 재사용한다. iOS는 별도 App Group 데모 표시 파일/marker, Android는 메모리 snapshot을 사용해 일반 캐시를 보존한다. iOS 데모 종료 시 표시 정리와 timeline 갱신은 앱 시작 시 한 번 등록하며, 홈/위젯 객체를 생성할 때마다 전역 리스너를 추가하지 않는다. iOS 확장 새로고침도 데모 중 실제 계정 세션에 접근하지 않는다.
 
 학교 영상·출석 인정·실제 파일 제출은 수행하지 않는다. 웹 UI와 샘플 MP4를 받으려면 KLAS+ 배포 서버 접속이 필요하므로 비행기 모드 지원은 아니다.
 

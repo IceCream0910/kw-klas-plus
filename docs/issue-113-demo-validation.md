@@ -64,3 +64,15 @@ xcodebuild -xctestrun "$DEMO_XCTESTRUN" \
 - 실제 학교 인증·학교 영상·실제 파일 제출·실제 QR 출석/출입·App Store 심사 통과를 검증한 것은 아니다.
 
 세션은 명시적 로그아웃까지 복원되며 fixture 데이터는 프로세스 메모리 수명이다. 앱 잠금은 실제 기기 설정으로 유지한다. Native 재빌드가 필요하고 기존 release APK/AAB 및 iOS 버전 변경은 이 기능 PR에 포함하지 않는다. 보안·저장소 경계와 롤백은 [ADR-016](adr/ADR-016-review-demo-mode.md)을 따른다.
+
+## PR 검토 후 저장소·리스너 수명 보완
+
+- Android 공통 의존성의 계정 preferences와 위젯의 변경 관찰 대상을 `AppPrefs.MAIN`으로 고정했다. 화면용 preferences만 데모 여부에 따라 선택한다. 위젯 시작은 중복 실행을 막고 데모 종료 시 일반 계정 identity를 다시 적용한다.
+- `DemoPreferenceLifetimeTest`는 복원된 데모에서 만든 실제 `AndroidAppDependencies`를 유지한 채 로그아웃하고, 일반 계정 자격증명을 저장·재생성 후 복원한다. 실제 학번·학기 변경에 따른 위젯 snapshot 갱신과 리스너 등록 대상도 확인한다.
+- 읽기 전용 `Resizable_Experimental` 에뮬레이터에 Debug/AndroidTest APK를 설치하고 `adb shell am instrument -w -r -e class com.icecream.kwklasplus.DemoPreferenceLifetimeTest com.icecream.kwklasplus.test/androidx.test.runner.AndroidJUnitRunner` 실행: 2개 통과. 테스트 preferences/위젯 파일은 별도 이름공간을 사용한다.
+- iOS 위젯 인스턴스별 전역 종료 리스너를 제거하고 앱 시작 시 한 번 등록한다. `IosDemoWidgetLifecycleTest`는 반복 설치·위젯 재생성 후에도 종료/만료당 앱 timeline 갱신이 한 번이고 임시 위젯 콜백은 실행되지 않음을 검증한다.
+- `./gradlew :shared:allTests :androidApp:testDebugUnitTest :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest --offline`: 공통 Android 339개/iOS 370개 및 Android JVM 45개 통과, 앱·instrumentation 빌드 통과.
+
+이전 CI의 PiP 테스트는 WebKit 프로세스 시작이 지연되며 60초 실행 제한을 넘었다. 로그에는 같은 시점의 네트워크 프로세스 시작 지연(66초)과 뒤이은 CAPTCHA 테스트 타임아웃도 있었다. 상태 전이 단위 테스트에서 실제 학교 영상 URL/제목 요청을 시작하지 않고 재생 상태를 직접 준비하도록 바꿨다. 각 테스트의 WebView를 명시적으로 정리하고 PiP 복원은 단일 `Task.yield()` 대신 실제 경로 변경을 기다린다. 실제 영상 제어는 별도 MP4 fixture/명시적 실배포 테스트로 계속 검증한다. 플레이어 모델 해제 시 영상 WebView도 정리한다.
+
+CI와 같은 단일 시뮬레이터와 60/120초 실행 제한으로 iOS 앱 전체 테스트 실행: 258개, 1개 skip, 실패 0개. PiP와 CAPTCHA 테스트 모두 통과했다. 로그 `/private/tmp/demo-review-ios-full.log` 및 `/private/tmp/demo-review-instrumentation.log`.
