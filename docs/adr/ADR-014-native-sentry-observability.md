@@ -61,7 +61,31 @@ Android JVM 및 iOS host 테스트는 임의 본문 차단, scope 속성 제거,
 
 iOS 심볼은 Google Play Console에 올리지 않는다. Android AAB의 mapping/native symbols 자동 포함 여부를 배포 산출물에서 확인하며, 자동 포함되지 않은 파일은 해당 버전에 맞춰 따로 업로드한다. 업로드 완료 후 새 오류의 함수명·파일·줄 번호 해석을 확인한다.
 
-심볼 업로드는 빌드별로 다음 명령을 실행하며 인증 토큰은 로컬 환경 또는 CI secret으로만 제공한다. 현재 Xcode/GitHub CI에 자동 업로드 단계는 추가하지 않았다.
+### Release 빌드의 자동 심볼 업로드 (#115)
+
+- 추적: [#115](https://github.com/IceCream0910/kw-klas-plus/issues/115)
+- 기준 Native: `5533dffc4b6b906641ef41c5de4b36a0779a606b`
+- 호환 WebView: 로컬 `ef68c0f51b00d118449060f1331e6f54b9b8d652`. 인증·저장 키·브리지 변경이 없어 기존 호환 버전을 유지한다.
+
+Android는 기존 Sentry Gradle 플러그인을 사용하며 `assembleRelease`·`bundleRelease`에서 R8/ProGuard 매핑과 native symbols를 자동 업로드한다. ProGuard UUID 생성·앱 메타데이터 삽입과 소스 미포함 정책은 유지한다. Debug는 난독화하지 않으며 업로드 대상에서 제외한다. `.so`에 공급되지 않은 디버그 정보는 업로드 설정으로 복구되지 않는다.
+
+iOS는 device Release 빌드의 마지막 `Upload Sentry Symbols` 단계에서 `iosApp/scripts/upload-sentry-symbols.sh`를 실행한다. Release dSYM을 입력 의존성으로 선언해 생성 완료를 기다리고, 동일 빌드의 `DWARF_DSYM_FOLDER_PATH`를 재귀 검색해 앱·위젯·포함된 framework의 가용 dSYM을 `kw-klas-plus-ios`로 업로드한다. Debug와 시뮬레이터는 생략하며 소스 코드는 포함하지 않는다. dSYM 생성 설정과 script sandbox 비활성화 설정은 기존 값을 사용한다.
+
+양 플랫폼의 로컬 빌드는 프로젝트 루트의 `sentry.properties`에 `auth.token=발급받은_토큰`을 설정해 사용한다. Android Gradle 플러그인은 이 파일을 자동 탐색하며 iOS 스크립트는 같은 파일을 `SENTRY_PROPERTIES`로 전달하므로 Android Studio·Xcode GUI에서도 셸 환경 변수 없이 동작한다. 이 파일은 Git에서 제외하고 권한을 `600`으로 유지한다. 빌드 환경의 `SENTRY_AUTH_TOKEN`도 사용할 수 있다. iOS 로컬 빌드에는 `brew install getsentry/tools/sentry-cli`가 필요하다. 토큰 값은 저장소·명령 인자·로그에 넣지 않는다.
+
+자동 업로드는 로컬 빌드에서만 사용한다. `.github/workflows/release.yml`은 Android 업로드를 기존처럼 비활성화하고 iOS archive에 `SENTRY_AUTO_UPLOAD=false`를 전달한다. GitHub Actions에 Sentry 토큰이나 CLI 설치는 필요 없다. 로컬 iOS 업로드 스크립트는 자격증명 설정 파일·환경 변수 부재, CLI·앱 dSYM 누락 또는 업로드 실패를 빌드 실패로 전달한다. 파일에 토큰이 비어 있거나 잘못된 경우에는 CLI 인증 단계에서 실패한다.
+
+업로드 없는 검증 빌드는 Android `-PsentryAutoUpload=false`, iOS `SENTRY_AUTO_UPLOAD=false`를 사용한다. iOS는 Xcode build setting 인자 또는 빌드 환경 변수로 전달할 수 있다. Android의 UUID·매핑 생성과 iOS dSYM 생성은 생략하지 않는다. 롤백은 자동 업로드 관련 변경을 되돌리거나 이 옵션으로 업로드를 비활성화하며, 보관한 해당 빌드 산출물로 수동 업로드한다.
+
+로컬 검증: `./gradlew :androidApp:assembleRelease :androidApp:bundleRelease --dry-run --offline --no-daemon` 성공 및 양 업로드 task 연결 확인. `plutil -lint`, `sh -n`, `git diff --check` 통과. 임시 mock CLI로 Debug/시뮬레이터/명시적 생략, 토큰·dSYM 누락, 정상 호출(공백 포함 경로), 업로드 실패 전파와 로컬 properties 파일 전달, Xcode 단계 순서·Release dSYM 입력 의존성을 확인했다. 실제 업로드 검증 결과는 아래에 별도로 기록한다.
+
+2026-11-08 로컬 실제 업로드 검증:
+
+- `./gradlew :androidApp:assembleRelease :androidApp:bundleRelease --offline --no-daemon --console=plain` 성공. 두 업로드 task가 자동 실행됐고 Sentry CLI가 ProGuard 매핑 1개(`ca09f0b6-9036-310b-9fb6-946ea14f70e9`)와 native debug information 12개를 `UPLOADED`로 확인했다. APK·AAB의 ProGuard UUID도 업로드 매핑과 일치한다.
+- 최신 로컬 iOS `2.0.1(3)` Archive의 `dSYMs`를 대상으로 동일 업로드 스크립트를 실행해 앱(`b8ec823c-70bb-3a21-ae38-3f49f67b277d`)·위젯(`9de2e84a-5169-34da-95ad-c20b1b9f49e1`) arm64 dSYM 2개의 `UPLOADED`와 종료 코드 0을 확인했다. 새 Xcode Archive 빌드 전체를 실행한 검증은 아니다.
+- 양 플랫폼이 루트 `sentry.properties`를 읽어 업로드했으며 토큰 값은 출력하지 않았다. 새 실기기 crash의 symbolication과 Xcode build phase를 포함한 새 Archive 검증은 별도다.
+
+필요하면 해당 배포 Archive를 다음과 같이 수동 업로드한다.
 
 ```sh
 SENTRY_ORG=yun-taein SENTRY_PROJECT=kw-klas-plus-ios \

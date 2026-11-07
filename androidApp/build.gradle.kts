@@ -105,7 +105,7 @@ sentry {
     org.set("yun-taein")
     projectName.set("kw-klas-plus-android")
     includeProguardMapping.set(true)
-    val autoUpload = providers.gradleProperty("sentryAutoUpload").map(String::toBoolean).orElse(false)
+    val autoUpload = providers.gradleProperty("sentryAutoUpload").map(String::toBoolean).orElse(true)
     autoUploadProguardMapping.set(autoUpload)
     uploadNativeSymbols.set(true)
     autoUploadNativeSymbols.set(autoUpload)

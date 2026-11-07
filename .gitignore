@@ -6,6 +6,7 @@
 xcuserdata
 !src/**/build/
 local.properties
+sentry.properties
 key.properties
 *.jks
 *.keystore
