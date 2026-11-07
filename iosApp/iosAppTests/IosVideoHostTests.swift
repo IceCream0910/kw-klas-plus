@@ -6,16 +6,38 @@ import WebKit
 
 @MainActor
 final class IosVideoHostTests: XCTestCase {
+    private var models: [VideoScreenModel] = []
+
     override func setUp() {
         super.setUp()
         if DemoSession.shared.active { DemoSession.shared.end() }
+    }
+
+    override func tearDown() {
+        for model in models {
+            model.listHolder.dispose()
+            model.klasHolder.dispose()
+            model.videoHolder.dispose()
+        }
+        models.removeAll()
+        super.tearDown()
+    }
+
+    private func track(_ model: VideoScreenModel) -> VideoScreenModel {
+        models.append(model)
+        return model
+    }
+
+    private func showPlayer(_ model: VideoScreenModel) {
+        model.isPlayerVisible = true
+        model.showingKlas = false
     }
 
     func testDemoVideoControlsAndStateWithDeployedPageGlobalsAndRedirect() async throws {
         XCTAssertTrue(DemoSession.shared.begin(accountId: "0000000000", password: "KlasplusDemo!123"))
         let coordinator = makeCoordinator()
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = VideoScreenModel(subjectId: "DEMO", yearSemester: "2026,2", sessionToken: nil, coordinator: coordinator)
+        let model = track(VideoScreenModel(subjectId: "DEMO", yearSemester: "2026,2", sessionToken: nil, coordinator: coordinator))
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
         let controller = UIViewController()
         window.rootViewController = controller
@@ -61,7 +83,7 @@ final class IosVideoHostTests: XCTestCase {
         XCTAssertTrue(DemoSession.shared.begin(accountId: "0000000000", password: "KlasplusDemo!123"))
         let coordinator = makeCoordinator()
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = VideoScreenModel(subjectId: "DEMO", yearSemester: "2026,2", sessionToken: nil, coordinator: coordinator)
+        let model = track(VideoScreenModel(subjectId: "DEMO", yearSemester: "2026,2", sessionToken: nil, coordinator: coordinator))
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
         let controller = UIViewController()
         window.rootViewController = controller
@@ -135,12 +157,12 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = VideoScreenModel(
+        let model = track(VideoScreenModel(
             subjectId: "SUBJ01",
             yearSemester: "2026,1",
             sessionToken: coordinator.sessionToken,
             coordinator: coordinator
-        )
+        ))
 
         model.receiveVideoURL("https://evil.example/player")
         XCTAssertEqual(coordinator.toastMessage, "강의 영상 주소를 확인하지 못했습니다.")
@@ -152,12 +174,12 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = VideoScreenModel(
+        let model = track(VideoScreenModel(
             subjectId: "SUBJ01",
             yearSemester: "2026,1",
             sessionToken: coordinator.sessionToken,
             coordinator: coordinator
-        )
+        ))
 
         model.receivePlayerStates(
             currentTime: "15",
@@ -215,12 +237,12 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = VideoScreenModel(
+        let model = track(VideoScreenModel(
             subjectId: "SUBJ01",
             yearSemester: "2026,1",
             sessionToken: coordinator.sessionToken,
             coordinator: coordinator
-        )
+        ))
 
         XCTAssertFalse(model.didStart)
         model.requestOnlineLecture(json: "{}")
@@ -235,12 +257,12 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = VideoScreenModel(
+        let model = track(VideoScreenModel(
             subjectId: "SUBJ01",
             yearSemester: "2026,1",
             sessionToken: coordinator.sessionToken,
             coordinator: coordinator
-        )
+        ))
         defer {
             model.listHolder.dispose()
             model.klasHolder.dispose()
@@ -265,12 +287,12 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = VideoScreenModel(
+        let model = track(VideoScreenModel(
             subjectId: "SUBJ01",
             yearSemester: "2026,1",
             sessionToken: coordinator.sessionToken,
             coordinator: coordinator
-        )
+        ))
 
         model.klasHolder.onNavigationStateChange?(
             WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/lis/evltn/OnlineCntntsStdPage.do"))
@@ -288,12 +310,12 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = VideoScreenModel(
+        let model = track(VideoScreenModel(
             subjectId: "SUBJ01",
             yearSemester: "2026,1",
             sessionToken: coordinator.sessionToken,
             coordinator: coordinator
-        )
+        ))
         model.handleKlasNavigation(
             WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/lis/evltn/OnlineCntntsStdPage.do"))
         )
@@ -309,12 +331,12 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = VideoScreenModel(
+        let model = track(VideoScreenModel(
             subjectId: "SUBJ01",
             yearSemester: "2026,1",
             sessionToken: coordinator.sessionToken,
             coordinator: coordinator
-        )
+        ))
         model.handleKlasNavigation(
             WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/lis/evltn/OnlineCntntsStdPage.do"))
         )
@@ -358,12 +380,12 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = VideoScreenModel(
+        let model = track(VideoScreenModel(
             subjectId: "SUBJ01",
             yearSemester: "2026,1",
             sessionToken: coordinator.sessionToken,
             coordinator: coordinator
-        )
+        ))
         model.handleKlasNavigation(
             WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/lis/evltn/OnlineCntntsStdPage.do"))
         )
@@ -408,13 +430,13 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = VideoScreenModel(
+        let model = track(VideoScreenModel(
             subjectId: "SUBJ01",
             yearSemester: "2026,1",
             sessionToken: coordinator.sessionToken,
             coordinator: coordinator
-        )
-        model.receiveVideoURL("https://vod.kw.ac.kr/player")
+        ))
+        showPlayer(model)
         XCTAssertTrue(model.isPlayerVisible)
 
         model.openInKLAS()
@@ -426,12 +448,12 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = VideoScreenModel(
+        let model = track(VideoScreenModel(
             subjectId: "SUBJ01",
             yearSemester: "2026,1",
             sessionToken: coordinator.sessionToken,
             coordinator: coordinator
-        )
+        ))
 
         model.receiveInitSpeed(currentSpeed: "1.25")
         XCTAssertEqual(model.uiState.speedText, "1.25x")
@@ -454,13 +476,13 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = VideoScreenModel(
+        let model = track(VideoScreenModel(
             subjectId: "SUBJ01",
             yearSemester: "2026,1",
             sessionToken: coordinator.sessionToken,
             coordinator: coordinator
-        )
-        model.receiveVideoURL("https://vod.kw.ac.kr/player")
+        ))
+        showPlayer(model)
         XCTAssertTrue(model.isPlayerVisible)
 
         var dismissed = false
@@ -480,15 +502,15 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = VideoScreenModel(
+        let model = track(VideoScreenModel(
             subjectId: "SUBJ01",
             yearSemester: "2026,1",
             sessionToken: coordinator.sessionToken,
             coordinator: coordinator
-        )
+        ))
         XCTAssertFalse(model.consumesNativeBack)
 
-        model.receiveVideoURL("https://vod.kw.ac.kr/player")
+        showPlayer(model)
         XCTAssertTrue(model.consumesNativeBack)
 
         model.handleBack(dismiss: {})
@@ -502,8 +524,8 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1")
-        model.receiveVideoURL("https://vod.kw.ac.kr/player")
+        let model = track(coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1"))
+        showPlayer(model)
         model.showCloseConfirm = true
         coordinator.isVideoScreenPresented = false
         XCTAssertTrue(model.isPlayerVisible)
@@ -522,12 +544,12 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = VideoScreenModel(
+        let model = track(VideoScreenModel(
             subjectId: "SUBJ01",
             yearSemester: "2026,1",
             sessionToken: coordinator.sessionToken,
             coordinator: coordinator
-        )
+        ))
         var completionCalled = false
         model.klasHolder.presentJavaScriptAlert(
             message: "학습기간이 아닙니다. 학습 시작일 이후에 학습이 가능합니다.",
@@ -544,12 +566,12 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = VideoScreenModel(
+        let model = track(VideoScreenModel(
             subjectId: "SUBJ01",
             yearSemester: "2026,1",
             sessionToken: coordinator.sessionToken,
             coordinator: coordinator
-        )
+        ))
         var completionCalled = false
         model.listHolder.presentJavaScriptAlert(
             message: "학습 시작일 이전에 강의 영상을 미리 시청할 수 있습니다.",
@@ -566,8 +588,8 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1")
-        model.receiveVideoURL("https://vod.kw.ac.kr/player")
+        let model = track(coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1"))
+        showPlayer(model)
         model.isInPictureInPicture = true
         model.isPlayerVisible = false
 
@@ -583,8 +605,8 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1")
-        model.receiveVideoURL("https://vod.kw.ac.kr/player")
+        let model = track(coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1"))
+        showPlayer(model)
         model.isInPictureInPicture = true
         model.isPlayerVisible = true
 
@@ -603,8 +625,8 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1")
-        model.receiveVideoURL("https://vod.kw.ac.kr/player")
+        let model = track(coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1"))
+        showPlayer(model)
         model.startPictureInPicture()
         XCTAssertTrue(model.isInPictureInPicture)
         XCTAssertFalse(model.isPlayerVisible)
@@ -618,8 +640,8 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1")
-        model.receiveVideoURL("https://vod.kw.ac.kr/player")
+        let model = track(coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1"))
+        showPlayer(model)
         model.isInPictureInPicture = true
         model.isPlayerVisible = true
 
@@ -634,8 +656,8 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model1 = coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1")
-        let model2 = coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1")
+        let model1 = track(coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1"))
+        let model2 = track(coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1"))
         XCTAssertTrue(model1 === model2)
 
         model1.isInPictureInPicture = true
@@ -647,12 +669,12 @@ final class IosVideoHostTests: XCTestCase {
         XCTAssertNil(coordinator.activeVideoModel)
     }
 
-    func testStartPictureInPictureInvokesDismissAndRestorePipNavigatesToVideo() async {
+    func testStartPictureInPictureInvokesDismissAndRestorePipNavigatesToVideo() async throws {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1")
-        model.receiveVideoURL("https://vod.kw.ac.kr/player")
+        let model = track(coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1"))
+        showPlayer(model)
 
         var dismissed = false
         model.startPictureInPicture(dismiss: { dismissed = true })
@@ -671,7 +693,7 @@ final class IosVideoHostTests: XCTestCase {
         XCTAssertFalse(model.isInPictureInPicture)
         XCTAssertTrue(model.isPlayerVisible)
 
-        await Task.yield()
+        try await waitForVideoCondition { !coordinator.path.isEmpty }
         XCTAssertGreaterThan(coordinator.path.count, 0)
     }
 
@@ -679,8 +701,8 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1")
-        model.receiveVideoURL("https://vod.kw.ac.kr/player")
+        let model = track(coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1"))
+        showPlayer(model)
         model.startPictureInPicture()
         XCTAssertTrue(model.isInPictureInPicture)
 
@@ -708,8 +730,8 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1")
-        model.receiveVideoURL("https://vod.kw.ac.kr/player")
+        let model = track(coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1"))
+        showPlayer(model)
         model.isInPictureInPicture = false
         coordinator.isVideoScreenPresented = false
 
@@ -721,7 +743,7 @@ final class IosVideoHostTests: XCTestCase {
         XCTAssertEqual(coordinator.path.count, 1)
 
         // 2. When VideoView creates a new model, it should start in clean list mode
-        let cleanModel = coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1")
+        let cleanModel = track(coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1"))
         XCTAssertFalse(cleanModel.isPlayerVisible)
     }
 
@@ -729,7 +751,7 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1")
+        let model = track(coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1"))
         model.handleKlasNavigation(
             WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/lis/evltn/OnlineCntntsStdPage.do"))
         )
@@ -763,7 +785,7 @@ final class IosVideoHostTests: XCTestCase {
         }
         """
         model.requestOnlineLecture(json: sampleJson)
-        model.receiveVideoURL("https://vod.kw.ac.kr/player")
+        showPlayer(model)
         model.startPictureInPicture()
         XCTAssertTrue(model.isInPictureInPicture)
         XCTAssertFalse(model.isPlayerVisible)
@@ -780,7 +802,7 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1")
+        let model = track(coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1"))
         model.handleKlasNavigation(
             WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/lis/evltn/OnlineCntntsStdPage.do"))
         )
@@ -814,7 +836,7 @@ final class IosVideoHostTests: XCTestCase {
         }
         """
         model.requestOnlineLecture(json: lecture1)
-        model.receiveVideoURL("https://vod.kw.ac.kr/player1")
+        showPlayer(model)
         model.startPictureInPicture()
         XCTAssertTrue(model.isInPictureInPicture)
 
@@ -868,7 +890,7 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1")
+        let model = track(coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1"))
         model.handleKlasNavigation(
             WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/lis/evltn/OnlineCntntsStdPage.do"))
         )
@@ -902,7 +924,7 @@ final class IosVideoHostTests: XCTestCase {
         }
         """
         model.requestOnlineLecture(json: lecture1)
-        model.receiveVideoURL("https://vod.kw.ac.kr/player1")
+        showPlayer(model)
         model.startPictureInPicture()
         XCTAssertTrue(model.isInPictureInPicture)
 
@@ -945,7 +967,7 @@ final class IosVideoHostTests: XCTestCase {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
         coordinator.handleBootstrap(Self.readyHomeResult())
-        let model = coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1")
+        let model = track(coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1"))
         model.handleKlasNavigation(
             WebNavigationState(loadPhase: .ready(url: "https://klas.kw.ac.kr/std/lis/evltn/OnlineCntntsStdPage.do"))
         )

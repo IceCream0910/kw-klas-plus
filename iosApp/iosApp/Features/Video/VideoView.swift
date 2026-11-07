@@ -123,6 +123,7 @@ final class VideoScreenModel: ObservableObject {
         titleFetchTask?.cancel()
         listHolder.dispose()
         klasHolder.dispose()
+        videoHolder.dispose()
         IosPlaybackAudioSession.deactivate()
     }
 
