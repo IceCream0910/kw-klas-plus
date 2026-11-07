@@ -41,7 +41,6 @@ class IosAcademicWidgets(
     private val reloader: AcademicWidgetTimelineReloader?,
     private val flags: IosAcademicWidgetSharedFlags? = null,
 ) {
-    init { com.icecream.kwklasplus.core.demo.DemoSession.onEnd { store.clearDemo(); reloader?.reload() } }
     private val syncMutex = Mutex()
 
     fun snapshot(): AcademicWidgetSnapshot? {
@@ -218,6 +217,18 @@ class IosAcademicWidgets(
     }
 
     companion object {
+        private var demoLifecycleInstalled = false
+
+        fun installDemoLifecycle(reloader: AcademicWidgetTimelineReloader) {
+            if (demoLifecycleInstalled) return
+            demoLifecycleInstalled = true
+            val store = IosAcademicWidgetDisplayStore()
+            com.icecream.kwklasplus.core.demo.DemoSession.onEnd {
+                store.clearDemo()
+                reloader.reload()
+            }
+        }
+
         fun create(
             dependencies: IosSharedDependencies,
             tokenEncryptor: LoginTokenEncryptor?,

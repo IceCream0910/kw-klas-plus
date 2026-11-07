@@ -63,7 +63,6 @@ class IosAuthRuntime(
     fun endDemo() {
         stopSessionKeepAlive()
         NSUserDefaults.standardUserDefaults.removePersistentDomainForName(demoSuite)
-        com.icecream.kwklasplus.core.academic.IosAcademicWidgetDisplayStore().clearDemo()
         dependencies = realDependencies
         sessionLeaseManager = null
         com.icecream.kwklasplus.core.demo.DemoSession.end()
