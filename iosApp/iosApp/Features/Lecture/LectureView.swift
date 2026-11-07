@@ -21,6 +21,9 @@ struct LectureBoardPaths {
     }
 
     func path(for type: String) -> String? {
+        if DemoSession.shared.active {
+            return type == "notice" ? "d052b8f845784c639f036b102fdc3023" : type == "pds" ? "6972896bfe72408eb72926780e85d041" : nil
+        }
         let path: String
         switch type {
         case "notice": path = noticePath
@@ -79,7 +82,7 @@ final class LectureScreenModel: ObservableObject {
             self?.prepareLectureBootstrapAfterWebContentTermination()
         }
         uiHolder.load(KlasUrls.shared.LECTURE_HOME)
-        klasHolder.load(KlasUrls.shared.KLAS_FRAME)
+        if !DemoSession.shared.active { klasHolder.load(KlasUrls.shared.KLAS_FRAME) }
     }
 
     deinit {

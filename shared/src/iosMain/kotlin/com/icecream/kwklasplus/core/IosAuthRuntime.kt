@@ -23,9 +23,51 @@ import platform.Foundation.NSUserDefaults
 
 // Swift에서 suspend 유스케이스를 completion으로 호출하기 위한 브릿지
 class IosAuthRuntime(
-    val dependencies: IosSharedDependencies,
+    dependencies: IosSharedDependencies,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
 ) {
+    var dependencies: IosSharedDependencies = dependencies
+        private set
+    private val realDependencies = dependencies
+    private val demoSuite = "com.icecream.kwklasplus.demo"
+
+    fun beginDemo(accountId: String, password: String): Boolean {
+        if (!com.icecream.kwklasplus.core.demo.DemoSession.begin(accountId, password)) return false
+        stopSessionKeepAlive()
+        val defaults = NSUserDefaults(suiteName = demoSuite)
+        defaults.removePersistentDomainForName(demoSuite)
+        defaults.setObject(accountId, "kwID")
+        defaults.setObject("complete", "login_funnel_status")
+        defaults.setBool(true, "demo_session_active")
+        return attachDemo(defaults)
+    }
+
+    fun restoreDemo(): Boolean {
+        val defaults = NSUserDefaults(suiteName = demoSuite)
+        if (!defaults.boolForKey("demo_session_active")) return false
+        com.icecream.kwklasplus.core.demo.DemoSession.restore()
+        return attachDemo(defaults)
+    }
+
+    private fun attachDemo(defaults: NSUserDefaults): Boolean {
+        dependencies = IosSharedDependencies(
+            defaults = defaults,
+            secureStoreOverride = com.icecream.kwklasplus.core.demo.DemoSecureStore(),
+            cookieStoreOverride = IosNoOpWebCookieStore(),
+            sharedDefaults = defaults,
+        )
+        sessionLeaseManager = null
+        return true
+    }
+
+    fun endDemo() {
+        stopSessionKeepAlive()
+        NSUserDefaults.standardUserDefaults.removePersistentDomainForName(demoSuite)
+        com.icecream.kwklasplus.core.academic.IosAcademicWidgetDisplayStore().clearDemo()
+        dependencies = realDependencies
+        sessionLeaseManager = null
+        com.icecream.kwklasplus.core.demo.DemoSession.end()
+    }
     private var sessionLeaseManager: SessionLeaseManager? = null
     private var sessionKeepAliveJob: Job? = null
 

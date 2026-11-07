@@ -22,16 +22,21 @@ interface IosReminderHost {
     fun cancelRefresh()
     fun preferencesChanged()
     fun cancel(id: String)
+    fun cancelDemo()
+    fun postDemo(done: (String)->Unit)
     fun cancelAll(done: (String)->Unit)
 }
 object IosReminderRuntime {
     private val scope=CoroutineScope(SupervisorJob()+Dispatchers.Main)
     private var engine: ReminderEngine?=null
     private var consent: DeadlineNotificationConsent?=null
+    private var demoConsent: DeadlineNotificationConsent?=null
+    private var demoEngine: ReminderEngine?=null
     private var host: IosReminderHost?=null
     fun install(host: IosReminderHost,dependencies: IosSharedDependencies,tokenEncryptor: com.icecream.kwklasplus.core.auth.LoginTokenEncryptor) {
         if(engine!=null)return
         this.host=host
+        com.icecream.kwklasplus.core.demo.DemoSession.onEnd { host.cancelDemo() }
         val adapter=object: ReminderPlatform {
             override fun hash(value: String)=host.hash(value)
             override suspend fun permission(kind: String)=awaitString { host.permission(kind,it) }
@@ -39,6 +44,7 @@ object IosReminderRuntime {
             override suspend fun cancel(id: String) { host.cancel(id) }
             override suspend fun cancelAll() { awaitString { host.cancelAll(it) } }
         }
+        demoEngine=com.icecream.kwklasplus.core.demo.DemoReminderFactory.create(adapter, Clock { (NSDate().timeIntervalSince1970*1000).toLong() })
         val store=object: ReminderStore {
             override suspend fun read(): String? {
                 val result=host.readLedger()
@@ -56,10 +62,13 @@ object IosReminderRuntime {
     fun wrap(fallback: BridgeCommandHandler): BridgeCommandHandler {
         val h=host ?: return fallback
         val c=configurationConsent() ?: return fallback
-        return ReminderBridgeHandler(c,ReminderSettingsUi { h.openDeadlineSettings(attempt=it) },fallback)
+        return ReminderBridgeHandler(c,ReminderSettingsUi { h.openDeadlineSettings(attempt=if (com.icecream.kwklasplus.core.demo.DemoSession.active) -it else it) },fallback)
     }
     private fun configurationConsent(): DeadlineNotificationConsent? {
         val h=host ?: return null
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) {
+            return demoConsent ?: DeadlineNotificationConsent(demoEngine ?: return null) { h.cancelDemo() }.also { demoConsent=it }
+        }
         return consent ?: DeadlineNotificationConsent(engine ?: return null) { h.preferencesChanged() }.also { consent=it }
     }
     fun beginNativeConsent(done: (Long,String)->Unit) {
@@ -75,22 +84,32 @@ object IosReminderRuntime {
         scope.launch { done(runCatching { configurationConsent()?.state() }.getOrNull()) }
     }
     fun readSettings(done: (DeadlineNotificationSettings?, String)->Unit) {
-        scope.launch { try { done(engine?.settings(),"") } catch(cause: Exception) { if(cause is CancellationException)throw cause;done(null,"알림 설정을 읽지 못했어요.") } }
+        scope.launch { try { done((if (com.icecream.kwklasplus.core.demo.DemoSession.active) demoEngine else engine)?.settings(),"") } catch(cause: Exception) { if(cause is CancellationException)throw cause;done(null,"알림 설정을 읽지 못했어요.") } }
     }
     fun completeConsent(attempt: Long,done: (String)->Unit) {
-        scope.launch { try { done(consent?.complete(attempt) ?: "CANCELLED") } catch(cause: Exception) { if(cause is CancellationException)throw cause;done("STORAGE_FAILED") } }
+        scope.launch { try {
+            val demo = attempt < 0
+            if (demo && !com.icecream.kwklasplus.core.demo.DemoSession.active) { done("CANCELLED"); return@launch }
+            val selected = if (demo) demoConsent else consent
+            val status = selected?.complete(if (demo) -attempt else attempt) ?: "CANCELLED"
+            if (status == "COMPLETED" && demo) {
+                val h = host ?: run { done("STORAGE_FAILED"); return@launch }
+                val result = awaitString { h.postDemo(it) }
+                done(if (result == "ok") status else "STORAGE_FAILED")
+            } else done(status)
+        } catch(cause: Exception) { if(cause is CancellationException)throw cause;done("STORAGE_FAILED") } }
     }
-    fun cancelConsent(attempt: Long) { scope.launch { consent?.cancel(attempt) } }
+    fun cancelConsent(attempt: Long) { scope.launch { if (attempt < 0) demoConsent?.cancel(-attempt) else consent?.cancel(attempt) } }
     fun allowsPresentation(generation: Long,kind: String,occurrenceId: String,done: (Boolean)->Unit) {
         scope.launch { done(runCatching { engine?.snapshot()?.let { state -> engine?.isReady()==true && kind=="deadline" && state.ownerHash.isNotBlank() && state.generation==generation && state.deadlineEnabled && state.claims.any { it.batchId==occurrenceId && it.ownerHash==state.ownerHash } } ?: false }.getOrDefault(false)) }
     }
     fun isEnabled(done: (Boolean)->Unit) { scope.launch { done(runCatching { engine?.snapshot()?.let { engine?.isReady()==true && it.ownerHash.isNotBlank() && it.deadlineEnabled } ?: false }.getOrDefault(false)) } }
-    suspend fun beginDeadlineRefresh(): ReminderDeadlineTicket? = engine?.beginHomeDeadlineRefresh()
+    suspend fun beginDeadlineRefresh(): ReminderDeadlineTicket? = if (com.icecream.kwklasplus.core.demo.DemoSession.active) null else engine?.beginHomeDeadlineRefresh()
     suspend fun acceptHomeDeadlines(ticket: ReminderDeadlineTicket?,result: com.icecream.kwklasplus.core.academic.DeadlinesResult) { if(ticket!=null)engine?.acceptHomeDeadlines(ticket,result) }
-    fun foreground() { scope.launch { runCatching { engine?.snapshot() } } }
+    fun foreground() { if (com.icecream.kwklasplus.core.demo.DemoSession.active) return; scope.launch { runCatching { engine?.snapshot() } } }
     fun refresh(done: (String)->Unit): IosReminderRefreshTask {
         val job=scope.launch {
-            try { engine?.refresh();done("ok") } catch(cause: Exception) { if(cause is CancellationException)throw cause;done("retry") }
+            try { if (!com.icecream.kwklasplus.core.demo.DemoSession.active) engine?.refresh();done("ok") } catch(cause: Exception) { if(cause is CancellationException)throw cause;done("retry") }
         }
         return IosReminderRefreshTask(job)
     }

@@ -94,6 +94,7 @@ class IosHomeRuntime(
     fun yearHakgiButtonText(value: String): String = AcademicTermDisplay.buttonText(value)
 
     fun onForeground(userAgent: String) {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) { academicWidgets?.refreshIdentity(); return }
         com.icecream.kwklasplus.core.notification.IosReminderRuntime.foreground()
         scope.launch {
             if (dependencies.academicWidgetFlags.cookieSyncNeeded()) {
@@ -105,10 +106,18 @@ class IosHomeRuntime(
     }
 
     fun requestCalendarSync(userAgent: String) {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) return
         scope.launch { academicWidgets?.syncCalendar(userAgent) }
     }
 
     fun logout(onDone: () -> Unit) {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) {
+            searchSnapshot = null
+            ++bootstrapRequestVersion
+            ++feedRequestVersion
+            onDone()
+            return
+        }
         searchSnapshot = null
         searchScope = NSUUID().UUIDString
         ++searchGeneration

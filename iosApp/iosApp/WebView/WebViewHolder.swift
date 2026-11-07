@@ -40,6 +40,18 @@ final class WebViewHolder: NSObject, ObservableObject {
     var onNavigationStateChange: ((WebNavigationState) -> Void)?
 
     static var websiteDataStore: WKWebsiteDataStore { .default() }
+    private static var demoRules: WKContentRuleList?
+
+    static func prepareDemoNetworkRules(completion: @escaping (Bool) -> Void) {
+        if demoRules != nil { completion(true); return }
+        let rules = #"[{"trigger":{"url-filter":"^https?://([^/]+\\.)?kw\\.ac\\.kr[/:]"},"action":{"type":"block"}}]"#
+        WKContentRuleListStore.default().compileContentRuleList(forIdentifier: "klasplus-demo-network", encodedContentRuleList: rules) { list, _ in
+            DispatchQueue.main.async {
+                demoRules = list
+                completion(list != nil)
+            }
+        }
+    }
 
     /// 웹 `bottomNav.js`가 `iOSApp_v숫자`로 앱 WebView를 구분한다. Android `AndroidApp_v`와 별개 토큰이다.
     static var iosAppUserAgentToken: String {
@@ -75,7 +87,13 @@ final class WebViewHolder: NSObject, ObservableObject {
         }
         precondition(!isDisposed, "disposed WebViewHolder는 WKWebView를 다시 생성하지 않는다")
         let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = Self.websiteDataStore
+        configuration.websiteDataStore = DemoSession.shared.active ? .nonPersistent() : Self.websiteDataStore
+        if DemoSession.shared.active {
+            if let rules = Self.demoRules { configuration.userContentController.add(rules) }
+            configuration.userContentController.addUserScript(WKUserScript(
+                source: DemoWebScripts.shared.install().reveal(), injectionTime: .atDocumentStart, forMainFrameOnly: true
+            ))
+        }
         configuration.applicationNameForUserAgent = Self.iosAppUserAgentToken
         if allowsVideoContentHosts {
             configuration.allowsInlineMediaPlayback = true
@@ -213,6 +231,11 @@ final class WebViewHolder: NSObject, ObservableObject {
     }
 
     func presentJavaScriptAlert(message: String, completion: @escaping () -> Void) {
+        if DemoSession.shared.active && message == "데모 모드에서는 학교 페이지를 사용할 수 없어요." {
+            completion()
+            Task { @MainActor in ToastBanner.show(message) }
+            return
+        }
         onJavaScriptAlertReceived?(message)
         if autoDismissJavaScriptAlerts {
             completion()
@@ -343,6 +366,10 @@ final class WebViewHolder: NSObject, ObservableObject {
 
     func handleDecidePolicy(urlString: String, isMainFrame: Bool) -> Bool {
         guard !isDisposed else { return false }
+        if DemoSession.shared.active && DemoWebScripts.shared.isSchoolUrl(url: urlString) {
+            if isMainFrame { javaScriptAlertMessage = "데모 모드에서는 학교 페이지를 사용할 수 없어요." }
+            return false
+        }
         guard isMainFrame else { return true }
         if let url = URL(string: urlString), IosDownloadFileStore.isStoredFile(url) {
             return true

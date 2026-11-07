@@ -1,10 +1,105 @@
 import Foundation
 import Shared
 import XCTest
+import WebKit
 @testable import kw_klas_plus
 
 @MainActor
 final class IosVideoHostTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        if DemoSession.shared.active { DemoSession.shared.end() }
+    }
+
+    func testDemoVideoControlsAndStateWithDeployedPageGlobalsAndRedirect() async throws {
+        XCTAssertTrue(DemoSession.shared.begin(accountId: "0000000000", password: "KlasplusDemo!123"))
+        let coordinator = makeCoordinator()
+        coordinator.handleBootstrap(Self.readyHomeResult())
+        let model = VideoScreenModel(subjectId: "DEMO", yearSemester: "2026,2", sessionToken: nil, coordinator: coordinator)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        let controller = UIViewController()
+        window.rootViewController = controller
+        controller.view.addSubview(model.videoHolder.webView)
+        model.videoHolder.webView.frame = controller.view.bounds
+        window.makeKeyAndVisible()
+        defer {
+            model.videoHolder.dispose()
+            coordinator.dispose()
+            window.isHidden = true
+            DemoSession.shared.end()
+        }
+        // 배포 페이지의 전역 const와 확장자 없는 최종 URL을 함께 재현한다.
+        let sampleURL = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "demo-lecture", withExtension: "mp4"))
+        let sample = try Data(contentsOf: sampleURL).base64EncodedString()
+        let html = DemoPlayer.shared.html()
+            .replacingOccurrences(of: "https://klasplus.yuntae.in/demo/lecture.mp4", with: "data:video/mp4;base64,\(sample)")
+            .replacingOccurrences(of: "autoplay", with: "")
+        model.videoHolder.loadHTML(html, baseURL: URL(string: DemoPlayer.shared.URL)!)
+        try await waitForVideoCondition {
+            try await model.videoHolder.webView.evaluateJavaScript("!!document.querySelector('video') && document.querySelector('video').duration > 0") as? Bool == true
+        }
+        model.handleVideoNavigation(WebNavigationState(loadPhase: .ready(url: "https://klasplus.yuntae.in/demo/native-player?start=0")))
+        try await waitForVideoCondition { model.uiState.totalTime != "00:00" }
+        if model.uiState.isPlaying { model.playPause() }
+        try await waitForVideoCondition { !model.uiState.isPlaying }
+        model.playPause()
+        try await waitForVideoCondition { model.uiState.isPlaying }
+        model.playPause()
+        try await waitForVideoCondition { !model.uiState.isPlaying }
+        model.seekToProgress(0.2)
+        try await waitForVideoCondition { model.uiState.currentTime == "00:24" }
+        model.move(.forward)
+        try await waitForVideoCondition { model.uiState.currentTime == "00:34" }
+        model.move(.backward)
+        try await waitForVideoCondition { model.uiState.currentTime == "00:24" }
+        XCTAssertEqual(model.uiState.totalTime, "02:00")
+        XCTAssertGreaterThan(DemoPlaybackState.shared.duration, 0)
+    }
+
+    func testLiveDemoPlayerControlsThroughNavigationAndBridge() async throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["KLAS_RUN_LIVE_PLAYER"] == "1", "배포 서버 연결을 명시한 경우에만 실행")
+        XCTAssertTrue(DemoSession.shared.begin(accountId: "0000000000", password: "KlasplusDemo!123"))
+        let coordinator = makeCoordinator()
+        coordinator.handleBootstrap(Self.readyHomeResult())
+        let model = VideoScreenModel(subjectId: "DEMO", yearSemester: "2026,2", sessionToken: nil, coordinator: coordinator)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        let controller = UIViewController()
+        window.rootViewController = controller
+        controller.view.addSubview(model.videoHolder.webView)
+        model.videoHolder.webView.frame = controller.view.bounds
+        window.makeKeyAndVisible()
+        defer {
+            model.videoHolder.dispose()
+            coordinator.dispose()
+            window.isHidden = true
+            DemoSession.shared.end()
+        }
+        model.requestOnlineLecture(json: "{}")
+        try await waitForVideoCondition(attempts: 300) { model.uiState.totalTime == "02:00" }
+        XCTAssertTrue(DemoPlayer.shared.isPlayerUrl(url: model.videoHolder.webView.url?.absoluteString ?? ""))
+        if model.uiState.isPlaying { model.playPause() }
+        try await waitForVideoCondition { !model.uiState.isPlaying }
+        model.playPause()
+        try await waitForVideoCondition { model.uiState.isPlaying }
+        model.playPause()
+        try await waitForVideoCondition { !model.uiState.isPlaying }
+        model.seekToProgress(0.2)
+        try await waitForVideoCondition { model.uiState.currentTime == "00:24" }
+        model.move(.forward)
+        try await waitForVideoCondition { model.uiState.currentTime == "00:34" }
+        model.move(.backward)
+        try await waitForVideoCondition { model.uiState.currentTime == "00:24" }
+    }
+
+    private func waitForVideoCondition(attempts: Int = 100, _ condition: () async throws -> Bool) async throws {
+        for _ in 0..<attempts {
+            if try await condition() { return }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        XCTFail("플레이어 상태 콜백이 갱신되지 않음")
+        throw NSError(domain: "DemoVideoTest", code: 1)
+    }
+
     func testOpenVideoPushesDestinationWhenSessionExists() {
         let coordinator = makeCoordinator()
         defer { coordinator.dispose() }
