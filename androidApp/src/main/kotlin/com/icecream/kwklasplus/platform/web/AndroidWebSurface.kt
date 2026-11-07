@@ -102,7 +102,7 @@ class AndroidWebSurface(
 
 open class AndroidWebSurfaceClient(
     private val surface: AndroidWebSurface,
-) : WebViewClient() {
+) : DemoWebViewClient() {
     override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
         super.onPageStarted(view, url, favicon)
         view?.let(AndroidBridgeMessageAdapter::resetForNavigation)

@@ -60,6 +60,10 @@ import com.icecream.kwklasplus.core.web.OnlineContentDecodeResult
 import com.icecream.kwklasplus.core.web.PlayerBridgeCodec
 import com.icecream.kwklasplus.core.web.KlasWebAutomationScripts
 import com.icecream.kwklasplus.core.web.PlayerPlaybackCommand
+import com.icecream.kwklasplus.core.web.PlayerSeekDirection
+import com.icecream.kwklasplus.core.demo.DemoPlayer
+import com.icecream.kwklasplus.core.demo.DemoSession
+import com.icecream.kwklasplus.core.demo.DemoPlaybackState
 import com.icecream.kwklasplus.core.web.PlayerWebScripts
 import com.icecream.kwklasplus.core.media.MediaMetadataResult
 import com.icecream.kwklasplus.core.bridge.BridgeSurface
@@ -269,7 +273,7 @@ class VideoPlayerActivity : AppCompatActivity() {
             disableScrollBars = false
         )
         bridgeMessageAdapters += createBridgeMessageAdapter(KLASWebView, bridgeDelegate)
-        KLASWebView.loadUrl(AppUrls.KLAS_ONLINE_CONTENTS)
+        if (!DemoSession.active) KLASWebView.loadUrl(AppUrls.KLAS_ONLINE_CONTENTS)
 
         VideoWebView.configureAppWebView(
             allowFileAccess = true,
@@ -400,8 +404,10 @@ class VideoPlayerActivity : AppCompatActivity() {
                     completion?.invoke()
                     return
                 }
-                if (stoppingPlayback || !url.isTrustedKlasContentUrl()) return
-                VideoWebView.executeWebScript(PlayerWebScripts.monitorStateWhenReady())
+                if (stoppingPlayback || (!url.isTrustedKlasContentUrl() && !(DemoSession.active && DemoPlayer.isPlayerUrl(url)))) return
+                VideoWebView.executeWebScript(if (DemoSession.active) {
+                    DemoPlayer.installController()
+                } else PlayerWebScripts.monitorStateWhenReady())
                 hideController()
             }
         }
@@ -640,6 +646,18 @@ class VideoPlayerActivity : AppCompatActivity() {
     }
 
     private fun pressKey(keyCode: Int) {
+        if (DemoSession.active) {
+            val script = when (keyCode) {
+                KeyEvent.KEYCODE_SPACE -> PlayerWebScripts.playback(if (isPlaying) PlayerPlaybackCommand.PAUSE else PlayerPlaybackCommand.PLAY)
+                KeyEvent.KEYCODE_DPAD_LEFT -> PlayerWebScripts.move(PlayerSeekDirection.BACKWARD)
+                KeyEvent.KEYCODE_DPAD_RIGHT -> PlayerWebScripts.move(PlayerSeekDirection.FORWARD)
+                KeyEvent.KEYCODE_M -> PlayerWebScripts.mute(!playerUiState.isMuted)
+                KeyEvent.KEYCODE_F -> if (isFullscreen) PlayerWebScripts.closeFullScreenIfAvailable() else PlayerWebScripts.openFullScreenIfAvailable()
+                else -> return
+            }
+            VideoWebView.executeWebScript(script)
+            return
+        }
         val eventTime = SystemClock.uptimeMillis()
         VideoWebView.dispatchKeyEvent(
             KeyEvent(
@@ -979,6 +997,21 @@ class VideoBridgeDelegate(private val videoPlayerActivity: VideoPlayerActivity) 
 
     fun requestOnlineLecture(jsonData: String) {
         mainHandler.post {
+            if (DemoSession.active) {
+                videoPlayerActivity.withSinglePlayback {
+                    videoPlayerActivity.isPlaying = false
+                    videoPlayerActivity.hasPlaybackSession = false
+                    videoPlayerActivity.playerUiState = VideoPlayerUiState()
+                    videoPlayerActivity.lastPlaytime = DemoPlaybackState.position.toFloat()
+                    videoPlayerActivity.VideoWebView.loadUrl(DemoPlayer.URL + "?start=" + DemoPlaybackState.position)
+                    videoPlayerActivity.playerUiState = videoPlayerActivity.playerUiState.copy(lectureName = "프로그래밍 시작하기 · 데모")
+                    videoPlayerActivity.isPlayerVisible = true
+                    videoPlayerActivity.videoPlayerLayout.visibility = View.VISIBLE
+                    videoPlayerActivity.listLayout.visibility = View.GONE
+                    videoPlayerActivity.KLASListLayout.visibility = View.GONE
+                }
+                return@post
+            }
             val decoded = playerBridgeCodec.decodeOnlineContent(jsonData)
             if (decoded !is OnlineContentDecodeResult.Success) {
                 MaterialAlertDialogBuilder(videoPlayerActivity)
@@ -1017,6 +1050,7 @@ class VideoBridgeDelegate(private val videoPlayerActivity: VideoPlayerActivity) 
                 isPlaying,
                 isFullscreen,
             )
+            if (DemoSession.active) DemoPlaybackState.record(state.currentSeconds.toDouble(), state.durationSeconds.toDouble())
             val playbackChanged = videoPlayerActivity.isPlaying != state.isPlaying
             videoPlayerActivity.isPlaying = state.isPlaying
             videoPlayerActivity.onPlayerReady(state.durationSeconds)

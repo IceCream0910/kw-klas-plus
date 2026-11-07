@@ -150,6 +150,15 @@ class LectureActivity : AppCompatActivity() {
         ).also { it.install() }
         uiWebView.overScrollMode = WebView.OVER_SCROLL_NEVER
         uiWebView.webViewClient = AndroidWebSurfaceClient(uiSurface)
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) {
+            uiWebView.webChromeClient = object : WebChromeClient() {
+                override fun onJsAlert(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
+                    result?.confirm()
+                    if (!message.isNullOrBlank()) Toast.makeText(this@LectureActivity, message, Toast.LENGTH_LONG).show()
+                    return true
+                }
+            }
+        }
         uiWebView.loadUrl(AppUrls.LECTURE_HOME)
         appDependencies.fileTransfer(this).attachTo(uiWebView)
 
@@ -302,6 +311,12 @@ class LectureActivity : AppCompatActivity() {
                 message: String?,
                 result: JsResult?
             ): Boolean {
+                if (com.icecream.kwklasplus.core.demo.DemoSession.active &&
+                    message == "데모 모드에서는 학교 페이지를 사용할 수 없어요.") {
+                    result?.confirm()
+                    Toast.makeText(this@LectureActivity, message, Toast.LENGTH_LONG).show()
+                    return true
+                }
                 runOnUiThread {
                     if(!isFinishing) {
                         val builder = MaterialAlertDialogBuilder(this@LectureActivity)
@@ -445,8 +460,8 @@ internal class LectureBoardPaths {
     fun isSupportedType(type: String): Boolean = type == "notice" || type == "pds"
 
     fun pathFor(type: String): String? = when (type) {
-        "notice" -> noticePath
-        "pds" -> pdsPath
+        "notice" -> if (com.icecream.kwklasplus.core.demo.DemoSession.active) "d052b8f845784c639f036b102fdc3023" else noticePath
+        "pds" -> if (com.icecream.kwklasplus.core.demo.DemoSession.active) "6972896bfe72408eb72926780e85d041" else pdsPath
         else -> return null
     }.takeIf(String::isNotBlank)
 }

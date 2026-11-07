@@ -20,7 +20,7 @@ import com.icecream.kwklasplus.core.web.WebScript
 import com.icecream.kwklasplus.core.session.AndroidWebCookieStore
 
 val Context.appPreferences: SharedPreferences
-    get() = getSharedPreferences(AppPrefs.MAIN, Context.MODE_PRIVATE)
+    get() = getSharedPreferences(if (com.icecream.kwklasplus.core.demo.DemoSession.active) "klasplus_demo" else AppPrefs.MAIN, Context.MODE_PRIVATE)
 
 val Context.encryptedPreferences: SharedPreferences
     get() {
@@ -54,6 +54,7 @@ val Context.libraryEncryptedCachePreferences: SharedPreferences
     }
 
 fun Context.getLibraryPassword(): String? {
+    if (com.icecream.kwklasplus.core.demo.DemoSession.active) return ""
     val encryptedPrefs = encryptedPreferences
     val regularPrefs = appPreferences
     

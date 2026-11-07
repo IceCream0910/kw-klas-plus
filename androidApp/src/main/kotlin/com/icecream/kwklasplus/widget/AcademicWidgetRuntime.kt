@@ -38,6 +38,7 @@ class AcademicWidgetRuntime(private val context: Context) {
     }
 
     fun start() {
+        com.icecream.kwklasplus.core.demo.DemoSession.onEnd { render() }
         context.appPreferences.registerOnSharedPreferenceChangeListener(listener)
         WidgetDisplayRefresh.start(context)
         immediateScope.launch {
@@ -58,6 +59,7 @@ class AcademicWidgetRuntime(private val context: Context) {
     }
 
     private suspend fun refreshIdentity() {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) return
         val next = identity()
         var changed = next != identity
         if (next != identity) { generation++; identity = next }
@@ -76,6 +78,7 @@ class AcademicWidgetRuntime(private val context: Context) {
     }
 
     fun snapshot(): AcademicWidgetSnapshot? {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active && com.icecream.kwklasplus.core.demo.DemoSession.hasSession) return com.icecream.kwklasplus.core.demo.DemoWidgetFixtures.snapshot("demo", System.currentTimeMillis(), java.time.LocalDate.now().toString())
         if (setupIncomplete()) return null
         val key = identity()
         return snapshotCache?.takeIf { key.first.isNotBlank() && it.owner == key.first && it.term == key.second }
@@ -93,6 +96,7 @@ class AcademicWidgetRuntime(private val context: Context) {
     }
 
     fun foreground() {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) { render(); return }
         render()
         if (setupIncomplete()) return
         AcademicWidgetScheduler.schedule(context)
@@ -175,7 +179,7 @@ class AcademicWidgetRuntime(private val context: Context) {
         }
     }
 
-    private fun setupIncomplete(): Boolean = LoginFunnelStatus.blocksHome(
+    private fun setupIncomplete(): Boolean = com.icecream.kwklasplus.core.demo.DemoSession.active || LoginFunnelStatus.blocksHome(
         context.appPreferences.getString(LoginFunnelStatus.KEY, null),
     )
 

@@ -57,6 +57,12 @@ class MainActivity : AppCompatActivity() {
 
         lockPortraitOnPhone()
 
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) {
+            startActivity(Intent(this, HomeActivity::class.java))
+            finish()
+            return
+        }
+
         if (LoginFunnelStatus.blocksHome(appPreferences.getString(LoginFunnelStatus.KEY, null))) {
             finish()
             startActivity(WidgetNavigation.forward(intent, Intent(this, LoginActivity::class.java)))

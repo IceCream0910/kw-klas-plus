@@ -291,6 +291,24 @@ class LoginActivity : AppCompatActivity() {
 
     private fun submitLogin() {
         if (password.isEmpty()) return
+        if (com.icecream.kwklasplus.core.demo.DemoSession.isDemoAccount(studentId)) {
+            val accepted = com.icecream.kwklasplus.core.demo.DemoSession.begin(studentId, password)
+            password = ""
+            if (!accepted) {
+                failLogin("학번 또는 비밀번호를 확인해 주세요.")
+                return
+            }
+            appDependencies.sessionKeepAlive.onSessionCleared()
+            if (!appPreferences.edit().clear().putBoolean("demo_session_active", true).putString(AppPrefs.KW_ID, studentId)
+                    .putString(LoginFunnelStatus.KEY, LoginFunnelStatus.COMPLETE).commit()) {
+                com.icecream.kwklasplus.core.demo.DemoSession.end()
+                failLogin("로그인 상태를 저장하지 못했어요. 다시 시도해 주세요.")
+                return
+            }
+            startActivity(Intent(this, HomeActivity::class.java))
+            finish()
+            return
+        }
         if (studentId.length != LoginUiState.STUDENT_ID_LENGTH) {
             funnelError = "학번을 확인해 주세요."
             return

@@ -17,7 +17,7 @@ import kotlinx.coroutines.*
 class AcademicReminderRuntime(private val context: Context) {
     private val scope=CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
     val platform=AndroidReminderPlatform(context,MainActivity::class.java,R.drawable.ic_academic_reminder)
-    val engine=ReminderEngine(AndroidReminderStore(context),platform,ReminderIdentityProvider {
+    private val realEngine=ReminderEngine(AndroidReminderStore(context),platform,ReminderIdentityProvider {
         ReminderIdentity(context.appPreferences.getString("kwID",null).orEmpty(),context.appPreferences.getString("yearHakgi",null).orEmpty(),!LoginFunnelStatus.blocksHome(context.appPreferences.getString(LoginFunnelStatus.KEY,null)),context.appPreferences.getString(LoginFunnelStatus.KEY,null) in listOf(LoginFunnelStatus.SETUP,LoginFunnelStatus.COMPLETE))
     },SessionRefreshingReminderSource(context.appDependencies.reminderSource) {
         val dependencies=context.appDependencies
@@ -26,17 +26,40 @@ class AcademicReminderRuntime(private val context: Context) {
     },Clock(System::currentTimeMillis),ReminderDeliveryGate {
         !ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
     })
+    init { com.icecream.kwklasplus.core.demo.DemoSession.onEnd { platform.cancelDemo() } }
+    private val demoEngine by lazy { com.icecream.kwklasplus.core.demo.DemoReminderFactory.create(platform, Clock(System::currentTimeMillis)) }
+    val engine get() = if (com.icecream.kwklasplus.core.demo.DemoSession.active) demoEngine else realEngine
+    private val demoConsent by lazy { DeadlineNotificationConsent(demoEngine) { platform.cancelDemo() } }
+    val consent get() = if (com.icecream.kwklasplus.core.demo.DemoSession.active) demoConsent else realConsent
+    fun scheduleDemoNotification() {
+        if (!com.icecream.kwklasplus.core.demo.DemoSession.active) return
+        val generation = com.icecream.kwklasplus.core.demo.DemoSession.generation
+        scope.launch {
+            delay(5_000)
+            if (com.icecream.kwklasplus.core.demo.DemoSession.active && com.icecream.kwklasplus.core.demo.DemoSession.generation == generation && demoEngine.settings().enabled) {
+                platform.postDemo(generation)
+            }
+        }
+    }
     private val mutableSettingsRevision=kotlinx.coroutines.flow.MutableStateFlow(0L)
     val settingsRevision: kotlinx.coroutines.flow.StateFlow<Long> = mutableSettingsRevision
-    val consent=DeadlineNotificationConsent(engine) {
+    private val realConsent=DeadlineNotificationConsent(realEngine) {
         mutableSettingsRevision.value+=1
         foreground()
     }
-    fun cancelConsent(attempt: Long) { scope.launch { consent.cancel(attempt) } }
-    fun foreground() { scope.launch { runCatching { engine.snapshot();updateJobs() } } }
+    fun cancelConsent(attempt: Long) { scope.launch { if (attempt < 0) demoConsent.cancel(-attempt) else realConsent.cancel(attempt) } }
+    suspend fun completeConsent(attempt: Long): String {
+        if (attempt < 0) {
+            if (!com.icecream.kwklasplus.core.demo.DemoSession.active) return "CANCELLED"
+            return demoConsent.complete(-attempt)
+        }
+        return realConsent.complete(attempt)
+    }
+    fun foreground() { if (com.icecream.kwklasplus.core.demo.DemoSession.active) return; scope.launch { runCatching { engine.snapshot();updateJobs() } } }
     fun requestRefresh(done: () -> Unit = {}) { scope.launch { try { runCatching { updateJobs();engine.refresh() } } finally { done() } } }
     suspend fun logout() { try { engine.clear() } finally { context.getSystemService(JobScheduler::class.java).cancel(JOB) } }
     suspend fun updateJobs() {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) return
         val state=engine.snapshot();val scheduler=context.getSystemService(JobScheduler::class.java)
         if(engine.isReady() && state.ownerHash.isNotBlank() && state.deadlineEnabled) {
             val pending=scheduler.getPendingJob(JOB)
@@ -52,7 +75,7 @@ class AcademicReminderRuntime(private val context: Context) {
     }
     fun wrap(activity: Activity,fallback: BridgeCommandHandler)=ReminderBridgeHandler(consent,ReminderSettingsUi { attempt ->
         if(activity.isFinishing || activity.isDestroyed)false else {
-            activity.runOnUiThread { activity.startActivity(Intent(activity,DeadlineNotificationSettingsActivity::class.java).putExtra("consent_attempt",attempt)) };true
+            activity.runOnUiThread { activity.startActivity(Intent(activity,DeadlineNotificationSettingsActivity::class.java).putExtra("consent_attempt",if (com.icecream.kwklasplus.core.demo.DemoSession.active) -attempt else attempt)) };true
         }
     },fallback)
     companion object {

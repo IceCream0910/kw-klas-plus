@@ -14,10 +14,38 @@ import androidx.test.espresso.matcher.ViewMatchers.withText
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import com.icecream.kwklasplus.VideoPlayerActivity
+import com.icecream.kwklasplus.VideoBridgeDelegate
+import com.icecream.kwklasplus.core.demo.DemoSession
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
 import org.junit.Test
 
 class VideoPlayerTransitionTest {
+    @Test
+    fun demoLectureAcquiresPlaybackAndAcceptsStateCallbacks() {
+        assertTrue(DemoSession.begin("0000000000", "KlasplusDemo!123"))
+        try {
+            val intent = Intent(ApplicationProvider.getApplicationContext(), VideoPlayerActivity::class.java)
+            ActivityScenario.launch<VideoPlayerActivity>(intent).use { scenario ->
+                scenario.onActivity { activity -> VideoBridgeDelegate(activity).requestOnlineLecture("{}") }
+                InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+                scenario.onActivity { activity ->
+                    assertTrue(activity.ownsPlayback())
+                    VideoBridgeDelegate(activity).receivePlayerStates("25", "120", "false", "true", "false")
+                }
+                InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+                scenario.onActivity { activity ->
+                    assertTrue(activity.hasPlaybackSession)
+                    assertTrue(activity.playerUiState.isPlaying)
+                    assertEquals("00:25", activity.playerUiState.currentTime)
+                    assertEquals("02:00", activity.playerUiState.totalTime)
+                }
+            }
+        } finally {
+            DemoSession.end()
+        }
+    }
+
     @Test
     fun pipCloseImmediatelyReleasesPlaybackAndDetachesWebViews() {
         val intent = Intent(ApplicationProvider.getApplicationContext(), VideoPlayerActivity::class.java)
