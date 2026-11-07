@@ -276,9 +276,9 @@ object PlayerWebScripts {
             "position=position<0?0:position;"
         }
         return WebScript(
-            "var player=bcPlayController.getPlayController();if(player._duration){" +
+            "(function(){var player=bcPlayController.getPlayController();if(player._duration){" +
                 "var position=player._currTime$operation VCPlayControllerMedia.MOVING_TIME;$boundary" +
-                "player.changeCurrTimeManually(position,VCPlayControllerEvent.SEEK_END);}",
+                "player.changeCurrTimeManually(position,VCPlayControllerEvent.SEEK_END);}})();",
         )
     }
 

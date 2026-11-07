@@ -16,9 +16,11 @@ class SessionCoordinator(
     private var generation = 0L
     private var backgroundReauthenticationAllowed = true
 
-    suspend fun checkpoint(): Long = mutate { currentGeneration() }
+    suspend fun checkpoint(): Long = if (com.icecream.kwklasplus.core.demo.DemoSession.active) com.icecream.kwklasplus.core.demo.DemoSession.generation else mutate { currentGeneration() }
 
-    suspend fun restore(): SessionResult = mutateSession { restoreLocked() }
+    suspend fun restore(): SessionResult = if (com.icecream.kwklasplus.core.demo.DemoSession.active) {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.hasSession) SessionResult.Active(com.icecream.kwklasplus.core.demo.DemoSession.session(clock.nowEpochMillis())) else SessionResult.Missing
+    } else mutateSession { restoreLocked() }
 
     private suspend fun restoreLocked(): SessionResult {
         val stored = try {
@@ -76,7 +78,10 @@ class SessionCoordinator(
         }
     }
 
-    suspend fun expire(): SessionResult = mutateSession {
+    suspend fun expire(): SessionResult = if (com.icecream.kwklasplus.core.demo.DemoSession.active) {
+        com.icecream.kwklasplus.core.demo.DemoSession.expire()
+        SessionResult.Expired
+    } else mutateSession {
         advanceGeneration(false)
         backgroundReauthenticationAllowed = false
         try {
@@ -112,7 +117,7 @@ class SessionCoordinator(
     }
 
     private suspend fun mutateSession(block: suspend () -> SessionResult): SessionResult = try {
-        mutate(block)
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) SessionResult.Expired else mutate(block)
     } catch (cause: CancellationException) {
         throw cause
     } catch (cause: Throwable) {
