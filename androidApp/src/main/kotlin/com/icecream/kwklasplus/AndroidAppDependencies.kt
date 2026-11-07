@@ -22,7 +22,7 @@ class AndroidAppDependencies(context: Context) {
     internal val appLockPreferences: SharedPreferences = applicationContext.encryptedPreferences
     private val shared = AndroidSharedDependencies(
         context = applicationContext,
-        preferences = applicationContext.appPreferences,
+        preferences = applicationContext.accountPreferences,
         encryptedPreferences = appLockPreferences,
         libraryCachePreferences = applicationContext.libraryQrCachePreferences,
         libraryEncryptedPreferences = applicationContext.libraryEncryptedCachePreferences,

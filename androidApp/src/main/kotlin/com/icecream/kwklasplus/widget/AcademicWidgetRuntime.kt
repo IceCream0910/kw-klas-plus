@@ -15,6 +15,7 @@ import java.security.MessageDigest
 import java.time.YearMonth
 
 class AcademicWidgetRuntime(private val context: Context) {
+    private val preferences = context.accountPreferences
     private val persistence = AcademicWidgetSnapshotPersistence(AndroidAcademicWidgetSnapshotStore(context))
     private val syncMutex = Mutex()
     private val immediateScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -22,6 +23,7 @@ class AcademicWidgetRuntime(private val context: Context) {
     private val immediateRefreshLock = Any()
     private val immediateRefreshCallbacks = mutableListOf<() -> Unit>()
     private var immediateRefreshActive = false
+    private var started = false
     @Volatile
     var calendarLoading: Boolean = false
         private set
@@ -38,8 +40,16 @@ class AcademicWidgetRuntime(private val context: Context) {
     }
 
     fun start() {
-        com.icecream.kwklasplus.core.demo.DemoSession.onEnd { render() }
-        context.appPreferences.registerOnSharedPreferenceChangeListener(listener)
+        if (started) return
+        started = true
+        com.icecream.kwklasplus.core.demo.DemoSession.onEnd {
+            immediateScope.launch {
+                initialized.await()
+                refreshIdentity()
+                render()
+            }
+        }
+        preferences.registerOnSharedPreferenceChangeListener(listener)
         WidgetDisplayRefresh.start(context)
         immediateScope.launch {
             val loaded = persistence.read()
@@ -52,10 +62,10 @@ class AcademicWidgetRuntime(private val context: Context) {
     }
 
     private fun identity(): Pair<String, String> {
-        val account = context.appPreferences.getString(AppPrefs.KW_ID, "").orEmpty()
+        val account = preferences.getString(AppPrefs.KW_ID, "").orEmpty()
         val owner = if (account.isBlank()) "" else MessageDigest.getInstance("SHA-256")
             .digest(account.toByteArray()).joinToString("") { "%02x".format(it) }
-        return owner to context.appPreferences.getString(AppPrefs.YEAR_HAKGI, "").orEmpty()
+        return owner to preferences.getString(AppPrefs.YEAR_HAKGI, "").orEmpty()
     }
 
     private suspend fun refreshIdentity() {
@@ -180,7 +190,7 @@ class AcademicWidgetRuntime(private val context: Context) {
     }
 
     private fun setupIncomplete(): Boolean = com.icecream.kwklasplus.core.demo.DemoSession.active || LoginFunnelStatus.blocksHome(
-        context.appPreferences.getString(LoginFunnelStatus.KEY, null),
+        preferences.getString(LoginFunnelStatus.KEY, null),
     )
 
     private suspend fun markStatus(status: WidgetSyncStatus) {

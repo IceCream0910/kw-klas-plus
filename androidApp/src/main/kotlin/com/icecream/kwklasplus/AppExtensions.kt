@@ -19,8 +19,14 @@ import com.icecream.kwklasplus.core.platform.ExternalNavigationResolution
 import com.icecream.kwklasplus.core.web.WebScript
 import com.icecream.kwklasplus.core.session.AndroidWebCookieStore
 
+val Context.accountPreferences: SharedPreferences
+    get() = getSharedPreferences(AppPrefs.MAIN, Context.MODE_PRIVATE)
+
+val Context.demoPreferences: SharedPreferences
+    get() = getSharedPreferences("klasplus_demo", Context.MODE_PRIVATE)
+
 val Context.appPreferences: SharedPreferences
-    get() = getSharedPreferences(if (com.icecream.kwklasplus.core.demo.DemoSession.active) "klasplus_demo" else AppPrefs.MAIN, Context.MODE_PRIVATE)
+    get() = if (com.icecream.kwklasplus.core.demo.DemoSession.active) demoPreferences else accountPreferences
 
 val Context.encryptedPreferences: SharedPreferences
     get() {
