@@ -118,6 +118,7 @@ jobs:
           -archivePath '${{ runner.temp }}/ios-release.xcarchive'
           -derivedDataPath '${{ runner.temp }}/ios-release-derived-data'
           CODE_SIGNING_ALLOWED=NO
+          SENTRY_AUTO_UPLOAD=false
           archive
 
       - name: Verify app, widget and debug symbols

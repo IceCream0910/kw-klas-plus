@@ -176,6 +176,7 @@
 				479CF29EE9696AFFE5113468 /* Frameworks */,
 				425A3D07AE554C1A7147C63D /* Resources */,
 				WDG10007A5ED6EA33B3393BB /* Embed Foundation Extensions */,
+				5E1700020000000000000001 /* Upload Sentry Symbols */,
 			);
 			buildRules = (
 			);
@@ -345,6 +346,23 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		5E1700020000000000000001 /* Upload Sentry Symbols */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/scripts/upload-sentry-symbols.sh",
+				"$(SENTRY_DSYM_INPUT)",
+			);
+			name = "Upload Sentry Symbols";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"$SRCROOT/scripts/upload-sentry-symbols.sh\"\n";
+		};
 		0FFCA9285D8D84F3D4C84A76 /* Compile Kotlin Framework */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -472,6 +490,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				SENTRY_DSYM_INPUT = "$(SRCROOT)/scripts/upload-sentry-symbols.sh";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -536,6 +555,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				SENTRY_DSYM_INPUT = "$(DWARF_DSYM_FOLDER_PATH)/$(DWARF_DSYM_FILE_NAME)/Contents/Resources/DWARF/$(EXECUTABLE_NAME)";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
