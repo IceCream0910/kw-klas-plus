@@ -1,5 +1,6 @@
 import Foundation
 import Shared
+import SwiftUI
 import XCTest
 import WebKit
 @testable import kw_klas_plus
@@ -1013,6 +1014,116 @@ final class IosVideoHostTests: XCTestCase {
         XCTAssertTrue(model.lastKlasScriptSource!.contains("appModule.goViewCntnts"))
     }
 
+    func testReopeningVideoScreenWithVisiblePlayerKeepsWebViewAttachedInLandscape() async throws {
+        try await assertPlayerWebViewAttachedAfterReopeningVideoScreen(
+            windowSize: CGSize(width: 1024, height: 768)
+        )
+    }
+
+    func testReopeningVideoScreenWithVisiblePlayerKeepsWebViewAttachedInPortrait() async throws {
+        try await assertPlayerWebViewAttachedAfterReopeningVideoScreen(
+            windowSize: CGSize(width: 768, height: 1024)
+        )
+    }
+
+    func testPlayerWebViewStaysAttachedWhenLayoutSwitchesBetweenPortraitAndLandscape() async throws {
+        // KLAS 페이지 로딩 콜백이 플레이어 표시 상태를 바꾸지 않도록 데모 세션으로 격리한다.
+        XCTAssertTrue(DemoSession.shared.begin(accountId: "0000000000", password: "KlasplusDemo!123"))
+        let coordinator = makeCoordinator()
+        coordinator.handleBootstrap(Self.readyHomeResult())
+        let model = track(coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1"))
+        let navigation = VideoTestNavigation()
+        let window = makeVideoWindow(
+            size: CGSize(width: 768, height: 1024),
+            navigation: navigation,
+            coordinator: coordinator
+        )
+        defer {
+            window.isHidden = true
+            coordinator.dispose()
+            DemoSession.shared.end()
+        }
+        let webView = model.videoHolder.webView
+
+        navigation.isVideoPushed = true
+        try await waitForVideoCondition { webView.window != nil }
+        showPlayer(model)
+        try await waitForStablePlayerWebView(webView)
+
+        window.frame = CGRect(x: 0, y: 0, width: 1024, height: 768)
+        try await waitForVideoCondition { webView.frame.width < 1024 - 380 }
+        try await waitForStablePlayerWebView(webView)
+        XCTAssertLessThanOrEqual(webView.convert(webView.bounds, to: window).maxX, 1024 - 380)
+
+        window.frame = CGRect(x: 0, y: 0, width: 768, height: 1024)
+        try await waitForVideoCondition { webView.frame.width == 768 }
+        try await waitForStablePlayerWebView(webView)
+    }
+
+    private func assertPlayerWebViewAttachedAfterReopeningVideoScreen(windowSize: CGSize) async throws {
+        // KLAS 페이지 로딩 콜백이 플레이어 표시 상태를 바꾸지 않도록 데모 세션으로 격리한다.
+        XCTAssertTrue(DemoSession.shared.begin(accountId: "0000000000", password: "KlasplusDemo!123"))
+        let coordinator = makeCoordinator()
+        coordinator.handleBootstrap(Self.readyHomeResult())
+        let model = track(coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1"))
+        let navigation = VideoTestNavigation()
+        let window = makeVideoWindow(size: windowSize, navigation: navigation, coordinator: coordinator)
+        defer {
+            window.isHidden = true
+            coordinator.dispose()
+            DemoSession.shared.end()
+        }
+        let webView = model.videoHolder.webView
+
+        navigation.isVideoPushed = true
+        try await waitForVideoCondition { webView.window != nil }
+        showPlayer(model)
+        try await waitForStablePlayerWebView(webView)
+
+        // 빈 WebView에서는 PiP 상태 조회가 종료로 판정되므로 PiP 진입·복귀의 화면 전환만 재현한다.
+        model.isPlayerVisible = false
+        navigation.isVideoPushed = false
+        try await waitForVideoCondition { !coordinator.isVideoScreenPresented && webView.window == nil }
+
+        model.isPlayerVisible = true
+        navigation.isVideoPushed = true
+        try await waitForStablePlayerWebView(webView)
+
+        XCTAssertTrue(model.isPlayerVisible)
+        XCTAssertEqual(webView.alpha, 1)
+        let frame = webView.convert(webView.bounds, to: window)
+        XCTAssertTrue(window.bounds.contains(frame), "플레이어 WebView가 화면 밖에 배치됨: \(frame)")
+        XCTAssertEqual(frame.width / frame.height, 16.0 / 9.0, accuracy: 0.02)
+    }
+
+    private func makeVideoWindow(
+        size: CGSize,
+        navigation: VideoTestNavigation,
+        coordinator: HomeCoordinator
+    ) -> UIWindow {
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        let window = scene.map { UIWindow(windowScene: $0) } ?? UIWindow(frame: .zero)
+        window.frame = CGRect(origin: .zero, size: size)
+        window.rootViewController = UIHostingController(
+            rootView: VideoTestRoot(navigation: navigation, coordinator: coordinator)
+        )
+        window.makeKeyAndVisible()
+        return window
+    }
+
+    // 첫 레이아웃에서 잠깐 붙었다가 떨어지는 경우를 걸러내기 위해 연속으로 붙어 있는지 확인한다.
+    private func waitForStablePlayerWebView(_ webView: WKWebView, requiredPolls: Int = 10) async throws {
+        var stablePolls = 0
+        for _ in 0..<100 {
+            let attached = webView.window != nil && webView.frame.width > 0 && webView.frame.height > 0
+            stablePolls = attached ? stablePolls + 1 : 0
+            if stablePolls >= requiredPolls { return }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        XCTFail("플레이어 WebView가 화면 계층에 붙어 있지 않음")
+        throw NSError(domain: "VideoLayoutTest", code: 1)
+    }
+
     private func makeCoordinator() -> HomeCoordinator {
         let suite = "com.icecream.kwklasplus.test.video.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
@@ -1032,5 +1143,29 @@ final class IosVideoHostTests: XCTestCase {
             deadlineJson: "[]",
             promptYearHakgiChange: false
         )
+    }
+}
+
+@MainActor
+private final class VideoTestNavigation: ObservableObject {
+    @Published var isVideoPushed = false
+}
+
+private struct VideoTestRoot: View {
+    @ObservedObject var navigation: VideoTestNavigation
+    let coordinator: HomeCoordinator
+
+    var body: some View {
+        NavigationStack {
+            Color.clear
+                .navigationDestination(isPresented: $navigation.isVideoPushed) {
+                    VideoView(
+                        subjectId: "SUBJ01",
+                        yearSemester: "2026,1",
+                        sessionToken: nil,
+                        coordinator: coordinator
+                    )
+                }
+        }
     }
 }
