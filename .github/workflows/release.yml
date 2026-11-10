@@ -125,8 +125,10 @@ jobs:
         shell: bash
         run: |
           archive='${{ runner.temp }}/ios-release.xcarchive'
-          test -d "$archive/Products/Applications/KLAS+.app"
-          test -d "$archive/Products/Applications/KLAS+.app/PlugIns/LibraryQRWidget.appex"
+          app="$archive/Products/Applications/KLAS+.app"
+          test -d "$app/PlugIns/LibraryQRWidget.appex"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist")" = KLASPlus
+          test -x "$app/KLASPlus"
           test -n "$(find "$archive/dSYMs" -name '*.dSYM' -print -quit)"
 
       - name: Upload unsigned iOS archive
