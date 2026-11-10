@@ -33,29 +33,24 @@ struct VideoPlayerOverlay<Media: View>: View {
     var body: some View {
         GeometryReader { proxy in
             let isLandscape = proxy.size.width > proxy.size.height
-            if isLandscape {
-                HStack(spacing: 20) {
-                    media()
-                        .aspectRatio(16 / 9, contentMode: .fit)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    ScrollView(.vertical, showsIndicators: false) {
-                        playerControls
-                            .frame(maxWidth: .infinity)
-                            .frame(minHeight: max(0, proxy.size.height - 40), alignment: .center)
-                    }
-                    .frame(width: min(380, proxy.size.width * 0.45))
-                }
-                .padding(20)
-            } else {
+            // 방향이 바뀌어도 media()가 같은 뷰로 유지되어야 한다.
+            // 분기마다 따로 만들면 같은 WKWebView를 공유하는 컨테이너가 교체되면서 WebView가 화면에서 떨어진다.
+            let layout = isLandscape
+                ? AnyLayout(HStackLayout(spacing: 20))
+                : AnyLayout(VStackLayout(spacing: 16))
+            layout {
+                media()
+                    .aspectRatio(16 / 9, contentMode: .fit)
+                    .frame(maxWidth: .infinity, maxHeight: isLandscape ? .infinity : nil)
+                    .layoutPriority(1)
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 16) {
-                        media()
-                            .aspectRatio(16 / 9, contentMode: .fit)
-                            .frame(maxWidth: .infinity)
-                        playerControls
-                    }
+                    playerControls
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: isLandscape ? max(0, proxy.size.height - 40) : nil, alignment: .center)
                 }
+                .frame(width: isLandscape ? min(380, proxy.size.width * 0.45) : nil)
             }
+            .padding(isLandscape ? 20 : 0)
         }
         .background(KlasTheme.background)
         .accessibilityIdentifier("video_player_overlay")
