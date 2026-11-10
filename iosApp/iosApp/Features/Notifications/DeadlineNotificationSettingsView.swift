@@ -23,7 +23,7 @@ struct DeadlineNotificationSettingsView: View {
                     ProgressView()
                     Text("알림 설정을 확인하고 있어요.").font(.footnote)
                 } else {
-                    Text(completed ? "앱을 사용하고 있지 않을 때, 주기적으로 24시간 이내에 마감되는 할 일이 있는지 확인해서 알림을 보내줄게요." : "24시간 이내에 마감되는 할 일을 모아 알림으로 받아보세요.").font(.subheadline)
+                    Text(completed && DemoSession.shared.active ? "5초 뒤 테스트 알림을 보내드려요. 이 기기의 실제 알림 기능을 사용해요." : completed ? "앱을 사용하고 있지 않을 때, 주기적으로 24시간 이내에 마감되는 할 일이 있는지 확인해서 알림을 보내줄게요." : "24시간 이내에 마감되는 할 일을 모아 알림으로 받아보세요.").font(.subheadline)
                     if completed {
                         Text("동일한 항목은 하루에 한 번만 발송되며, 기기 상태에 따라 알림이 늦어질 수 있어요.").font(.caption).foregroundStyle(.secondary)
                     } else {

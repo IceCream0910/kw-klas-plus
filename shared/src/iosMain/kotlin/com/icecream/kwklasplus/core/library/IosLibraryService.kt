@@ -41,6 +41,7 @@ class IosLibraryService(
     private var cachedPassword: String? = null
 
     fun hasConfiguredCredentials(): Boolean {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) return true
         val student = storedStudentNumber()
         val phone = storedPhoneNumber()
         val password = passwordNow()
@@ -48,12 +49,12 @@ class IosLibraryService(
     }
 
     fun settingsStudentNumber(): String =
-        storedStudentNumber()?.takeIf { it.isNotBlank() }
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) com.icecream.kwklasplus.core.demo.DemoSession.ACCOUNT_ID else storedStudentNumber()?.takeIf { it.isNotBlank() }
             ?: defaults.stringForKey(LegacyPreferenceKeys.KW_ID).orEmpty()
 
-    fun settingsPhoneNumber(): String = storedPhoneNumber().orEmpty()
+    fun settingsPhoneNumber(): String = if (com.icecream.kwklasplus.core.demo.DemoSession.active) "01000000000" else storedPhoneNumber().orEmpty()
 
-    fun settingsPassword(): String = passwordNow().orEmpty()
+    fun settingsPassword(): String = if (com.icecream.kwklasplus.core.demo.DemoSession.active) "" else passwordNow().orEmpty()
 
     suspend fun saveCredentials(
         studentNumber: String,
@@ -96,6 +97,7 @@ class IosLibraryService(
     }
 
     suspend fun clearAll() {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) return
         clearSessionCache()
         cachedPassword = null
         runCatching { secureStore.remove(SecureKey.LIBRARY_PASSWORD) }
@@ -109,6 +111,7 @@ class IosLibraryService(
         phoneNumber: String,
         password: String,
     ) {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) return
         clearSessionCache()
         secureStore.write(SecureKey.LIBRARY_PASSWORD, SecretValue.of(password))
         defaults.setObject(studentNumber, LegacyPreferenceKeys.LIBRARY_STD_NUMBER)
@@ -121,6 +124,9 @@ class IosLibraryService(
     }
 
     private suspend fun fetchQrData(): LibraryQrResult {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) return LibraryQrResult.Success(
+            LibraryQrData(mapOf("qr_code" to "KLASPLUS-DEMO-NOT-VALID")),
+        )
         val credentials = loadCredentials() ?: return LibraryQrResult.InvalidResponse
         return try {
             repository.getQrData(credentials)
@@ -132,6 +138,7 @@ class IosLibraryService(
     }
 
     private suspend fun clearSessionCache() {
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) return
         val credentials = loadCredentials()
         if (credentials != null) {
             cache.clear(LibraryCacheIdentity.from(credentials))

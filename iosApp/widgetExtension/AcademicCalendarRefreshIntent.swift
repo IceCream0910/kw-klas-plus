@@ -17,6 +17,10 @@ struct AcademicCalendarRefreshIntent: AppIntent {
 
 enum AcademicCalendarRefreshBridge {
     static func refresh() async {
+        if let group = AcademicWidgetStore.appGroup, UserDefaults(suiteName: group)?.bool(forKey: "academic_widget_demo") == true {
+            WidgetCenter.shared.reloadTimelines(ofKind: AcademicWidgetKindID.calendar)
+            return
+        }
         guard let dependencies = IosSharedDependencies.companion.createForWidgetExtension() else { return }
         await withCheckedContinuation { continuation in
             let reloader = AcademicCalendarIntentReloader()

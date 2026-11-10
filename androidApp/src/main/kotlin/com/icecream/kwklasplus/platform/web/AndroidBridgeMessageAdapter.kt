@@ -35,7 +35,7 @@ class AndroidBridgeMessageAdapter(
 ) {
     private val codec = BridgeJsonCodec()
     private val router = JsonBridgeRouter(
-        BridgeRouter(KlasApiBridgeHandler(webView.context.appDependencies.klasApiCore, handler), synchronousHandler),
+        BridgeRouter(com.icecream.kwklasplus.core.demo.DemoBridgeCommandHandler(KlasApiBridgeHandler(webView.context.appDependencies.klasApiCore, handler)) { script -> webView.post { webView.evaluateJavascript(script, null) } }, synchronousHandler),
         codec,
     )
     private val allowedOrigins = if (surface == BridgeSurface.VIDEO) {
@@ -81,7 +81,8 @@ class AndroidBridgeMessageAdapter(
         adapters[webView] = java.lang.ref.WeakReference(this)
         apiIdentityScriptHandler = WebViewCompat.addDocumentStartJavaScript(
             webView,
-            KlasNativeBridgeScripts.installApiAppIdentity("android", BuildConfig.VERSION_CODE).reveal(),
+            com.icecream.kwklasplus.core.demo.DemoWebScripts.install().reveal() +
+                KlasNativeBridgeScripts.installApiAppIdentity("android", BuildConfig.VERSION_CODE).reveal(),
             setOf("https://klasplus.yuntae.in", KLAS_PLUS_BASE),
         )
         adapterScriptHandler = WebViewCompat.addDocumentStartJavaScript(

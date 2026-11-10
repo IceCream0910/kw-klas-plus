@@ -5,6 +5,62 @@ import XCTest
 
 @MainActor
 final class AuthSessionControllerTests: XCTestCase {
+    func testDemoSessionRestoresUntilExplicitLogout() {
+        let suite = "com.icecream.kwklasplus.test.demo.restore.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let first = IosAuthRuntime.companion.createForTests(defaults: defaults, secureStore: DemoSecureStore())
+        first.endDemo()
+        XCTAssertTrue(first.beginDemo(accountId: "0000000000", password: "KlasplusDemo!123"))
+        DemoSession.shared.end()
+        let restarted = IosAuthRuntime.companion.createForTests(defaults: defaults, secureStore: DemoSecureStore())
+        XCTAssertTrue(restarted.restoreDemo())
+        XCTAssertTrue(DemoSession.shared.active)
+        XCTAssertEqual(restarted.dependencies.stringPreference(key: "kwID"), "0000000000")
+        restarted.endDemo()
+        XCTAssertFalse(first.restoreDemo())
+    }
+
+    func testDemoLoginPreservesRealPreferencesAndLogoutRestoresDependencies() async {
+        let suite = "com.icecream.kwklasplus.test.demo.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.set("2020123456", forKey: "kwID")
+        defaults.set("not_started", forKey: "login_funnel_status")
+        let runtime = IosAuthRuntime.companion.createForTests(defaults: defaults, secureStore: DemoSecureStore())
+        defer {
+            runtime.endDemo()
+            defaults.removePersistentDomain(forName: suite)
+        }
+        let controller = AuthSessionController(authRuntime: runtime, networkPath: FakeNetworkPathChecker(satisfied: false))
+        controller.loginState.studentId = "0000000000"
+        controller.loginState.password = "KlasplusDemo!123"
+        controller.submitLogin()
+        await waitUntil { controller.phase == .authenticated }
+        XCTAssertEqual(controller.phase, .authenticated)
+        XCTAssertTrue(DemoSession.shared.active)
+        XCTAssertTrue(controller.loginState.password.isEmpty)
+        XCTAssertEqual(runtime.dependencies.stringPreference(key: "kwID"), "0000000000")
+        XCTAssertEqual(defaults.string(forKey: "kwID"), "2020123456")
+        XCTAssertEqual(defaults.string(forKey: "login_funnel_status"), "not_started")
+        controller.handleHomeLogout()
+        XCTAssertFalse(DemoSession.shared.active)
+        XCTAssertEqual(runtime.dependencies.stringPreference(key: "kwID"), "2020123456")
+        XCTAssertEqual(controller.phase, .needsCredentials)
+    }
+
+    func testWrongDemoPasswordDoesNotBeginRealAuthentication() {
+        DemoSession.shared.end()
+        let store = FakeFunnelStatusStore(value: "not_started")
+        let controller = makeController(networkPath: FakeNetworkPathChecker(satisfied: false), funnelStatusStore: store)
+        controller.loginState.studentId = "0000000000"
+        controller.loginState.password = "wrong"
+        controller.submitLogin()
+        XCTAssertFalse(DemoSession.shared.active)
+        XCTAssertEqual(store.read(), "not_started")
+        XCTAssertTrue(controller.loginState.password.isEmpty)
+        XCTAssertNotNil(controller.loginState.error)
+    }
+
     func testAuthenticationRequiresOnlyAgreementsRegardlessOfRetainedPin() {
         for hasPin in [true, false] {
             let store = FakeFunnelStatusStore(value: "authenticating")

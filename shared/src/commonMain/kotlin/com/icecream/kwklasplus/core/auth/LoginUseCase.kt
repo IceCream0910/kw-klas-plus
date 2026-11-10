@@ -49,7 +49,7 @@ class PrepareCredentialUseCase(
     private val credentialStore: CredentialStore,
 ) {
     suspend fun prepare(accountId: String, password: PlainPassword): CredentialPreparationResult {
-        if (accountId.isBlank()) {
+        if (accountId.isBlank() || com.icecream.kwklasplus.core.demo.DemoSession.isDemoAccount(accountId)) {
             return CredentialPreparationResult.Failure(AuthFailure.InvalidCredentials)
         }
         return when (val encryption = encryptionApi.encrypt(accountId, password)) {

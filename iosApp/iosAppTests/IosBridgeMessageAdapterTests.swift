@@ -235,7 +235,8 @@ final class IosBridgeMessageAdapterTests: XCTestCase {
         let routeScope = IosBridgeRouting.shared.createRouteScope()
         let router = IosBridgeRouting.shared.createRouter(
             handler: AcceptingBridgeCommandHandler(delayMillis: 300),
-            synchronousHandler: nil
+            synchronousHandler: nil,
+            presentDemoScript: { _ in }
         )
         let lateReply = expectation(description: "dispose 이후 응답 없음")
         lateReply.isInverted = true

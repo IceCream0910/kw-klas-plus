@@ -448,6 +448,10 @@ final class HomeCoordinator: ObservableObject {
     }
 
     func openWeb(url: String) {
+        if DemoSession.shared.active && DemoWebScripts.shared.isSchoolUrl(url: url) {
+            showToast("데모 모드에서는 학교 페이지를 사용할 수 없어요.")
+            return
+        }
         let resolution = routeFactory.web(url: url, session: sessionToken)
         if resolution is AppRouteResolutionAccepted {
             path.append(HomeDestination.link(url: url))
@@ -455,6 +459,10 @@ final class HomeCoordinator: ObservableObject {
     }
 
     func openExternal(url: String) {
+        if DemoSession.shared.active && DemoWebScripts.shared.isSchoolUrl(url: url) {
+            showToast("데모 모드에서는 학교 페이지를 사용할 수 없어요.")
+            return
+        }
         _ = navigator.openValidated(rawValue: url)
     }
 
@@ -566,6 +574,10 @@ final class HomeCoordinator: ObservableObject {
     }
 
     func requestIdCardQRValue() {
+        if DemoSession.shared.active {
+            homeHolder?.evaluate(IosWebCallbacks.shared.receiveIdCardQRValue(libraryQR: "KLASPLUS-DEMO-NOT-VALID", idCardQR: "KLASPLUS-DEMO-NOT-VALID"))
+            return
+        }
         contextualSetup.dismiss()
         isIdCardModalActive = true
         captureIdCardBrightness()

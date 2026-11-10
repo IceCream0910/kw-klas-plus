@@ -1,9 +1,11 @@
+import Shared
 import SwiftUI
 
 @main
 struct iOSApp: App {
     @UIApplicationDelegateAdaptor(ReminderAppDelegate.self) private var reminderDelegate
     init() {
+        IosAcademicWidgets.companion.installDemoLifecycle(reloader: IosAcademicWidgetReloader())
         SentryTelemetry.start()
     }
 

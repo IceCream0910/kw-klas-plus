@@ -65,6 +65,15 @@ class AndroidReminderPlatform(
             .setContentIntent(click).setAutoCancel(true).setOnlyAlertOnce(true).build()
         return runCatching { manager.notify("academic_reminders:$id",0,n) }.isSuccess
     }
+    suspend fun postDemo(generation: Long): Boolean {
+        if (permission("deadline") != "authorized") return false
+        val click = PendingIntent.getActivity(context, 7312, Intent(context, entryClass), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val notification = Notification.Builder(context, "deadline_digest_v1").setSmallIcon(smallIcon)
+            .setContentTitle("KLAS+ 데모 알림").setContentText("테스트 알림이 도착했어요. 실제 할 일과는 관계없는 예시 알림이에요.")
+            .setContentIntent(click).setAutoCancel(true).build()
+        return runCatching { manager.notify("klas_demo_test", 0, notification) }.isSuccess
+    }
+    fun cancelDemo() { manager.cancel("klas_demo_test", 0) }
     override suspend fun cancel(id: String) { manager.cancel("academic_reminders:$id",0) }
     override suspend fun cancelAll() {
         manager.activeNotifications.filter { it.tag?.startsWith("academic_reminders:")==true }.forEach { manager.cancel(it.tag,it.id) }

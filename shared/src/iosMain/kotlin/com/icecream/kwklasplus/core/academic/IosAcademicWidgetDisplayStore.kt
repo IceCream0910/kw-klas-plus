@@ -20,9 +20,10 @@ class IosAcademicWidgetDisplayStore(
     private val containerPath: String? = null,
 ) {
     fun read(): AcademicWidgetDisplay? {
-        val marker = defaults?.stringForKey(OWNER_KEY).orEmpty()
+        val demo = defaults?.boolForKey("academic_widget_demo") == true
+        val marker = if (demo) defaults?.stringForKey("academic_widget_demo_owner").orEmpty() else defaults?.stringForKey(OWNER_KEY).orEmpty()
         if (marker.isBlank()) return null
-        val path = filePath() ?: return null
+        val path = (if (demo) filePath()?.replace(DISPLAY_FILE, "academic_widget_demo_v1.json") else filePath()) ?: return null
         val json = NSString.stringWithContentsOfFile(path, NSUTF8StringEncoding, null) ?: return null
         return AcademicWidgetDisplayCodec.decode(json)?.takeIf { it.owner == marker }
     }
@@ -40,6 +41,26 @@ class IosAcademicWidgetDisplayStore(
         fileManager.removeItemAtPath(path, null)
         fileManager.moveItemAtPath(tmp, toPath = path, error = null)
         defaults?.setObject(display.owner, OWNER_KEY)
+        defaults?.synchronize()
+    }
+
+    fun writeDemo(display: AcademicWidgetDisplay) {
+        val path = filePath()?.replace(DISPLAY_FILE, "academic_widget_demo_v1.json") ?: return
+        val data = NSString.create(string = AcademicWidgetDisplayCodec.encode(display)).dataUsingEncoding(NSUTF8StringEncoding) ?: return
+        val tmp = "$path.tmp"
+        fileManager.removeItemAtPath(tmp, null)
+        if (!fileManager.createFileAtPath(tmp, data, null)) return
+        fileManager.removeItemAtPath(path, null)
+        if (!fileManager.moveItemAtPath(tmp, toPath = path, error = null)) return
+        defaults?.setObject(display.owner, "academic_widget_demo_owner")
+        defaults?.setBool(true, "academic_widget_demo")
+        defaults?.synchronize()
+    }
+
+    fun clearDemo() {
+        defaults?.removeObjectForKey("academic_widget_demo")
+        defaults?.removeObjectForKey("academic_widget_demo_owner")
+        filePath()?.replace(DISPLAY_FILE, "academic_widget_demo_v1.json")?.let { fileManager.removeItemAtPath(it, null) }
         defaults?.synchronize()
     }
 

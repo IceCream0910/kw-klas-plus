@@ -67,8 +67,8 @@ class KlasApiCore(
     private val http = client.config { followRedirects = false }
     private val slots = Semaphore(4)
 
-    suspend fun currentSession(): SecretValue? = session()
-    fun currentContext(): String? = context()
+    suspend fun currentSession(): SecretValue? = if (com.icecream.kwklasplus.core.demo.DemoSession.active) com.icecream.kwklasplus.core.demo.DemoSession.token.takeIf { com.icecream.kwklasplus.core.demo.DemoSession.hasSession } else session()
+    fun currentContext(): String? = if (com.icecream.kwklasplus.core.demo.DemoSession.active) com.icecream.kwklasplus.core.demo.DemoFixtures.term else context()
 
     suspend fun request(endpoint: String, payload: String): KlasApiResult {
         val operation = KlasApiContract.path(endpoint) ?: return KlasApiResult.Failure("INVALID_ENDPOINT")
@@ -79,6 +79,14 @@ class KlasApiCore(
             return KlasApiResult.Failure("INVALID_PAYLOAD")
         }
         if (body !is JsonObject && body != JsonNull) return KlasApiResult.Failure("INVALID_PAYLOAD")
+        if (com.icecream.kwklasplus.core.demo.DemoSession.active) {
+            if (!com.icecream.kwklasplus.core.demo.DemoSession.hasSession) return KlasApiResult.Failure("SESSION_REQUIRED")
+            val token = com.icecream.kwklasplus.core.demo.DemoSession.token
+            val response = com.icecream.kwklasplus.core.demo.DemoFixtures.respond(path, payload)
+            if (currentSession() != token) return KlasApiResult.Failure("STALE_SESSION")
+            return if (response.status == 200) KlasApiResult.Success(response.body, token, currentContext())
+            else KlasApiResult.Failure("DEMO_UNSUPPORTED_ENDPOINT", response.status)
+        }
         val token = session() ?: return KlasApiResult.Failure("SESSION_REQUIRED")
         val requestContext = context()
         return slots.withPermit {

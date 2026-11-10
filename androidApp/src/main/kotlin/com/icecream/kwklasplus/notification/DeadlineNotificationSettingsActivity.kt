@@ -63,7 +63,7 @@ class DeadlineNotificationSettingsActivity: AppCompatActivity() {
                                         CircularProgressIndicator(Modifier.size(28.dp))
                                         Text("알림 설정을 확인하고 있어요.",style=MaterialTheme.typography.bodySmall)
                                     } else {
-                                        Text(if(success) "앱을 사용하고 있지 않을 때, 주기적으로 24시간 이내에 마감되는 할 일이 있는지 확인해서 알림을 보내줄게요." else "24시간 이내에 마감되는 할 일을 모아 알림으로 받아보세요.",style=MaterialTheme.typography.bodyMedium)
+                                        Text(if(success && com.icecream.kwklasplus.core.demo.DemoSession.active) "5초 뒤 테스트 알림을 보내드려요. 이 기기의 실제 알림 기능을 사용해요." else if(success) "앱을 사용하고 있지 않을 때, 주기적으로 24시간 이내에 마감되는 할 일이 있는지 확인해서 알림을 보내줄게요." else "24시간 이내에 마감되는 할 일을 모아 알림으로 받아보세요.",style=MaterialTheme.typography.bodyMedium)
                                         if(success) {
                                             Text("동일한 항목은 하루에 한 번만 발송되며, 기기 상태에 따라 알림이 늦어질 수 있어요.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                                             DeadlineNotificationPreview()
@@ -116,9 +116,10 @@ class DeadlineNotificationSettingsActivity: AppCompatActivity() {
         completing=true;busy=true
         lifecycleScope.launch {
         try {
-            when(appDependencies.reminders.consent.complete(attempt)) {
+            when(appDependencies.reminders.completeConsent(attempt)) {
                 "COMPLETED" -> {
                     completed=true;denied=false;error=null
+                    appDependencies.reminders.scheduleDemoNotification()
                     if (intent.getBooleanExtra("contextual_setup", false)) {
                         android.widget.Toast.makeText(this@DeadlineNotificationSettingsActivity, "마감 알림이 설정되었어요.", android.widget.Toast.LENGTH_SHORT).show()
                         finish()

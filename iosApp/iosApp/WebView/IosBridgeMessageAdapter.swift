@@ -10,7 +10,8 @@ final class IosBridgeMessageAdapter: NSObject {
     static let nativeObjectName = KlasNativeBridgeScripts.shared.NATIVE_OBJECT_NAME
 
     private let surface: BridgeSurface
-    private let router: JsonBridgeRouter
+    private var router: JsonBridgeRouter!
+    private weak var sourceWebView: WKWebView?
     private let routeScope: IosBridgeRouteScope
     private let bridgeTimeoutMillis: Int32
     private let replyProxy = WeakScriptMessageHandlerWithReply()
@@ -26,12 +27,12 @@ final class IosBridgeMessageAdapter: NSObject {
     ) {
         self.surface = surface
         self.bridgeTimeoutMillis = bridgeTimeoutMillis
-        self.router = IosBridgeRouting.shared.createRouter(
-            handler: IosReminderRuntime.shared.wrap(fallback: handler),
-            synchronousHandler: synchronousHandler
-        )
         self.routeScope = IosBridgeRouting.shared.createRouteScope()
         super.init()
+        self.router = IosBridgeRouting.shared.createRouter(
+            handler: IosReminderRuntime.shared.wrap(fallback: handler), synchronousHandler: synchronousHandler,
+            presentDemoScript: { [weak self] script in self?.sourceWebView?.evaluateJavaScript(script, completionHandler: nil) }
+        )
         replyProxy.target = self
     }
 
@@ -92,6 +93,7 @@ extension IosBridgeMessageAdapter: WKScriptMessageHandlerWithReply {
             replyHandler(IosBridgeRouting.shared.malformedResponse(), nil)
             return
         }
+        sourceWebView = message.webView
         let origin = Self.originString(from: message.frameInfo.securityOrigin)
         let context = BridgeContext(
             surface: surface,
