@@ -38,24 +38,19 @@ struct VideoPlayerOverlay<Media: View>: View {
             let layout = isLandscape
                 ? AnyLayout(HStackLayout(spacing: 20))
                 : AnyLayout(VStackLayout(spacing: 16))
-            ScrollView(isLandscape ? [] : .vertical, showsIndicators: false) {
-                layout {
-                    media()
-                        .aspectRatio(16 / 9, contentMode: .fit)
-                        .frame(maxWidth: .infinity, maxHeight: isLandscape ? .infinity : nil)
-                    if isLandscape {
-                        ScrollView(.vertical, showsIndicators: false) {
-                            playerControls
-                                .frame(maxWidth: .infinity)
-                                .frame(minHeight: max(0, proxy.size.height - 40), alignment: .center)
-                        }
-                        .frame(width: min(380, proxy.size.width * 0.45))
-                    } else {
-                        playerControls
-                    }
+            layout {
+                media()
+                    .aspectRatio(16 / 9, contentMode: .fit)
+                    .frame(maxWidth: .infinity, maxHeight: isLandscape ? .infinity : nil)
+                    .layoutPriority(1)
+                ScrollView(.vertical, showsIndicators: false) {
+                    playerControls
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: isLandscape ? max(0, proxy.size.height - 40) : nil, alignment: .center)
                 }
-                .padding(isLandscape ? 20 : 0)
+                .frame(width: isLandscape ? min(380, proxy.size.width * 0.45) : nil)
             }
+            .padding(isLandscape ? 20 : 0)
         }
         .background(KlasTheme.background)
         .accessibilityIdentifier("video_player_overlay")

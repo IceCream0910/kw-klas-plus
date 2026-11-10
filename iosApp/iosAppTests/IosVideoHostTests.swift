@@ -1026,18 +1026,22 @@ final class IosVideoHostTests: XCTestCase {
         )
     }
 
-    func testPlayerWebViewStaysAttachedWhenLayoutSwitchesBetweenPortraitAndLandscape() async throws {
+    func testPlayerStaysAttachedAndCenteredWhenPadRotates() async throws {
+        try await assertPlayerLayoutAcrossRotation(portraitSize: CGSize(width: 768, height: 1024))
+    }
+
+    func testPlayerStaysAttachedAndCenteredWhenPhoneRotates() async throws {
+        try await assertPlayerLayoutAcrossRotation(portraitSize: CGSize(width: 390, height: 844))
+    }
+
+    private func assertPlayerLayoutAcrossRotation(portraitSize: CGSize) async throws {
         // KLAS 페이지 로딩 콜백이 플레이어 표시 상태를 바꾸지 않도록 데모 세션으로 격리한다.
         XCTAssertTrue(DemoSession.shared.begin(accountId: "0000000000", password: "KlasplusDemo!123"))
         let coordinator = makeCoordinator()
         coordinator.handleBootstrap(Self.readyHomeResult())
         let model = track(coordinator.videoModel(subjectId: "SUBJ01", yearSemester: "2026,1"))
         let navigation = VideoTestNavigation()
-        let window = makeVideoWindow(
-            size: CGSize(width: 768, height: 1024),
-            navigation: navigation,
-            coordinator: coordinator
-        )
+        let window = makeVideoWindow(size: portraitSize, navigation: navigation, coordinator: coordinator)
         defer {
             window.isHidden = true
             coordinator.dispose()
@@ -1050,13 +1054,17 @@ final class IosVideoHostTests: XCTestCase {
         showPlayer(model)
         try await waitForStablePlayerWebView(webView)
 
-        window.frame = CGRect(x: 0, y: 0, width: 1024, height: 768)
-        try await waitForVideoCondition { webView.frame.width < 1024 - 380 }
+        let landscapeSize = CGSize(width: portraitSize.height, height: portraitSize.width)
+        window.frame = CGRect(origin: .zero, size: landscapeSize)
+        let landscapeMediaMaxWidth = landscapeSize.width - min(380, landscapeSize.width * 0.45)
+        try await waitForVideoCondition { webView.frame.width < landscapeMediaMaxWidth }
         try await waitForStablePlayerWebView(webView)
-        XCTAssertLessThanOrEqual(webView.convert(webView.bounds, to: window).maxX, 1024 - 380)
+        let frame = webView.convert(webView.bounds, to: window)
+        let safeArea = try safeAreaFrame(of: webView, in: window)
+        XCTAssertEqual(frame.midY, safeArea.midY, accuracy: 1, "가로 화면에서 영상이 세로 가운데에 있지 않음")
 
-        window.frame = CGRect(x: 0, y: 0, width: 768, height: 1024)
-        try await waitForVideoCondition { webView.frame.width == 768 }
+        window.frame = CGRect(origin: .zero, size: portraitSize)
+        try await waitForVideoCondition { webView.frame.width == portraitSize.width }
         try await waitForStablePlayerWebView(webView)
     }
 
@@ -1094,6 +1102,19 @@ final class IosVideoHostTests: XCTestCase {
         let frame = webView.convert(webView.bounds, to: window)
         XCTAssertTrue(window.bounds.contains(frame), "플레이어 WebView가 화면 밖에 배치됨: \(frame)")
         XCTAssertEqual(frame.width / frame.height, 16.0 / 9.0, accuracy: 0.02)
+        if windowSize.width > windowSize.height {
+            let safeArea = try safeAreaFrame(of: webView, in: window)
+            XCTAssertEqual(frame.midY, safeArea.midY, accuracy: 1, "가로 화면에서 영상이 세로 가운데에 있지 않음")
+        }
+    }
+
+    private func safeAreaFrame(of webView: WKWebView, in window: UIWindow) throws -> CGRect {
+        var ancestor = webView.superview
+        while let view = ancestor, view.bounds.height < window.bounds.height {
+            ancestor = view.superview
+        }
+        let screenContainer = try XCTUnwrap(ancestor)
+        return screenContainer.convert(screenContainer.safeAreaLayoutGuide.layoutFrame, to: window)
     }
 
     private func makeVideoWindow(
