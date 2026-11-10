@@ -14,7 +14,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "5C51A9D6A5ED6EA33B3393BB"
-               BuildableName = "kw-klas-plus.app"
+               BuildableName = "KLAS+.app"
                BlueprintName = "iosApp"
                ReferencedContainer = "container:iosApp.xcodeproj">
             </BuildableReference>
@@ -95,7 +95,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "5C51A9D6A5ED6EA33B3393BB"
-            BuildableName = "kw-klas-plus.app"
+            BuildableName = "KLAS+.app"
             BlueprintName = "iosApp"
             ReferencedContainer = "container:iosApp.xcodeproj">
          </BuildableReference>
