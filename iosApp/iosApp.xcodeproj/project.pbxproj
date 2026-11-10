@@ -52,7 +52,7 @@
 /* Begin PBXFileReference section */
 		A11B0002A5ED6EA33B3393BB /* iosAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A11C0002A5ED6EA33B3393BB /* iosAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		F6F71C8CC4FEF251D6AD8B93 /* kw-klas-plus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "kw-klas-plus.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F6F71C8CC4FEF251D6AD8B93 /* KLAS+.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "KLAS+.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		WDG10002A5ED6EA33B3393BB /* LibraryQRWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LibraryQRWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -144,7 +144,7 @@
 		BD53EF4F6008D2C1AA37C0C0 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				F6F71C8CC4FEF251D6AD8B93 /* kw-klas-plus.app */,
+				F6F71C8CC4FEF251D6AD8B93 /* KLAS+.app */,
 				WDG10002A5ED6EA33B3393BB /* LibraryQRWidget.appex */,
 				A11B0002A5ED6EA33B3393BB /* iosAppTests.xctest */,
 				A11C0002A5ED6EA33B3393BB /* iosAppUITests.xctest */,
@@ -191,7 +191,7 @@
 				5E1700010000000000000002 /* Sentry */,
 			);
 			productName = iosApp;
-			productReference = F6F71C8CC4FEF251D6AD8B93 /* kw-klas-plus.app */;
+			productReference = F6F71C8CC4FEF251D6AD8B93 /* KLAS+.app */;
 			productType = "com.apple.product-type.application";
 		};
 		A11B0005A5ED6EA33B3393BB /* iosAppTests */ = {
@@ -597,7 +597,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/kw-klas-plus.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/kw-klas-plus";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/KLAS+.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/KLAS+";
 			};
 			name = Debug;
 		};
@@ -622,7 +622,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/kw-klas-plus.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/kw-klas-plus";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/KLAS+.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/KLAS+";
 			};
 			name = Release;
 		};
@@ -671,7 +671,6 @@
 				CODE_SIGN_ENTITLEMENTS = "iosApp/App/kw-klas-plus.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_ASSET_PATHS = "\"iosApp/Preview Content\"";
 				DEVELOPMENT_TEAM = "${TEAM_ID}";
 				ENABLE_PREVIEWS = YES;
@@ -706,7 +705,6 @@
 				CODE_SIGN_ENTITLEMENTS = "iosApp/App/kw-klas-plus.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_ASSET_PATHS = "\"iosApp/Preview Content\"";
 				DEVELOPMENT_TEAM = "${TEAM_ID}";
 				ENABLE_PREVIEWS = YES;

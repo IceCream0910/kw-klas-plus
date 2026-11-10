@@ -125,8 +125,8 @@ jobs:
         shell: bash
         run: |
           archive='${{ runner.temp }}/ios-release.xcarchive'
-          test -d "$archive/Products/Applications/kw-klas-plus.app"
-          test -d "$archive/Products/Applications/kw-klas-plus.app/PlugIns/LibraryQRWidget.appex"
+          test -d "$archive/Products/Applications/KLAS+.app"
+          test -d "$archive/Products/Applications/KLAS+.app/PlugIns/LibraryQRWidget.appex"
           test -n "$(find "$archive/dSYMs" -name '*.dSYM' -print -quit)"
 
       - name: Upload unsigned iOS archive
