@@ -14,7 +14,12 @@ KLAS+는 기존 광운대학교 학사포털 KLAS의 모바일 앱을 개선하�
 > [!WARNING]
 > KLAS+는 광운대학교의 공식 앱이 아니며, 스마트 인증 우회 및 푸시 알림 등 일부 기능을 지원하지 않으므로 보조 역할로 사용해주시기 바랍니다. 해당 앱을 불법적인 목적으로 사용 시 발생하는 불이익에 대해서 개발자는 어떠한 책임도 지지 않음을 밝힙니다.
 
-[<img src="https://play.google.com/intl/en_us/badges/images/generic/en_badge_web_generic.png?hl=ko" alt="" height="60">](https://play.google.com/store/apps/details?id=com.icecream.kwklasplus)
+<a href="https://play.google.com/store/apps/details?id=com.icecream.kwklasplus" style="display: inline-block;">
+<img src="https://github.com/user-attachments/assets/7ff71270-ff8d-4093-83bb-365a0f9fb48f" alt="Play Store에서 다운로드하세요" style="height: 52px; vertical-align: middle; object-fit: contain;" />
+<span>&nbsp;</span>
+<a href="https://apps.apple.com/kr/app/klas/id6820491776?itscg=30200&itsct=apps_box_badge&mttnsubad=6820491776" style="display: inline-block;">
+<img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/ko-kr?releaseDate=1794182400" alt="App Store에서 다운로드하세요" style="height: 52px; vertical-align: middle; object-fit: contain;" />
+</a>
 
 ## 주요 기능
 
