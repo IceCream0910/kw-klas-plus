@@ -10,9 +10,14 @@ import com.icecream.kwklasplus.core.security.SecretValue
 import com.icecream.kwklasplus.core.session.Clock
 import com.icecream.kwklasplus.core.search.SearchBatch
 import com.icecream.kwklasplus.core.search.SearchProjection
+import com.icecream.kwklasplus.core.diagnostics.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlin.time.TimeSource
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -45,6 +50,7 @@ data class SubjectDeadlines(
 
 sealed interface DeadlinesResult {
     data class Success(val subjects: List<SubjectDeadlines>, val reminders: List<ReminderDeadline>? = null, val startedAt: Long = 0, val fetchedAt: Long = 0) : DeadlinesResult
+    data class PartialSuccess(val subjects: List<SubjectDeadlines>) : DeadlinesResult
     data object SessionExpired : DeadlinesResult
     data object Timeout : DeadlinesResult
     data object NetworkFailure : DeadlinesResult
@@ -57,6 +63,11 @@ class DeadlinesWebCodec(
     private val json: Json = Json,
 ) {
     fun encode(subjects: List<SubjectDeadlines>): String = json.encodeToString(subjects)
+
+    fun encodePartial(subjects: List<SubjectDeadlines>): String =
+        if (subjects.any { it.onlineLecture.isNotEmpty() || it.task.isNotEmpty() || it.teamTask.isNotEmpty() }) {
+            encode(subjects)
+        } else ""
 }
 
 class DeadlineRepository(
@@ -74,13 +85,26 @@ class DeadlineRepository(
     ): DeadlinesResult = coroutineScope {
         val startedAt = clock.nowEpochMillis()
         if (yearSemester.isBlank()) return@coroutineScope DeadlinesResult.MalformedResponse
+        val elapsed = TimeSource.Monotonic.markNow()
+        val permits = Semaphore(4)
         val results = subjects.map { subject ->
-            async { fetchSubject(session, userAgent, yearSemester, subject, onSearchBatch) }
+            async { permits.withPermit { fetchSubject(session, userAgent, yearSemester, subject, onSearchBatch) } }
         }.awaitAll()
-        val failure = results.firstOrNull { it !is SubjectDeadlineResult.Success }
-        if (failure != null) failure.toPublicResult()
-        else {
-            val successes = results.map { it as SubjectDeadlineResult.Success }
+        val successes = results.filterIsInstance<SubjectDeadlineResult.Success>()
+        val failure = results.firstOrNull { it == SubjectDeadlineResult.SessionExpired }
+            ?: results.firstOrNull { it !is SubjectDeadlineResult.Success }
+        if (failure != null) {
+            val partial = failure != SubjectDeadlineResult.SessionExpired && successes.isNotEmpty()
+            NativeDiagnostics.report(
+                DiagnosticStage.DEADLINE_REFRESH,
+                if (partial) DiagnosticFailure.PARTIAL else failure.diagnosticFailure(),
+                elapsedMs = elapsed.elapsedNow().inWholeMilliseconds,
+                successCount = successes.size,
+                failureCount = results.size - successes.size,
+            )
+            if (partial) DeadlinesResult.PartialSuccess(successes.map { it.deadlines })
+            else failure.toPublicResult()
+        } else {
             val reminders = if (successes.all { it.reminders != null }) successes.flatMap { it.reminders.orEmpty() } else null
             DeadlinesResult.Success(successes.map { it.deadlines }, reminders?.takeIf { it.map(ReminderDeadline::key).distinct().size == it.size }, startedAt, clock.nowEpochMillis())
         }
@@ -123,32 +147,48 @@ class DeadlineRepository(
         publishSearch(subject, "teamTask", teamTasks, onSearchBatch)
         if (teamTasks !is ArrayResult.Success) return teamTasks.toSubjectResult()
 
+        val onlineItems = parseItems(AuthenticatedKlasEndpoint.ONLINE_LECTURE_DEADLINES, online.body, ::parseOnlineLectures)
+            ?: return SubjectDeadlineResult.MalformedResponse
+        val tasksItems = parseItems(AuthenticatedKlasEndpoint.TASK_DEADLINES, tasks.body, ::parseAssignments)
+            ?: return SubjectDeadlineResult.MalformedResponse
+        val teamTasksItems = parseItems(AuthenticatedKlasEndpoint.TEAM_TASK_DEADLINES, teamTasks.body, ::parseAssignments)
+            ?: return SubjectDeadlineResult.MalformedResponse
         val projections = listOf(
             DeadlineNotificationProjection.parse(yearSemester, subject.id, subject.name, "onlineLecture", online.body),
             DeadlineNotificationProjection.parse(yearSemester, subject.id, subject.name, "task", tasks.body),
             DeadlineNotificationProjection.parse(yearSemester, subject.id, subject.name, "teamTask", teamTasks.body),
         )
-        return try {
-            SubjectDeadlineResult.Success(
-                SubjectDeadlines(
-                    name = subject.name,
-                    subj = subject.id,
-                    onlineLecture = parseOnlineLectures(online.body),
-                    task = parseAssignments(tasks.body),
-                    teamTask = parseAssignments(teamTasks.body),
-                ),
-                if (projections.all { it != null }) projections.flatMap { it.orEmpty() } else null,
-            )
-        } catch (_: MalformedDeadlineException) {
-            SubjectDeadlineResult.MalformedResponse
-        }
+        return SubjectDeadlineResult.Success(
+            SubjectDeadlines(subject.name, subject.id, onlineItems, tasksItems, teamTasksItems),
+            if (projections.all { it != null }) projections.flatMap { it.orEmpty() } else null,
+        )
+    }
+
+    private fun parseItems(
+        endpoint: AuthenticatedKlasEndpoint,
+        rows: JsonArray,
+        parse: (JsonArray) -> List<DeadlineItem>,
+    ): List<DeadlineItem>? = try {
+        parse(rows)
+    } catch (cause: CancellationException) {
+        throw cause
+    } catch (cause: Exception) {
+        NativeDiagnostics.report(
+            if (cause is InvalidDeadlineDateException) DiagnosticStage.DEADLINE_DATE else DiagnosticStage.DEADLINE_PAYLOAD,
+            DiagnosticFailure.MALFORMED,
+            endpoint,
+        )
+        null
     }
 
     private fun publishSearch(subject: AcademicSubject, kind: String, result: ArrayResult, publish: (SearchBatch) -> Unit) {
-        runCatching {
+        try {
             val now = clock.nowEpochMillis()
             publish(if (result is ArrayResult.Success) SearchProjection.parse(subject.id, subject.name, kind, result.body, now)
             else SearchBatch(subject.id, subject.name, kind, if (result == ArrayResult.SessionExpired) "loginRequired" else "failed", now, emptyList()))
+        } catch (cause: CancellationException) {
+            throw cause
+        } catch (_: Exception) {
         }
     }
 
@@ -160,7 +200,9 @@ class DeadlineRepository(
     ): ArrayResult = when (val result = transport.postJson(endpoint, session, userAgent, body)) {
         is KlasAuthenticatedResult.Success -> (result.body as? JsonArray)
             ?.let(ArrayResult::Success)
-            ?: ArrayResult.MalformedResponse
+            ?: ArrayResult.MalformedResponse.also {
+                NativeDiagnostics.report(DiagnosticStage.DEADLINE_PAYLOAD, DiagnosticFailure.MALFORMED, endpoint)
+            }
         KlasAuthenticatedResult.SessionExpired -> ArrayResult.SessionExpired
         KlasAuthenticatedResult.Timeout -> ArrayResult.Timeout
         KlasAuthenticatedResult.NetworkFailure -> ArrayResult.NetworkFailure
@@ -175,7 +217,7 @@ class DeadlineRepository(
         if ((row.number("prog") ?: throw MalformedDeadlineException()) >= 100.0) return@mapNotNull null
         val startDate = row.string("startDate") ?: throw MalformedDeadlineException()
         val endDate = row.string("endDate") ?: throw MalformedDeadlineException()
-        deadlineItem(startDate, endDate, onlineLectureEndParser.parseEpochMillis("$endDate:59"))
+        deadlineItem(startDate, endDate, parseDate(onlineLectureEndParser, "$endDate:59"))
     }
 
     private fun parseAssignments(rows: JsonArray): List<DeadlineItem> = rows.mapNotNull { element ->
@@ -183,12 +225,19 @@ class DeadlineRepository(
         if (row.string("submityn") == "Y") return@mapNotNull null
         val startDate = row.string("startdate") ?: throw MalformedDeadlineException()
         val endDate = row.string("expiredate") ?: throw MalformedDeadlineException()
-        deadlineItem(startDate, endDate, assignmentEndParser.parseEpochMillis(endDate))
+        deadlineItem(startDate, endDate, parseDate(assignmentEndParser, endDate))
     }
 
-    private fun deadlineItem(startDate: String, endDate: String, endEpochMillis: Long?): DeadlineItem? {
-        val end = endEpochMillis ?: throw MalformedDeadlineException()
-        val hourGap = ((end - clock.nowEpochMillis()) / MILLIS_PER_HOUR).toInt()
+    private fun parseDate(parser: DeadlineDateParser, value: String): Long = try {
+        parser.parseEpochMillis(value) ?: throw InvalidDeadlineDateException()
+    } catch (cause: CancellationException) {
+        throw cause
+    } catch (_: Exception) {
+        throw InvalidDeadlineDateException()
+    }
+
+    private fun deadlineItem(startDate: String, endDate: String, endEpochMillis: Long): DeadlineItem? {
+        val hourGap = ((endEpochMillis - clock.nowEpochMillis()) / MILLIS_PER_HOUR).toInt()
         return if (hourGap >= 0) DeadlineItem(startDate, endDate, hourGap) else null
     }
 
@@ -238,6 +287,17 @@ class DeadlineRepository(
         SubjectDeadlineResult.MalformedResponse -> DeadlinesResult.MalformedResponse
     }
 
+    private fun SubjectDeadlineResult.diagnosticFailure(): DiagnosticFailure = when (this) {
+        SubjectDeadlineResult.SessionExpired -> DiagnosticFailure.SESSION_EXPIRED
+        SubjectDeadlineResult.Timeout -> DiagnosticFailure.TIMEOUT
+        SubjectDeadlineResult.NetworkFailure -> DiagnosticFailure.NETWORK
+        is SubjectDeadlineResult.HttpFailure -> DiagnosticFailure.HTTP
+        SubjectDeadlineResult.EmptyResponse -> DiagnosticFailure.EMPTY
+        SubjectDeadlineResult.MalformedResponse -> DiagnosticFailure.MALFORMED
+        is SubjectDeadlineResult.Success -> error("Expected deadline failure")
+    }
+
+    private class InvalidDeadlineDateException : Exception()
     private class MalformedDeadlineException : Exception()
 
     companion object {

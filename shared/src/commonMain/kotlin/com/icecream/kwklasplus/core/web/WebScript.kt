@@ -68,6 +68,19 @@ object LegacyWebScripts {
 }
 
 object NativeHomeTabScripts {
+    fun deadlineFeed(status: String, json: String): WebScript {
+        require(status in setOf("READY", "PARTIAL", "FAILED"))
+        val payload = JavaScriptEncoder.encodeText(json)
+        val state = JavaScriptEncoder.encodeText(status)
+        val legacy = status == "READY" || (status == "PARTIAL" && json.isNotEmpty())
+        return WebScript(
+            "(function(){if(window!==window.top||location.origin!=='${KlasUrls.KLAS_PLUS_BASE}')return false;" +
+                "if(typeof window.receiveDeadlineFeed==='function'){window.receiveDeadlineFeed($state,$payload);return true;}" +
+                (if (legacy) "if(typeof window.receiveDeadlineData==='function'){window.receiveDeadlineData($payload);return true;}" else "return true;") +
+                "return false;})()",
+        )
+    }
+
     fun searchData(json: String): WebScript = WebScript(
         "window.receiveSearchData?.(${JavaScriptEncoder.encodeText(json)});",
     )

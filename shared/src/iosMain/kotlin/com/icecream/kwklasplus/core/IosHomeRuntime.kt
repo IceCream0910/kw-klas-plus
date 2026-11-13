@@ -3,7 +3,6 @@ package com.icecream.kwklasplus.core
 import com.icecream.kwklasplus.core.academic.AcademicSubject
 import com.icecream.kwklasplus.core.academic.AcademicTermDisplay
 import com.icecream.kwklasplus.core.academic.AcademicTermKey
-import com.icecream.kwklasplus.core.academic.AcademicTermSelector
 import com.icecream.kwklasplus.core.academic.AcademicTermsResult
 import com.icecream.kwklasplus.core.academic.DeadlinesResult
 import com.icecream.kwklasplus.core.academic.DeadlinesWebCodec
@@ -16,6 +15,7 @@ import com.icecream.kwklasplus.core.security.SecretValue
 import com.icecream.kwklasplus.core.session.SessionResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -111,6 +111,7 @@ class IosHomeRuntime(
     }
 
     fun logout(onDone: () -> Unit) {
+        feedRefreshJob?.cancel()
         if (com.icecream.kwklasplus.core.demo.DemoSession.active) {
             searchSnapshot = null
             ++bootstrapRequestVersion
@@ -149,17 +150,13 @@ class IosHomeRuntime(
         val agent = runCatching { KlasUserAgent.fromPlatform(userAgent) }.getOrElse {
             return HomeBootstrapResult.Failure("수강과목 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.")
         }
-        return when (val termsResult = dependencies.academicRepository.fetchTerms(session, agent)) {
-            is AcademicTermsResult.Success -> {
+        val savedYearHakgi = selectedYearHakgi ?: dependencies.stringPreference(LegacyPreferenceKeys.YEAR_HAKGI)
+        return when (val termsResult = dependencies.academicRepository.fetchSelectedTerm(session, agent, savedYearHakgi)) {
+            is AcademicTermsResult.Selected -> {
                 if(requestVersion!=bootstrapRequestVersion || selectedAccount!=dependencies.stringPreference(LegacyPreferenceKeys.KW_ID))return HomeBootstrapResult.Failure("새 요청으로 대체되었습니다.")
-                val terms = termsResult.terms
-                if (terms.isEmpty()) return HomeBootstrapResult.EmptyTerms(session)
-                val savedYearHakgi = selectedYearHakgi
-                    ?: dependencies.stringPreference(LegacyPreferenceKeys.YEAR_HAKGI)
                 val savedList = dependencies.stringPreference(LegacyPreferenceKeys.YEAR_HAKGI_LIST)
-                val joined = terms.joinToString("&") { it.value }
-                val selection = AcademicTermSelector.select(terms, savedYearHakgi)
-                    ?: return HomeBootstrapResult.EmptyTerms(session)
+                val joined = termsResult.availableTerms.joinToString("&")
+                val selection = termsResult.selection ?: return HomeBootstrapResult.EmptyTerms(session)
                 val yearHakgi = selection.term.value
                 dependencies.writeStringPreference(LegacyPreferenceKeys.YEAR_HAKGI_LIST, joined)
                 dependencies.writeStringPreference(LegacyPreferenceKeys.YEAR_HAKGI, yearHakgi)
@@ -168,12 +165,14 @@ class IosHomeRuntime(
                 val (timetableJson, deadlineJson) = coroutineScope {
                     val timetable = async { fetchTimetable(session, agent, yearHakgi) }
                     val deadlines = async {
-                        fetchDeadlines(session, agent, yearHakgi, selection.term.subjects)
+                        fetchDeadlines(session, agent, yearHakgi, selection.term.subjects) {
+                            requestVersion == bootstrapRequestVersion
+                        }
                     }
                     timetable.await() to deadlines.await()
                 }
                 if(requestVersion!=bootstrapRequestVersion || selectedAccount!=dependencies.stringPreference(LegacyPreferenceKeys.KW_ID) || yearHakgi!=dependencies.stringPreference(LegacyPreferenceKeys.YEAR_HAKGI))return HomeBootstrapResult.Failure("새 요청으로 대체되었습니다.")
-                if (timetableJson == SESSION_EXPIRED || deadlineJson == SESSION_EXPIRED) {
+                if (timetableJson == SESSION_EXPIRED || deadlineJson.first == "SESSION_EXPIRED") {
                     return HomeBootstrapResult.SessionExpired
                 }
                 scope.launch { academicWidgets?.syncCalendar(userAgent) }
@@ -182,7 +181,7 @@ class IosHomeRuntime(
                     yearHakgi = yearHakgi,
                     yearHakgiListJoined = joined,
                     timetableJson = timetableJson,
-                    deadlineJson = deadlineJson,
+                    deadlineJson = deadlineJson.second,
                     promptYearHakgiChange = promptChange,
                 )
             }
@@ -219,35 +218,50 @@ class IosHomeRuntime(
         userAgent: KlasUserAgent,
         yearHakgi: String,
         subjects: List<AcademicSubject>,
-    ): String {
+        isCurrent: () -> Boolean,
+    ): Pair<String, String> {
         val account=dependencies.stringPreference(LegacyPreferenceKeys.KW_ID)
         val ticket=runCatching { com.icecream.kwklasplus.core.notification.IosReminderRuntime.beginDeadlineRefresh() }.getOrNull()
         val generation = ++searchGeneration
         val batches = mutableListOf<SearchBatch>()
         val result=dependencies.deadlineRepository.fetch(session,userAgent,yearHakgi,subjects) { batches.add(it) }
-        if(account!=dependencies.stringPreference(LegacyPreferenceKeys.KW_ID) || yearHakgi!=dependencies.stringPreference(LegacyPreferenceKeys.YEAR_HAKGI))return ""
+        if (!isCurrent() || generation != searchGeneration || account != dependencies.stringPreference(LegacyPreferenceKeys.KW_ID) || yearHakgi != dependencies.stringPreference(LegacyPreferenceKeys.YEAR_HAKGI)) return "FAILED" to ""
         if (generation == searchGeneration) searchSnapshot = SearchSnapshot(searchScope, yearHakgi, generation, batches)
         runCatching { com.icecream.kwklasplus.core.notification.IosReminderRuntime.acceptHomeDeadlines(ticket,result) }
+        val codec = DeadlinesWebCodec()
         return when(result) {
-            is DeadlinesResult.Success -> DeadlinesWebCodec().encode(result.subjects)
-            DeadlinesResult.SessionExpired -> SESSION_EXPIRED
-            else -> ""
+            is DeadlinesResult.Success -> "READY" to codec.encode(result.subjects)
+            is DeadlinesResult.PartialSuccess -> "PARTIAL" to codec.encodePartial(result.subjects)
+            DeadlinesResult.SessionExpired -> "SESSION_EXPIRED" to ""
+            else -> "FAILED" to ""
         }
     }
     private var feedRequestVersion=0L
+    private var feedRefreshJob: Job? = null
     fun refreshFeed(yearHakgi: String,userAgent: String,onResult: (String,String)->Unit) {
         val version=++feedRequestVersion
         val account=dependencies.stringPreference(LegacyPreferenceKeys.KW_ID)
-        scope.launch {
-            val restored=dependencies.sessionCoordinator.restore()
-            if(restored !is SessionResult.Active) { if(version==feedRequestVersion)onResult("SESSION_EXPIRED","[]");return@launch }
-            val agent=KlasUserAgent.fromPlatform(userAgent)
-            val terms=dependencies.academicRepository.fetchTerms(restored.session.token,agent)
-            if(version!=feedRequestVersion || account!=dependencies.stringPreference(LegacyPreferenceKeys.KW_ID) || yearHakgi!=dependencies.stringPreference(LegacyPreferenceKeys.YEAR_HAKGI))return@launch
-            val subjects=(terms as? AcademicTermsResult.Success)?.terms?.firstOrNull { it.value==yearHakgi }?.subjects
-            val json=if(subjects!=null)fetchDeadlines(restored.session.token,agent,yearHakgi,subjects) else ""
-            if(version!=feedRequestVersion || account!=dependencies.stringPreference(LegacyPreferenceKeys.KW_ID) || yearHakgi!=dependencies.stringPreference(LegacyPreferenceKeys.YEAR_HAKGI))return@launch
-            onResult(if(json==SESSION_EXPIRED || terms==AcademicTermsResult.SessionExpired)"SESSION_EXPIRED" else if(json.isEmpty())"FAILED" else "READY",json.takeUnless { it.isEmpty() || it==SESSION_EXPIRED } ?: "[]")
+        fun isCurrent() = version == feedRequestVersion &&
+            account == dependencies.stringPreference(LegacyPreferenceKeys.KW_ID) &&
+            yearHakgi == dependencies.stringPreference(LegacyPreferenceKeys.YEAR_HAKGI)
+        feedRefreshJob?.cancel()
+        feedRefreshJob = scope.launch {
+            val restored = dependencies.sessionCoordinator.restore()
+            if (!isCurrent()) return@launch
+            if (restored !is SessionResult.Active) {
+                onResult(if (restored is SessionResult.Failed) "FAILED" else "SESSION_EXPIRED", "")
+                return@launch
+            }
+            val agent = KlasUserAgent.fromPlatform(userAgent)
+            val terms = dependencies.academicRepository.fetchSelectedTerm(restored.session.token, agent, yearHakgi, allowFallback = false)
+            if (!isCurrent()) return@launch
+            val subjects = (terms as? AcademicTermsResult.Selected)?.selection?.term?.subjects
+            val (status, json) = when {
+                terms == AcademicTermsResult.SessionExpired -> "SESSION_EXPIRED" to ""
+                subjects == null -> "FAILED" to ""
+                else -> fetchDeadlines(restored.session.token, agent, yearHakgi, subjects, ::isCurrent)
+            }
+            if (isCurrent()) onResult(status, json)
         }
     }
 

@@ -164,6 +164,12 @@ iOS 학사 위젯은 `widgetRenderingMode`의 `.accented`에서 투명 콘텐츠
 
 Android 네이티브 화면은 compact(<600dp), medium(600~839dp), expanded(≥840dp)로 나눕니다. WebView 내부 레이아웃은 웹 앱이 맡아요. iOS에서는 safe area·키보드·Dynamic Type·회전 때문에 WKWebView holder를 새로 만들지 않도록 주의해 주세요.
 
+## 홈 할 일 조회
+
+Android·iOS 홈은 전체 학기 식별자를 유지하고 선택 학기의 과목 목록만 검증한다. 저장 학기가 없으면 홈 초기화에서 첫 학기를 선택한다. 백그라운드 알림은 요청한 학기가 없으면 미검증 결과로 끝낸다. 과목별 할 일 조회는 한 번에 최대 네 과목을 처리한다. 세션 만료는 부분 성공보다 우선한다. 부분 성공과 실패는 알림 원장의 조회 시각과 claim을 갱신하거나 게시된 알림을 취소하지 않는다.
+
+홈의 데이터 전달·구 WebView 호환은 [ADR-013](adr/ADR-013-deadline-notifications-webview-contract.md), 인증·API·할 일 오류의 허용된 Sentry 진단 정보는 [ADR-014](adr/ADR-014-native-sentry-observability.md)를 따른다.
+
 ## 최초 온보딩
 
 저장된 계정이 없는 신규 설치의 온보딩은 Android Compose와 iOS SwiftUI에서 로컬 데이터로 바로 그립니다. 두 플랫폼은 Android의 다섯 페이지 문구와 순서를 사용합니다. 이미지는 문구 바로 위에 하단 정렬하고, 각 페이지를 5초마다 자동으로 넘깁니다. 두 플랫폼은 할 일·메뉴·캘린더·AI 페이지에 라이트/다크 이미지를 사용하며 첫 페이지는 기존 더미 이미지를 유지합니다. 가로 스와이프로 페이지를 이동하고 모든 페이지의 우측 `로그인` 버튼은 기존 로그인 양식으로 이동합니다. 기존 웹 온보딩 파일과 WebView 브리지 계약은 변경하지 않습니다. 이 전환의 기준 Native 커밋은 `3c3590110910ff77be8a2e9ff0c739e53cbb674b`입니다. 되돌릴 때에는 이 변경을 되돌려 각 플랫폼의 이전 WebView 온보딩 경로를 복원할 수 있습니다. [ADR-008](adr/ADR-008-native-onboarding.md)을 따릅니다.

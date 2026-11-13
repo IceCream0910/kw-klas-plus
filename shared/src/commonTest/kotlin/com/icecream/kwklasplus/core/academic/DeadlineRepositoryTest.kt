@@ -19,6 +19,42 @@ import kotlin.test.assertIs
 
 class DeadlineRepositoryTest {
     @Test
+    fun otherCoursesSurviveRequestAndDateFailuresButNotExpiredSession() = runBlocking {
+        val session = SecretValue.of("session")
+        val agent = KlasUserAgent.fromPlatform("UA")
+        val subjects = listOf(AcademicSubject("bad", "Bad"), AcademicSubject("good", "Good"))
+        for (failure in listOf(
+            KlasAuthenticatedResult.Timeout,
+            KlasAuthenticatedResult.HttpFailure(503),
+            KlasAuthenticatedResult.MalformedResponse,
+            KlasAuthenticatedResult.Success(buildJsonArray { add(onlineLecture("bad date", 20)) }),
+            KlasAuthenticatedResult.SessionExpired,
+        )) {
+            val repository = DeadlineRepository(
+                KlasAuthenticatedTransport { endpoint, _, _, body ->
+                    when {
+                        endpoint != AuthenticatedKlasEndpoint.ONLINE_LECTURE_DEADLINES ->
+                            KlasAuthenticatedResult.Success(buildJsonArray {})
+                        (body as JsonObject).string("selectSubj") == "bad" -> failure
+                        else -> KlasAuthenticatedResult.Success(buildJsonArray { add(onlineLecture("future", 20)) })
+                    }
+                },
+                Clock { 0 },
+                DeadlineDateParser { if (it == "future:59") 7_200_000 else null },
+                DeadlineDateParser { null },
+            )
+            val result = repository.fetch(session, agent, "2026,2", subjects)
+            if (failure == KlasAuthenticatedResult.SessionExpired) {
+                assertEquals(DeadlinesResult.SessionExpired, result)
+            } else {
+                val partial = assertIs<DeadlinesResult.PartialSuccess>(result)
+                assertEquals("good", partial.subjects.single().subj)
+                assertEquals("future", partial.subjects.single().onlineLecture.single().endDate)
+            }
+        }
+    }
+
+    @Test
     fun filtersCompletedSubmittedAndExpiredItems() = runBlocking {
         val repository = repository { endpoint ->
             when (endpoint) {
