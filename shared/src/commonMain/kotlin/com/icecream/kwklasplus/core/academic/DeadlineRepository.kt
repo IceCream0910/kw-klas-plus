@@ -104,6 +104,8 @@ class DeadlineRepository(
             )
             if (partial) DeadlinesResult.PartialSuccess(successes.map { it.deadlines })
             else failure.toPublicResult()
+        } else if (successes.any { it.skippedDates }) {
+            DeadlinesResult.PartialSuccess(successes.map { it.deadlines })
         } else {
             val reminders = if (successes.all { it.reminders != null }) successes.flatMap { it.reminders.orEmpty() } else null
             DeadlinesResult.Success(successes.map { it.deadlines }, reminders?.takeIf { it.map(ReminderDeadline::key).distinct().size == it.size }, startedAt, clock.nowEpochMillis())
@@ -159,25 +161,29 @@ class DeadlineRepository(
             DeadlineNotificationProjection.parse(yearSemester, subject.id, subject.name, "teamTask", teamTasks.body),
         )
         return SubjectDeadlineResult.Success(
-            SubjectDeadlines(subject.name, subject.id, onlineItems, tasksItems, teamTasksItems),
+            SubjectDeadlines(subject.name, subject.id, onlineItems.items, tasksItems.items, teamTasksItems.items),
             if (projections.all { it != null }) projections.flatMap { it.orEmpty() } else null,
+            skippedDates = onlineItems.skippedDates || tasksItems.skippedDates || teamTasksItems.skippedDates,
         )
     }
+
+    private data class ParsedItems(val items: List<DeadlineItem>, val skippedDates: Boolean)
 
     private fun parseItems(
         endpoint: AuthenticatedKlasEndpoint,
         rows: JsonArray,
-        parse: (JsonArray) -> List<DeadlineItem>,
-    ): List<DeadlineItem>? = try {
-        parse(rows)
+        parse: (JsonArray, () -> Unit) -> List<DeadlineItem>,
+    ): ParsedItems? = try {
+        var skippedDates = false
+        val items = parse(rows) { skippedDates = true }
+        if (skippedDates) {
+            NativeDiagnostics.report(DiagnosticStage.DEADLINE_DATE, DiagnosticFailure.MALFORMED, endpoint)
+        }
+        ParsedItems(items, skippedDates)
     } catch (cause: CancellationException) {
         throw cause
-    } catch (cause: Exception) {
-        NativeDiagnostics.report(
-            if (cause is InvalidDeadlineDateException) DiagnosticStage.DEADLINE_DATE else DiagnosticStage.DEADLINE_PAYLOAD,
-            DiagnosticFailure.MALFORMED,
-            endpoint,
-        )
+    } catch (_: Exception) {
+        NativeDiagnostics.report(DiagnosticStage.DEADLINE_PAYLOAD, DiagnosticFailure.MALFORMED, endpoint)
         null
     }
 
@@ -211,29 +217,42 @@ class DeadlineRepository(
         KlasAuthenticatedResult.MalformedResponse -> ArrayResult.MalformedResponse
     }
 
-    private fun parseOnlineLectures(rows: JsonArray): List<DeadlineItem> = rows.mapNotNull { element ->
+    private fun parseOnlineLectures(rows: JsonArray, onInvalidDate: () -> Unit): List<DeadlineItem> = rows.mapNotNull { element ->
         val row = element as? JsonObject ?: throw MalformedDeadlineException()
         if (row.string("evltnSe") != "lesson") return@mapNotNull null
         if ((row.number("prog") ?: throw MalformedDeadlineException()) >= 100.0) return@mapNotNull null
-        val startDate = row.string("startDate") ?: throw MalformedDeadlineException()
-        val endDate = row.string("endDate") ?: throw MalformedDeadlineException()
-        deadlineItem(startDate, endDate, parseDate(onlineLectureEndParser, "$endDate:59"))
+        val endDate = row.string("endDate")?.trim().orEmpty()
+        val end = parseDate(onlineLectureEndParser, endDate, defaultSecond = "59") ?: run {
+            onInvalidDate()
+            return@mapNotNull null
+        }
+        deadlineItem(row.string("startDate")?.trim().orEmpty(), endDate, end)
     }
 
-    private fun parseAssignments(rows: JsonArray): List<DeadlineItem> = rows.mapNotNull { element ->
+    private fun parseAssignments(rows: JsonArray, onInvalidDate: () -> Unit): List<DeadlineItem> = rows.mapNotNull { element ->
         val row = element as? JsonObject ?: throw MalformedDeadlineException()
         if (row.string("submityn") == "Y") return@mapNotNull null
-        val startDate = row.string("startdate") ?: throw MalformedDeadlineException()
-        val endDate = row.string("expiredate") ?: throw MalformedDeadlineException()
-        deadlineItem(startDate, endDate, parseDate(assignmentEndParser, endDate))
+        val endDate = row.string("expiredate")?.trim().orEmpty()
+        val end = parseDate(assignmentEndParser, endDate, defaultSecond = "00") ?: run {
+            onInvalidDate()
+            return@mapNotNull null
+        }
+        deadlineItem(row.string("startdate")?.trim().orEmpty(), endDate, end)
     }
 
-    private fun parseDate(parser: DeadlineDateParser, value: String): Long = try {
-        parser.parseEpochMillis(value) ?: throw InvalidDeadlineDateException()
-    } catch (cause: CancellationException) {
-        throw cause
-    } catch (_: Exception) {
-        throw InvalidDeadlineDateException()
+    private fun parseDate(parser: DeadlineDateParser, value: String, defaultSecond: String): Long? {
+        if (value.isEmpty()) return null
+        val normalized = LOCAL_DEADLINE.matchEntire(value)?.let {
+            val (date, hour, minute, second) = it.destructured
+            "$date ${hour.padStart(2, '0')}:$minute:${second.ifEmpty { defaultSecond }}"
+        } ?: value
+        return try {
+            parser.parseEpochMillis(normalized)
+        } catch (cause: CancellationException) {
+            throw cause
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun deadlineItem(startDate: String, endDate: String, endEpochMillis: Long): DeadlineItem? {
@@ -258,7 +277,11 @@ class DeadlineRepository(
     }
 
     private sealed interface SubjectDeadlineResult {
-        data class Success(val deadlines: SubjectDeadlines, val reminders: List<ReminderDeadline>?) : SubjectDeadlineResult
+        data class Success(
+            val deadlines: SubjectDeadlines,
+            val reminders: List<ReminderDeadline>?,
+            val skippedDates: Boolean,
+        ) : SubjectDeadlineResult
         data object SessionExpired : SubjectDeadlineResult
         data object Timeout : SubjectDeadlineResult
         data object NetworkFailure : SubjectDeadlineResult
@@ -297,10 +320,10 @@ class DeadlineRepository(
         is SubjectDeadlineResult.Success -> error("Expected deadline failure")
     }
 
-    private class InvalidDeadlineDateException : Exception()
     private class MalformedDeadlineException : Exception()
 
     companion object {
+        private val LOCAL_DEADLINE = Regex("""([0-9]{4}-[0-9]{2}-[0-9]{2})[ T]([0-9]{1,2}):([0-9]{2})(?::([0-9]{2}))?""")
         private const val MILLIS_PER_HOUR = 3_600_000L
     }
 }
