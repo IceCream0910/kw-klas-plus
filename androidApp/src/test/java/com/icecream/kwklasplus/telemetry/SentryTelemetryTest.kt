@@ -29,6 +29,24 @@ class SentryTelemetryTest {
     }
 
     @Test
+    fun diagnosticAcceptsKnownFieldsButDropsRawUrlsAndUnapprovedAttributes() {
+        val log = SentryLogEvent(SentryId(), 1.0, "klas.operation_failed", SentryLogLevel.ERROR)
+        mapOf(
+            "klas.stage" to "API", "klas.failure" to "HTTP", "http.status_code" to "503",
+            "klas.endpoint" to "/private?SESSION=secret", "klas.success_count" to "4",
+            "klas.elapsed_ms" to "123", "password" to "secret",
+        ).forEach { (key, value) -> log.setAttribute(key, SentryLogEventAttributeValue("string", value)) }
+        val clean = requireNotNull(SentryTelemetry.sanitizeLog(log))
+        val fields = requireNotNull(clean.attributes)
+        assertEquals(SentryLogLevel.WARN, clean.level)
+        assertEquals(503L, fields["http.status_code"]?.value)
+        assertEquals(123L, fields["klas.elapsed_ms"]?.value)
+        assertNull(fields["klas.endpoint"])
+        assertNull(fields["klas.success_count"])
+        assertNull(fields["password"])
+    }
+
+    @Test
     fun errorRetainsExceptionTypeWithoutSensitiveValues() {
         val event = SentryEvent()
         event.user = User().apply { email = "private@example.com" }

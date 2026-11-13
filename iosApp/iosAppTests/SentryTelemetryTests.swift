@@ -17,6 +17,22 @@ final class SentryTelemetryTests: XCTestCase {
         XCTAssertEqual(sanitized.attributes["app.event"]?.value as? String, "reminder.schedule_rejected")
     }
 
+    func testDiagnosticSanitizesFieldsAndPreservesStatus() throws {
+        let log = SentryLog(level: .warn, body: "klas.operation_failed", attributes: [
+            "klas.stage": SentryAttribute(string: "API"),
+            "klas.failure": SentryAttribute(string: "HTTP"),
+            "klas.endpoint": SentryAttribute(string: "/private?SESSION=secret"),
+            "http.status_code": SentryAttribute(string: "503"),
+            "klas.success_count": SentryAttribute(string: "4"),
+            "password": SentryAttribute(string: "secret")
+        ])
+        let sanitized = try XCTUnwrap(SentryTelemetry.sanitizeLog(log))
+        XCTAssertEqual(sanitized.attributes["http.status_code"]?.value as? Int, 503)
+        XCTAssertNil(sanitized.attributes["klas.endpoint"])
+        XCTAssertNil(sanitized.attributes["klas.success_count"])
+        XCTAssertNil(sanitized.attributes["password"])
+    }
+
     func testErrorRemovesSensitiveContext() {
         let event = Event()
         event.extra = ["bridge": "secret payload"]

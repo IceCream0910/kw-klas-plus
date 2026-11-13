@@ -1,4 +1,5 @@
 import Foundation
+import Shared
 import Sentry
 
 enum TelemetryEvent: String, CaseIterable {
@@ -24,6 +25,23 @@ enum SentryTelemetry {
         return "com.icecream.kwklasplus@\(version)+\(build)"
     }
 
+    private final class RateLimiter: @unchecked Sendable {
+        private let lock = NSLock()
+        private var lastReport: [String: TimeInterval] = [:]
+
+        func shouldReport(_ key: String) -> Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            let now = ProcessInfo.processInfo.systemUptime
+            if let previous = lastReport[key], now - previous < 60 { return false }
+            lastReport = lastReport.filter { now - $0.value < 60 }
+            guard lastReport.count < 100 else { return false }
+            lastReport[key] = now
+            return true
+        }
+    }
+    private static let limiter = RateLimiter()
+
     static func start() {
         guard NSClassFromString("XCTestCase") == nil else { return }
         SentrySDK.start { options in
@@ -41,6 +59,16 @@ enum SentryTelemetry {
             options.beforeSend = { sanitizeError($0) }
             options.enableLogs = true
             options.beforeSendLog = { sanitizeLog($0) }
+        }
+        NativeDiagnostics.shared.install { attributes in
+            let diagnostics = NativeDiagnostics.shared
+            if limiter.shouldReport(diagnostics.deduplicationKey(attributes: attributes)) {
+                if diagnostics.isExpected(attributes: attributes) {
+                    SentrySDK.logger.info(diagnostics.eventName, attributes: attributes)
+                } else {
+                    SentrySDK.logger.warn(diagnostics.eventName, attributes: attributes)
+                }
+            }
         }
         log(.appInitialized)
         #if DEBUG
@@ -61,14 +89,29 @@ enum SentryTelemetry {
         }
     }
 
+    static func recordDeadlineDeliveryFailure() {
+        NativeDiagnostics.shared.recordDeadlineDeliveryFailure()
+    }
+
     static func sanitizeLog(_ log: SentryLog) -> SentryLog? {
-        guard TelemetryEvent(rawValue: log.body) != nil else { return nil }
+        let diagnostics = NativeDiagnostics.shared
+        let fields: [String: String]
+        if log.body == diagnostics.eventName {
+            fields = diagnostics.sanitize(attributes: log.attributes.compactMapValues { $0.value as? String })
+            guard !fields.isEmpty else { return nil }
+        } else {
+            guard TelemetryEvent(rawValue: log.body) != nil else { return nil }
+            fields = [:]
+        }
         log.attributes = [
             "app.event": SentryAttribute(string: log.body),
             "app.platform": SentryAttribute(string: "ios"),
             "sentry.release": SentryAttribute(string: release),
             "sentry.environment": SentryAttribute(string: environment)
         ]
+        for (key, value) in fields {
+            log.attributes[key] = Int(value).map { SentryAttribute(integer: $0) } ?? SentryAttribute(string: value)
+        }
         return log
     }
 

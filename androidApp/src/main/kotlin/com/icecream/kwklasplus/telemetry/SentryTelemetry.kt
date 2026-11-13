@@ -1,6 +1,10 @@
 package com.icecream.kwklasplus.telemetry
 
 import android.app.Application
+import android.os.SystemClock
+import com.icecream.kwklasplus.core.diagnostics.NativeDiagnostics
+import io.sentry.SentryAttributes
+import io.sentry.logger.SentryLogParameters
 import com.icecream.kwklasplus.BuildConfig
 import io.sentry.Sentry
 import io.sentry.SentryEvent
@@ -16,6 +20,18 @@ enum class TelemetryEvent(val message: String, val level: SentryLogLevel) {
 }
 
 object SentryTelemetry {
+    private val lastReport = mutableMapOf<String, Long>()
+
+    @Synchronized
+    private fun shouldReport(key: String): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (lastReport[key]?.let { now - it < 60_000 } == true) return false
+        lastReport.entries.removeAll { now - it.value >= 60_000 }
+        if (lastReport.size >= 100) return false
+        lastReport[key] = now
+        return true
+    }
+
     fun start(application: Application) {
         SentryAndroid.init(application) { options ->
             options.environment = if (BuildConfig.DEBUG) "development" else "production"
@@ -27,6 +43,15 @@ object SentryTelemetry {
             options.logs.isEnabled = true
             options.logs.beforeSend = io.sentry.SentryOptions.Logs.BeforeSendLogCallback { sanitizeLog(it) }
         }
+        NativeDiagnostics.install { attributes ->
+            if (shouldReport(NativeDiagnostics.deduplicationKey(attributes))) {
+                Sentry.logger().log(
+                    if (NativeDiagnostics.isExpected(attributes)) SentryLogLevel.INFO else SentryLogLevel.WARN,
+                    SentryLogParameters.create(SentryAttributes.fromMap(attributes)),
+                    NativeDiagnostics.eventName,
+                )
+            }
+        }
         log(TelemetryEvent.APP_INITIALIZED)
     }
 
@@ -35,14 +60,26 @@ object SentryTelemetry {
     }
 
     internal fun sanitizeLog(log: SentryLogEvent): SentryLogEvent? {
-        val event = TelemetryEvent.entries.firstOrNull { it.message == log.body } ?: return null
-        log.level = event.level
+        val event = TelemetryEvent.entries.firstOrNull { it.message == log.body }
+        val diagnostic = if (log.body == NativeDiagnostics.eventName) {
+            val attributes = log.attributes.orEmpty().mapNotNull { (key, value) ->
+                (value.value as? String)?.let { key to it }
+            }.toMap()
+            NativeDiagnostics.sanitize(attributes).takeIf { it.isNotEmpty() } ?: return null
+        } else {
+            if (event == null) return null
+            emptyMap()
+        }
+        log.level = event?.level ?: if (NativeDiagnostics.isExpected(diagnostic)) SentryLogLevel.INFO else SentryLogLevel.WARN
         log.attributes = mapOf(
-            "app.event" to SentryLogEventAttributeValue("string", event.message),
+            "app.event" to SentryLogEventAttributeValue("string", log.body),
             "app.platform" to SentryLogEventAttributeValue("string", "android"),
             "sentry.release" to SentryLogEventAttributeValue("string", "${BuildConfig.APPLICATION_ID}@${BuildConfig.VERSION_NAME}+${BuildConfig.VERSION_CODE}"),
             "sentry.environment" to SentryLogEventAttributeValue("string", if (BuildConfig.DEBUG) "development" else "production"),
-        )
+        ) + diagnostic.mapValues { (key, value) ->
+            if (key in setOf("klas.stage", "klas.failure", "klas.endpoint")) SentryLogEventAttributeValue("string", value)
+            else SentryLogEventAttributeValue("integer", value.toLong())
+        }
         return log
     }
 

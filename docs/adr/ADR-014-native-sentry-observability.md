@@ -95,3 +95,9 @@ SENTRY_ORG=yun-taein SENTRY_PROJECT=kw-klas-plus-ios \
 ## 롤백
 
 이번 SDK·초기화·계측·문서 변경을 되돌린다. Logs만 중지하려면 Android `options.logs.isEnabled`, iOS `options.enableLogs`를 false로 설정한다. Android 자동 초기화를 다시 사용할 때는 Application의 수동 초기화를 함께 제거해 이중 초기화를 피한다. 인증·저장 키·브리지 계약과 기존 사용자 데이터는 변경하지 않는다.
+
+### KLAS 작업 실패 진단 (#120)
+
+`klas.operation_failed`는 요청·선택 학기 과목 파싱·할 일 응답 및 날짜 변환·WebView 전달·암호화·로그인·세션 저장/복원/연장 중 실패한 단계를 기록한다. 학사 Native API는 고정된 endpoint 이름을 사용하고, 임의 경로를 받는 Native API 브리지는 GET/POST 종류만 기록한다. HTTP 상태, 경과 시간, 할 일 조회 성공·실패 과목 수는 허용 범위의 정수로만 보낸다. 세션 만료·자격증명 오류·CAPTCHA·추가 인증은 info, 나머지 진단은 warn이다. 취소와 오래된 요청의 폐기는 실패로 수집하지 않는다.
+
+동일 단계·실패·endpoint·HTTP 상태는 프로세스별 60초에 한 번만 남기며, 같은 기간 최대 100개 키를 추적한다. 양 플랫폼의 로그 전송 필터가 고정 식별자와 단계별 필드만 다시 검증한다. 요청·응답 원문, URL, 학번, 토큰, 과목 식별자·이름, 예외 문자열은 이 이벤트의 입력이 아니다. 기존 오류 이벤트의 필터와 SDK 자동 수집 정책은 유지한다. 로그의 롤백은 계측과 이 이벤트의 로그 필터를 되돌린다.

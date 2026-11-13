@@ -1,5 +1,6 @@
 package com.icecream.kwklasplus.core.network
 
+import com.icecream.kwklasplus.core.diagnostics.*
 import com.icecream.kwklasplus.core.legacy.KlasUrls
 import com.icecream.kwklasplus.core.security.SecretValue
 import com.icecream.kwklasplus.core.session.SessionExtensionResult
@@ -30,7 +31,7 @@ class KlasSessionLeaseHttpGateway(
     override suspend fun fetchInfo(
         session: SecretValue,
         userAgent: KlasUserAgent,
-    ): SessionInfoResult = try {
+    ): SessionInfoResult = (try {
         val response = get(KlasUrls.KLAS_SESSION_INFO, session, userAgent)
         val body = response.bodyAsText()
         when {
@@ -52,12 +53,24 @@ class KlasSessionLeaseHttpGateway(
         throw cause
     } catch (_: Throwable) {
         SessionInfoResult.NetworkFailure
+    }).also {
+        val failure = when (it) {
+            is SessionInfoResult.Success -> null
+            SessionInfoResult.Timeout -> DiagnosticFailure.TIMEOUT
+            SessionInfoResult.NetworkFailure -> DiagnosticFailure.NETWORK
+            SessionInfoResult.SessionExpired -> DiagnosticFailure.SESSION_EXPIRED
+            SessionInfoResult.MalformedResponse -> DiagnosticFailure.MALFORMED
+            is SessionInfoResult.HttpFailure -> DiagnosticFailure.HTTP
+        }
+        if (failure != null) NativeDiagnostics.report(
+            DiagnosticStage.SESSION_INFO, failure, statusCode = (it as? SessionInfoResult.HttpFailure)?.statusCode,
+        )
     }
 
     override suspend fun extend(
         session: SecretValue,
         userAgent: KlasUserAgent,
-    ): SessionExtensionResult = try {
+    ): SessionExtensionResult = (try {
         val response = get(KlasUrls.KLAS_SESSION_UPDATE, session, userAgent)
         val body = response.bodyAsText()
         when {
@@ -81,6 +94,18 @@ class KlasSessionLeaseHttpGateway(
         throw cause
     } catch (_: Throwable) {
         SessionExtensionResult.NetworkFailure
+    }).also {
+        val failure = when (it) {
+            SessionExtensionResult.Success -> null
+            SessionExtensionResult.Timeout -> DiagnosticFailure.TIMEOUT
+            SessionExtensionResult.NetworkFailure -> DiagnosticFailure.NETWORK
+            SessionExtensionResult.SessionExpired -> DiagnosticFailure.SESSION_EXPIRED
+            SessionExtensionResult.MalformedResponse -> DiagnosticFailure.MALFORMED
+            is SessionExtensionResult.HttpFailure -> DiagnosticFailure.HTTP
+        }
+        if (failure != null) NativeDiagnostics.report(
+            DiagnosticStage.SESSION_EXTEND, failure, statusCode = (it as? SessionExtensionResult.HttpFailure)?.statusCode,
+        )
     }
 
     private suspend fun get(url: String, session: SecretValue, userAgent: KlasUserAgent) =

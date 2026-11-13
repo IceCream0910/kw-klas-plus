@@ -1,6 +1,8 @@
 package com.icecream.kwklasplus.core.auth
 
+import com.icecream.kwklasplus.core.diagnostics.*
 import com.icecream.kwklasplus.core.security.SecretValue
+import kotlinx.coroutines.CancellationException
 import com.icecream.kwklasplus.core.session.Session
 import com.icecream.kwklasplus.core.session.SessionCoordinator
 import com.icecream.kwklasplus.core.session.SessionResult
@@ -50,18 +52,23 @@ class PrepareCredentialUseCase(
 ) {
     suspend fun prepare(accountId: String, password: PlainPassword): CredentialPreparationResult {
         if (accountId.isBlank() || com.icecream.kwklasplus.core.demo.DemoSession.isDemoAccount(accountId)) {
+            NativeDiagnostics.report(DiagnosticStage.CREDENTIAL_PREPARE, DiagnosticFailure.INVALID_CREDENTIALS)
             return CredentialPreparationResult.Failure(AuthFailure.InvalidCredentials)
         }
         return when (val encryption = encryptionApi.encrypt(accountId, password)) {
-            is PasswordEncryptionResult.Failure -> CredentialPreparationResult.Failure(
-                encryption.failure,
-            )
+            is PasswordEncryptionResult.Failure -> {
+                encryption.failure.diagnosticFailure()?.let { NativeDiagnostics.report(DiagnosticStage.PASSWORD_ENCRYPT, it) }
+                CredentialPreparationResult.Failure(encryption.failure)
+            }
             is PasswordEncryptionResult.Success -> {
                 val credential = StoredCredential(accountId, encryption.encryptedPassword)
                 try {
                     credentialStore.save(credential)
                     CredentialPreparationResult.Success(credential)
+                } catch (cause: CancellationException) {
+                    throw cause
                 } catch (_: Throwable) {
+                    NativeDiagnostics.report(DiagnosticStage.CREDENTIAL_STORE, DiagnosticFailure.STORAGE)
                     CredentialPreparationResult.Failure(AuthFailure.Storage)
                 }
             }
@@ -103,7 +110,10 @@ class LoginUseCase(
                     try {
                         credentialStore.clearPassword()
                         LoginResult.Failed(AuthFailure.InvalidCredentials)
+                    } catch (cause: CancellationException) {
+                        throw cause
                     } catch (_: Throwable) {
+                        NativeDiagnostics.report(DiagnosticStage.CREDENTIAL_STORE, DiagnosticFailure.STORAGE)
                         LoginResult.Failed(AuthFailure.Storage)
                     }
                 } else {
@@ -112,7 +122,10 @@ class LoginUseCase(
             }
             is WebAuthResult.SessionObserved -> when (val session = sessionCoordinator.observe(webResult.token)) {
                 is SessionResult.Active -> LoginResult.Authenticated(session.session)
-                else -> LoginResult.Failed(AuthFailure.Storage)
+                else -> {
+                    NativeDiagnostics.report(DiagnosticStage.SESSION_STORE, DiagnosticFailure.STORAGE)
+                    LoginResult.Failed(AuthFailure.Storage)
+                }
             }
         }
 
