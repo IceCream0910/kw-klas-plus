@@ -168,7 +168,7 @@ Android 네이티브 화면은 compact(<600dp), medium(600~839dp), expanded(≥8
 
 Android·iOS 홈은 전체 학기 식별자를 유지하고 선택 학기의 과목 목록만 검증한다. 저장 학기가 없으면 홈 초기화에서 첫 학기를 선택한다. 백그라운드 알림은 요청한 학기가 없으면 미검증 결과로 끝낸다. 과목별 할 일 조회는 한 번에 최대 네 과목을 처리한다. 세션 만료는 부분 성공보다 우선한다. 부분 성공과 실패는 알림 원장의 조회 시각과 claim을 갱신하거나 게시된 알림을 취소하지 않는다.
 
-홈의 데이터 전달·구 WebView 호환은 [ADR-013](adr/ADR-013-deadline-notifications-webview-contract.md), 인증·API·할 일 오류의 허용된 Sentry 진단 정보는 [ADR-014](adr/ADR-014-native-sentry-observability.md)를 따른다.
+홈의 데이터 전달·구 WebView 호환은 [ADR-013](adr/ADR-013-deadline-notifications-webview-contract.md), 인증·API·할 일 오류의 Sentry 로그 및 오류 이벤트 요약에 허용되는 진단 정보는 [ADR-014](adr/ADR-014-native-sentry-observability.md)를 따른다.
 
 ## 최초 온보딩
 

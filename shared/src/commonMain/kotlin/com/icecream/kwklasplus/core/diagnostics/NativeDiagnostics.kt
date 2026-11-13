@@ -18,6 +18,7 @@ enum class DiagnosticFailure {
 
 object NativeDiagnostics {
     const val eventName = "klas.operation_failed"
+    const val eventMarker = "klas.diagnostic_event"
     private val sink = MutableStateFlow<((Map<String, String>) -> Unit)?>(null)
 
     fun install(reporter: (Map<String, String>) -> Unit) {
@@ -82,6 +83,29 @@ object NativeDiagnostics {
         DiagnosticFailure.INVALID_CREDENTIALS.name, DiagnosticFailure.CAPTCHA_REQUIRED.name,
         DiagnosticFailure.ADDITIONAL_AUTH.name, DiagnosticFailure.SESSION_EXPIRED.name,
     )
+
+    fun errorEventFields(tags: Map<String, String>): Map<String, String> {
+        if (tags[eventMarker] != eventName) return emptyMap()
+        val fields = sanitize(tags)
+        if (fields.isEmpty() || isExpected(fields)) return emptyMap()
+        if (fields["klas.stage"] == DiagnosticStage.DEADLINE_REFRESH.name &&
+            fields["klas.failure"] != DiagnosticFailure.STORAGE.name
+        ) return emptyMap()
+        return fields
+    }
+
+    fun errorSummary(fields: Map<String, String>): String {
+        val safe = errorEventFields(fields + (eventMarker to eventName))
+        if (safe.isEmpty()) return "[redacted]"
+        val stage = safe.getValue("klas.stage")
+        val failure = safe.getValue("klas.failure")
+        val endpoint = safe["klas.endpoint"]?.let { " [$it]" }.orEmpty()
+        val status = safe["http.status_code"]?.let { " (HTTP $it)" }.orEmpty()
+        return "KLAS $stage$endpoint: $failure$status"
+    }
+
+    fun errorFingerprint(fields: Map<String, String>): List<String> =
+        listOfNotNull(eventName, fields["klas.stage"], fields["klas.failure"], fields["klas.endpoint"])
 
     fun deduplicationKey(attributes: Map<String, String>): String =
         listOf("klas.stage", "klas.failure", "klas.endpoint", "http.status_code").joinToString(":") { attributes[it].orEmpty() }

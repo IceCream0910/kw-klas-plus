@@ -67,6 +67,13 @@ enum SentryTelemetry {
                     SentrySDK.logger.info(diagnostics.eventName, attributes: attributes)
                 } else {
                     SentrySDK.logger.warn(diagnostics.eventName, attributes: attributes)
+                    var tags = attributes
+                    tags[diagnostics.eventMarker] = diagnostics.eventName
+                    if !diagnostics.errorEventFields(tags: tags).isEmpty {
+                        let event = Event(level: .error)
+                        event.tags = tags
+                        SentrySDK.capture(event: event)
+                    }
                 }
             }
         }
@@ -116,11 +123,14 @@ enum SentryTelemetry {
     }
 
     static func sanitizeError(_ event: Event) -> Event {
+        let diagnostics = NativeDiagnostics.shared
+        let fields = diagnostics.errorEventFields(tags: event.tags ?? [:])
         event.user = nil
         event.request = nil
-        event.message = nil
+        event.message = fields.isEmpty ? nil : SentryMessage(formatted: diagnostics.errorSummary(fields: fields))
         event.extra = nil
-        event.tags = nil
+        event.tags = fields.isEmpty ? nil : fields
+        event.fingerprint = fields.isEmpty ? nil : diagnostics.errorFingerprint(fields: fields)
         event.breadcrumbs = nil
         event.exceptions?.forEach { $0.value = "[redacted]" }
         event.context = event.context?.filter { ["app", "device", "os", "runtime"].contains($0.key) }

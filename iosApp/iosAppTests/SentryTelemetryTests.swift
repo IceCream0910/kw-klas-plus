@@ -33,6 +33,37 @@ final class SentryTelemetryTests: XCTestCase {
         XCTAssertNil(sanitized.attributes["password"])
     }
 
+    func testKnownFailureRebuildsTheErrorMessageFromApprovedTags() {
+        let event = Event(level: .error)
+        event.message = SentryMessage(formatted: "SESSION=secret")
+        event.tags = [
+            "klas.diagnostic_event": "klas.operation_failed",
+            "klas.stage": "DEADLINE_DATE",
+            "klas.failure": "MALFORMED",
+            "klas.endpoint": "TASK_DEADLINES",
+            "url": "https://klas.kw.ac.kr/?SESSION=secret"
+        ]
+        event.fingerprint = ["SESSION=secret"]
+
+        let sanitized = SentryTelemetry.sanitizeError(event)
+        XCTAssertEqual(sanitized.message?.formatted, "KLAS DEADLINE_DATE [TASK_DEADLINES]: MALFORMED")
+        XCTAssertEqual(Set(sanitized.tags?.keys.map { $0 } ?? []), ["klas.stage", "klas.failure", "klas.endpoint"])
+        XCTAssertEqual(sanitized.fingerprint, ["klas.operation_failed", "DEADLINE_DATE", "MALFORMED", "TASK_DEADLINES"])
+    }
+
+    func testUnrecognizedFieldsNeverBecomeAnErrorSummary() {
+        let event = Event(level: .error)
+        event.message = SentryMessage(formatted: "secret payload")
+        event.tags = [
+            "klas.diagnostic_event": "klas.operation_failed",
+            "klas.stage": "https://klas.kw.ac.kr/?SESSION=secret",
+            "klas.failure": "HTTP"
+        ]
+        let sanitized = SentryTelemetry.sanitizeError(event)
+        XCTAssertNil(sanitized.message)
+        XCTAssertNil(sanitized.tags)
+    }
+
     func testErrorRemovesSensitiveContext() {
         let event = Event()
         event.extra = ["bridge": "secret payload"]

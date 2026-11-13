@@ -8,6 +8,8 @@ import io.sentry.logger.SentryLogParameters
 import com.icecream.kwklasplus.BuildConfig
 import io.sentry.Sentry
 import io.sentry.SentryEvent
+import io.sentry.SentryLevel
+import io.sentry.protocol.Message
 import io.sentry.SentryLogEvent
 import io.sentry.SentryLogEventAttributeValue
 import io.sentry.SentryLogLevel
@@ -50,6 +52,15 @@ object SentryTelemetry {
                     SentryLogParameters.create(SentryAttributes.fromMap(attributes)),
                     NativeDiagnostics.eventName,
                 )
+                val fields = NativeDiagnostics.errorEventFields(
+                    attributes + (NativeDiagnostics.eventMarker to NativeDiagnostics.eventName),
+                )
+                if (fields.isNotEmpty()) {
+                    Sentry.captureEvent(SentryEvent().apply {
+                        level = SentryLevel.ERROR
+                        tags = fields + (NativeDiagnostics.eventMarker to NativeDiagnostics.eventName)
+                    })
+                }
             }
         }
         log(TelemetryEvent.APP_INITIALIZED)
@@ -84,11 +95,15 @@ object SentryTelemetry {
     }
 
     internal fun sanitizeError(event: SentryEvent): SentryEvent {
+        val diagnostic = NativeDiagnostics.errorEventFields(event.tags.orEmpty())
         event.user = null
         event.request = null
-        event.message = null
+        event.message = diagnostic.takeIf { it.isNotEmpty() }?.let {
+            Message().apply { formatted = NativeDiagnostics.errorSummary(it) }
+        }
         event.extras = emptyMap()
-        event.tags = emptyMap()
+        event.tags = diagnostic
+        event.fingerprints = if (diagnostic.isEmpty()) null else NativeDiagnostics.errorFingerprint(diagnostic)
         event.breadcrumbs = emptyList()
         event.exceptions?.forEach { it.value = "[redacted]" }
         event.contexts.keys().toList().filter { it !in setOf("app", "device", "os", "runtime") }.forEach { event.contexts.remove(it) }

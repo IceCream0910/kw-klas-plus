@@ -13,7 +13,7 @@ Android의 `sentry-android:8.20.0`과 `kw-klas-plus-android` 프로젝트를 유
 
 일반 문자열 logger를 앱 코드에 공개하지 않고 고정 enum을 사용한다. `beforeSendLog`는 허용된 본문만 통과시키고 모든 원래 속성을 버린 뒤 `app.event`, `app.platform`, `sentry.release`, `sentry.environment`만 구성한다. 사용자 식별자·URL·쿠키·학생 정보·비밀번호·토큰·브리지 payload·예외 문자열은 받지 않는다.
 
-`beforeSend`는 사용자·요청·message·extra·tags·breadcrumb·임의 context를 제거하고 예외 값은 `[redacted]`로 바꾼다. 예외 타입과 stack trace, SDK가 제공하는 app/device/os/runtime 진단은 유지한다. 스크린샷·view hierarchy는 꺼 두고 iOS 자동 breadcrumb·네트워크 추적·실패 요청 수집도 끈다. Android breadcrumb는 전송 전에 버린다. 자동 오류 수집을 로그로 중복 보고하지 않는다.
+`beforeSend`는 사용자·요청·message·extra·tags·breadcrumb·임의 context를 제거하고 예외 값은 `[redacted]`로 바꾼다. 아래의 내부 진단 이벤트는 별도의 안전한 요약을 구성한다. 예외 타입과 stack trace, SDK가 제공하는 app/device/os/runtime 진단은 유지한다. 스크린샷·view hierarchy는 꺼 두고 iOS 자동 breadcrumb·네트워크 추적·실패 요청 수집도 끈다. Android breadcrumb는 전송 전에 버린다. 자동 오류 수집을 로그로 중복 보고하지 않는다.
 
 ## 로그 예제
 
@@ -101,3 +101,9 @@ SENTRY_ORG=yun-taein SENTRY_PROJECT=kw-klas-plus-ios \
 `klas.operation_failed`는 요청·선택 학기 과목 파싱·할 일 응답 및 날짜 변환·WebView 전달·암호화·로그인·세션 저장/복원/연장 중 실패한 단계를 기록한다. 학사 Native API는 고정된 endpoint 이름을 사용하고, 임의 경로를 받는 Native API 브리지는 GET/POST 종류만 기록한다. HTTP 상태, 경과 시간, 할 일 조회 성공·실패 과목 수는 허용 범위의 정수로만 보낸다. 세션 만료·자격증명 오류·CAPTCHA·추가 인증은 info, 나머지 진단은 warn이다. 취소와 오래된 요청의 폐기는 실패로 수집하지 않는다.
 
 동일 단계·실패·endpoint·HTTP 상태는 프로세스별 60초에 한 번만 남기며, 같은 기간 최대 100개 키를 추적한다. 양 플랫폼의 로그 전송 필터가 고정 식별자와 단계별 필드만 다시 검증한다. 요청·응답 원문, URL, 학번, 토큰, 과목 식별자·이름, 예외 문자열은 이 이벤트의 입력이 아니다. 기존 오류 이벤트의 필터와 SDK 자동 수집 정책은 유지한다. 로그의 롤백은 계측과 이 이벤트의 로그 필터를 되돌린다.
+
+### 오류 이벤트에 표시하는 안전한 요약 (#120)
+
+알려진 운영 실패는 같은 진단 필드로 Sentry 오류 이벤트에도 기록한다. 예를 들어 `KLAS DEADLINE_DATE [TASK_DEADLINES]: MALFORMED` 또는 `KLAS LOGIN_CONFIRM: TIMEOUT`으로 표시한다. `beforeSend`는 내부 이벤트 표식과 허용 목록을 확인하고, 요약·태그·그룹 키를 다시 만든다. HTTP 상태는 요약과 태그에 표시하되 그룹 키에는 넣지 않는다. 예외 원문은 이 경로에서도 복원하지 않으며, 일반 오류의 예외 값은 계속 `[redacted]`로 남긴다.
+
+세션 만료·잘못된 자격증명·CAPTCHA·추가 인증 및 할 일 조회의 단순 집계 결과는 Logs에만 남긴다. 저장소 오류를 제외한 할 일 집계 이벤트는 개별 API·파싱 실패를 중복 보고하지 않는다. 신규 오류 이벤트와 로그는 기존 60초 수집 제한을 공유한다. 이 변경만 되돌려도 기존 Logs는 유지된다.
