@@ -96,6 +96,13 @@ class KlasApiCore(
             if (context() != requestContext) return@withPermit KlasApiResult.Failure("STALE_CONTEXT")
             val elapsed = TimeSource.Monotonic.markNow()
             val stage = if (isPage) DiagnosticStage.WEB_API_GET else DiagnosticStage.WEB_API_POST
+            var responseStatus: Int? = null
+            fun reportFailure(failure: DiagnosticFailure) {
+                NativeDiagnostics.reportWebApi(
+                    stage, failure, WebApiDiagnosticEndpoint.fromRequestPath(path),
+                    responseStatus, elapsed.elapsedNow().inWholeMilliseconds,
+                )
+            }
             val result = try {
                 http.prepareRequest(KlasApiContract.BASE + path) {
                     method = if (isPage) HttpMethod.Get else HttpMethod.Post
@@ -106,6 +113,7 @@ class KlasApiCore(
                     if (!isPage && body != JsonNull) setBody(body.toString())
                 }
                 .execute { response ->
+                    responseStatus = response.status.value
                     if (session() != token) return@execute KlasApiResult.Failure("STALE_SESSION")
                     if (response.status.value in 300..399) return@execute KlasApiResult.Failure("AUTH_ACTION_REQUIRED", response.status.value)
                     if (response.status.value == 401) return@execute KlasApiResult.Failure("SESSION_EXPIRED", 401)
@@ -137,10 +145,10 @@ class KlasApiCore(
             } catch (cause: CancellationException) {
                 throw cause
             } catch (_: HttpRequestTimeoutException) {
-                NativeDiagnostics.report(stage, DiagnosticFailure.TIMEOUT, elapsedMs = elapsed.elapsedNow().inWholeMilliseconds)
+                reportFailure(DiagnosticFailure.TIMEOUT)
                 return@withPermit KlasApiResult.Failure(if (KlasApiContract.isMutation(path)) "OUTCOME_UNKNOWN" else "TIMEOUT")
             } catch (_: Exception) {
-                NativeDiagnostics.report(stage, DiagnosticFailure.NETWORK, elapsedMs = elapsed.elapsedNow().inWholeMilliseconds)
+                reportFailure(DiagnosticFailure.NETWORK)
                 return@withPermit KlasApiResult.Failure(if (KlasApiContract.isMutation(path)) "OUTCOME_UNKNOWN" else "NETWORK_FAILURE")
             }
             if (result is KlasApiResult.Failure) {
@@ -152,9 +160,7 @@ class KlasApiCore(
                     "RESPONSE_TOO_LARGE" -> DiagnosticFailure.RESPONSE_LIMIT
                     else -> null
                 }
-                if (failure != null) NativeDiagnostics.report(
-                    stage, failure, statusCode = result.status, elapsedMs = elapsed.elapsedNow().inWholeMilliseconds,
-                )
+                if (failure != null) reportFailure(failure)
             }
             result
         }

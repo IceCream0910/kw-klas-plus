@@ -33,12 +33,30 @@ object NativeDiagnostics {
         elapsedMs: Long? = null,
         successCount: Int? = null,
         failureCount: Int? = null,
+    ) = emit(stage, failure, endpoint?.name, statusCode, elapsedMs, successCount, failureCount)
+
+    internal fun reportWebApi(
+        stage: DiagnosticStage,
+        failure: DiagnosticFailure,
+        endpoint: WebApiDiagnosticEndpoint,
+        statusCode: Int?,
+        elapsedMs: Long,
+    ) = emit(stage, failure, endpoint.name, statusCode, elapsedMs, null, null)
+
+    private fun emit(
+        stage: DiagnosticStage,
+        failure: DiagnosticFailure,
+        endpoint: String?,
+        statusCode: Int?,
+        elapsedMs: Long?,
+        successCount: Int?,
+        failureCount: Int?,
     ) {
         val reporter = sink.value ?: return
         val attributes = buildMap {
             put("klas.stage", stage.name)
             put("klas.failure", failure.name)
-            endpoint?.let { put("klas.endpoint", it.name) }
+            endpoint?.let { put("klas.endpoint", it) }
             statusCode?.let { put("http.status_code", it.toString()) }
             elapsedMs?.let { put("klas.elapsed_ms", it.toString()) }
             successCount?.let { put("klas.success_count", it.toString()) }
@@ -55,10 +73,14 @@ object NativeDiagnostics {
         return buildMap {
             put("klas.stage", stage.name)
             put("klas.failure", failure.name)
-            if (stage in setOf(DiagnosticStage.API, DiagnosticStage.DEADLINE_PAYLOAD, DiagnosticStage.DEADLINE_DATE)) {
-                AuthenticatedKlasEndpoint.entries.firstOrNull { it.name == attributes["klas.endpoint"] }
-                    ?.let { put("klas.endpoint", it.name) }
-            }
+            val endpoint = attributes["klas.endpoint"]
+            when (stage) {
+                DiagnosticStage.WEB_API_GET, DiagnosticStage.WEB_API_POST ->
+                    WebApiDiagnosticEndpoint.entries.firstOrNull { it.name == endpoint }?.name
+                DiagnosticStage.API, DiagnosticStage.DEADLINE_PAYLOAD, DiagnosticStage.DEADLINE_DATE ->
+                    AuthenticatedKlasEndpoint.entries.firstOrNull { it.name == endpoint }?.name
+                else -> null
+            }?.let { put("klas.endpoint", it) }
             if (stage in httpStages) {
                 attributes["http.status_code"]?.toIntOrNull()?.takeIf { it in 100..599 }
                     ?.let { put("http.status_code", it.toString()) }

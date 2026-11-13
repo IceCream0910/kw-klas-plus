@@ -82,7 +82,7 @@ iOS 앱과 위젯 확장은 App Group의 `academic_session.lock`을 `flock`으�
 
 Android는 기존 `kw-klas-plus-android`, iOS 앱은 `kw-klas-plus-ios` Sentry 프로젝트를 사용한다. 플랫폼별 `SentryTelemetry`가 SDK 초기화를 한 번 소유하며 위젯 확장에는 SDK를 연결하지 않는다. Errors와 Logs만 사용하고 iOS 네트워크 자동 추적·실패 요청 수집·자동 breadcrumb·화면 캡처·view hierarchy를 끈다. Android의 기존 오류 SDK는 유지하되 자동 초기화를 끄고 Application에서 필터와 함께 초기화한다.
 
-로그는 고정 `TelemetryEvent`만 허용하며 전송 직전 사용자·scope·임의 속성을 제거하고 이벤트 이름·플랫폼·릴리스·환경만 다시 구성한다. 알림 갱신 실패 로그에는 계정·과목·알림 본문·예외 문자열을 포함하지 않는다. 오류 이벤트는 사용자·요청·message·extra·tags·breadcrumb과 임의 context를 제거하고 예외 값은 가리되 예외 타입·stack trace·앱/기기/OS/runtime 진단은 유지한다. SESSION·암호화 비밀번호·도서관 키·PIN·브리지 payload가 Sentry로 전송되지 않아야 하며 양 플랫폼 필터 회귀 테스트로 검증한다. iOS 검증용 오류 인자는 Debug에만 있고 XCTest host에서는 SDK를 시작하지 않는다. 수집 경계·예제·롤백은 [ADR-014](adr/ADR-014-native-sentry-observability.md)를 따른다.
+로그는 고정 `TelemetryEvent`와 허용된 KLAS 진단 이벤트만 받는다. 전송 직전 사용자·scope·임의 속성을 제거하고 이벤트 이름·플랫폼·릴리스·환경과 허용된 진단 필드만 다시 구성한다. Web API 진단의 endpoint는 등록된 고정 식별자 또는 `UNKNOWN`이며, 요청 허용 여부를 결정하지 않는다. 알림 갱신 실패 로그에는 계정·과목·알림 본문·예외 문자열을 포함하지 않는다. 오류 이벤트는 사용자·요청·message·extra·tags·breadcrumb과 임의 context를 제거하고 예외 값은 가리되 예외 타입·stack trace·앱/기기/OS/runtime 진단은 유지한다. 알려진 KLAS 실패는 허용된 필드로 오류 요약과 태그를 다시 구성한다. SESSION·암호화 비밀번호·도서관 키·PIN·브리지 payload가 Sentry로 전송되지 않아야 하며 양 플랫폼 필터 회귀 테스트로 검증한다. iOS 검증용 오류 인자는 Debug에만 있고 XCTest host에서는 SDK를 시작하지 않는다. 수집 경계·예제·롤백은 [ADR-014](adr/ADR-014-native-sentry-observability.md)를 따른다.
 
 ## WebView·Native 브리지
 
@@ -184,4 +184,4 @@ Android·iOS 홈은 전체 학기 식별자를 유지하고 선택 학기의 과
 
 선택 설정은 인증과 필수 동의 이후에 안내합니다. 첫 마감 데이터 조회 성공에는 알림, 전체 메뉴 첫 진입에는 출입증, 설정 화면 또는 두 번째 홈 실행에는 앱 잠금을 안내하며 이미 설정된 기능은 생략합니다. `setup_prompt_seen_*` 일반 설정은 설치별 표시 이력이며 실제 노출 시 기록합니다. 하단 안내는 배경 터치를 막지 않는 작은 오버레이이며 X로 닫을 수 있습니다. 앱 잠금과 알림의 상태 조회는 다른 단계를 자동 진행시키지 않습니다. 추천 알림 설정은 저장 성공 후 toast로 알리고 닫으며 일반 설정의 완료 시트는 유지합니다. 기존 `login_funnel_status`·브리지 메서드·권한 CTA 및 인증 저장 경계는 유지합니다.
 
-Endpoint 확장: Native와 서버 core는 endpoint 목록을 유지하지 않는다. HTTPS klas.kw.ac.kr의 새 GET·JSON POST 경로와 query를 웹 배포만으로 추가한다. 사용자정보·비표준 포트·fragment·역슬래시·제어문자·dot segment·인코딩된 path와 redirect를 차단한다. 모든 POST는 경로에 관계없이 중복 억제와 네트워크/timeout 결과 불명 정책을 적용한다. query의 percent encoding은 허용한다.
+Endpoint 확장: Native와 서버 core는 요청 허용을 위한 endpoint 목록을 유지하지 않는다. HTTPS klas.kw.ac.kr의 새 GET·JSON POST 경로와 query를 웹 배포만으로 추가한다. 사용자정보·비표준 포트·fragment·역슬래시·제어문자·dot segment·인코딩된 path와 redirect를 차단한다. 모든 POST는 경로에 관계없이 중복 억제와 네트워크/timeout 결과 불명 정책을 적용한다. query의 percent encoding은 허용한다.
