@@ -8,6 +8,7 @@ import io.sentry.protocol.SentryException
 import io.sentry.protocol.SentryId
 import io.sentry.protocol.User
 import io.sentry.protocol.Request
+import io.sentry.protocol.Message
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -26,6 +27,61 @@ class SentryTelemetryTest {
         assertSame(log, SentryTelemetry.sanitizeLog(log))
         assertEquals(setOf("app.event", "app.platform", "sentry.release", "sentry.environment"), requireNotNull(log.attributes).keys)
         assertEquals("reminder.schedule_rejected", requireNotNull(log.attributes)["app.event"]?.value)
+    }
+
+    @Test
+    fun diagnosticAcceptsKnownFieldsButDropsRawUrlsAndUnapprovedAttributes() {
+        val log = SentryLogEvent(SentryId(), 1.0, "klas.operation_failed", SentryLogLevel.ERROR)
+        mapOf(
+            "klas.stage" to "API", "klas.failure" to "HTTP", "http.status_code" to "503",
+            "klas.endpoint" to "/private?SESSION=secret", "klas.success_count" to "4",
+            "klas.elapsed_ms" to "123", "password" to "secret",
+        ).forEach { (key, value) -> log.setAttribute(key, SentryLogEventAttributeValue("string", value)) }
+        val clean = requireNotNull(SentryTelemetry.sanitizeLog(log))
+        val fields = requireNotNull(clean.attributes)
+        assertEquals(SentryLogLevel.WARN, clean.level)
+        assertEquals(503L, fields["http.status_code"]?.value)
+        assertEquals(123L, fields["klas.elapsed_ms"]?.value)
+        assertNull(fields["klas.endpoint"])
+        assertNull(fields["klas.success_count"])
+        assertNull(fields["password"])
+    }
+
+    @Test
+    fun knownFailureRebuildsTheErrorMessageFromApprovedTags() {
+        val event = SentryEvent().apply {
+            message = Message().apply { formatted = "SESSION=secret" }
+            tags = mapOf(
+                "klas.diagnostic_event" to "klas.operation_failed",
+                "klas.stage" to "API",
+                "klas.failure" to "HTTP",
+                "klas.endpoint" to "TASK_DEADLINES",
+                "http.status_code" to "503",
+                "url" to "https://klas.kw.ac.kr/?SESSION=secret",
+            )
+            fingerprints = listOf("SESSION=secret")
+        }
+        val clean = SentryTelemetry.sanitizeError(event)
+        assertEquals("KLAS API [TASK_DEADLINES]: HTTP (HTTP 503)", clean.message?.formatted)
+        assertEquals(setOf("klas.stage", "klas.failure", "klas.endpoint", "http.status_code"), clean.tags.orEmpty().keys)
+        assertEquals(listOf("klas.operation_failed", "API", "HTTP", "TASK_DEADLINES"), clean.fingerprints)
+    }
+
+    @Test
+    fun missingMarkerAndExpectedFailuresDoNotProduceAnErrorSummary() {
+        for ((marker, failure) in listOf(null to "TIMEOUT", "klas.operation_failed" to "CAPTCHA_REQUIRED")) {
+            val event = SentryEvent().apply {
+                message = Message().apply { formatted = "secret payload" }
+                tags = buildMap {
+                    put("klas.stage", "LOGIN_CAPTCHA")
+                    put("klas.failure", failure)
+                    marker?.let { put("klas.diagnostic_event", it) }
+                }
+            }
+            val clean = SentryTelemetry.sanitizeError(event)
+            assertNull(clean.message)
+            assertTrue(clean.tags.orEmpty().isEmpty())
+        }
     }
 
     @Test

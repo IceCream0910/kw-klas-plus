@@ -1,5 +1,6 @@
 package com.icecream.kwklasplus.core.session
 
+import com.icecream.kwklasplus.core.diagnostics.*
 import com.icecream.kwklasplus.core.security.SecretValue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
@@ -20,7 +21,9 @@ class SessionCoordinator(
 
     suspend fun restore(): SessionResult = if (com.icecream.kwklasplus.core.demo.DemoSession.active) {
         if (com.icecream.kwklasplus.core.demo.DemoSession.hasSession) SessionResult.Active(com.icecream.kwklasplus.core.demo.DemoSession.session(clock.nowEpochMillis())) else SessionResult.Missing
-    } else mutateSession { restoreLocked() }
+    } else mutateSession { restoreLocked() }.also {
+        if (it is SessionResult.Failed) NativeDiagnostics.report(DiagnosticStage.SESSION_RESTORE, DiagnosticFailure.STORAGE)
+    }
 
     private suspend fun restoreLocked(): SessionResult {
         val stored = try {

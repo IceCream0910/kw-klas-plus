@@ -1,6 +1,7 @@
 package com.icecream.kwklasplus.core.network
 
 import com.icecream.kwklasplus.core.bridge.*
+import com.icecream.kwklasplus.core.diagnostics.NativeDiagnostics
 import com.icecream.kwklasplus.core.security.SecretValue
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.*
@@ -36,6 +37,43 @@ class KlasApiCoreTest {
         assertIs<KlasApiResult.Success>(core.request("https://klas.kw.ac.kr/new/feature.do?q=%EC%83%88%20%EA%B8%B0%EB%8A%A5", "{}"))
         for (path in listOf("https://klas.kw.ac.kr@evil.test/a", "/%2e%2e/a", "/a/..", "/a\\evil", "/a#x")) {
             assertNull(KlasApiContract.path(path))
+        }
+    }
+
+    @Test fun failedWebRequestsReportOnlyFixedEndpointIdsAndObservedStatus() = runBlocking {
+        val reports = mutableListOf<Map<String, String>>()
+        NativeDiagnostics.install { reports += NativeDiagnostics.sanitize(it) }
+        try {
+            val core = api(MockEngine { request ->
+                when (request.url.encodedPath) {
+                    endpoint -> respond("private response", HttpStatusCode.ServiceUnavailable)
+                    "/std/lis/evltn/TaskStdList.do" -> respond("private malformed response")
+                    "/std/lis/evltn/SelectOnlineCntntsStdList.do" -> throw HttpRequestTimeoutException(request)
+                    else -> respond("private response", HttpStatusCode.ServiceUnavailable)
+                }
+            })
+            val result = core.request("https://klas.kw.ac.kr$endpoint?student=private-query", """{"password":"private-body"}""")
+            assertEquals(KlasApiResult.Failure("HTTP_FAILURE", 503), result)
+            assertEquals("MALFORMED_RESPONSE", assertIs<KlasApiResult.Failure>(core.request("/std/lis/evltn/TaskStdList.do", "{}")).code)
+            assertEquals("OUTCOME_UNKNOWN", assertIs<KlasApiResult.Failure>(core.request("/std/lis/evltn/SelectOnlineCntntsStdList.do", "{}")).code)
+            assertEquals("HTTP_FAILURE", assertIs<KlasApiResult.Failure>(core.request("page:/std/lis/evltn/OnlineCntntsStdPage.do", "null")).code)
+            assertEquals("HTTP_FAILURE", assertIs<KlasApiResult.Failure>(core.request("/new/private-path/TaskStdList.do", "{}")).code)
+
+            assertEquals(listOf("STUDENT_PROFILE", "TASKS", "ONLINE_LECTURES", "ONLINE_LECTURES", "UNKNOWN"), reports.map { it["klas.endpoint"] })
+            assertEquals(listOf("HTTP", "MALFORMED", "TIMEOUT", "HTTP", "HTTP"), reports.map { it["klas.failure"] })
+            assertEquals(listOf("503", "200", null, "503", "503"), reports.map { it["http.status_code"] })
+            assertEquals("WEB_API_GET", reports[3]["klas.stage"])
+            assertTrue(reports.none { it.toString().contains("private") })
+            assertNotEquals(NativeDiagnostics.deduplicationKey(reports[0]), NativeDiagnostics.deduplicationKey(reports.last()))
+
+            val tags = reports.first() + (NativeDiagnostics.eventMarker to NativeDiagnostics.eventName)
+            val fields = NativeDiagnostics.errorEventFields(tags)
+            assertEquals("KLAS WEB_API_POST [STUDENT_PROFILE]: HTTP (HTTP 503)", NativeDiagnostics.errorSummary(fields))
+            assertEquals("STUDENT_PROFILE", NativeDiagnostics.errorFingerprint(fields).last())
+            assertNull(NativeDiagnostics.errorEventFields(tags + ("klas.endpoint" to "$endpoint?secret=private"))["klas.endpoint"])
+            assertNull(NativeDiagnostics.errorEventFields(tags + ("klas.endpoint" to "QR_CHECKIN"))["klas.endpoint"])
+        } finally {
+            NativeDiagnostics.install {}
         }
     }
 

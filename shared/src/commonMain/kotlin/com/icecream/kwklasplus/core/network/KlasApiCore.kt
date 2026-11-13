@@ -1,6 +1,8 @@
 package com.icecream.kwklasplus.core.network
 
+import com.icecream.kwklasplus.core.diagnostics.*
 import com.icecream.kwklasplus.core.security.SecretValue
+import kotlin.time.TimeSource
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.request.*
@@ -92,7 +94,16 @@ class KlasApiCore(
         return slots.withPermit {
             if (session() != token) return@withPermit KlasApiResult.Failure("STALE_SESSION")
             if (context() != requestContext) return@withPermit KlasApiResult.Failure("STALE_CONTEXT")
-            try {
+            val elapsed = TimeSource.Monotonic.markNow()
+            val stage = if (isPage) DiagnosticStage.WEB_API_GET else DiagnosticStage.WEB_API_POST
+            var responseStatus: Int? = null
+            fun reportFailure(failure: DiagnosticFailure) {
+                NativeDiagnostics.reportWebApi(
+                    stage, failure, WebApiDiagnosticEndpoint.fromRequestPath(path),
+                    responseStatus, elapsed.elapsedNow().inWholeMilliseconds,
+                )
+            }
+            val result = try {
                 http.prepareRequest(KlasApiContract.BASE + path) {
                     method = if (isPage) HttpMethod.Get else HttpMethod.Post
                     if (!isPage) contentType(ContentType.Application.Json)
@@ -102,6 +113,7 @@ class KlasApiCore(
                     if (!isPage && body != JsonNull) setBody(body.toString())
                 }
                 .execute { response ->
+                    responseStatus = response.status.value
                     if (session() != token) return@execute KlasApiResult.Failure("STALE_SESSION")
                     if (response.status.value in 300..399) return@execute KlasApiResult.Failure("AUTH_ACTION_REQUIRED", response.status.value)
                     if (response.status.value == 401) return@execute KlasApiResult.Failure("SESSION_EXPIRED", 401)
@@ -133,10 +145,24 @@ class KlasApiCore(
             } catch (cause: CancellationException) {
                 throw cause
             } catch (_: HttpRequestTimeoutException) {
-                KlasApiResult.Failure(if (KlasApiContract.isMutation(path)) "OUTCOME_UNKNOWN" else "TIMEOUT")
+                reportFailure(DiagnosticFailure.TIMEOUT)
+                return@withPermit KlasApiResult.Failure(if (KlasApiContract.isMutation(path)) "OUTCOME_UNKNOWN" else "TIMEOUT")
             } catch (_: Exception) {
-                KlasApiResult.Failure(if (KlasApiContract.isMutation(path)) "OUTCOME_UNKNOWN" else "NETWORK_FAILURE")
+                reportFailure(DiagnosticFailure.NETWORK)
+                return@withPermit KlasApiResult.Failure(if (KlasApiContract.isMutation(path)) "OUTCOME_UNKNOWN" else "NETWORK_FAILURE")
             }
+            if (result is KlasApiResult.Failure) {
+                val failure = when (result.code) {
+                    "SESSION_EXPIRED" -> DiagnosticFailure.SESSION_EXPIRED
+                    "AUTH_ACTION_REQUIRED" -> DiagnosticFailure.ADDITIONAL_AUTH
+                    "ACCESS_DENIED", "HTTP_FAILURE" -> DiagnosticFailure.HTTP
+                    "MALFORMED_RESPONSE" -> DiagnosticFailure.MALFORMED
+                    "RESPONSE_TOO_LARGE" -> DiagnosticFailure.RESPONSE_LIMIT
+                    else -> null
+                }
+                if (failure != null) reportFailure(failure)
+            }
+            result
         }
     }
 }

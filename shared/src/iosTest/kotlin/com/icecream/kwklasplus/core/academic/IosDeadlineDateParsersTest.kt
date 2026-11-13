@@ -20,6 +20,13 @@ class IosDeadlineDateParsersTest {
     }
 
     @Test
+    fun parsesIsoAssignmentOffsets() {
+        for (value in listOf("2026-07-17T12:34:56+09:00", "2026-07-17T03:34:56Z")) {
+            assertEquals(1_784_259_296_000L, IosDeadlineDateParsers.assignment.parseEpochMillis(value))
+        }
+    }
+
+    @Test
     fun invalidDateIsRejected() {
         assertNull(IosDeadlineDateParsers.assignment.parseEpochMillis("invalid"))
     }

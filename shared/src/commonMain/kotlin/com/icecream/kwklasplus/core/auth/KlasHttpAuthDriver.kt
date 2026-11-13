@@ -2,6 +2,8 @@ package com.icecream.kwklasplus.core.auth
 
 import com.icecream.kwklasplus.core.legacy.KlasUrls
 import com.icecream.kwklasplus.core.security.SecretValue
+import com.icecream.kwklasplus.core.diagnostics.*
+import kotlin.time.TimeSource
 import io.ktor.client.HttpClient
 import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.network.sockets.SocketTimeoutException
@@ -37,79 +39,101 @@ internal class KlasHttpAuthDriver(
     },
 ) : WebAuthDriver {
     override suspend fun authenticate(credential: StoredCredential): WebAuthResult {
+        val elapsed = TimeSource.Monotonic.markNow()
+        var stage = DiagnosticStage.LOGIN_PAGE
+        fun failed(failure: AuthFailure, statusCode: Int? = null): WebAuthResult.Failure {
+            failure.diagnosticFailure()?.let {
+                NativeDiagnostics.report(
+                    stage, if (statusCode == null) it else DiagnosticFailure.HTTP,
+                    statusCode = statusCode, elapsedMs = elapsed.elapsedNow().inWholeMilliseconds,
+                )
+            }
+            return WebAuthResult.Failure(failure)
+        }
         return try {
             val loginPage = client.get(KlasUrls.KLAS_LOGIN) {
                 header(HttpHeaders.UserAgent, USER_AGENT)
             }
-            if (!loginPage.status.isSuccess()) return networkFailure()
+            if (!loginPage.status.isSuccess()) return failed(AuthFailure.Network, loginPage.status.value)
 
+            stage = DiagnosticStage.LOGIN_SECURITY
             val security = postJson(KlasUrls.KLAS_LOGIN_SECURITY, EmptyRequest())
-            if (!security.status.isSuccess()) return networkFailure()
+            if (!security.status.isSuccess()) return failed(AuthFailure.Network, security.status.value)
             val publicKey = json.decodeFromString<LoginSecurityResponse>(security.bodyAsText())
                 .publicKey
                 .takeIf(String::isNotBlank)
-                ?: return malformedFailure()
+                ?: return failed(AuthFailure.MalformedResponse)
+            stage = DiagnosticStage.LOGIN_TOKEN
             val payload = json.encodeToString(
                 LoginPayload(
                     loginId = credential.accountId,
                     loginPwd = credential.encryptedPassword.reveal(),
                 ),
             )
-            val loginToken = runCatching { tokenEncryptor.encrypt(publicKey, payload) }.getOrNull()
+            val loginToken = try {
+                tokenEncryptor.encrypt(publicKey, payload)
+            } catch (cause: CancellationException) {
+                throw cause
+            } catch (_: Exception) {
+                return failed(AuthFailure.MalformedResponse)
+            }
                 ?.takeIf(String::isNotBlank)
-                ?: return malformedFailure()
+                ?: return failed(AuthFailure.MalformedResponse)
 
+            stage = DiagnosticStage.LOGIN_CAPTCHA
             val captcha = postJson(
                 KlasUrls.KLAS_LOGIN_CAPTCHA,
                 LoginCaptchaRequest(loginToken),
             )
-            if (!captcha.status.isSuccess()) return networkFailure()
+            if (!captcha.status.isSuccess()) return failed(AuthFailure.Network, captcha.status.value)
             val failureCount = captcha.bodyAsText().trim().toIntOrNull()
-                ?: return malformedFailure()
+                ?: return failed(AuthFailure.MalformedResponse)
             if (failureCount > CAPTCHA_THRESHOLD) {
-                return WebAuthResult.Failure(AuthFailure.CaptchaRequired)
+                return failed(AuthFailure.CaptchaRequired)
             }
 
+            stage = DiagnosticStage.LOGIN_CONFIRM
             val confirm = postJson(
                 KlasUrls.KLAS_LOGIN_CONFIRM,
                 LoginConfirmRequest(loginToken),
             )
-            if (!confirm.status.isSuccess()) return networkFailure()
+            if (!confirm.status.isSuccess()) return failed(AuthFailure.Network, confirm.status.value)
             val confirmation = json.decodeFromString<LoginConfirmResponse>(confirm.bodyAsText())
-            val errorCount = confirmation.errorCount ?: return malformedFailure()
+            val errorCount = confirmation.errorCount ?: return failed(AuthFailure.MalformedResponse)
             if (errorCount != 0) {
-                return WebAuthResult.Failure(AuthFailure.InvalidCredentials)
+                return failed(AuthFailure.InvalidCredentials)
             }
-            val details = confirmation.response ?: return malformedFailure()
+            val details = confirmation.response ?: return failed(AuthFailure.MalformedResponse)
             if (
                 details.frstPwdAt == REQUIRED ||
                 details.certOpt == REQUIRED ||
                 details.twoFactorAt == REQUIRED
             ) {
-                return WebAuthResult.Failure(AuthFailure.TemporaryPasswordChangeRequired)
+                return failed(AuthFailure.TemporaryPasswordChangeRequired)
             }
             if (details.gradAt == REQUIRED) {
-                return WebAuthResult.Failure(AuthFailure.InvalidCredentials)
+                return failed(AuthFailure.InvalidCredentials)
             }
 
+            stage = DiagnosticStage.LOGIN_COOKIE
             val token = cookieStorage.get(Url(KlasUrls.KLAS_BASE))
                 .firstOrNull { it.name == SESSION_COOKIE_NAME }
                 ?.value
                 ?.takeIf(String::isNotBlank)
-                ?: return malformedFailure()
+                ?: return failed(AuthFailure.MalformedResponse)
             WebAuthResult.SessionObserved(SecretValue.of(token))
         } catch (_: HttpRequestTimeoutException) {
-            WebAuthResult.Failure(AuthFailure.Timeout)
+            failed(AuthFailure.Timeout)
         } catch (_: ConnectTimeoutException) {
-            WebAuthResult.Failure(AuthFailure.Timeout)
+            failed(AuthFailure.Timeout)
         } catch (_: SocketTimeoutException) {
-            WebAuthResult.Failure(AuthFailure.Timeout)
+            failed(AuthFailure.Timeout)
         } catch (_: SerializationException) {
-            malformedFailure()
+            failed(AuthFailure.MalformedResponse)
         } catch (cause: CancellationException) {
             throw cause
         } catch (_: Throwable) {
-            networkFailure()
+            failed(AuthFailure.Network)
         }
     }
 
@@ -121,10 +145,6 @@ internal class KlasHttpAuthDriver(
         header(X_REQUESTED_WITH, XML_HTTP_REQUEST)
         setBody(json.encodeToString(body))
     }
-
-    private fun networkFailure() = WebAuthResult.Failure(AuthFailure.Network)
-
-    private fun malformedFailure() = WebAuthResult.Failure(AuthFailure.MalformedResponse)
 
     private companion object {
         const val CAPTCHA_THRESHOLD = 2

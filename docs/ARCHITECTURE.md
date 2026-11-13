@@ -82,7 +82,7 @@ iOS 앱과 위젯 확장은 App Group의 `academic_session.lock`을 `flock`으�
 
 Android는 기존 `kw-klas-plus-android`, iOS 앱은 `kw-klas-plus-ios` Sentry 프로젝트를 사용한다. 플랫폼별 `SentryTelemetry`가 SDK 초기화를 한 번 소유하며 위젯 확장에는 SDK를 연결하지 않는다. Errors와 Logs만 사용하고 iOS 네트워크 자동 추적·실패 요청 수집·자동 breadcrumb·화면 캡처·view hierarchy를 끈다. Android의 기존 오류 SDK는 유지하되 자동 초기화를 끄고 Application에서 필터와 함께 초기화한다.
 
-로그는 고정 `TelemetryEvent`만 허용하며 전송 직전 사용자·scope·임의 속성을 제거하고 이벤트 이름·플랫폼·릴리스·환경만 다시 구성한다. 알림 갱신 실패 로그에는 계정·과목·알림 본문·예외 문자열을 포함하지 않는다. 오류 이벤트는 사용자·요청·message·extra·tags·breadcrumb과 임의 context를 제거하고 예외 값은 가리되 예외 타입·stack trace·앱/기기/OS/runtime 진단은 유지한다. SESSION·암호화 비밀번호·도서관 키·PIN·브리지 payload가 Sentry로 전송되지 않아야 하며 양 플랫폼 필터 회귀 테스트로 검증한다. iOS 검증용 오류 인자는 Debug에만 있고 XCTest host에서는 SDK를 시작하지 않는다. 수집 경계·예제·롤백은 [ADR-014](adr/ADR-014-native-sentry-observability.md)를 따른다.
+로그는 고정 `TelemetryEvent`와 허용된 KLAS 진단 이벤트만 받는다. 전송 직전 사용자·scope·임의 속성을 제거하고 이벤트 이름·플랫폼·릴리스·환경과 허용된 진단 필드만 다시 구성한다. Web API 진단의 endpoint는 등록된 고정 식별자 또는 `UNKNOWN`이며, 요청 허용 여부를 결정하지 않는다. 알림 갱신 실패 로그에는 계정·과목·알림 본문·예외 문자열을 포함하지 않는다. 오류 이벤트는 사용자·요청·message·extra·tags·breadcrumb과 임의 context를 제거하고 예외 값은 가리되 예외 타입·stack trace·앱/기기/OS/runtime 진단은 유지한다. 알려진 KLAS 실패는 허용된 필드로 오류 요약과 태그를 다시 구성한다. SESSION·암호화 비밀번호·도서관 키·PIN·브리지 payload가 Sentry로 전송되지 않아야 하며 양 플랫폼 필터 회귀 테스트로 검증한다. iOS 검증용 오류 인자는 Debug에만 있고 XCTest host에서는 SDK를 시작하지 않는다. 수집 경계·예제·롤백은 [ADR-014](adr/ADR-014-native-sentry-observability.md)를 따른다.
 
 ## WebView·Native 브리지
 
@@ -164,6 +164,12 @@ iOS 학사 위젯은 `widgetRenderingMode`의 `.accented`에서 투명 콘텐츠
 
 Android 네이티브 화면은 compact(<600dp), medium(600~839dp), expanded(≥840dp)로 나눕니다. WebView 내부 레이아웃은 웹 앱이 맡아요. iOS에서는 safe area·키보드·Dynamic Type·회전 때문에 WKWebView holder를 새로 만들지 않도록 주의해 주세요.
 
+## 홈 할 일 조회
+
+Android·iOS 홈은 전체 학기 식별자를 유지하고 선택 학기의 과목 목록만 검증한다. 저장 학기가 없으면 홈 초기화에서 첫 학기를 선택한다. 백그라운드 알림은 요청한 학기가 없으면 미검증 결과로 끝낸다. 과목별 할 일 조회는 한 번에 최대 네 과목을 처리한다. 해석할 수 없는 마감일은 해당 항목만 제외하며 홈 결과를 부분 성공으로 처리한다. 세션 만료는 부분 성공보다 우선한다. 부분 성공과 실패는 알림 원장의 조회 시각과 claim을 갱신하거나 게시된 알림을 취소하지 않는다.
+
+홈의 데이터 전달·구 WebView 호환은 [ADR-013](adr/ADR-013-deadline-notifications-webview-contract.md), 인증·API·할 일 오류의 Sentry 로그 및 오류 이벤트 요약에 허용되는 진단 정보는 [ADR-014](adr/ADR-014-native-sentry-observability.md)를 따른다.
+
 ## 최초 온보딩
 
 저장된 계정이 없는 신규 설치의 온보딩은 Android Compose와 iOS SwiftUI에서 로컬 데이터로 바로 그립니다. 두 플랫폼은 Android의 다섯 페이지 문구와 순서를 사용합니다. 이미지는 문구 바로 위에 하단 정렬하고, 각 페이지를 5초마다 자동으로 넘깁니다. 두 플랫폼은 할 일·메뉴·캘린더·AI 페이지에 라이트/다크 이미지를 사용하며 첫 페이지는 기존 더미 이미지를 유지합니다. 가로 스와이프로 페이지를 이동하고 모든 페이지의 우측 `로그인` 버튼은 기존 로그인 양식으로 이동합니다. 기존 웹 온보딩 파일과 WebView 브리지 계약은 변경하지 않습니다. 이 전환의 기준 Native 커밋은 `3c3590110910ff77be8a2e9ff0c739e53cbb674b`입니다. 되돌릴 때에는 이 변경을 되돌려 각 플랫폼의 이전 WebView 온보딩 경로를 복원할 수 있습니다. [ADR-008](adr/ADR-008-native-onboarding.md)을 따릅니다.
@@ -178,4 +184,4 @@ Android 네이티브 화면은 compact(<600dp), medium(600~839dp), expanded(≥8
 
 선택 설정은 인증과 필수 동의 이후에 안내합니다. 첫 마감 데이터 조회 성공에는 알림, 전체 메뉴 첫 진입에는 출입증, 설정 화면 또는 두 번째 홈 실행에는 앱 잠금을 안내하며 이미 설정된 기능은 생략합니다. `setup_prompt_seen_*` 일반 설정은 설치별 표시 이력이며 실제 노출 시 기록합니다. 하단 안내는 배경 터치를 막지 않는 작은 오버레이이며 X로 닫을 수 있습니다. 앱 잠금과 알림의 상태 조회는 다른 단계를 자동 진행시키지 않습니다. 추천 알림 설정은 저장 성공 후 toast로 알리고 닫으며 일반 설정의 완료 시트는 유지합니다. 기존 `login_funnel_status`·브리지 메서드·권한 CTA 및 인증 저장 경계는 유지합니다.
 
-Endpoint 확장: Native와 서버 core는 endpoint 목록을 유지하지 않는다. HTTPS klas.kw.ac.kr의 새 GET·JSON POST 경로와 query를 웹 배포만으로 추가한다. 사용자정보·비표준 포트·fragment·역슬래시·제어문자·dot segment·인코딩된 path와 redirect를 차단한다. 모든 POST는 경로에 관계없이 중복 억제와 네트워크/timeout 결과 불명 정책을 적용한다. query의 percent encoding은 허용한다.
+Endpoint 확장: Native와 서버 core는 요청 허용을 위한 endpoint 목록을 유지하지 않는다. HTTPS klas.kw.ac.kr의 새 GET·JSON POST 경로와 query를 웹 배포만으로 추가한다. 사용자정보·비표준 포트·fragment·역슬래시·제어문자·dot segment·인코딩된 path와 redirect를 차단한다. 모든 POST는 경로에 관계없이 중복 억제와 네트워크/timeout 결과 불명 정책을 적용한다. query의 percent encoding은 허용한다.

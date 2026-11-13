@@ -18,10 +18,10 @@ class AcademicReminderSource(
 ) : ReminderDataSource {
     override suspend fun deadlines(term: String): ReminderSourceResult<List<ReminderDeadline>> {
         val token=session() ?: return ReminderSourceResult.NeedsLogin
-        val terms=AcademicRepository(transport).fetchTerms(token,userAgent())
+        val terms=AcademicRepository(transport).fetchSelectedTerm(token, userAgent(), term, allowFallback = false)
         if(terms==AcademicTermsResult.SessionExpired) return ReminderSourceResult.NeedsLogin
-        if(terms !is AcademicTermsResult.Success) return ReminderSourceResult.Retry
-        val subjects=terms.terms.firstOrNull { it.value==term }?.subjects ?: return ReminderSourceResult.UnverifiedSource
+        if(terms !is AcademicTermsResult.Selected) return ReminderSourceResult.Retry
+        val subjects=terms.selection?.term?.subjects ?: return ReminderSourceResult.UnverifiedSource
         val permits=Semaphore(4)
         val results=coroutineScope {
             subjects.map { subject -> async {

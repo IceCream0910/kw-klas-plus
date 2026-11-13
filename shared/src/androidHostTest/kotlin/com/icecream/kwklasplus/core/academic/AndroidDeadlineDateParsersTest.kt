@@ -36,6 +36,13 @@ class AndroidDeadlineDateParsersTest {
     }
 
     @Test
+    fun parsesIsoAssignmentOffsets() {
+        for (value in listOf("2026-07-17T12:34:56+09:00", "2026-07-17T03:34:56Z")) {
+            assertEquals(1_784_259_296_000L, AndroidDeadlineDateParsers.assignment.parseEpochMillis(value))
+        }
+    }
+
+    @Test
     fun invalidDateIsRejected() {
         assertNull(AndroidDeadlineDateParsers.assignment.parseEpochMillis("invalid"))
     }

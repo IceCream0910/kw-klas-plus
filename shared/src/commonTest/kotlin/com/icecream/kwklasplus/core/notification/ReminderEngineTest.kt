@@ -324,6 +324,23 @@ class ReminderEngineTest {
         f.ready=true;f.engine.refresh();assertEquals(1,f.platform.posted.size)
     }
 
+    @Test fun partialHomeResultKeepsExistingClaimAndNotification() = runBlocking {
+        val f = Fixture()
+        f.enable()
+        f.source.items = listOf(f.item("A"))
+        f.engine.refresh()
+        val previous = f.engine.snapshot()
+        assertEquals(1, previous.claims.size)
+
+        val ticket = f.engine.beginHomeDeadlineRefresh()
+        f.engine.acceptHomeDeadlines(ticket, com.icecream.kwklasplus.core.academic.DeadlinesResult.PartialSuccess(emptyList()))
+
+        val after = f.engine.snapshot()
+        assertEquals(previous.claims, after.claims)
+        assertEquals(previous.deadlineFetchedAt, after.deadlineFetchedAt)
+        assertTrue(f.platform.cancelled.isEmpty())
+    }
+
     @Test fun completedItemCancelsOldSummaryWithoutRepeatingRemainingItem()=runBlocking {
         val f=Fixture();f.enable();f.source.items=listOf(f.item("A"),f.item("B"));f.engine.refresh()
         val batch=f.engine.snapshot().claims.single().batchId

@@ -2,7 +2,11 @@ package com.icecream.kwklasplus.core.network
 
 import com.icecream.kwklasplus.core.legacy.KlasUrls
 import com.icecream.kwklasplus.core.security.SecretValue
+import com.icecream.kwklasplus.core.diagnostics.*
 import io.ktor.client.HttpClient
+import io.ktor.client.network.sockets.ConnectTimeoutException
+import io.ktor.client.network.sockets.SocketTimeoutException
+import kotlin.time.TimeSource
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -63,7 +67,9 @@ class KlasSessionHttpClient(
         userAgent: KlasUserAgent,
         body: JsonElement,
     ): KlasAuthenticatedResult {
-        return try {
+        val elapsed = TimeSource.Monotonic.markNow()
+        var status: Int? = null
+        val result = try {
             val response = client.post(endpoint.url) {
                 contentType(ContentType.Application.Json)
                 if (endpoint == AuthenticatedKlasEndpoint.CALENDAR) {
@@ -75,6 +81,7 @@ class KlasSessionHttpClient(
                 }
                 setBody(body)
             }
+            status = response.status.value
             val responseBody = response.bodyAsText()
             when {
                 response.status.value == 401 || response.status.value == 403 ->
@@ -94,6 +101,10 @@ class KlasSessionHttpClient(
             }
         } catch (_: HttpRequestTimeoutException) {
             KlasAuthenticatedResult.Timeout
+        } catch (_: ConnectTimeoutException) {
+            KlasAuthenticatedResult.Timeout
+        } catch (_: SocketTimeoutException) {
+            KlasAuthenticatedResult.Timeout
         } catch (_: SerializationException) {
             KlasAuthenticatedResult.MalformedResponse
         } catch (cause: CancellationException) {
@@ -101,6 +112,17 @@ class KlasSessionHttpClient(
         } catch (_: Throwable) {
             KlasAuthenticatedResult.NetworkFailure
         }
+        val failure = when (result) {
+            is KlasAuthenticatedResult.Success -> null
+            KlasAuthenticatedResult.SessionExpired -> DiagnosticFailure.SESSION_EXPIRED
+            is KlasAuthenticatedResult.HttpFailure -> DiagnosticFailure.HTTP
+            KlasAuthenticatedResult.EmptyResponse -> DiagnosticFailure.EMPTY
+            KlasAuthenticatedResult.MalformedResponse -> DiagnosticFailure.MALFORMED
+            KlasAuthenticatedResult.Timeout -> DiagnosticFailure.TIMEOUT
+            KlasAuthenticatedResult.NetworkFailure -> DiagnosticFailure.NETWORK
+        }
+        if (failure != null) NativeDiagnostics.report(DiagnosticStage.API, failure, endpoint, status, elapsed.elapsedNow().inWholeMilliseconds)
+        return result
     }
 }
 
