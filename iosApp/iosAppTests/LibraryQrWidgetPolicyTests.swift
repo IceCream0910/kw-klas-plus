@@ -468,4 +468,66 @@ final class LibraryQrWidgetPolicyTests: XCTestCase {
         XCTAssertNil(controller.presentedSheet)
         XCTAssertNil(controller.originalBrightness)
     }
+
+    @MainActor
+    func testSettingsFromSetupSuggestionDismissesWithoutRequestingWebIdCard() async {
+        let suite = "com.icecream.kwklasplus.test.libraryqr.setupsuggestion.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let keychain = IosKeychainSecureStore(service: suite)
+        let authRuntime = IosAuthRuntime.companion.createForTests(defaults: defaults, secureStore: keychain)
+        let lockController = AppLockController(store: authRuntime.dependencies.appLockStore)
+        let controller = LibraryQrController(
+            service: authRuntime.dependencies.libraryService,
+            appLock: lockController
+        )
+        var webIdCardRefreshCount = 0
+        controller.onWebIdCardRefreshNeeded = { webIdCardRefreshCount += 1 }
+
+        controller.presentSettingsFromSetupSuggestion()
+        XCTAssertEqual(controller.presentedSheet, .settings)
+
+        controller.settingsState = LibraryQrSettingsUiState(
+            studentNumber: "2026000001",
+            password: "test_password",
+            phone: "01012345678"
+        )
+        controller.saveSettings()
+
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertNil(controller.presentedSheet)
+        XCTAssertNil(controller.originalBrightness)
+        XCTAssertEqual(webIdCardRefreshCount, 0)
+    }
+
+    @MainActor
+    func testSettingsFromWebIdCardRequestsWebIdCardAfterSave() async {
+        let suite = "com.icecream.kwklasplus.test.libraryqr.webidcard.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let keychain = IosKeychainSecureStore(service: suite)
+        let authRuntime = IosAuthRuntime.companion.createForTests(defaults: defaults, secureStore: keychain)
+        let lockController = AppLockController(store: authRuntime.dependencies.appLockStore)
+        let controller = LibraryQrController(
+            service: authRuntime.dependencies.libraryService,
+            appLock: lockController
+        )
+        var webIdCardRefreshCount = 0
+        controller.onWebIdCardRefreshNeeded = { webIdCardRefreshCount += 1 }
+
+        controller.presentSettingsFromWebIdCard()
+        XCTAssertEqual(controller.presentedSheet, .settings)
+
+        controller.settingsState = LibraryQrSettingsUiState(
+            studentNumber: "2026000001",
+            password: "test_password",
+            phone: "01012345678"
+        )
+        controller.saveSettings()
+
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertNil(controller.presentedSheet)
+        XCTAssertNil(controller.originalBrightness)
+        XCTAssertEqual(webIdCardRefreshCount, 1)
+    }
 }
