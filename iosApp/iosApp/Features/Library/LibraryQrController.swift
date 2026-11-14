@@ -21,7 +21,8 @@ enum LibraryQrPresentedSheet: Identifiable, Equatable {
 enum LibraryQrSettingsSource {
     case qr
     case appSettings
-    case home
+    case webIdCard
+    case setupSuggestion
 }
 
 @MainActor
@@ -137,8 +138,13 @@ final class LibraryQrController: ObservableObject {
         presentSettings()
     }
 
-    func presentSettingsFromHome() {
-        settingsSource = .home
+    func presentSettingsFromWebIdCard() {
+        settingsSource = .webIdCard
+        presentSettings()
+    }
+
+    func presentSettingsFromSetupSuggestion() {
+        settingsSource = .setupSuggestion
         presentSettings()
     }
 
@@ -175,10 +181,10 @@ final class LibraryQrController: ObservableObject {
             self.settingsState.password = ""
             self.settingsSource = .qr
             switch source {
-            case .home:
+            case .webIdCard:
                 self.presentedSheet = nil
                 self.onWebIdCardRefreshNeeded?()
-            case .appSettings:
+            case .appSettings, .setupSuggestion:
                 self.presentedSheet = nil
             case .qr:
                 Task { @MainActor in

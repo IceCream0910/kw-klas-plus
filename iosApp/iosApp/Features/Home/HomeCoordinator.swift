@@ -1136,7 +1136,7 @@ final class HomeBridgeHostAdapter: HomeBridgeHost {
     }
 
     func openLibraryQRSettingsModal() {
-        Task { @MainActor in coordinator?.libraryQr?.presentSettingsFromHome() }
+        Task { @MainActor in coordinator?.libraryQr?.presentSettingsFromWebIdCard() }
     }
 
     func openLectureActivity(subj: String, subjName: String) {

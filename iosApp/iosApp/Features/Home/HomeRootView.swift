@@ -229,7 +229,7 @@ private struct ContextualSetupOverlay: View {
                 SetupSuggestionCard(kind: kind, onClose: setup.dismiss, onAction: {
                     setup.dismiss()
                     switch kind {
-                    case .library: libraryQr.presentSettingsFromHome()
+                    case .library: libraryQr.presentSettingsFromSetupSuggestion()
                     case .appLock: appLock.presentContextualPasswordSetup { success in
                         coordinator.synchronizeLockSettings(appLock.store.currentSettings())
                         if success { coordinator.showToast("앱 잠금이 설정되었어요.") }
