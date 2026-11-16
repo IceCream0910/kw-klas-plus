@@ -27,6 +27,7 @@ class AcademicReminderSource(
             subjects.map { subject -> async {
                 permits.withPermit {
                     val items=mutableListOf<ReminderDeadline>()
+                    var isComplete = true
                     for((kind, endpoint) in listOf("onlineLecture" to AuthenticatedKlasEndpoint.ONLINE_LECTURE_DEADLINES,"task" to AuthenticatedKlasEndpoint.TASK_DEADLINES,"teamTask" to AuthenticatedKlasEndpoint.TEAM_TASK_DEADLINES)) {
                         val r=transport.postJson(endpoint,token,userAgent(),buildJsonObject {
                             put("selectChangeYn","Y"); put("selectYearhakgi",term); put("selectSubj",subject.id)
@@ -34,17 +35,22 @@ class AcademicReminderSource(
                         if(r==KlasAuthenticatedResult.SessionExpired)return@withPermit ReminderSourceResult.NeedsLogin
                         if(r !is KlasAuthenticatedResult.Success)return@withPermit ReminderSourceResult.Retry
                         val rows=r.body as? JsonArray ?: return@withPermit ReminderSourceResult.UnverifiedSource
-                        items += DeadlineNotificationProjection.parse(term,subject.id,subject.name,kind,rows)
-                            ?: return@withPermit ReminderSourceResult.UnverifiedSource
+                        val projection = DeadlineNotificationProjection.parse(term, subject.id, subject.name, kind, rows)
+                        items += projection.items
+                        isComplete = isComplete && projection.isComplete
                     }
-                    ReminderSourceResult.Success(items)
+                    ReminderSourceResult.Success(items, isComplete = isComplete)
                 }
             } }.awaitAll()
         }
         if(results.any { it==ReminderSourceResult.NeedsLogin })return ReminderSourceResult.NeedsLogin
         results.firstOrNull { it !is ReminderSourceResult.Success }?.let { return it }
-        val items=results.flatMap { (it as ReminderSourceResult.Success).value }
-        if(items.map { it.key }.distinct().size!=items.size) return ReminderSourceResult.UnverifiedSource
-        return ReminderSourceResult.Success(items)
+        val snapshots = results.filterIsInstance<ReminderSourceResult.Success<List<ReminderDeadline>>>()
+        val items = snapshots.flatMap { it.value }
+        val isComplete = snapshots.all { it.isComplete }
+        if (items.distinctBy(ReminderDeadline::key).size != items.size || (!isComplete && items.isEmpty())) {
+            return ReminderSourceResult.UnverifiedSource
+        }
+        return ReminderSourceResult.Success(items, isComplete = isComplete)
     }
 }

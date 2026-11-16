@@ -37,7 +37,7 @@ fun interface ReminderDeliveryGate { fun canPost(): Boolean }
 fun interface ReminderSettingsUi { fun open(attempt: Long): Boolean }
 data class DeadlineNotificationSettings(val enabled: Boolean, val ready: Boolean, val permission: String, val status: String, val fetchedAt: Long)
 sealed interface ReminderSourceResult<out T> {
-    data class Success<T>(val value: T) : ReminderSourceResult<T>
+    data class Success<T>(val value: T, val isComplete: Boolean = true) : ReminderSourceResult<T>
     data object NeedsLogin : ReminderSourceResult<Nothing>
     data object Retry : ReminderSourceResult<Nothing>
     data object UnverifiedSource : ReminderSourceResult<Nothing>

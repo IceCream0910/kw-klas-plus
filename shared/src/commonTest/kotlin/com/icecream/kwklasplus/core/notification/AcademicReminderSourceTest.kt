@@ -7,11 +7,11 @@ import kotlinx.serialization.json.*
 import kotlin.test.*
 
 class AcademicReminderSourceTest {
-    private fun source(rows: String, failure: Boolean=false)=AcademicReminderSource(
+    private fun source(rows: String, teamFailure: KlasAuthenticatedResult? = null)=AcademicReminderSource(
         KlasAuthenticatedTransport { endpoint,_,_,_ ->
             when {
                 endpoint==AuthenticatedKlasEndpoint.ACADEMIC_TERM_SUBJECTS -> KlasAuthenticatedResult.Success(Json.parseToJsonElement("""[{"value":"2026,2","subjList":[{"value":"SUBJECT","name":"fixture"}]}]"""))
-                endpoint==AuthenticatedKlasEndpoint.TEAM_TASK_DEADLINES && failure -> KlasAuthenticatedResult.NetworkFailure
+                endpoint==AuthenticatedKlasEndpoint.TEAM_TASK_DEADLINES && teamFailure != null -> teamFailure
                 endpoint==AuthenticatedKlasEndpoint.TASK_DEADLINES -> KlasAuthenticatedResult.Success(Json.parseToJsonElement(rows))
                 else -> KlasAuthenticatedResult.Success(JsonArray(emptyList()))
             }
@@ -48,7 +48,12 @@ class AcademicReminderSourceTest {
     }
     @Test fun duplicateIdsAndPartialNetworkFailureDoNotProduceSnapshot()=runBlocking {
         assertEquals(ReminderSourceResult.UnverifiedSource,source("[$row,$row]").deadlines("2026,2"))
-        assertEquals(ReminderSourceResult.Retry,source("[$row]",failure=true).deadlines("2026,2"))
+        assertEquals(ReminderSourceResult.Retry,source("[$row]", KlasAuthenticatedResult.NetworkFailure).deadlines("2026,2"))
+    }
+    @Test fun laterSessionExpiryOrRequestFailureOverridesVerifiedItemsFromAnIncompleteResponse() = runBlocking {
+        val response = "[null,$row]"
+        assertEquals(ReminderSourceResult.NeedsLogin, source(response, KlasAuthenticatedResult.SessionExpired).deadlines("2026,2"))
+        assertEquals(ReminderSourceResult.Retry, source(response, KlasAuthenticatedResult.NetworkFailure).deadlines("2026,2"))
     }
     @Test fun completedRowsAreExcludedAndSyntheticStableIdPreserved()=runBlocking {
         val result=assertIs<ReminderSourceResult.Success<List<ReminderDeadline>>>(source("[$row,${row.replace("\"A\"","\"B\"").replace("\"N\"","\"Y\"")}]").deadlines("2026,2"))

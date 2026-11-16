@@ -39,7 +39,8 @@ class ReminderEngineTest {
     private class Source : ReminderDataSource {
         var items=emptyList<ReminderDeadline>()
         var failure=false
-        override suspend fun deadlines(term: String)=if(failure)ReminderSourceResult.Retry else ReminderSourceResult.Success(items)
+        var isComplete = true
+        override suspend fun deadlines(term: String)=if(failure)ReminderSourceResult.Retry else ReminderSourceResult.Success(items, isComplete)
     }
     private class Fixture {
         val store=Store();val platform=Platform();val source=Source()
@@ -322,6 +323,42 @@ class ReminderEngineTest {
         f.engine.refresh();assertTrue(f.platform.posted.isEmpty());assertTrue(f.engine.settings().enabled)
         assertFailsWith<IllegalArgumentException> { f.engine.setEnabled(false) }
         f.ready=true;f.engine.refresh();assertEquals(1,f.platform.posted.size)
+    }
+
+    @Test fun partialBackgroundResultPostsNewItemsWithoutCancellingMissingOnes() = runBlocking {
+        val f = Fixture()
+        f.enable()
+        f.source.items = listOf(f.item("A"))
+        f.engine.refresh()
+        val previous = f.engine.snapshot()
+        val oldClaim = previous.claims.single()
+
+        f.now += 1_000
+        f.source.isComplete = false
+        val later = f.item("later").copy(dueAt = f.now + ReminderTime.DAY + 1)
+        f.source.items = listOf(later)
+        f.engine.refresh()
+        val withoutEligibleItems = f.engine.snapshot()
+        assertEquals("UNVERIFIED_SOURCE", withoutEligibleItems.deadlineStatus)
+        assertEquals(previous.claims, withoutEligibleItems.claims)
+        assertEquals(1, f.platform.posted.size)
+        assertTrue(f.platform.cancelled.isEmpty())
+
+        f.source.items = listOf(f.item("B"), later)
+        f.engine.refresh()
+        f.engine.refresh()
+        val partial = f.engine.snapshot()
+        assertEquals(listOf(false, true), f.platform.posted.map { it.second })
+        assertEquals(oldClaim, partial.claims.first())
+        assertEquals(setOf("user/B"), partial.claims.last().keys)
+        assertEquals(previous.deadlineFetchedAt, partial.deadlineFetchedAt)
+        assertTrue(f.platform.cancelled.isEmpty())
+
+        f.source.isComplete = true
+        f.engine.refresh()
+        assertEquals(setOf(oldClaim.batchId), f.platform.cancelled)
+        assertEquals(2, f.platform.posted.size)
+        assertEquals(f.now, f.engine.snapshot().deadlineFetchedAt)
     }
 
     @Test fun partialHomeResultKeepsExistingClaimAndNotification() = runBlocking {

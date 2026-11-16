@@ -1,7 +1,7 @@
 package com.icecream.kwklasplus.core.academic
 
 import com.icecream.kwklasplus.core.network.*
-import com.icecream.kwklasplus.core.notification.ReminderTime
+import com.icecream.kwklasplus.core.notification.*
 import com.icecream.kwklasplus.core.security.SecretValue
 import com.icecream.kwklasplus.core.session.Clock
 import kotlinx.coroutines.runBlocking
@@ -9,6 +9,54 @@ import kotlinx.serialization.json.*
 import kotlin.test.*
 
 class DeadlineFreshSnapshotTest {
+    @Test fun homeAndBackgroundAcceptTheSameDateVariantsAndKeepVerifiedItems() = runBlocking {
+        val now = ReminderTime.parse("2026-11-13 08:00:00")!!
+        val lesson = """{"evltnSe":"lesson","prog":3.33,"lesson":"01","oid":"a","startDate":" 2026-11-13 8:00 ","endDate":"2026-11-13 9:05 "}"""
+        val task = """{"submityn":"N","taskNo":"t","startdate":"","expiredate":"2026-11-13 10:00"}"""
+        var lectureRows = "[$lesson]"
+        val transport = KlasAuthenticatedTransport { endpoint, _, _, _ ->
+            val body = when (endpoint) {
+                AuthenticatedKlasEndpoint.ACADEMIC_TERM_SUBJECTS ->
+                    """[{"value":"2026,2","subjList":[{"value":"s","name":"강의"}]}]"""
+                AuthenticatedKlasEndpoint.ONLINE_LECTURE_DEADLINES -> lectureRows
+                AuthenticatedKlasEndpoint.TASK_DEADLINES -> "[$task]"
+                else -> "[]"
+            }
+            KlasAuthenticatedResult.Success(Json.parseToJsonElement(body))
+        }
+        val session = SecretValue.of("fixture")
+        val userAgent = KlasUserAgent.fromPlatform("fixture")
+        val term = "2026,2"
+        val repo = DeadlineRepository(transport, Clock { now }, DeadlineDateParser(ReminderTime::parse), DeadlineDateParser(ReminderTime::parse))
+        val background = AcademicReminderSource(transport, { session }, { userAgent })
+        suspend fun home() = repo.fetch(session, userAgent, term, listOf(AcademicSubject("s", "강의")))
+
+        val ready = assertIs<DeadlinesResult.Success>(home())
+        val reminders = assertNotNull(ready.reminders)
+        assertEquals(ReminderTime.parse("2026-11-13 09:05:59"), reminders.first().dueAt)
+        assertEquals(ReminderTime.parse("2026-11-13 08:00:00"), reminders.first().startsAt)
+        val backgroundReady = assertIs<ReminderSourceResult.Success<List<ReminderDeadline>>>(background.deadlines(term))
+        assertEquals(reminders, backgroundReady.value)
+        assertTrue(backgroundReady.isComplete)
+
+        for (bad in listOf(
+            "null",
+            lesson.replace(""""prog":3.33,""", "").replace("oid\":\"a", "oid\":\"bad"),
+            lesson.replace("3.33", "\"NaN\"").replace("oid\":\"a", "oid\":\"bad"),
+            lesson.replace("2026-11-13 9:05 ", "invalid").replace("oid\":\"a", "oid\":\"bad"),
+        )) {
+            lectureRows = "[$bad,$lesson]"
+            val partial = assertIs<DeadlinesResult.PartialSuccess>(home()).subjects.single()
+            assertEquals(ready.subjects.single(), partial)
+            val projection = DeadlineNotificationProjection.parse(term, "s", "강의", "onlineLecture", Json.parseToJsonElement(lectureRows).jsonArray)
+            assertEquals(listOf(reminders.first()), projection.items)
+            assertFalse(projection.isComplete)
+            val backgroundPartial = assertIs<ReminderSourceResult.Success<List<ReminderDeadline>>>(background.deadlines(term))
+            assertEquals(reminders, backgroundPartial.value)
+            assertFalse(backgroundPartial.isComplete)
+        }
+    }
+
     @Test fun oneResponseCreatesLegacyFeedAndDetailedProjectionWithNoCachedFallback()=runBlocking {
         var calls=0;var round=0
         val now=ReminderTime.parse("2026-10-02 10:00:00")!!
