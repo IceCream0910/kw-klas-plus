@@ -119,6 +119,10 @@ class WebAutomationScriptsTest {
         assertTrue(scripts[3].contains("typeof player._isMuted==='boolean'?player._isMuted:(v?v.muted:false)"))
         assertTrue(PlayerWebScripts.move(PlayerSeekDirection.FORWARD).reveal().contains("_seekLimit"))
         assertTrue(PlayerWebScripts.setControllerVisible(false).reveal().contains("display: none"))
+        val fullscreenControls = PlayerWebScripts.setControllerVisible(true).reveal()
+        assertTrue(fullscreenControls.contains("style.remove()"))
+        assertTrue(!fullscreenControls.contains("display: block"))
+        assertTrue(PlayerWebScripts.isPictureInPictureSupported().reveal().contains("if(!video)return 'unknown'"))
     }
 
     @Test

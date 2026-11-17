@@ -34,6 +34,110 @@ final class IosVideoHostTests: XCTestCase {
         model.showingKlas = false
     }
 
+    func testPlayerControllerVisibilityRestoresWebPlayerControl() async throws {
+        let model = track(VideoScreenModel(subjectId: "TEST", yearSemester: "2026,2", sessionToken: nil, coordinator: makeCoordinator()))
+        model.videoHolder.loadHTML("<html><head></head><body><div id='play-controller'></div><script>function $(s){return {remove:function(){}}}</script></body></html>", baseURL: URL(string: "https://vod.kw.ac.kr")!)
+        try await waitForVideoCondition {
+            try await model.videoHolder.webView.evaluateJavaScript("!!document.getElementById('play-controller')") as? Bool == true
+        }
+        let webView = model.videoHolder.webView
+        _ = try await webView.evaluateJavaScript(PlayerWebScripts.shared.setControllerVisible(visible: false).reveal())
+        _ = try await webView.evaluateJavaScript(PlayerWebScripts.shared.setControllerVisible(visible: false).reveal())
+        let hidden = try await webView.evaluateJavaScript("getComputedStyle(document.getElementById('play-controller')).display") as? String
+        let styles = try await webView.evaluateJavaScript("document.querySelectorAll('#klas-plus-hide-player-controller').length") as? Int
+        XCTAssertEqual(hidden, "none")
+        XCTAssertEqual(styles, 1)
+        _ = try await webView.evaluateJavaScript(PlayerWebScripts.shared.setControllerVisible(visible: true).reveal())
+        _ = try await webView.evaluateJavaScript("document.getElementById('play-controller').style.display='none'")
+        let autoHidden = try await webView.evaluateJavaScript("getComputedStyle(document.getElementById('play-controller')).display") as? String
+        XCTAssertEqual(autoHidden, "none")
+    }
+
+    func testPictureInPictureSupportIsUnknownUntilVideoExists() async throws {
+        let model = track(VideoScreenModel(subjectId: "TEST", yearSemester: "2026,2", sessionToken: nil, coordinator: makeCoordinator()))
+        model.videoHolder.loadHTML("<html><body id='pip-test'></body></html>", baseURL: URL(string: "https://vod.kw.ac.kr")!)
+        try await waitForVideoCondition {
+            try await model.videoHolder.webView.evaluateJavaScript("!!document.getElementById('pip-test')") as? Bool == true
+        }
+        let webView = model.videoHolder.webView
+        let script = PlayerWebScripts.shared.isPictureInPictureSupported().reveal()
+        let beforeVideo = try await webView.evaluateJavaScript(script) as? String
+        XCTAssertEqual(beforeVideo, "unknown")
+        _ = try await webView.evaluateJavaScript("document.body.appendChild(document.createElement('video')); true")
+        let afterVideo = try await webView.evaluateJavaScript(script) as? String
+        XCTAssertNotEqual(afterVideo, "unknown")
+    }
+
+    func testIPadFullscreenPrefersWebKitAndFallsBackToPlayer() async throws {
+        let coordinator = makeCoordinator()
+        defer { coordinator.dispose() }
+        let model = track(VideoScreenModel(subjectId: "TEST", yearSemester: "2026,2", sessionToken: nil, coordinator: coordinator))
+        model.videoHolder.loadHTML("<html><body id='fullscreen-test'></body></html>", baseURL: URL(string: "https://vod.kw.ac.kr")!)
+        let webView = model.videoHolder.webView
+        try await waitForVideoCondition {
+            try await webView.evaluateJavaScript("!!document.getElementById('fullscreen-test')") as? Bool == true
+        }
+        _ = try await webView.evaluateJavaScript("""
+            window.fullscreenCalls = [];
+            window.testVideo = {webkitEnterFullscreen: function(){ fullscreenCalls.push('webkit'); }};
+            document.querySelector = function(){ return testVideo; };
+            window.VCPlayControllerEvent = {FULL_SCREEN: 'full'};
+            window.bcPlayController = {getPlayController: function(){return {_eventTarget: {fire: function(){fullscreenCalls.push('player');}}};}};
+            true;
+            """)
+        let script = PlayerWebScripts.shared.enterWebkitVideoFullscreen().reveal()
+        let firstResult = try await webView.evaluateJavaScript(script) as? String
+        let firstCalls = try await webView.evaluateJavaScript("fullscreenCalls.join(',')") as? String
+        XCTAssertEqual(firstResult, "requested")
+        XCTAssertEqual(firstCalls, "webkit")
+
+        _ = try await webView.evaluateJavaScript("testVideo.webkitEnterFullscreen = function(){throw new Error('unsupported')}; true")
+        let fallbackResult = try await webView.evaluateJavaScript(script) as? String
+        let fallbackCalls = try await webView.evaluateJavaScript("fullscreenCalls.join(',')") as? String
+        XCTAssertEqual(fallbackResult, "requested")
+        XCTAssertEqual(fallbackCalls, "webkit,player")
+
+        _ = try await webView.evaluateJavaScript("delete testVideo.webkitEnterFullscreen; delete window.bcPlayController; true")
+        let unavailable = try await webView.evaluateJavaScript(script) as? String
+        XCTAssertEqual(unavailable, "unavailable")
+    }
+
+    func testFullscreenExitResumesInterruptedPlaybackButKeepsEarlierPause() async throws {
+        let coordinator = makeCoordinator()
+        defer { coordinator.dispose() }
+        let model = track(VideoScreenModel(subjectId: "TEST", yearSemester: "2026,2", sessionToken: nil, coordinator: coordinator))
+        model.videoHolder.loadHTML("<html><body id='resume-test'></body></html>", baseURL: URL(string: "https://vod.kw.ac.kr")!)
+        let webView = model.videoHolder.webView
+        try await waitForVideoCondition {
+            try await webView.evaluateJavaScript("!!document.getElementById('resume-test')") as? Bool == true
+        }
+        _ = try await webView.evaluateJavaScript("""
+            window.now = 10000; Date.now = function(){return now};
+            window.testVideo = new EventTarget();
+            Object.assign(testVideo, {paused:false, ended:false, isConnected:true, playCount:0,
+                play:function(){this.playCount++;this.paused=false;return Promise.resolve();}});
+            document.querySelector = function(){return testVideo};
+            Object.defineProperty(document, 'hidden', {value:false, configurable:true}); true;
+            """)
+        _ = try await webView.evaluateJavaScript(PlayerWebScripts.shared.restorePlaybackAfterWebkitFullscreen().reveal())
+        _ = try await webView.evaluateJavaScript("""
+            testVideo.dispatchEvent(new Event('webkitbeginfullscreen'));
+            testVideo.paused=true; testVideo.dispatchEvent(new Event('pause'));
+            testVideo.dispatchEvent(new Event('webkitendfullscreen')); true;
+            """)
+        try await waitForVideoCondition {
+            try await webView.evaluateJavaScript("testVideo.playCount === 1") as? Bool == true
+        }
+        _ = try await webView.evaluateJavaScript("""
+            testVideo.dispatchEvent(new Event('webkitbeginfullscreen'));
+            testVideo.paused=true; testVideo.dispatchEvent(new Event('pause'));
+            now += 1000; testVideo.dispatchEvent(new Event('webkitendfullscreen')); true;
+            """)
+        try await Task.sleep(nanoseconds: 400_000_000)
+        let count = try await webView.evaluateJavaScript("testVideo.playCount") as? Int
+        XCTAssertEqual(count, 1)
+    }
+
     func testDemoVideoControlsAndStateWithDeployedPageGlobalsAndRedirect() async throws {
         XCTAssertTrue(DemoSession.shared.begin(accountId: "0000000000", password: "KlasplusDemo!123"))
         let coordinator = makeCoordinator()

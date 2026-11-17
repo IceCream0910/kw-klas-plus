@@ -116,6 +116,24 @@ struct VideoPlayerOverlay<Media: View>: View {
                 Spacer()
                 controlButton(systemName: "arrow.up.left.and.arrow.down.right", label: "전체화면", action: onFullscreenClick)
             }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    speedAndPipButtons
+                    Spacer(minLength: 0)
+                    closeButton
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    speedAndPipButtons
+                    closeButton
+                }
+            }
+        }
+        .padding(20)
+        .background(KlasTheme.surface, in: RoundedRectangle(cornerRadius: KlasTheme.controlCornerRadius, style: .continuous))
+        .accessibilityIdentifier("video_player_controls")
+    }
+
+    private var speedAndPipButtons: some View {
             HStack(spacing: 8) {
                 Button(action: onSpeedClick) {
                     HStack(spacing: 4) {
@@ -151,7 +169,11 @@ struct VideoPlayerOverlay<Media: View>: View {
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("video_pip")
                 }
-                Spacer()
+            }
+            .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var closeButton: some View {
                 Button(action: onCloseClick) {
                     HStack(spacing: 4) {
                         Image(systemName: "xmark")
@@ -163,11 +185,7 @@ struct VideoPlayerOverlay<Media: View>: View {
                     .padding(.vertical, 8)
                 }
                 .buttonStyle(.plain)
-            }
-        }
-        .padding(20)
-        .background(KlasTheme.surface, in: RoundedRectangle(cornerRadius: KlasTheme.controlCornerRadius, style: .continuous))
-        .accessibilityIdentifier("video_player_controls")
+                .fixedSize(horizontal: true, vertical: false)
     }
 
     private var header: some View {
