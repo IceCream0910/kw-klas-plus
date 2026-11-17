@@ -95,6 +95,9 @@ class LoginScreenTest {
         composeRule.onNodeWithTag("login_password").assertIsDisplayed()
         composeRule.onNodeWithTag("login_submit").assertIsNotEnabled()
         composeRule.onNodeWithTag("login_agreement").performClick()
+        composeRule.waitUntil(5_000) {
+            runCatching { composeRule.onNodeWithTag("login_submit").assertIsEnabled() }.isSuccess
+        }
         composeRule.onNodeWithTag("login_submit").assertIsEnabled()
     }
 }

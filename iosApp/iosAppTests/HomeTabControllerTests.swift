@@ -8,10 +8,14 @@ import XCTest
 @MainActor
 final class HomeTabControllerTests: XCTestCase {
     private var window: UIWindow?
+    private var holders: [WebViewHolder] = []
 
     override func tearDown() {
         window?.isHidden = true
+        window?.rootViewController = nil
         window = nil
+        holders.forEach { $0.dispose() }
+        holders.removeAll()
         super.tearDown()
     }
 
@@ -62,6 +66,7 @@ final class HomeTabControllerTests: XCTestCase {
         let controller = try makeHostedController(holder: holder, initialTab: "")
 
         XCTAssertEqual(controller.selectedTab?.identifier, "feed")
+        waitUntil { holder.webView.superview === controller.selectedViewController?.view }
         XCTAssertTrue(holder.webView.superview === controller.selectedViewController?.view)
     }
 
@@ -70,7 +75,7 @@ final class HomeTabControllerTests: XCTestCase {
         let old = try makeHostedController(holder: holder, initialTab: "feed")
         let replacement = HomeTabController(webView: holder.webView, initialTab: "timetable", onSelect: { _ in })
         window?.rootViewController = replacement
-        pumpRunLoop()
+        waitUntil { holder.webView.isDescendant(of: replacement.view) }
 
         old.detachWebViewIfOwned()
 
@@ -261,7 +266,7 @@ final class HomeTabControllerTests: XCTestCase {
         loadPage(in: holder)
 
         for property in [HomeHeaderLayout.windowControlsInsetProperty, HomeHeaderLayout.topBarTopProperty, HomeHeaderLayout.topBarHeightProperty] {
-            XCTAssertEqual(waitForCSSVariable(property, in: holder.webView, toBe: "", timeout: 0.5), "", property)
+            XCTAssertEqual(waitForCSSVariable(property, in: holder.webView, toBe: ""), "", property)
         }
     }
 
@@ -308,6 +313,7 @@ final class HomeTabControllerTests: XCTestCase {
         measureHeaderLayout: @escaping (UIViewController) -> HomeHeaderLayout = HomeTabController.measuredHeaderLayout,
         onSelect: @escaping (String) -> Void = { _ in }
     ) throws -> HomeTabController {
+        holders.append(holder)
         let controller = HomeTabController(
             webView: holder.webView,
             initialTab: initialTab,
@@ -324,9 +330,19 @@ final class HomeTabControllerTests: XCTestCase {
     }
 
     private func loadPage(in holder: WebViewHolder) {
+        let loaded = expectation(description: "홈 문서 navigation 완료")
+        let previous = holder.onNavigationStateChange
+        var completed = false
+        holder.onNavigationStateChange = { state in
+            previous?(state)
+            if case .ready = state.loadPhase, !completed {
+                completed = true
+                loaded.fulfill()
+            }
+        }
+        defer { holder.onNavigationStateChange = previous }
         holder.loadHTML("<html><body>home</body></html>", baseURL: URL(string: "https://klasplus.yuntae.in/feed")!)
-        let deadline = Date().addingTimeInterval(5)
-        repeat { pumpRunLoop() } while holder.webView.isLoading && Date() < deadline
+        wait(for: [loaded], timeout: 15)
     }
 
     private func waitForCSSVariable(_ property: String, in webView: WKWebView, toBe expected: String, timeout: TimeInterval = 5) -> String? {
