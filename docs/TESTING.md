@@ -4,11 +4,11 @@
 
 | 시점 | 검사 | 실패하면 |
 | --- | --- | --- |
-| 브랜치 push, PR, merge queue | JDK 21/Ubuntu 24.04에서 `:androidApp:testDebugUnitTest`와 `:shared:testAndroidHostTest` | 기존 main 필수 검사에서 병합 차단 |
+| main 대상 PR 생성·새 커밋 반영·다시 열기 | JDK 21/Ubuntu 24.04에서 `:androidApp:testDebugUnitTest`와 `:shared:testAndroidHostTest` | 기존 main 필수 검사에서 병합 차단 |
 | main push 또는 수동 실행 | Android 에뮬레이터와 iPhone 시뮬레이터에서 Tester Army, Android instrumentation, Kotlin iOS·Swift·XCTest UI | release 승격 차단 |
 | 위 릴리스 검증과 병렬 | Android Release APK/AAB·R8/Sentry UUID, unsigned iOS archive·위젯·dSYM | release 승격 차단 |
 
-main ruleset **22331611**의 필수 검사 이름 `Android build and unit tests`, `iOS build and unit tests`를 유지한다. 두 번째 이름은 기존 규칙과의 호환용이며 실행 내용은 공통 KMP와 Android adapter JVM 테스트다. release ruleset **25774154**에서 요구하는 `Android release build`, `iOS release build`도 유지한다. 시뮬레이터 검사까지 통과한 해당 SHA만 승격 작업에서 다룬다.
+main ruleset **22331611**의 필수 검사 이름 `Android build and unit tests`, `iOS build and unit tests`를 유지한다. 두 번째 이름은 기존 규칙과의 호환용이며 실행 내용은 공통 KMP와 Android adapter JVM 테스트다. release ruleset **25774154**에서 요구하는 `Android release build`, `iOS release build`도 유지한다. 시뮬레이터 검사까지 통과한 해당 SHA만 승격 작업에서 다룬다. PR 이벤트로만 실행하므로 PR 브랜치에 새 커밋을 올려도 검사가 한 번만 실행된다. 나중에 merge queue를 활성화하면 `merge_group` 이벤트를 추가한다.
 
 승격은 `main`에서만 실행한다. 실행 중 main이 갱신되면 이전 실행은 push하지 않고 최신 실행에 맡긴다. 검증한 SHA가 release에서 fast-forward 되는 경우에만 일반 push한다. 승격 job에만 `contents: write`가 필요하며, GitHub Actions 토큰은 브랜치 규칙을 우회하지 않는다. PR 브랜치에 변경을 올린 뒤 Actions의 **Release validation → Run workflow**에서 그 브랜치를 선택하면 승격 없이 GitHub 실행 환경을 먼저 검증할 수 있다. release가 성공한 뒤에도 스토어 서명·제출은 별도 절차다.
 
