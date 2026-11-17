@@ -58,6 +58,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
@@ -202,7 +204,7 @@ private fun OnboardingContent(
         modifier = Modifier
             .fillMaxSize()
             .windowInsetsPadding(WindowInsets.safeDrawing)
-            .testTag("login_onboarding"),
+            .semantics { testTagsAsResourceId = true }.testTag("login_onboarding"),
     ) {
         val horizontalPadding = if (maxWidth >= 840.dp) 32.dp else 16.dp
         val footerInset = if (maxWidth >= 840.dp) 16.dp else 8.dp

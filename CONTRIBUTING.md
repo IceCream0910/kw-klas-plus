@@ -33,6 +33,8 @@ Android 빌드와 공통/Android JVM 테스트:
 ./gradlew :shared:testAndroidHostTest :androidApp:testDebugUnitTest
 ```
 
+GitHub 필수 검사, 시뮬레이터 E2E와 release 승격 방법은 [테스트 가이드](docs/TESTING.md)를 참고하세요.
+
 Windows에서는 `.\gradlew.bat`를 쓰세요. iOS는 macOS에서 [`iosApp.xcodeproj`](iosApp/iosApp.xcodeproj)를 열고 `:shared:iosSimulatorArm64Test`와 Xcode `iosAppUnitTests` 스킴의 테스트를 실행합니다.
 
 ### iOS 로컬 서명

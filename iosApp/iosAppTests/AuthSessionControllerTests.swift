@@ -270,16 +270,15 @@ final class AuthSessionControllerTests: XCTestCase {
         XCTAssertEqual(defaults.string(forKey: "login_funnel_status"), "complete")
     }
 
-    func testStartReturnsImmediatelyWhileNetworkProbeIsInFlight() {
-        let checker = FakeNetworkPathChecker(satisfied: false, delayNanos: 200_000_000)
+    func testStartStaysInCheckingPhaseUntilNetworkProbeCompletes() async {
+        let checker = ControlledNetworkPathChecker()
         let controller = makeController(networkPath: checker)
 
-        let started = Date()
         controller.start()
-        let elapsed = Date().timeIntervalSince(started)
-
-        XCTAssertLessThan(elapsed, 0.05)
         XCTAssertEqual(controller.phase, .checkingNetwork)
+
+        checker.complete(with: false)
+        await waitUntil { controller.phase == .blocked(.noNetwork) }
     }
 
     func testStartBlocksWhenNetworkUnsatisfied() async {
@@ -424,19 +423,26 @@ private final class FakeFunnelStatusStore: FunnelStatusStoring {
     }
 }
 
-private final class FakeNetworkPathChecker: NetworkPathChecking, @unchecked Sendable {
-    var satisfied: Bool
-    var delayNanos: UInt64
-
-    init(satisfied: Bool, delayNanos: UInt64 = 0) {
-        self.satisfied = satisfied
-        self.delayNanos = delayNanos
-    }
+private final class ControlledNetworkPathChecker: NetworkPathChecking {
+    private let result = AsyncStream<Bool>.makeStream(bufferingPolicy: .bufferingNewest(1))
 
     func isSatisfied() async -> Bool {
-        if delayNanos > 0 {
-            try? await Task.sleep(nanoseconds: delayNanos)
-        }
-        return satisfied
+        var iterator = result.stream.makeAsyncIterator()
+        return await iterator.next() ?? false
     }
+
+    func complete(with satisfied: Bool) {
+        result.continuation.yield(satisfied)
+        result.continuation.finish()
+    }
+}
+
+private final class FakeNetworkPathChecker: NetworkPathChecking, @unchecked Sendable {
+    let satisfied: Bool
+
+    init(satisfied: Bool) {
+        self.satisfied = satisfied
+    }
+
+    func isSatisfied() async -> Bool { satisfied }
 }

@@ -21,7 +21,10 @@ import com.icecream.kwklasplus.core.session.WebCookieStore
 import com.icecream.kwklasplus.core.session.runSuspendTest
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.serialization.json.JsonArray
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
+import kotlinx.coroutines.yield
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSUserDefaults
@@ -72,8 +75,8 @@ class IosAcademicWidgetSessionContractTest {
     @Test
     fun sharedLockSerializesPendingCommitWithLogout() = kotlinx.coroutines.runBlocking {
         NSFileManager.defaultManager.createDirectoryAtPath(tmp, true, null, null)
-        val entered = kotlinx.coroutines.CompletableDeferred<Unit>()
-        val finishSave = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val entered = CompletableDeferred<Unit>()
+        val finishSave = CompletableDeferred<Unit>()
         val inner = MemorySessionStore()
         val pendingStore = object : SessionStore {
             override suspend fun load() = inner.load()
@@ -93,8 +96,7 @@ class IosAcademicWidgetSessionContractTest {
             widget.observeIfCurrent(SecretValue.of("pending"), checkpoint)
         }
         entered.await()
-        val logout = async { app.expire() }
-        kotlinx.coroutines.delay(30)
+        val logout = async(start = CoroutineStart.UNDISPATCHED) { app.expire() }
         assertFalse(logout.isCompleted)
         finishSave.complete(Unit)
         assertIs<SessionResult.Active>(commit.await())
@@ -185,21 +187,27 @@ class IosAcademicWidgetSessionContractTest {
     fun calendarRefreshCoalescesOverlappingTaps() = kotlinx.coroutines.runBlocking {
         NSFileManager.defaultManager.createDirectoryAtPath(tmp, true, null, null)
         var fetches = 0
+        val fetching = CompletableDeferred<Unit>()
+        val finishFetch = CompletableDeferred<Unit>()
         val widgets = widgets(
             fetch = {
                 fetches += 1
-                kotlinx.coroutines.delay(30)
+                fetching.complete(Unit)
+                finishFetch.await()
                 KlasAuthenticatedResult.Success(JsonArray(emptyList()))
             },
         )
-        val first = kotlinx.coroutines.CompletableDeferred<Unit>()
-        val second = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val first = CompletableDeferred<Unit>()
+        val second = CompletableDeferred<Unit>()
         val refresh = IosAcademicWidgetCalendarRefresh(
             widgets = widgets,
             scope = this,
         )
         refresh.refresh("test") { first.complete(Unit) }
+        fetching.await()
         refresh.refresh("test") { second.complete(Unit) }
+        yield()
+        finishFetch.complete(Unit)
         first.await()
         second.await()
         assertEquals(1, fetches)
