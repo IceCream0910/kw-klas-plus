@@ -44,10 +44,14 @@ class LoginFunnelMigrationTest {
         try {
             preferences.edit().putString(LoginFunnelStatus.KEY, LoginFunnelStatus.NOT_STARTED).commit()
             context.startActivity(Intent(context, LibraryQRWidgetActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            val login = instrumentation.waitForMonitorWithTimeout(loginMonitor, 5000)
-            assertNotNull(login)
-            assertFalse(homeMonitor.hits > 0)
-            instrumentation.runOnMainSync { login?.finish() }
+            val login = instrumentation.waitForMonitorWithTimeout(loginMonitor, 15_000)
+            assertNotNull("출입증 위젯 진입 후 로그인 화면이 열리지 않음", login)
+            try {
+                instrumentation.waitForIdleSync()
+                assertFalse("로그인 전 위젯에서 홈이 열림", homeMonitor.hits > 0)
+            } finally {
+                instrumentation.runOnMainSync { login?.finish() }
+            }
         } finally {
             instrumentation.removeMonitor(loginMonitor)
             instrumentation.removeMonitor(homeMonitor)

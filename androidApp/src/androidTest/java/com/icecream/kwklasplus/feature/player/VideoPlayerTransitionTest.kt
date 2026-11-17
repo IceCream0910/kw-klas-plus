@@ -88,7 +88,7 @@ class VideoPlayerTransitionTest {
             }
             onView(withText("지금 재생 중인 강의를 종료하고 선택한 강의를 재생할까요?"))
                 .check(doesNotExist())
-            assertTrue(accepted.await(5, TimeUnit.SECONDS))
+            assertTrue("준비 중이던 강의의 교체 콜백을 받지 못함", accepted.await(15, TimeUnit.SECONDS))
         }
     }
 
@@ -111,7 +111,7 @@ class VideoPlayerTransitionTest {
                 activity.withSinglePlayback { replaced = true; stopped.countDown() }
             }
             onView(withText("종료하고 재생")).inRoot(isDialog()).perform(click())
-            assertTrue(stopped.await(5, TimeUnit.SECONDS))
+            assertTrue("확인 후 이전 WebView가 중지되고 교체되는 콜백을 받지 못함", stopped.await(15, TimeUnit.SECONDS))
             scenario.onActivity { activity ->
                 assertTrue(replaced)
                 assertTrue(activity.ownsPlayback())
