@@ -74,6 +74,6 @@ E2E_IOS_DEVICE='SIMULATOR_UDID' npm test --prefix e2e -- --target ios
 
 실패하면 로컬의 `e2e/.e2e`를 확인한다. GitHub에서는 실행 요약의 링크나 **Artifacts**의 `e2e-android-failure-<회차>` / `e2e-ios-failure-<회차>`를 열 수 있다. JUnit·JSON 보고서, 실패 단계 추적과 드라이버가 캡처할 수 있었던 스크린샷·화면 요소가 들어 있으며 7일간 보관한다. 부팅이나 드라이버 연결 전에 실패하면 스크린샷이 없을 수 있다. PR 코멘트 권한은 필요하지 않다. 시나리오는 심사용 가상 데이터만 사용하고 자동으로 재시도하지 않는다.
 
-로컬 검증(2026-11-18): Android 에뮬레이터에서 기본 E2E 4개 통과, iOS 시뮬레이터에서 기본 E2E 4개와 데모 영상 1개 통과. Android 데모 영상은 재생/일시정지까지 통과했으나 10초 뒤로 이동할 때 위치가 `00:00`으로 돌아가 탐색 검사에 실패했다. 배포 MP4는 byte range 요청에 `206 Partial Content` 대신 `200 OK`를 응답했다. 해당 응답이 Android 실패의 원인인지는 별도 확인이 필요하다.
+로컬 검증(2026-11-18): Android 에뮬레이터에서 기본 E2E 4개 통과, iOS 시뮬레이터에서 기본 E2E 4개와 데모 영상 1개 통과. Android 데모 영상은 재생/일시정지까지 통과했으나 10초 뒤로 이동할 때 위치가 `00:00`으로 돌아가 탐색 검사에 실패했다. 배포 MP4는 byte range 요청에 `206 Partial Content` 대신 `200 OK`를 응답했다. 해당 응답이 Android 실패의 원인인지는 별도 확인이 필요하다. 공통·Android JVM 401개, Android 계측 44개, Kotlin iOS 384개와 Swift·XCTest UI 272개도 통과했다(Swift 원격 영상 1개는 opt-in으로 건너뜀). 이번 변경은 GitHub에서 실행하지 않았다.
 
 배포 WebView 자체가 응답하지 않으면 main 병합은 가능하지만 release 승격은 멈춘다. 실계정 로그인, 추가 인증, 권한·위젯·PiP 실기기 검증 및 스토어 배포는 별도다. 복구가 필요하면 먼저 release workflow의 승격 job을 비활성화하거나 관련 PR을 되돌린다. release를 이미 승격했다면 강제 push 대신 수정 커밋을 main에 반영하고 검증 후 다시 승격한다.

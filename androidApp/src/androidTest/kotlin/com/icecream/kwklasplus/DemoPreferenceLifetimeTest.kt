@@ -70,10 +70,15 @@ class DemoPreferenceLifetimeTest {
         val store = AndroidAcademicWidgetSnapshotStore(context)
         assertEquals("2099,1", store.read()?.term)
         instrumentation.runOnMainSync { account.edit().putString(AppPrefs.YEAR_HAKGI, "2099,2").commit() }
-        awaitSnapshot("학기 변경") { store.read()?.term == "2099,2" }
+        // 별도 AtomicFile 인스턴스는 저장 중 임시 파일을 지울 수 있어 런타임 갱신 뒤에만 읽는다.
+        awaitSnapshot("학기 변경") { runtime.snapshot()?.term == "2099,2" }
+        assertEquals("2099,2", store.read()?.term)
         val previousOwner = store.read()?.owner
         instrumentation.runOnMainSync { account.edit().putString(AppPrefs.KW_ID, "2099654321").commit() }
-        awaitSnapshot("계정 변경") { store.read()?.let { it.owner != previousOwner && it.term == "2099,2" && it.timetable == null } == true }
+        awaitSnapshot("계정 변경") {
+            runtime.snapshot()?.let { it.owner != previousOwner && it.term == "2099,2" && it.timetable == null } == true
+        }
+        assertEquals(runtime.snapshot(), store.read())
     }
 
     private suspend fun awaitSnapshot(change: String, condition: () -> Boolean) {
