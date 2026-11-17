@@ -14,6 +14,23 @@ import kotlin.test.assertEquals
 
 class AcademicRepositoryTest {
     @Test
+    fun selectedTermDoesNotParseOtherSubjectsAndDoesNotFallBackForBackground() = runBlocking {
+        val body = kotlinx.serialization.json.Json.parseToJsonElement(
+            """[{"value":"2026,2","subjList":[]},{"value":"2026,1","subjList":[{"name":"missing id"}]}]""",
+        )
+        val repository = repositoryReturning(KlasAuthenticatedResult.Success(body))
+        val session = SecretValue.of("session")
+        val agent = KlasUserAgent.fromPlatform("UA")
+        val selected = repository.fetchSelectedTerm(session, agent, "missing") as AcademicTermsResult.Selected
+        assertEquals(listOf("2026,2", "2026,1"), selected.availableTerms)
+        assertEquals(AcademicTerm("2026,2", emptyList()), selected.selection?.term)
+        assertEquals(AcademicTermsResult.MalformedResponse, repository.fetchSelectedTerm(session, agent, "2026,1"))
+        val strict = repository.fetchSelectedTerm(session, agent, "missing", allowFallback = false)
+            as AcademicTermsResult.Selected
+        assertEquals(null, strict.selection)
+    }
+
+    @Test
     fun termSelectorPreservesSavedTermAndFallsBackToFirst() {
         val terms = listOf(
             AcademicTerm("2026,1", emptyList()),

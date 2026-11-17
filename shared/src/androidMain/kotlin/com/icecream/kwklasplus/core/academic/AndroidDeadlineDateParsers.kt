@@ -13,7 +13,8 @@ object AndroidDeadlineDateParsers {
     val assignment = DeadlineDateParser { value ->
         runCatching {
             OffsetDateTime.parse(value, ASSIGNMENT_OFFSET_FORMAT).toInstant().toEpochMilli()
-        }.getOrNull() ?: parseLocal(value, LOCAL_DATE_TIME_FORMAT)
+        }.getOrNull() ?: runCatching { OffsetDateTime.parse(value).toInstant().toEpochMilli() }.getOrNull()
+            ?: parseLocal(value, LOCAL_DATE_TIME_FORMAT)
     }
 
     private fun parseLocal(value: String, formatter: DateTimeFormatter): Long? =

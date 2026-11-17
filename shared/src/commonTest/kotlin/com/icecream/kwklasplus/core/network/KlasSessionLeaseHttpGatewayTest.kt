@@ -1,6 +1,7 @@
 package com.icecream.kwklasplus.core.network
 
 import com.icecream.kwklasplus.core.legacy.KlasUrls
+import com.icecream.kwklasplus.core.diagnostics.NativeDiagnostics
 import com.icecream.kwklasplus.core.security.SecretValue
 import com.icecream.kwklasplus.core.session.SessionExtensionResult
 import com.icecream.kwklasplus.core.session.SessionInfoResult
@@ -90,6 +91,30 @@ class KlasSessionLeaseHttpGatewayTest {
         )
         assertEquals(SessionExtensionResult.MalformedResponse, extensionResult(""))
         assertEquals(SessionExtensionResult.MalformedResponse, extensionResult("[]"))
+    }
+
+    @Test
+    fun missingSchemaFieldIsReportedWithoutResponseValues() = runBlocking {
+        val reports = mutableListOf<Map<String, String>>()
+        NativeDiagnostics.install { reports += NativeDiagnostics.sanitize(it) }
+        try {
+            assertEquals(SessionInfoResult.MalformedResponse, infoResult("{\"logoutCountDownSec\":300,\"sessionNotiSec\":6900}"))
+            assertEquals("MISSING_FIELD", reports.single()["klas.response_kind"])
+            assertEquals("remainingTime", reports.single()["klas.field"])
+            assertTrue(reports.single().values.none { it.contains("6900") })
+        } finally { NativeDiagnostics.install {} }
+    }
+
+    @Test
+    fun invalidSchemaFieldTypeIsIdentified() = runBlocking {
+        val reports = mutableListOf<Map<String, String>>()
+        NativeDiagnostics.install { reports += NativeDiagnostics.sanitize(it) }
+        try {
+            assertEquals(SessionInfoResult.MalformedResponse, infoResult("{\"logoutCountDownSec\":300,\"sessionNotiSec\":6900,\"remainingTime\":\"secret\"}"))
+            assertEquals("INVALID_FIELD_TYPE", reports.single()["klas.response_kind"])
+            assertEquals("remainingTime", reports.single()["klas.field"])
+            assertTrue(reports.single().values.none { it.contains("secret") })
+        } finally { NativeDiagnostics.install {} }
     }
 
     @Test

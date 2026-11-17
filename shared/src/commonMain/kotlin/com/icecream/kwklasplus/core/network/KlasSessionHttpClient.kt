@@ -2,7 +2,11 @@ package com.icecream.kwklasplus.core.network
 
 import com.icecream.kwklasplus.core.legacy.KlasUrls
 import com.icecream.kwklasplus.core.security.SecretValue
+import com.icecream.kwklasplus.core.diagnostics.*
 import io.ktor.client.HttpClient
+import io.ktor.client.network.sockets.ConnectTimeoutException
+import io.ktor.client.network.sockets.SocketTimeoutException
+import kotlin.time.TimeSource
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -12,6 +16,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import io.ktor.http.Url
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -63,7 +68,11 @@ class KlasSessionHttpClient(
         userAgent: KlasUserAgent,
         body: JsonElement,
     ): KlasAuthenticatedResult {
-        return try {
+        val elapsed = TimeSource.Monotonic.markNow()
+        var status: Int? = null
+        var loginRedirect = false
+        var timeoutKind: TimeoutKind? = null
+        val result = try {
             val response = client.post(endpoint.url) {
                 contentType(ContentType.Application.Json)
                 if (endpoint == AuthenticatedKlasEndpoint.CALENDAR) {
@@ -75,6 +84,8 @@ class KlasSessionHttpClient(
                 }
                 setBody(body)
             }
+            status = response.status.value
+            loginRedirect = status in 300..399 && isKlasLoginRedirect(response.headers[HttpHeaders.Location])
             val responseBody = response.bodyAsText()
             when {
                 response.status.value == 401 || response.status.value == 403 ->
@@ -93,6 +104,13 @@ class KlasSessionHttpClient(
                 }
             }
         } catch (_: HttpRequestTimeoutException) {
+            timeoutKind = TimeoutKind.REQUEST
+            KlasAuthenticatedResult.Timeout
+        } catch (_: ConnectTimeoutException) {
+            timeoutKind = TimeoutKind.CONNECT
+            KlasAuthenticatedResult.Timeout
+        } catch (_: SocketTimeoutException) {
+            timeoutKind = TimeoutKind.SOCKET
             KlasAuthenticatedResult.Timeout
         } catch (_: SerializationException) {
             KlasAuthenticatedResult.MalformedResponse
@@ -101,6 +119,17 @@ class KlasSessionHttpClient(
         } catch (_: Throwable) {
             KlasAuthenticatedResult.NetworkFailure
         }
+        val failure = when (result) {
+            is KlasAuthenticatedResult.Success -> null
+            KlasAuthenticatedResult.SessionExpired -> DiagnosticFailure.SESSION_EXPIRED
+            is KlasAuthenticatedResult.HttpFailure -> DiagnosticFailure.HTTP
+            KlasAuthenticatedResult.EmptyResponse -> DiagnosticFailure.EMPTY
+            KlasAuthenticatedResult.MalformedResponse -> DiagnosticFailure.MALFORMED
+            KlasAuthenticatedResult.Timeout -> DiagnosticFailure.TIMEOUT
+            KlasAuthenticatedResult.NetworkFailure -> DiagnosticFailure.NETWORK
+        }
+        if (failure != null && !loginRedirect) NativeDiagnostics.report(DiagnosticStage.API, failure, endpoint, status, elapsed.elapsedNow().inWholeMilliseconds, timeoutKind = timeoutKind)
+        return result
     }
 }
 
@@ -111,4 +140,11 @@ fun interface KlasAuthenticatedTransport {
         userAgent: KlasUserAgent,
         body: JsonElement,
     ): KlasAuthenticatedResult
+}
+
+internal fun isKlasLoginRedirect(location: String?): Boolean {
+    if (location.isNullOrBlank()) return false
+    val url = runCatching { Url(if (location.startsWith("/")) "https://klas.kw.ac.kr$location" else location) }.getOrNull() ?: return false
+    if (url.protocol.name != "https" || url.host != "klas.kw.ac.kr" || url.port != 443) return false
+    return url.encodedPath.startsWith("/usr/cmn/login/") || url.encodedPath.startsWith("/mst/cmn/login/")
 }

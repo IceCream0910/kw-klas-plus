@@ -1,6 +1,7 @@
 package com.icecream.kwklasplus.core.network
 
 import com.icecream.kwklasplus.core.bridge.*
+import com.icecream.kwklasplus.core.diagnostics.NativeDiagnostics
 import com.icecream.kwklasplus.core.security.SecretValue
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.*
@@ -39,6 +40,73 @@ class KlasApiCoreTest {
         }
     }
 
+    @Test fun failedWebRequestsReportOnlyFixedEndpointIdsAndObservedStatus() = runBlocking {
+        val reports = mutableListOf<Map<String, String>>()
+        NativeDiagnostics.install { reports += NativeDiagnostics.sanitize(it) }
+        try {
+            val core = api(MockEngine { request ->
+                when (request.url.encodedPath) {
+                    endpoint -> respond("private response", HttpStatusCode.ServiceUnavailable)
+                    "/std/lis/evltn/TaskStdList.do" -> respond("private malformed response")
+                    "/std/lis/evltn/SelectOnlineCntntsStdList.do" -> throw HttpRequestTimeoutException(request)
+                    else -> respond("private response", HttpStatusCode.ServiceUnavailable)
+                }
+            })
+            val result = core.request("https://klas.kw.ac.kr$endpoint?student=private-query", """{"password":"private-body"}""")
+            assertEquals(KlasApiResult.Failure("HTTP_FAILURE", 503), result)
+            assertEquals("MALFORMED_RESPONSE", assertIs<KlasApiResult.Failure>(core.request("/std/lis/evltn/TaskStdList.do", "{}")).code)
+            assertEquals("OUTCOME_UNKNOWN", assertIs<KlasApiResult.Failure>(core.request("/std/lis/evltn/SelectOnlineCntntsStdList.do", "{}")).code)
+            assertEquals("HTTP_FAILURE", assertIs<KlasApiResult.Failure>(core.request("page:/std/lis/evltn/OnlineCntntsStdPage.do", "null")).code)
+            assertEquals("HTTP_FAILURE", assertIs<KlasApiResult.Failure>(core.request("/new/private-path/TaskStdList.do", "{}")).code)
+
+            assertEquals(listOf("STUDENT_PROFILE", "TASKS", "ONLINE_LECTURES", "ONLINE_LECTURES", "UNKNOWN"), reports.map { it["klas.endpoint"] })
+            assertEquals(listOf("HTTP", "MALFORMED", "TIMEOUT", "HTTP", "HTTP"), reports.map { it["klas.failure"] })
+            assertEquals(listOf("503", "200", null, "503", "503"), reports.map { it["http.status_code"] })
+            assertEquals("WEB_API_GET", reports[3]["klas.stage"])
+            assertTrue(reports.none { it.toString().contains("private") })
+            assertNotEquals(NativeDiagnostics.deduplicationKey(reports[0]), NativeDiagnostics.deduplicationKey(reports.last()))
+
+            val tags = reports.first() + (NativeDiagnostics.eventMarker to NativeDiagnostics.eventName)
+            val fields = NativeDiagnostics.errorEventFields(tags)
+            assertEquals("KLAS WEB_API_POST [STUDENT_PROFILE]: HTTP (HTTP 503)", NativeDiagnostics.errorSummary(fields))
+            assertEquals("STUDENT_PROFILE", NativeDiagnostics.errorFingerprint(fields).last())
+            assertNull(NativeDiagnostics.errorEventFields(tags + ("klas.endpoint" to "$endpoint?secret=private"))["klas.endpoint"])
+            assertNull(NativeDiagnostics.errorEventFields(tags + ("klas.endpoint" to "QR_CHECKIN"))["klas.endpoint"])
+        } finally {
+            NativeDiagnostics.install {}
+        }
+    }
+
+    @Test fun malformedResponseDiagnosticsDescribeShapeWithoutBody() = runBlocking {
+        val reports = mutableListOf<Map<String, String>>()
+        NativeDiagnostics.install { reports += NativeDiagnostics.sanitize(it) }
+        try {
+            for (body in listOf("", "{\"private\":", "private response")) {
+                val core = api(MockEngine { respond(body) })
+                assertEquals("MALFORMED_RESPONSE", assertIs<KlasApiResult.Failure>(core.request(endpoint, "{}")).code)
+            }
+            assertEquals(listOf("EMPTY_BODY", "INVALID_JSON_STRUCTURE", "NON_JSON_TEXT"), reports.map { it["klas.response_kind"] })
+            assertTrue(reports.none { it.toString().contains("private") })
+            val fields = NativeDiagnostics.errorEventFields(reports.last() + (NativeDiagnostics.eventMarker to NativeDiagnostics.eventName))
+            assertEquals("KLAS WEB_API_POST [STUDENT_PROFILE]: MALFORMED (HTTP 200) (NON_JSON_TEXT)", NativeDiagnostics.errorSummary(fields))
+            assertNull(NativeDiagnostics.sanitize(reports.last() + ("klas.response_kind" to "secret"))["klas.response_kind"])
+        } finally { NativeDiagnostics.install {} }
+    }
+
+    @Test fun expectedSessionOutcomesDoNotEmitEventsButRestoreStorageIsStillLogged() {
+        val reports = mutableListOf<Map<String, String>>()
+        NativeDiagnostics.install { reports += NativeDiagnostics.sanitize(it) }
+        try {
+            NativeDiagnostics.report(com.icecream.kwklasplus.core.diagnostics.DiagnosticStage.API, com.icecream.kwklasplus.core.diagnostics.DiagnosticFailure.ADDITIONAL_AUTH)
+            NativeDiagnostics.report(com.icecream.kwklasplus.core.diagnostics.DiagnosticStage.SESSION_INFO, com.icecream.kwklasplus.core.diagnostics.DiagnosticFailure.SESSION_EXPIRED)
+            NativeDiagnostics.report(com.icecream.kwklasplus.core.diagnostics.DiagnosticStage.SESSION_RESTORE, com.icecream.kwklasplus.core.diagnostics.DiagnosticFailure.STORAGE)
+            assertEquals(1, reports.size)
+            assertTrue(NativeDiagnostics.errorEventFields(reports.single() + (NativeDiagnostics.eventMarker to NativeDiagnostics.eventName)).isEmpty())
+            NativeDiagnostics.report(com.icecream.kwklasplus.core.diagnostics.DiagnosticStage.API, com.icecream.kwklasplus.core.diagnostics.DiagnosticFailure.HTTP, statusCode = 503)
+            assertEquals(2, reports.size)
+        } finally { NativeDiagnostics.install {} }
+    }
+
     @Test fun nativeSessionIsUsedAndResponseShapeIsNotProjected() = runBlocking {
         val json = "{\"number\":9007199254740993,\"nullable\":null,\"html\":\"<html>게시글</html>\",\"rows\":[]}"
         val core = api(MockEngine { request ->
@@ -60,6 +128,19 @@ class KlasApiCoreTest {
         assertEquals("ACCESS_DENIED", assertIs<KlasApiResult.Failure>(forbidden.request(endpoint, "{}")).code)
         val expired = api(MockEngine { respond("", HttpStatusCode.Unauthorized) })
         assertEquals("SESSION_EXPIRED", assertIs<KlasApiResult.Failure>(expired.request(endpoint, "{}")).code)
+    }
+
+    @Test fun onlyKnownLoginRedirectIsExcludedFromDiagnostics() = runBlocking {
+        val reports = mutableListOf<Map<String, String>>()
+        NativeDiagnostics.install { reports += NativeDiagnostics.sanitize(it) }
+        try {
+            for (location in listOf("/usr/cmn/login/LoginPage.do", "https://evil.test/usr/cmn/login/LoginPage.do", "/unexpected")) {
+                val core = api(MockEngine { respond("", HttpStatusCode.Found, headersOf(HttpHeaders.Location, location)) })
+                assertEquals("AUTH_ACTION_REQUIRED", assertIs<KlasApiResult.Failure>(core.request(endpoint, "{}")).code)
+            }
+            assertEquals(2, reports.size)
+            assertTrue(reports.all { it["klas.failure"] == "HTTP" })
+        } finally { NativeDiagnostics.install {} }
     }
 
     @Test fun missingAndChangedSessionsCannotReturnProtectedData() = runBlocking {

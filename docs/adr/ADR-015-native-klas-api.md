@@ -56,6 +56,6 @@ Native와 서버 core는 HTTPS의 정확한 klas.kw.ac.kr 의 모든 경로를 �
 
 새 Native와 기존 웹은 기존 callback으로 동작한다. 웹 배포만 되돌려 기존 서버 경로로 복원할 수 있다. Native 변경을 되돌릴 때는 versionCode/CFBundleVersion 연속성을 유지하고 웹의 적용 기준도 함께 조정해야 한다. 지원 빌드의 실패를 동적으로 proxy로 우회시키지 않는다. 새 비밀 저장 키나 사용자 데이터 마이그레이션은 없으며 사용자 설정과 기존 비밀 저장 키를 유지한다.
 
-Endpoint 확장: Native와 서버 core는 endpoint 목록을 유지하지 않는다. HTTPS klas.kw.ac.kr의 새 GET·JSON POST 경로와 query를 웹 배포만으로 추가한다. 사용자정보·비표준 포트·fragment·역슬래시·제어문자·dot segment·인코딩된 path와 redirect를 차단한다. 모든 POST는 경로에 관계없이 중복 억제와 네트워크/timeout 결과 불명 정책을 적용한다. query의 percent encoding은 허용한다.
+Endpoint 확장: Native와 서버 core는 요청 허용을 위한 endpoint 목록을 유지하지 않는다. HTTPS klas.kw.ac.kr의 새 GET·JSON POST 경로와 query를 웹 배포만으로 추가한다. 사용자정보·비표준 포트·fragment·역슬래시·제어문자·dot segment·인코딩된 path와 redirect를 차단한다. 모든 POST는 경로에 관계없이 중복 억제와 네트워크/timeout 결과 불명 정책을 적용한다. query의 percent encoding은 허용한다.
 
 추가 검증: endpoint 제한 제거 후 `./gradlew :shared:testAndroidHostTest :shared:iosSimulatorArm64Test --no-configuration-cache`로 Android 공통 321개·iOS 공통 346개, 웹 `node --test tests/*.test.cjs`로 50개가 통과했다. 이후 사용자가 Android 34·iOS 2 빌드로 실기기에서 전체 기능 정상 동작을 확인했다. 기종·OS 및 개별 시나리오 기록은 별도로 수집하지 않았다.

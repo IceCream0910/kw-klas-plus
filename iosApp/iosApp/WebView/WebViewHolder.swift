@@ -19,7 +19,7 @@ final class WebViewHolder: NSObject, ObservableObject {
     @Published private(set) var shareableFileURL: URL?
 
     private var _webView: WKWebView?
-    private var navigationGeneration = 0
+    private(set) var navigationGeneration = 0
     private var bridgeAdapter: IosBridgeMessageAdapter?
     private var javaScriptAlertCompletion: (() -> Void)?
     private var javaScriptConfirmCompletion: ((Bool) -> Void)?

@@ -19,6 +19,41 @@ import kotlin.test.assertIs
 
 class DeadlineRepositoryTest {
     @Test
+    fun otherCoursesSurviveRequestFailuresButNotExpiredSession() = runBlocking {
+        val session = SecretValue.of("session")
+        val agent = KlasUserAgent.fromPlatform("UA")
+        val subjects = listOf(AcademicSubject("bad", "Bad"), AcademicSubject("good", "Good"))
+        for (failure in listOf(
+            KlasAuthenticatedResult.Timeout,
+            KlasAuthenticatedResult.HttpFailure(503),
+            KlasAuthenticatedResult.MalformedResponse,
+            KlasAuthenticatedResult.SessionExpired,
+        )) {
+            val repository = DeadlineRepository(
+                KlasAuthenticatedTransport { endpoint, _, _, body ->
+                    when {
+                        endpoint != AuthenticatedKlasEndpoint.ONLINE_LECTURE_DEADLINES ->
+                            KlasAuthenticatedResult.Success(buildJsonArray {})
+                        (body as JsonObject).string("selectSubj") == "bad" -> failure
+                        else -> KlasAuthenticatedResult.Success(buildJsonArray { add(onlineLecture("future", 20)) })
+                    }
+                },
+                Clock { 0 },
+                DeadlineDateParser { if (it == "future") 7_200_000 else null },
+                DeadlineDateParser { null },
+            )
+            val result = repository.fetch(session, agent, "2026,2", subjects)
+            if (failure == KlasAuthenticatedResult.SessionExpired) {
+                assertEquals(DeadlinesResult.SessionExpired, result)
+            } else {
+                val partial = assertIs<DeadlinesResult.PartialSuccess>(result)
+                assertEquals("good", partial.subjects.single().subj)
+                assertEquals("future", partial.subjects.single().onlineLecture.single().endDate)
+            }
+        }
+    }
+
+    @Test
     fun filtersCompletedSubmittedAndExpiredItems() = runBlocking {
         val repository = repository { endpoint ->
             when (endpoint) {
@@ -150,7 +185,9 @@ class DeadlineRepositoryTest {
             "2026,1",
             listOf(AcademicSubject("SUBJECT", "강의")),
         )
-        assertEquals(DeadlinesResult.MalformedResponse, malformed)
+        val partial = assertIs<DeadlinesResult.PartialSuccess>(malformed)
+        assertEquals(emptyList(), partial.subjects.single().onlineLecture)
+        assertEquals("", DeadlinesWebCodec().encodePartial(partial.subjects))
 
         val expired = repository { KlasAuthenticatedResult.SessionExpired }.fetch(
             SecretValue.of("session"),
@@ -159,6 +196,43 @@ class DeadlineRepositoryTest {
             listOf(AcademicSubject("SUBJECT", "강의")),
         )
         assertEquals(DeadlinesResult.SessionExpired, expired)
+    }
+
+    @Test
+    fun invalidDatesSkipOnlyTheAffectedItemAndPreserveValidSeconds() = runBlocking {
+        val validMinutes = "2026-11-13 9:05 "
+        val validSeconds = "2026-11-13 09:05:00"
+        val repository = repository(
+            dateParser = DeadlineDateParser { value ->
+                when (value) {
+                    "2026-11-13 09:05:59", validSeconds -> 7_200_000
+                    "bad-date" -> throw IllegalArgumentException()
+                    else -> null
+                }
+            },
+        ) { endpoint ->
+            KlasAuthenticatedResult.Success(buildJsonArray {
+                when (endpoint) {
+                    AuthenticatedKlasEndpoint.ONLINE_LECTURE_DEADLINES -> {
+                        add(onlineLecture(validMinutes, 20))
+                        add(onlineLecture("bad-date", 20))
+                        add(onlineLecture(validSeconds, 20))
+                    }
+                    AuthenticatedKlasEndpoint.TASK_DEADLINES -> {
+                        add(assignment("", "N"))
+                        add(assignment(validSeconds, "N"))
+                    }
+                    else -> Unit
+                }
+            })
+        }
+        val result = assertIs<DeadlinesResult.PartialSuccess>(repository.fetch(
+            SecretValue.of("session"), KlasUserAgent.fromPlatform("UA"), "2026,2",
+            listOf(AcademicSubject("subject", "강의")),
+        ))
+        val subject = result.subjects.single()
+        assertEquals(listOf(validMinutes.trim(), validSeconds), subject.onlineLecture.map { it.endDate })
+        assertEquals(validSeconds, subject.task.single().endDate)
     }
 
     @Test

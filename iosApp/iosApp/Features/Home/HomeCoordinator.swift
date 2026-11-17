@@ -309,19 +309,30 @@ final class HomeCoordinator: ObservableObject {
             deadlineInjectionVersion += 1
             let version = deadlineInjectionVersion
             let term = yearHakgi
+            let navigation = holder.navigationGeneration
             homeRuntime.refreshFeed(yearHakgi: term, userAgent: Self.platformUserAgent()) { [weak self, weak holder] status, json in
                 guard let self, let holder, self.homeHolder === holder,
-                      self.deadlineInjectionVersion == version, self.currentTab == "feed", self.yearHakgi == term else { return }
+                      self.deadlineInjectionVersion == version, holder.navigationGeneration == navigation,
+                      self.currentTab == "feed", self.yearHakgi == term else { return }
                 if status == "READY" {
                     IosReminderRuntime.shared.readConsentState { [weak self] state in
                         self?.contextualSetup.offer(.notifications, configured: state?.enabled == true)
                     }
                 }
-                self.deadlineJson = json
-                holder.evaluate(IosWebCallbacks.shared.receiveDeadline(json: json))
+                if status == "SESSION_EXPIRED" {
+                    self.bootstrapPhase = .sessionExpired
+                    return
+                }
+                if !json.isEmpty { self.deadlineJson = json }
+                holder.evaluate(NativeHomeTabScripts.shared.deadlineFeed(status: status, json: json)) { [weak self, weak holder] result in
+                    guard let self, let holder, self.homeHolder === holder,
+                          self.deadlineInjectionVersion == version, holder.navigationGeneration == navigation,
+                          self.currentTab == "feed", self.yearHakgi == term, result as? Bool != true else { return }
+                    SentryTelemetry.recordDeadlineDeliveryFailure()
+                }
                 holder.evaluate(IosWebCallbacks.shared.receiveSearchData(json: self.homeRuntime.searchDataJson()))
-                if status == "SESSION_EXPIRED" { self.bootstrapPhase = .sessionExpired }
-                else if status == "FAILED" { self.showToast("마감 정보를 새로 불러오지 못했습니다.") }
+                if status == "PARTIAL" { self.showToast("일부 할 일을 불러오지 못했어요.") }
+                if status == "FAILED" { self.showToast("할 일을 불러오지 못했어요. 화면을 당겨 다시 시도해 주세요.") }
             }
             holder.evaluate(IosWebCallbacks.shared.receiveTimetable(json: timetableJson))
             if let token = sessionToken {

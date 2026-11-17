@@ -92,10 +92,9 @@ import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.InstallStatus
 import com.google.android.play.core.install.model.UpdateAvailability
 import com.icecream.kwklasplus.core.academic.AcademicSubject
-import com.icecream.kwklasplus.core.academic.AcademicTerm
 import com.icecream.kwklasplus.core.academic.AcademicTermKey
-import com.icecream.kwklasplus.core.academic.AcademicTermSelector
 import com.icecream.kwklasplus.core.academic.AcademicTermsResult
+import com.icecream.kwklasplus.core.diagnostics.*
 import com.icecream.kwklasplus.core.academic.DeadlinesResult
 import com.icecream.kwklasplus.core.academic.DeadlinesWebCodec
 import com.icecream.kwklasplus.core.academic.TimetableResult
@@ -124,7 +123,9 @@ import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
 import com.icecream.kwklasplus.ui.navigation.NativeHomeNavigation
 import com.icecream.kwklasplus.ui.dialog.ComposeLoadingDialog
 import com.icecream.kwklasplus.ui.web.ComposePlatformViewHost
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -199,7 +200,6 @@ class HomeActivity : AppCompatActivity() {
     lateinit var webView: WebView
     private lateinit var webViewContainer: FrameLayout
     internal var currentTab by mutableStateOf("") // "feed", "timetable", "calendar", "menu"
-    private var deadlineForWebview: String = ""
     private val searchScope = java.util.UUID.randomUUID().toString()
     private var searchSnapshot: SearchSnapshot? = null
     var isSearchOverlayOpen by mutableStateOf(false)
@@ -222,6 +222,7 @@ class HomeActivity : AppCompatActivity() {
     }
     private var deadlineRequestVersion=0L
     private var feedInjectionVersion=0L
+    private var feedRefreshJob: Job? = null
     private var timetableForWebview: String = ""
     lateinit var sessionIdForOtherClass: String
     lateinit var loadingDialog: ComposeLoadingDialog
@@ -890,27 +891,54 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun sendDeadlineAndTimetableToWebView() {
-        val version=++feedInjectionVersion
-        val page=webView.url
-        val selectedTerm=yearHakgi
-        val account=appPreferences.getString(AppPrefs.KW_ID,null)
-        lifecycleScope.launch {
-            val session=restoreSessionId() ?: return@launch
-            val terms=appDependencies.academicRepository.fetchTerms(SecretValue.of(session),KlasUserAgent.fromPlatform(WebSettings.getDefaultUserAgent(this@HomeActivity)))
-            if(version!=feedInjectionVersion || page!=webView.url || selectedTerm!=yearHakgi || account!=appPreferences.getString(AppPrefs.KW_ID,null))return@launch
-            val subjects=(terms as? AcademicTermsResult.Success)?.terms?.firstOrNull { it.value==selectedTerm }?.subjects
-            if(subjects==null) {
-                deadlineForWebview="[]"
-                if(terms==AcademicTermsResult.SessionExpired)showSessionExpiredDialog()
-                else Toast.makeText(this@HomeActivity,"마감 정보를 새로 불러오지 못했습니다.",Toast.LENGTH_SHORT).show()
-            } else if(!fetchDeadlines(session,subjects))return@launch
-            if(version!=feedInjectionVersion || page!=webView.url || currentTab!="feed" || selectedTerm!=yearHakgi || account!=appPreferences.getString(AppPrefs.KW_ID,null))return@launch
-            webView.executeWebScript(
-                LegacyWebScripts.call(
-                    LegacyWebCallback.RECEIVE_DEADLINE,
-                    JavaScriptArgument.Text(deadlineForWebview),
-                ),
+        val version = ++feedInjectionVersion
+        val page = webView.url
+        val navigation = AndroidBridgeMessageAdapter.navigationGeneration(webView)
+        val selectedTerm = yearHakgi
+        val account = appPreferences.getString(AppPrefs.KW_ID, null)
+        fun isCurrent() = version == feedInjectionVersion && page == webView.url &&
+            navigation == AndroidBridgeMessageAdapter.navigationGeneration(webView) &&
+            currentTab == "feed" && selectedTerm == yearHakgi &&
+            account == appPreferences.getString(AppPrefs.KW_ID, null)
+        feedRefreshJob?.cancel()
+        feedRefreshJob = lifecycleScope.launch {
+            val session = when (val restored = appDependencies.sessionCoordinator.restore()) {
+                is SessionResult.Active -> restored.session.token.reveal()
+                is SessionResult.Failed -> {
+                    if (isCurrent()) showDeadlineFeedFailure(::isCurrent)
+                    return@launch
+                }
+                else -> {
+                    if (isCurrent()) showSessionExpiredDialog()
+                    return@launch
+                }
+            }
+            if (!isCurrent()) return@launch
+            val agent = KlasUserAgent.fromPlatform(WebSettings.getDefaultUserAgent(this@HomeActivity))
+            val terms = appDependencies.academicRepository.fetchSelectedTerm(
+                SecretValue.of(session), agent, selectedTerm, allowFallback = false,
             )
+            if (!isCurrent()) return@launch
+            val subjects = (terms as? AcademicTermsResult.Selected)?.selection?.term?.subjects
+            val result = when {
+                terms == AcademicTermsResult.SessionExpired -> DeadlinesResult.SessionExpired
+                subjects == null -> DeadlinesResult.MalformedResponse
+                else -> fetchDeadlines(session, agent, selectedTerm, subjects, ::isCurrent)
+            }
+            if (!isCurrent()) return@launch
+            val codec = DeadlinesWebCodec()
+            when (result) {
+                is DeadlinesResult.Success -> {
+                    offerSetup(SetupSuggestion.Notifications)
+                    sendDeadlineFeed("READY", codec.encode(result.subjects), ::isCurrent)
+                }
+                is DeadlinesResult.PartialSuccess -> {
+                    sendDeadlineFeed("PARTIAL", codec.encodePartial(result.subjects), ::isCurrent)
+                    Toast.makeText(this@HomeActivity, "일부 할 일을 불러오지 못했어요.", Toast.LENGTH_SHORT).show()
+                }
+                DeadlinesResult.SessionExpired -> showSessionExpiredDialog()
+                else -> showDeadlineFeedFailure(::isCurrent)
+            }
             webView.executeWebScript(
                 LegacyWebScripts.call(
                     LegacyWebCallback.RECEIVE_TIMETABLE,
@@ -936,7 +964,7 @@ class HomeActivity : AppCompatActivity() {
                     return@runOnUiThread
                 }
 
-                yearHakgiList = terms.map(AcademicTerm::value).toTypedArray()
+                yearHakgiList = terms.toTypedArray()
 
                 val sharedPreferences = appPreferences
                 val savedYearHakgi = sharedPreferences.getString(AppPrefs.YEAR_HAKGI, "")
@@ -946,15 +974,14 @@ class HomeActivity : AppCompatActivity() {
                 editor.putString(AppPrefs.YEAR_HAKGI_LIST, yearHakgiList.joinToString("&"))
                 editor.apply()
 
-                val selection = AcademicTermSelector.select(terms, savedYearHakgi)
-                    ?: return@runOnUiThread
+                val selection = terms.firstOrNull { it == savedYearHakgi } ?: terms.first()
 
                 // 학기 정보 변동 시 학기선택 모달 자동으로 띄우기
                 if (!savedYearHakgiList.isNullOrEmpty() && yearHakgiList.joinToString("&") != savedYearHakgiList) {
                     openYearHakgiBottomSheetDialog(true)
                 }
 
-                yearHakgi = selection.term.value
+                yearHakgi = selection
                 editor.putString(AppPrefs.YEAR_HAKGI, yearHakgi)
                 editor.apply()
 
@@ -993,8 +1020,7 @@ class HomeActivity : AppCompatActivity() {
 
     private fun reloadDataWithSession(sessionId: String) {
         fetchSubjectList(sessionId) { terms ->
-            val selectedSubjList = resolveSelectedSubjects(terms)
-            if (selectedSubjList == null) {
+            if (resolveSelectedTerm(terms) == null) {
                 runOnUiThread { hideLoading() }
                 return@fetchSubjectList
             }
@@ -1026,8 +1052,7 @@ class HomeActivity : AppCompatActivity() {
 
     private fun reloadWithSession(sessionId: String) {
         fetchSubjectList(sessionId) { terms ->
-            val selectedSubjList = resolveSelectedSubjects(terms)
-            if (selectedSubjList == null) {
+            if (resolveSelectedTerm(terms) == null) {
                 runOnUiThread { hideLoading() }
                 return@fetchSubjectList
             }
@@ -1045,34 +1070,57 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    private fun resolveSelectedSubjects(terms: List<AcademicTerm>): List<AcademicSubject>? {
-        val selection = AcademicTermSelector.select(terms, yearHakgi) ?: return null
-        if (selection.term.value != yearHakgi) {
-            yearHakgi = selection.term.value
-            appPreferences.edit().putString(AppPrefs.YEAR_HAKGI, yearHakgi).apply()
+    private fun resolveSelectedTerm(terms: List<String>): String? {
+        val selected = terms.firstOrNull { it == yearHakgi } ?: terms.firstOrNull() ?: return null
+        if (selected != yearHakgi) {
+            yearHakgi = selected
+            appPreferences.edit().putString(AppPrefs.YEAR_HAKGI, selected).apply()
         }
-        return selection.term.subjects
+        return selected
     }
 
-    private suspend fun fetchDeadlines(sessionId: String, subjects: List<AcademicSubject>): Boolean {
-        val selectedTerm=yearHakgi
-        val account=appPreferences.getString(AppPrefs.KW_ID,null)
-        val version=withContext(Dispatchers.Main) { deadlineForWebview="";++deadlineRequestVersion }
-        val ticket=if (com.icecream.kwklasplus.core.demo.DemoSession.active) null else runCatching { appDependencies.reminders.engine.beginHomeDeadlineRefresh() }.getOrNull()
-        val searchBatches = java.util.Collections.synchronizedList(mutableListOf<SearchBatch>())
-        val result=appDependencies.deadlineRepository.fetch(SecretValue.of(sessionId),KlasUserAgent.fromPlatform(WebSettings.getDefaultUserAgent(this)),selectedTerm,subjects) { searchBatches.add(it) }
-        val accepted=withContext(Dispatchers.Main) {
-            if(version!=deadlineRequestVersion || selectedTerm!=yearHakgi || account!=appPreferences.getString(AppPrefs.KW_ID,null))return@withContext false
-            if (result is DeadlinesResult.Success) offerSetup(SetupSuggestion.Notifications)
-            deadlineForWebview=if(result is DeadlinesResult.Success)DeadlinesWebCodec().encode(result.subjects) else "[]"
-            searchSnapshot = SearchSnapshot(searchScope, selectedTerm, version, searchBatches.toList())
-            publishSearchData()
-            if(result==DeadlinesResult.SessionExpired)showSessionExpiredDialog()
-            else if(result !is DeadlinesResult.Success)Toast.makeText(this@HomeActivity,"마감 정보를 새로 불러오지 못했습니다.",Toast.LENGTH_SHORT).show()
-            true
+    private fun showDeadlineFeedFailure(isCurrent: () -> Boolean) {
+        sendDeadlineFeed("FAILED", "", isCurrent)
+        Toast.makeText(this, "할 일을 불러오지 못했어요. 화면을 당겨 다시 시도해 주세요.", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun sendDeadlineFeed(status: String, json: String, isCurrent: () -> Boolean) {
+        val script = NativeHomeTabScripts.deadlineFeed(status, json)
+        webView.evaluateJavascript(script.reveal()) { delivered ->
+            if (isCurrent() && delivered != "true") {
+                NativeDiagnostics.report(DiagnosticStage.DEADLINE_WEBVIEW, DiagnosticFailure.DELIVERY)
+            }
         }
-        if(accepted && ticket!=null)runCatching { appDependencies.reminders.engine.acceptHomeDeadlines(ticket,result) }
-        return accepted
+    }
+
+    private suspend fun fetchDeadlines(
+        sessionId: String,
+        agent: KlasUserAgent,
+        term: String,
+        subjects: List<AcademicSubject>,
+        isCurrent: () -> Boolean,
+    ): DeadlinesResult {
+        val version = ++deadlineRequestVersion
+        val ticket = if (com.icecream.kwklasplus.core.demo.DemoSession.active) null
+            else runCatching { appDependencies.reminders.engine.beginHomeDeadlineRefresh() }.getOrNull()
+        val searchBatches = mutableListOf<SearchBatch>()
+        val result = appDependencies.deadlineRepository.fetch(SecretValue.of(sessionId), agent, term, subjects) {
+            searchBatches.add(it)
+        }
+        if (isCurrent() && version == deadlineRequestVersion) {
+            searchSnapshot = SearchSnapshot(searchScope, term, version, searchBatches.toList())
+            publishSearchData()
+            if (ticket != null) {
+                try {
+                    appDependencies.reminders.engine.acceptHomeDeadlines(ticket, result)
+                } catch (cause: CancellationException) {
+                    throw cause
+                } catch (_: Exception) {
+                    NativeDiagnostics.report(DiagnosticStage.DEADLINE_REFRESH, DiagnosticFailure.STORAGE)
+                }
+            }
+        }
+        return result
     }
 
     private suspend fun getTimetableData(sessionId: String, reportSessionExpiry: Boolean = true) {
@@ -1162,21 +1210,24 @@ class HomeActivity : AppCompatActivity() {
         openLectureRoute(subjID, subjName, yearHakgi, sessionId)
     }
 
-    private fun fetchSubjectList(sessionId: String, callback: (List<AcademicTerm>) -> Unit) {
+    private fun fetchSubjectList(sessionId: String, callback: (List<String>) -> Unit) {
         lifecycleScope.launch {
             when (
-                val result = appDependencies.academicRepository.fetchTerms(
+                val result = appDependencies.academicRepository.fetchSelectedTerm(
                     SecretValue.of(sessionId),
                     KlasUserAgent.fromPlatform(WebSettings.getDefaultUserAgent(this@HomeActivity)),
+                    savedValue = null,
+                    allowFallback = false,
                 )
             ) {
-                is AcademicTermsResult.Success -> callback(result.terms)
+                is AcademicTermsResult.Selected -> callback(result.availableTerms)
                 AcademicTermsResult.SessionExpired -> {
                     loadingDialog.dismiss()
                     showSessionExpiredDialog()
                 }
                 else -> {
                     loadingDialog.dismiss()
+                    hideLoading()
                     Toast.makeText(
                         this@HomeActivity,
                         "수강과목 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.",
@@ -1340,6 +1391,8 @@ class HomeActivity : AppCompatActivity() {
         builder.setTitle("로그아웃")
             .setMessage("정말 로그아웃할까요?")
             .setPositiveButton("확인") { _, _ ->
+                ++feedInjectionVersion
+                feedRefreshJob?.cancel()
                 if (com.icecream.kwklasplus.core.demo.DemoSession.active) {
                     appPreferences.edit().clear().commit()
                     com.icecream.kwklasplus.core.demo.DemoSession.end()

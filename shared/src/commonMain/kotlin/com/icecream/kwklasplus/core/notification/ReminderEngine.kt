@@ -119,17 +119,21 @@ class ReminderEngine(
             val day=ReminderTime.day(now)
             val eligible=result.value.filter { (it.startsAt==null || it.startsAt<=now) && it.dueAt>now && it.dueAt<=now+ReminderTime.DAY }
             if(eligible.map { it.key }.distinct().size!=eligible.size) { save(load().copy(deadlineStatus="UNVERIFIED_SOURCE"));return@withLock }
-            if(!allowPosting)latestHomeAcceptedRequest=maxOf(latestHomeAcceptedRequest,ticket.requestId)
+            if(!allowPosting && result.isComplete)latestHomeAcceptedRequest=maxOf(latestHomeAcceptedRequest,ticket.requestId)
             val candidates=eligible.map { platform.hash("${old.ownerHash}/${it.key}") }.toSet()
             val claims=old.claims.filter { it.day>=day-35 }
-            claims.filter { it.ownerHash==old.ownerHash && !candidates.containsAll(it.keys) }.forEach { platform.cancel(it.batchId) }
+            if (result.isComplete) {
+                claims.filter { it.ownerHash==old.ownerHash && !candidates.containsAll(it.keys) }.forEach { platform.cancel(it.batchId) }
+            }
+            val fetchedAt = if (result.isComplete) now else old.deadlineFetchedAt
             if(candidates.isEmpty()) {
-                save(load().copy(deadlineFetchedAt=now,deadlineStatus="NO_ELIGIBLE_ITEMS",claims=claims)); return@withLock
+                val emptyStatus = if (result.isComplete) "NO_ELIGIBLE_ITEMS" else "UNVERIFIED_SOURCE"
+                save(load().copy(deadlineFetchedAt=fetchedAt,deadlineStatus=emptyStatus,claims=claims)); return@withLock
             }
             val seen=claims.filter { it.ownerHash==old.ownerHash && it.day==day }.flatMap { it.keys }.toSet()
             val added=candidates-seen
-            if(added.isEmpty()) { save(load().copy(deadlineFetchedAt=now,deadlineStatus="NO_NEW_ELIGIBLE_ITEMS",claims=claims)); return@withLock }
-            save(load().copy(deadlineFetchedAt=now))
+            if(added.isEmpty()) { save(load().copy(deadlineFetchedAt=fetchedAt,deadlineStatus="NO_NEW_ELIGIBLE_ITEMS",claims=claims)); return@withLock }
+            save(load().copy(deadlineFetchedAt=fetchedAt))
             if(!allowPosting || !deliveryGate.canPost()) {
                 save(load().copy(deadlineStatus="FOREGROUND_SUPPRESSED"));return@withLock
             }
@@ -145,7 +149,7 @@ class ReminderEngine(
             }
             if(clock.nowEpochMillis()-ticket.startedAt !in 0..60_000)return@withLock
             val batch=platform.hash("${old.ownerHash}/$day/${added.sorted().joinToString()}")
-            save(load().copy(deadlineFetchedAt=now,claims=claims+ReminderClaim(old.ownerHash,day,added,batch),deadlineStatus="POST_ATTEMPTED"))
+            save(load().copy(deadlineFetchedAt=fetchedAt,claims=claims+ReminderClaim(old.ownerHash,day,added,batch),deadlineStatus="POST_ATTEMPTED"))
             if(!deliveryGate.canPost()) {
                 save(load().copy(claims=claims,deadlineStatus="FOREGROUND_SUPPRESSED"));return@withLock
             }
