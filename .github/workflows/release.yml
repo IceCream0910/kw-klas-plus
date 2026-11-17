@@ -16,7 +16,7 @@ permissions:
 jobs:
   android-release:
     name: Android release build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Check out source
@@ -143,7 +143,7 @@ jobs:
     name: Android emulator E2E and instrumentation
     env:
       E2E_TELEMETRY_DISABLED: '1'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -158,9 +158,13 @@ jobs:
           cache: npm
           cache-dependency-path: e2e/package-lock.json
 
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
       - name: Prepare simulator builds and test runner
         run: |
-          sdkmanager 'platforms;android-37.0'
           npm ci --prefix e2e
           ./gradlew :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest --stacktrace
 
@@ -274,7 +278,7 @@ jobs:
     name: Promote validated main commit to release
     if: github.ref == 'refs/heads/main'
     needs: [android-release, ios-release, android-e2e, ios-e2e]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: write

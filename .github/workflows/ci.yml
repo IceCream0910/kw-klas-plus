@@ -16,7 +16,7 @@ permissions:
 jobs:
   android:
     name: Android build and unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
@@ -32,16 +32,13 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Install Android compile SDK
-        run: sdkmanager 'platforms;android-37.0'
-
       - name: Run Android JVM tests
         run: ./gradlew :androidApp:testDebugUnitTest --stacktrace
 
   shared:
     # 기존 main ruleset의 필수 검사 이름을 유지한다. 실제 iOS 테스트는 릴리스 검사에서 실행한다.
     name: iOS build and unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
@@ -51,9 +48,6 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
-
-      - name: Install Android compile SDK
-        run: sdkmanager 'platforms;android-37.0'
 
       - name: Run shared KMP and Android adapter JVM tests
         run: ./gradlew :shared:testAndroidHostTest --stacktrace

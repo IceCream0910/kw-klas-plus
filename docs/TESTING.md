@@ -4,7 +4,7 @@
 
 | 시점 | 검사 | 실패하면 |
 | --- | --- | --- |
-| 브랜치 push, PR, merge queue | JDK 21/Linux에서 `:androidApp:testDebugUnitTest`와 `:shared:testAndroidHostTest` | 기존 main 필수 검사에서 병합 차단 |
+| 브랜치 push, PR, merge queue | JDK 21/Ubuntu 24.04에서 `:androidApp:testDebugUnitTest`와 `:shared:testAndroidHostTest` | 기존 main 필수 검사에서 병합 차단 |
 | main push 또는 수동 실행 | Android 에뮬레이터와 iPhone 시뮬레이터에서 Tester Army, Android instrumentation, Kotlin iOS·Swift·XCTest UI | release 승격 차단 |
 | 위 릴리스 검증과 병렬 | Android Release APK/AAB·R8/Sentry UUID, unsigned iOS archive·위젯·dSYM | release 승격 차단 |
 
@@ -16,7 +16,7 @@ main ruleset **22331611**의 필수 검사 이름 `Android build and unit tests`
 
 기준 Native: `343abf53cd09978d54468d62700bd1f2c9fb7e79`. WebView 기준 소스: 원격 main `8f33e1241f142868d509ac52ed4ea5ccf654f627`, 로컬 동반 변경 `5834c25`. E2E는 앱이 실제 접속하는 배포 WebView를 테스트하며 해당 서비스의 배포 커밋을 고정하지 않는다.
 
-- Android/JVM과 KMP: 인증 실패·저장소 이전·세션 만료·브리지 스키마와 권한·도메인 로직을 유지한다. 브랜치 검사에는 OS 기기, 외부 KLAS 계정, 배포 WebView를 넣지 않는다. Gradle 의존성은 다운로드할 수 있어야 한다.
+- Android/JVM과 KMP: 인증 실패·저장소 이전·세션 만료·브리지 스키마와 권한·도메인 로직을 유지한다. 브랜치 검사에는 OS 기기, 외부 KLAS 계정, 배포 WebView를 넣지 않는다. GitHub 이미지에 포함된 Android SDK를 사용하며 Gradle 의존성은 다운로드할 수 있어야 한다.
 - Android instrumentation: Compose의 키보드·레이아웃·설정 상태와 Keystore·위젯은 실제 OS 및 컴포넌트에 맞닿아 있어 유지한다. 샘플 산술·패키지명 테스트는 삭제했다.
 - iOS XCTest: Swift와 Kotlin의 플랫폼 테스트는 시뮬레이터 쪽에 둔다. 앱의 WebKit·Keychain·WidgetKit·회전·Dynamic Type 검증은 유지한다. 원격 영상은 이미 명시적으로 켤 때만 테스트한다. 비동기 작업은 고정 시간 후 결과를 단정하는 대신 화면 상태·이벤트나 테스트가 제어하는 완료 신호를 기다린다.
 - Reviewer 데모의 로그인은 기존 설계대로 일반 계정의 로그인 후 설정·약관 흐름을 생략한다. 해당 퍼널의 분기·동의·건너뛰기는 기존 플랫폼 테스트에서 별도로 확인한다.
@@ -28,7 +28,7 @@ Node 26과 테스트 전용 기기를 준비하고 Debug 앱을 설치한다. �
 ```sh
 npm ci --prefix e2e
 E2E_ANDROID_DEVICE=emulator-5554 npm test --prefix e2e -- --target android
-E2E_IOS_DEVICE=<simulator-udid> npm test --prefix e2e -- --target ios
+E2E_IOS_DEVICE='SIMULATOR_UDID' npm test --prefix e2e -- --target ios
 ```
 
 E2E는 최초 소개 화면, 데모 비밀번호 오류, 성공 로그인, WebView 피드에 나타나는 가상 과목, 재실행 후 인증 복원, Android 로그아웃 취소 및 양 플랫폼 로그아웃 확정 및 다음 실행에서도 로그아웃 유지 여부를 확인한다. 심사용 가상 데이터만 사용한다. AI 모델이나 개인 학번·비밀번호가 필요하지 않다. UI에서 관찰한 상태를 기준으로 진행하며 테스트 전체를 자동 재시도하지 않는다. 실패하면 `e2e/.e2e`의 JUnit과 화면 추적을 확인한다.
