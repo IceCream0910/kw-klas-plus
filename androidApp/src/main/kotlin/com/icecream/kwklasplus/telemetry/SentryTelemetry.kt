@@ -88,7 +88,7 @@ object SentryTelemetry {
             "sentry.release" to SentryLogEventAttributeValue("string", "${BuildConfig.APPLICATION_ID}@${BuildConfig.VERSION_NAME}+${BuildConfig.VERSION_CODE}"),
             "sentry.environment" to SentryLogEventAttributeValue("string", if (BuildConfig.DEBUG) "development" else "production"),
         ) + diagnostic.mapValues { (key, value) ->
-            if (key in setOf("klas.stage", "klas.failure", "klas.endpoint")) SentryLogEventAttributeValue("string", value)
+            if (key in setOf("klas.stage", "klas.failure", "klas.endpoint", "klas.response_kind", "klas.field", "klas.restore_phase", "klas.timeout_kind")) SentryLogEventAttributeValue("string", value)
             else SentryLogEventAttributeValue("integer", value.toLong())
         }
         return log

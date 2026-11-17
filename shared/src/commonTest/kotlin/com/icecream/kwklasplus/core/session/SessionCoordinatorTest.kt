@@ -1,6 +1,7 @@
 package com.icecream.kwklasplus.core.session
 
 import com.icecream.kwklasplus.core.security.SecretValue
+import com.icecream.kwklasplus.core.diagnostics.NativeDiagnostics
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.coroutines.startCoroutine
@@ -59,6 +60,20 @@ class SessionCoordinatorTest {
         val coordinator = SessionCoordinator(store, cookies, Clock { 1_000L })
 
         assertEquals(SessionResult.Expired, coordinator.restore())
+    }
+
+    @Test
+    fun restoreCookieFailureReportsItsStageWithoutExceptionText() = runSuspend {
+        val reports = mutableListOf<Map<String, String>>()
+        NativeDiagnostics.install { reports += NativeDiagnostics.sanitize(it) }
+        try {
+            val store = FakeSessionStore(Session(token, 500L))
+            val coordinator = SessionCoordinator(store, FakeCookieStore(failNextSet = true), Clock { 1_000L })
+            assertIs<SessionResult.Failed>(coordinator.restore())
+            assertEquals("COOKIE", reports.single()["klas.restore_phase"])
+            assertEquals("STORAGE", reports.single()["klas.failure"])
+            assertEquals(token, store.session?.token)
+        } finally { NativeDiagnostics.install {} }
     }
 
     @Test

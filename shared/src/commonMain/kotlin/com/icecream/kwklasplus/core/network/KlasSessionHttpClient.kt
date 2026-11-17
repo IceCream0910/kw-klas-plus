@@ -16,6 +16,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import io.ktor.http.Url
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -69,6 +70,8 @@ class KlasSessionHttpClient(
     ): KlasAuthenticatedResult {
         val elapsed = TimeSource.Monotonic.markNow()
         var status: Int? = null
+        var loginRedirect = false
+        var timeoutKind: TimeoutKind? = null
         val result = try {
             val response = client.post(endpoint.url) {
                 contentType(ContentType.Application.Json)
@@ -82,6 +85,7 @@ class KlasSessionHttpClient(
                 setBody(body)
             }
             status = response.status.value
+            loginRedirect = status in 300..399 && isKlasLoginRedirect(response.headers[HttpHeaders.Location])
             val responseBody = response.bodyAsText()
             when {
                 response.status.value == 401 || response.status.value == 403 ->
@@ -100,10 +104,13 @@ class KlasSessionHttpClient(
                 }
             }
         } catch (_: HttpRequestTimeoutException) {
+            timeoutKind = TimeoutKind.REQUEST
             KlasAuthenticatedResult.Timeout
         } catch (_: ConnectTimeoutException) {
+            timeoutKind = TimeoutKind.CONNECT
             KlasAuthenticatedResult.Timeout
         } catch (_: SocketTimeoutException) {
+            timeoutKind = TimeoutKind.SOCKET
             KlasAuthenticatedResult.Timeout
         } catch (_: SerializationException) {
             KlasAuthenticatedResult.MalformedResponse
@@ -121,7 +128,7 @@ class KlasSessionHttpClient(
             KlasAuthenticatedResult.Timeout -> DiagnosticFailure.TIMEOUT
             KlasAuthenticatedResult.NetworkFailure -> DiagnosticFailure.NETWORK
         }
-        if (failure != null) NativeDiagnostics.report(DiagnosticStage.API, failure, endpoint, status, elapsed.elapsedNow().inWholeMilliseconds)
+        if (failure != null && !loginRedirect) NativeDiagnostics.report(DiagnosticStage.API, failure, endpoint, status, elapsed.elapsedNow().inWholeMilliseconds, timeoutKind = timeoutKind)
         return result
     }
 }
@@ -133,4 +140,11 @@ fun interface KlasAuthenticatedTransport {
         userAgent: KlasUserAgent,
         body: JsonElement,
     ): KlasAuthenticatedResult
+}
+
+internal fun isKlasLoginRedirect(location: String?): Boolean {
+    if (location.isNullOrBlank()) return false
+    val url = runCatching { Url(if (location.startsWith("/")) "https://klas.kw.ac.kr$location" else location) }.getOrNull() ?: return false
+    if (url.protocol.name != "https" || url.host != "klas.kw.ac.kr" || url.port != 443) return false
+    return url.encodedPath.startsWith("/usr/cmn/login/") || url.encodedPath.startsWith("/mst/cmn/login/")
 }

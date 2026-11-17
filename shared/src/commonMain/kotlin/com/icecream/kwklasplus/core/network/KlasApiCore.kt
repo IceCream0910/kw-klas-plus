@@ -97,10 +97,12 @@ class KlasApiCore(
             val elapsed = TimeSource.Monotonic.markNow()
             val stage = if (isPage) DiagnosticStage.WEB_API_GET else DiagnosticStage.WEB_API_POST
             var responseStatus: Int? = null
+            var loginRedirect = false
+            var malformedKind: MalformedResponseKind? = null
             fun reportFailure(failure: DiagnosticFailure) {
                 NativeDiagnostics.reportWebApi(
                     stage, failure, WebApiDiagnosticEndpoint.fromRequestPath(path),
-                    responseStatus, elapsed.elapsedNow().inWholeMilliseconds,
+                    responseStatus, elapsed.elapsedNow().inWholeMilliseconds, malformedKind,
                 )
             }
             val result = try {
@@ -114,6 +116,7 @@ class KlasApiCore(
                 }
                 .execute { response ->
                     responseStatus = response.status.value
+                    if (response.status.value in 300..399) loginRedirect = isKlasLoginRedirect(response.headers[HttpHeaders.Location])
                     if (session() != token) return@execute KlasApiResult.Failure("STALE_SESSION")
                     if (response.status.value in 300..399) return@execute KlasApiResult.Failure("AUTH_ACTION_REQUIRED", response.status.value)
                     if (response.status.value == 401) return@execute KlasApiResult.Failure("SESSION_EXPIRED", 401)
@@ -136,6 +139,12 @@ class KlasApiCore(
                     val text = bytes.decodeToString(endIndex = size)
                     if (!isPage && text.trimStart().startsWith("<")) return@execute KlasApiResult.Failure("AUTH_ACTION_REQUIRED")
                     if (!isPage) try { Json.parseToJsonElement(text) } catch (_: Exception) {
+                        val trimmed = text.trimStart()
+                        malformedKind = when {
+                            trimmed.isEmpty() -> MalformedResponseKind.EMPTY_BODY
+                            trimmed.startsWith("{") || trimmed.startsWith("[") -> MalformedResponseKind.INVALID_JSON_STRUCTURE
+                            else -> MalformedResponseKind.NON_JSON_TEXT
+                        }
                         return@execute KlasApiResult.Failure("MALFORMED_RESPONSE")
                     }
                     val resultBody = if (isPage) JsonPrimitive(text).toString() else text
@@ -154,7 +163,7 @@ class KlasApiCore(
             if (result is KlasApiResult.Failure) {
                 val failure = when (result.code) {
                     "SESSION_EXPIRED" -> DiagnosticFailure.SESSION_EXPIRED
-                    "AUTH_ACTION_REQUIRED" -> DiagnosticFailure.ADDITIONAL_AUTH
+                    "AUTH_ACTION_REQUIRED" -> if (responseStatus in 300..399 && !loginRedirect) DiagnosticFailure.HTTP else DiagnosticFailure.ADDITIONAL_AUTH
                     "ACCESS_DENIED", "HTTP_FAILURE" -> DiagnosticFailure.HTTP
                     "MALFORMED_RESPONSE" -> DiagnosticFailure.MALFORMED
                     "RESPONSE_TOO_LARGE" -> DiagnosticFailure.RESPONSE_LIMIT

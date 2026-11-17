@@ -48,6 +48,16 @@ class SentryTelemetryTest {
     }
 
     @Test
+    fun diagnosticStringFieldsSurviveLogSanitization() {
+        val log = SentryLogEvent(SentryId(), 1.0, "klas.operation_failed", SentryLogLevel.ERROR)
+        mapOf("klas.stage" to "SESSION_INFO", "klas.failure" to "MALFORMED", "klas.response_kind" to "MISSING_FIELD", "klas.field" to "remainingTime")
+            .forEach { (key, value) -> log.setAttribute(key, SentryLogEventAttributeValue("string", value)) }
+        val clean = requireNotNull(SentryTelemetry.sanitizeLog(log))
+        assertEquals("remainingTime", clean.attributes?.get("klas.field")?.value)
+        assertEquals("MISSING_FIELD", clean.attributes?.get("klas.response_kind")?.value)
+    }
+
+    @Test
     fun knownFailureRebuildsTheErrorMessageFromApprovedTags() {
         val event = SentryEvent().apply {
             message = Message().apply { formatted = "SESSION=secret" }

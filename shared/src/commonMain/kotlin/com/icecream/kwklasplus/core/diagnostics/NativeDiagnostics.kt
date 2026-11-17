@@ -16,6 +16,10 @@ enum class DiagnosticFailure {
     INVALID_CREDENTIALS, CAPTCHA_REQUIRED, ADDITIONAL_AUTH, RESPONSE_LIMIT,
 }
 
+enum class MalformedResponseKind { EMPTY_BODY, INVALID_JSON_STRUCTURE, NON_JSON_TEXT, MISSING_FIELD, INVALID_FIELD_TYPE, INVALID_VALUE }
+enum class RestorePhase { LOCK, READ, COOKIE, EXPIRED_CLEANUP }
+enum class TimeoutKind { REQUEST, CONNECT, SOCKET }
+
 object NativeDiagnostics {
     const val eventName = "klas.operation_failed"
     const val eventMarker = "klas.diagnostic_event"
@@ -33,7 +37,11 @@ object NativeDiagnostics {
         elapsedMs: Long? = null,
         successCount: Int? = null,
         failureCount: Int? = null,
-    ) = emit(stage, failure, endpoint?.name, statusCode, elapsedMs, successCount, failureCount)
+        malformedKind: MalformedResponseKind? = null,
+        field: String? = null,
+        restorePhase: RestorePhase? = null,
+        timeoutKind: TimeoutKind? = null,
+    ) = emit(stage, failure, endpoint?.name, statusCode, elapsedMs, successCount, failureCount, malformedKind, field, restorePhase, timeoutKind)
 
     internal fun reportWebApi(
         stage: DiagnosticStage,
@@ -41,7 +49,8 @@ object NativeDiagnostics {
         endpoint: WebApiDiagnosticEndpoint,
         statusCode: Int?,
         elapsedMs: Long,
-    ) = emit(stage, failure, endpoint.name, statusCode, elapsedMs, null, null)
+        malformedKind: MalformedResponseKind? = null,
+    ) = emit(stage, failure, endpoint.name, statusCode, elapsedMs, null, null, malformedKind, null, null, null)
 
     private fun emit(
         stage: DiagnosticStage,
@@ -51,7 +60,12 @@ object NativeDiagnostics {
         elapsedMs: Long?,
         successCount: Int?,
         failureCount: Int?,
+        malformedKind: MalformedResponseKind?,
+        field: String?,
+        restorePhase: RestorePhase?,
+        timeoutKind: TimeoutKind?,
     ) {
+        if (failure == DiagnosticFailure.SESSION_EXPIRED || failure == DiagnosticFailure.ADDITIONAL_AUTH) return
         val reporter = sink.value ?: return
         val attributes = buildMap {
             put("klas.stage", stage.name)
@@ -61,6 +75,10 @@ object NativeDiagnostics {
             elapsedMs?.let { put("klas.elapsed_ms", it.toString()) }
             successCount?.let { put("klas.success_count", it.toString()) }
             failureCount?.let { put("klas.failure_count", it.toString()) }
+            malformedKind?.let { put("klas.response_kind", it.name) }
+            field?.let { put("klas.field", it) }
+            restorePhase?.let { put("klas.restore_phase", it.name) }
+            timeoutKind?.let { put("klas.timeout_kind", it.name) }
         }
         runCatching { reporter(attributes) }
     }
@@ -81,6 +99,20 @@ object NativeDiagnostics {
                     AuthenticatedKlasEndpoint.entries.firstOrNull { it.name == endpoint }?.name
                 else -> null
             }?.let { put("klas.endpoint", it) }
+            if (stage in setOf(DiagnosticStage.WEB_API_POST, DiagnosticStage.SESSION_INFO) && failure == DiagnosticFailure.MALFORMED) {
+                MalformedResponseKind.entries.firstOrNull { it.name == attributes["klas.response_kind"] }
+                    ?.let { put("klas.response_kind", it.name) }
+                attributes["klas.field"]?.takeIf { it.length in 1..64 && it.all { c -> c.isASCIIFieldCharacter() } }
+                    ?.let { put("klas.field", it) }
+            }
+            if (stage == DiagnosticStage.SESSION_RESTORE && failure == DiagnosticFailure.STORAGE) {
+                RestorePhase.entries.firstOrNull { it.name == attributes["klas.restore_phase"] }
+                    ?.let { put("klas.restore_phase", it.name) }
+            }
+            if (stage in httpStages && failure == DiagnosticFailure.TIMEOUT) {
+                TimeoutKind.entries.firstOrNull { it.name == attributes["klas.timeout_kind"] }
+                    ?.let { put("klas.timeout_kind", it.name) }
+            }
             if (stage in httpStages) {
                 attributes["http.status_code"]?.toIntOrNull()?.takeIf { it in 100..599 }
                     ?.let { put("http.status_code", it.toString()) }
@@ -110,6 +142,8 @@ object NativeDiagnostics {
         if (tags[eventMarker] != eventName) return emptyMap()
         val fields = sanitize(tags)
         if (fields.isEmpty() || isExpected(fields)) return emptyMap()
+        if (fields["klas.stage"] == DiagnosticStage.SESSION_RESTORE.name &&
+            fields["klas.failure"] == DiagnosticFailure.STORAGE.name) return emptyMap()
         if (fields["klas.stage"] == DiagnosticStage.DEADLINE_REFRESH.name &&
             fields["klas.failure"] != DiagnosticFailure.STORAGE.name
         ) return emptyMap()
@@ -123,7 +157,8 @@ object NativeDiagnostics {
         val failure = safe.getValue("klas.failure")
         val endpoint = safe["klas.endpoint"]?.let { " [$it]" }.orEmpty()
         val status = safe["http.status_code"]?.let { " (HTTP $it)" }.orEmpty()
-        return "KLAS $stage$endpoint: $failure$status"
+        val detail = safe["klas.response_kind"]?.let { " ($it${safe["klas.field"]?.let { field -> ": $field" }.orEmpty()})" }.orEmpty()
+        return "KLAS $stage$endpoint: $failure$status$detail"
     }
 
     fun errorFingerprint(fields: Map<String, String>): List<String> =
@@ -143,3 +178,5 @@ internal fun AuthFailure.diagnosticFailure(): DiagnosticFailure? = when (this) {
     AuthFailure.TemporaryPasswordChangeRequired -> DiagnosticFailure.ADDITIONAL_AUTH
     AuthFailure.UserCancelled -> null
 }
+
+private fun Char.isASCIIFieldCharacter(): Boolean = this in 'a'..'z' || this in 'A'..'Z' || this in '0'..'9' || this == '_'

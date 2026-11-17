@@ -19,10 +19,14 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.MissingFieldException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.longOrNull
 
 class KlasSessionLeaseHttpGateway(
     private val client: HttpClient,
@@ -31,9 +35,18 @@ class KlasSessionLeaseHttpGateway(
     override suspend fun fetchInfo(
         session: SecretValue,
         userAgent: KlasUserAgent,
-    ): SessionInfoResult = (try {
+    ): SessionInfoResult {
+        var malformedKind: MalformedResponseKind? = null
+        var field: String? = null
+        var responseText: String? = null
+        var responseStatus: Int? = null
+        var loginRedirect = false
+        val result = try {
         val response = get(KlasUrls.KLAS_SESSION_INFO, session, userAgent)
+        responseStatus = response.status.value
+        loginRedirect = response.status.value in 300..399 && isKlasLoginRedirect(response.headers[HttpHeaders.Location])
         val body = response.bodyAsText()
+        responseText = body
         when {
             response.status.value == 401 || response.status.value == 403 ->
                 SessionInfoResult.SessionExpired
@@ -47,14 +60,18 @@ class KlasSessionLeaseHttpGateway(
         SessionInfoResult.Timeout
     } catch (_: SocketTimeoutException) {
         SessionInfoResult.Timeout
-    } catch (_: SerializationException) {
+    } catch (cause: SerializationException) {
+        val diagnostic = diagnoseSessionInfo(cause, responseText)
+        malformedKind = diagnostic.first
+        field = diagnostic.second
         SessionInfoResult.MalformedResponse
     } catch (cause: CancellationException) {
         throw cause
     } catch (_: Throwable) {
         SessionInfoResult.NetworkFailure
-    }).also {
-        val failure = when (it) {
+    }
+        if (result == SessionInfoResult.MalformedResponse && malformedKind == null) malformedKind = MalformedResponseKind.INVALID_VALUE
+        val failure = when (result) {
             is SessionInfoResult.Success -> null
             SessionInfoResult.Timeout -> DiagnosticFailure.TIMEOUT
             SessionInfoResult.NetworkFailure -> DiagnosticFailure.NETWORK
@@ -62,9 +79,25 @@ class KlasSessionLeaseHttpGateway(
             SessionInfoResult.MalformedResponse -> DiagnosticFailure.MALFORMED
             is SessionInfoResult.HttpFailure -> DiagnosticFailure.HTTP
         }
-        if (failure != null) NativeDiagnostics.report(
-            DiagnosticStage.SESSION_INFO, failure, statusCode = (it as? SessionInfoResult.HttpFailure)?.statusCode,
+        if (failure != null && !loginRedirect) NativeDiagnostics.report(
+            DiagnosticStage.SESSION_INFO, failure, statusCode = responseStatus, malformedKind = malformedKind, field = field,
         )
+        return result
+    }
+
+    @OptIn(ExperimentalSerializationApi::class)
+    private fun diagnoseSessionInfo(cause: SerializationException, text: String?): Pair<MalformedResponseKind, String?> {
+        if (cause is MissingFieldException) return MalformedResponseKind.MISSING_FIELD to cause.missingFields.firstOrNull()
+        if (text.isNullOrBlank()) return MalformedResponseKind.EMPTY_BODY to null
+        val body = runCatching { json.parseToJsonElement(text) }.getOrNull() as? JsonObject
+            ?: return MalformedResponseKind.INVALID_JSON_STRUCTURE to null
+        val descriptor = SessionInfoResponse.serializer().descriptor
+        for (index in 0 until descriptor.elementsCount) {
+            val name = descriptor.getElementName(index)
+            val value = body[name] as? JsonPrimitive ?: if (name in body) return MalformedResponseKind.INVALID_FIELD_TYPE to name else continue
+            if (value.isString || value.longOrNull == null) return MalformedResponseKind.INVALID_FIELD_TYPE to name
+        }
+        return MalformedResponseKind.INVALID_VALUE to null
     }
 
     override suspend fun extend(
