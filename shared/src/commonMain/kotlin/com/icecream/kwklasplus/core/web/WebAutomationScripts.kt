@@ -245,7 +245,11 @@ object PlayerWebScripts {
         return WebScript(source)
     }
 
-    fun monitorState(): WebScript = WebScript(
+    fun monitorState(): WebScript = monitorState(preferVideoPlayback = false)
+
+    fun monitorIosPlayerState(): WebScript = monitorState(preferVideoPlayback = true)
+
+    private fun monitorState(preferVideoPlayback: Boolean): WebScript = WebScript(
         "(function(){var speed=\$('.vc-pctrl-playback-rate-toggle-btn').text().replace('x ','');" +
             klasNativeBridgeCall("receiveInitSpeed", "speed") +
             ";clearInterval(window.__klasPlusPlayerStateInterval);" +
@@ -253,7 +257,11 @@ object PlayerWebScripts {
             "var player=(window.bcPlayController&&bcPlayController.getPlayController)?bcPlayController.getPlayController():null;" +
             "var v=document.querySelector('video');" +
             "var isMuted=player&&typeof player._isMuted==='boolean'?player._isMuted:(v?v.muted:false);" +
-            "var isPlaying=player&&player._isPlaying!==undefined?player._isPlaying:(v?!v.paused:false);" +
+            (if (preferVideoPlayback) {
+                "var isPlaying=v?!v.paused&&!v.ended:(player&&player._isPlaying!==undefined?player._isPlaying:false);"
+            } else {
+                "var isPlaying=player&&player._isPlaying!==undefined?player._isPlaying:(v?!v.paused:false);"
+            }) +
             "var currTime=player&&player._currTime!==undefined?player._currTime:(v?v.currentTime:0);" +
             "var duration=player&&player._duration!==undefined?player._duration:(v?v.duration:0);" +
             "var isFullscreen=player&&player._isFullScreen!==undefined?player._isFullScreen:false;" +
@@ -283,9 +291,14 @@ object PlayerWebScripts {
     }
 
     fun setControllerVisible(visible: Boolean): WebScript = WebScript(
-        "document.head.appendChild(Object.assign(document.createElement('style'),{textContent:" +
-            JavaScriptEncoder.encodeText("#play-controller { display: ${if (visible) "block" else "none"} !important; }") +
-            "}));" + if (visible) "" else "\$('.vc-pctrl-playback-rate-toggle-btn').remove();",
+        "(function(){var id='klas-plus-hide-player-controller';var style=document.getElementById(id);" +
+            if (visible) {
+                "if(style)style.remove();})();"
+            } else {
+                "if(!style){style=document.createElement('style');style.id=id;style.textContent=" +
+                    JavaScriptEncoder.encodeText("#play-controller { display: none !important; }") +
+                    ";document.head.appendChild(style);}})();\$('.vc-pctrl-playback-rate-toggle-btn').remove();"
+            },
     )
 
     fun closeFullScreenIfAvailable(): WebScript = WebScript(
@@ -294,6 +307,37 @@ object PlayerWebScripts {
 
     fun openFullScreenIfAvailable(): WebScript = WebScript(
         "if(window.bcPlayController){" + playback(PlayerPlaybackCommand.OPEN_FULL_SCREEN).reveal() + "}",
+    )
+
+    fun enterWebkitVideoFullscreen(): WebScript = WebScript(
+        "(function(){var video=document.querySelector('video');" +
+            "if(video&&typeof video.webkitEnterFullscreen==='function'){" +
+            "try{video.webkitEnterFullscreen();return 'requested';}catch(e){}}" +
+            "if(window.bcPlayController&&window.VCPlayControllerEvent){" +
+            "try{bcPlayController.getPlayController()._eventTarget.fire(VCPlayControllerEvent.FULL_SCREEN);" +
+            "return 'requested';}catch(e){}}return 'unavailable';})();",
+    )
+
+    fun restorePlaybackAfterWebkitFullscreen(): WebScript = WebScript(
+        "(function(){if(window.__klasFullscreenVideoCleanup)window.__klasFullscreenVideoCleanup();" +
+            "var video=null,playing=false,pausedAt=0,fullscreen=false;" +
+            "function begin(){fullscreen=true;playing=!video.paused&&!video.ended;pausedAt=0;}" +
+            "function played(){if(fullscreen){playing=true;pausedAt=0;}}" +
+            "function paused(){if(fullscreen){if(playing)pausedAt=Date.now();playing=false;}}" +
+            "function end(){var current=video;var resume=playing||(pausedAt>0&&Date.now()-pausedAt<600);" +
+            "fullscreen=false;playing=false;pausedAt=0;if(!resume)return;" +
+            "setTimeout(function(){if(video!==current||!current.isConnected||document.hidden||" +
+            "current.ended||current.webkitPresentationMode==='picture-in-picture'||!current.paused)return;" +
+            "try{var promise=current.play();if(promise&&promise.catch)promise.catch(function(){});}catch(e){}},250);}" +
+            "function detach(){if(video){video.removeEventListener('webkitbeginfullscreen',begin);" +
+            "video.removeEventListener('webkitendfullscreen',end);video.removeEventListener('play',played);" +
+            "video.removeEventListener('pause',paused);}}" +
+            "function attach(){var next=document.querySelector('video');if(next===video)return;" +
+            "detach();video=next;fullscreen=false;playing=false;pausedAt=0;" +
+            "if(video){video.addEventListener('webkitbeginfullscreen',begin);" +
+            "video.addEventListener('webkitendfullscreen',end);video.addEventListener('play',played);" +
+            "video.addEventListener('pause',paused);}}attach();window.__klasFullscreenVideoWatch=setInterval(attach,200);" +
+            "window.__klasFullscreenVideoCleanup=function(){clearInterval(window.__klasFullscreenVideoWatch);detach();video=null;};})();",
     )
 
     fun mute(muted: Boolean): WebScript =
@@ -316,7 +360,8 @@ object PlayerWebScripts {
 
     fun isPictureInPictureSupported(): WebScript = WebScript(
         "(function(){var video=document.querySelector('video');" +
-            "if(video&&video.webkitSetPresentationMode)return 'true';" +
+            "if(!video)return 'unknown';" +
+            "if(video.webkitSetPresentationMode)return 'true';" +
             "if(video&&video.webkitSupportsPresentationMode)return video.webkitSupportsPresentationMode('picture-in-picture')?'true':'false';" +
             "return (document.pictureInPictureEnabled||'pictureInPictureEnabled' in document)?'true':'false';})();",
     )

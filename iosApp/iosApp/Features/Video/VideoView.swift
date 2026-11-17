@@ -33,6 +33,9 @@ final class VideoScreenModel: ObservableObject {
     private var lastPlaytime: Float = 0
     private var duration: Float = 0
     private var isFullscreen = false
+    private var pictureInPictureSupportResolved = false
+    private var pictureInPictureSupportCheckInFlight = false
+    private var pictureInPictureSupportGeneration = 0
     private var titleFetchTask: Task<Void, Never>?
     private(set) var didStart = false
     private var lastOnlineContentRequest: PlayerWebScripts.OnlineContentRequest?
@@ -252,6 +255,9 @@ final class VideoScreenModel: ObservableObject {
         uiState.totalTime = codec.formatTime(seconds: state.durationSeconds)
         uiState.isPlaying = state.isPlaying
         uiState.isMuted = state.isMuted
+        if !pictureInPictureSupportResolved {
+            refreshPictureInPictureSupport()
+        }
         refreshPictureInPictureMode()
     }
 
@@ -327,10 +333,13 @@ final class VideoScreenModel: ObservableObject {
         IosPlaybackAudioSession.activate()
         if DemoSession.shared.active {
             evaluateVideo(DemoPlayer.shared.installController())
-        } else {
-            evaluateVideo(PlayerWebScripts.shared.monitorState())
         }
+        evaluateVideo(PlayerWebScripts.shared.monitorIosPlayerState())
+        evaluateVideo(PlayerWebScripts.shared.restorePlaybackAfterWebkitFullscreen())
         hideController()
+        pictureInPictureSupportResolved = false
+        pictureInPictureSupportCheckInFlight = false
+        pictureInPictureSupportGeneration += 1
         refreshPictureInPictureSupport()
     }
 
@@ -372,6 +381,15 @@ final class VideoScreenModel: ObservableObject {
     }
 
     func toggleFullscreen() {
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            let script = PlayerWebScripts.shared.enterWebkitVideoFullscreen()
+            lastVideoScriptSource = script.reveal()
+            videoHolder.evaluate(script) { [weak self] result in
+                guard result as? String == "unavailable" else { return }
+                Task { @MainActor in self?.coordinator.showToast("전체화면을 열 수 없어요. 잠시 후 다시 시도해주세요.") }
+            }
+            return
+        }
         if isFullscreen {
             evaluateVideo(PlayerWebScripts.shared.closeFullScreenIfAvailable())
         } else {
@@ -519,13 +537,21 @@ final class VideoScreenModel: ObservableObject {
     }
 
     private func refreshPictureInPictureSupport() {
+        guard !pictureInPictureSupportCheckInFlight else { return }
+        pictureInPictureSupportCheckInFlight = true
+        let generation = pictureInPictureSupportGeneration
         videoHolder.evaluate(PlayerWebScripts.shared.isPictureInPictureSupported()) { [weak self] result in
             Task { @MainActor in
                 guard let self else { return }
+                guard self.pictureInPictureSupportGeneration == generation else { return }
+                self.pictureInPictureSupportCheckInFlight = false
                 if let value = result as? String {
+                    guard value == "true" || value == "false" else { return }
                     self.isPictureInPictureSupported = value == "true"
+                    self.pictureInPictureSupportResolved = true
                 } else if let value = result as? Bool {
                     self.isPictureInPictureSupported = value
+                    self.pictureInPictureSupportResolved = true
                 }
             }
         }

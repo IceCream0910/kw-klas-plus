@@ -86,6 +86,10 @@ class VideoPlayerActivity : AppCompatActivity() {
     private val backPressedCallback = object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
             if (playbackGate.isReplacing) return
+            if (fullscreenView != null && !isInPictureInPictureMode && !isPipPresentation) {
+                VideoWebView.webChromeClient?.onHideCustomView()
+                return
+            }
             pendingLecture = null
             certificationContinuation.clear()
             lectureNavigationRevision += 1

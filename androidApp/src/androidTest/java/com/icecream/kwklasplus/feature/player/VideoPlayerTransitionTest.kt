@@ -121,6 +121,40 @@ class VideoPlayerTransitionTest {
     }
 
     @Test
+    fun backFromFullscreenRestoresInlinePlayerWithoutEnteringPip() {
+        val intent = Intent(ApplicationProvider.getApplicationContext(), VideoPlayerActivity::class.java)
+        ActivityScenario.launch<VideoPlayerActivity>(intent).use { scenario ->
+            scenario.onActivity { activity ->
+                activity.isViewer = true
+                activity.isPlayerVisible = true
+                activity.withSinglePlayback {}
+                activity.hasPlaybackSession = true
+                val revision = activity.lectureNavigationRevision
+                val inlineOrientation = activity.requestedOrientation
+                val customView = View(activity)
+                var hidden = false
+                activity.VideoWebView.webChromeClient!!.onShowCustomView(
+                    customView,
+                    WebChromeClient.CustomViewCallback { hidden = true },
+                )
+
+                activity.onBackPressedDispatcher.onBackPressed()
+
+                assertTrue(hidden)
+                assertNull(customView.parent)
+                assertEquals(inlineOrientation, activity.requestedOrientation)
+                assertFalse(activity.isInPictureInPictureMode)
+                assertFalse(activity.isPipPresentation)
+                assertTrue(activity.isPlayerVisible)
+                assertTrue(activity.hasPlaybackSession)
+                assertTrue(activity.ownsPlayback())
+                assertEquals(revision, activity.lectureNavigationRevision)
+                assertFalse(activity.isFinishing)
+            }
+        }
+    }
+
+    @Test
     fun pipCallbacksPreserveFullscreenAndItsOrientationUntilExplicitExit() {
         val intent = Intent(ApplicationProvider.getApplicationContext(), VideoPlayerActivity::class.java)
         ActivityScenario.launch<VideoPlayerActivity>(intent).use { scenario ->
