@@ -5,9 +5,14 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      live_media:
+        description: '배포 데모 영상 재생도 확인'
+        type: boolean
+        default: false
 
 concurrency:
-  group: release-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -16,7 +21,7 @@ permissions:
 jobs:
   android-release:
     name: Android release build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Check out source
@@ -31,7 +36,7 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: platform-tools
+          packages: platform-tools platforms;android-37.0
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -138,3 +143,198 @@ jobs:
           path: ${{ runner.temp }}/ios-release.xcarchive
           if-no-files-found: error
           retention-days: 30
+
+  android-e2e:
+    name: Android emulator E2E and instrumentation
+    env:
+      E2E_TELEMETRY_DISABLED: '1'
+      E2E_LIVE_MEDIA: ${{ inputs.live_media || false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Prepare simulator builds and test runner
+        run: |
+          npm ci --prefix e2e
+          ./gradlew :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest --stacktrace
+
+      - name: Enable emulator hardware acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Test on a fresh Android emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            adb install androidApp/build/outputs/apk/debug/androidApp-debug.apk
+            E2E_ANDROID_DEVICE="$ANDROID_SERIAL" bash e2e/run-ci.sh android
+            adb shell pm clear com.icecream.kwklasplus
+            ./gradlew :androidApp:connectedDebugAndroidTest --stacktrace
+
+      - name: Upload android E2E traces and screenshots
+        id: e2e-diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-android-failure-${{ github.run_attempt }}
+          path: e2e/.e2e/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Link failure evidence in the job summary
+        if: failure() && steps.e2e-diagnostics.outputs.artifact-url != ''
+        env:
+          ARTIFACT_URL: ${{ steps.e2e-diagnostics.outputs.artifact-url }}
+        run: echo "[Tester Army failure evidence](${ARTIFACT_URL})" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: android-simulator-diagnostics
+          path: |
+            androidApp/build/outputs/androidTest-results/connected/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+
+  ios-e2e:
+    name: iOS simulator E2E and platform tests
+    runs-on: macos-26
+    timeout-minutes: 55
+    env:
+      E2E_TELEMETRY_DISABLED: '1'
+      E2E_LIVE_MEDIA: ${{ inputs.live_media || false }}
+      DEVELOPER_DIR: /Applications/Xcode_26.5.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - run: npm ci --prefix e2e
+
+      - name: Build iOS app and test bundles
+        run: >-
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath "$RUNNER_TEMP/ios-simulator-build"
+          -parallel-testing-enabled NO CODE_SIGN_IDENTITY=- SENTRY_AUTO_UPLOAD=false
+          build-for-testing
+
+      - name: Boot a dedicated iPhone simulator
+        run: |
+          udid=$(xcrun simctl create "KLAS-E2E-$GITHUB_RUN_ID" 'iPhone 17' com.apple.CoreSimulator.SimRuntime.iOS-26-5)
+          echo "E2E_IOS_DEVICE=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+
+      - name: Run Tester Army E2E
+        run: |
+          xcrun simctl install "$E2E_IOS_DEVICE" "$RUNNER_TEMP/ios-simulator-build/Build/Products/Debug-iphonesimulator/KLAS+.app"
+          bash e2e/run-ci.sh ios
+
+      - name: Run Kotlin iOS platform tests
+        run: ./gradlew :shared:iosSimulatorArm64Test --device "$E2E_IOS_DEVICE" --stacktrace
+
+      - name: Run Swift tests and platform UI regressions
+        timeout-minutes: 20
+        run: >-
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp
+          -destination "platform=iOS Simulator,id=$E2E_IOS_DEVICE"
+          -derivedDataPath "$RUNNER_TEMP/ios-simulator-build"
+          -parallel-testing-enabled NO
+          -test-timeouts-enabled YES
+          -default-test-execution-time-allowance 60
+          -maximum-test-execution-time-allowance 120
+          -resultBundlePath "$RUNNER_TEMP/ios-platform-tests.xcresult"
+          test-without-building
+
+      - name: Upload ios E2E traces and screenshots
+        id: e2e-diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-ios-failure-${{ github.run_attempt }}
+          path: e2e/.e2e/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Link failure evidence in the job summary
+        if: failure() && steps.e2e-diagnostics.outputs.artifact-url != ''
+        env:
+          ARTIFACT_URL: ${{ steps.e2e-diagnostics.outputs.artifact-url }}
+        run: echo "[Tester Army failure evidence](${ARTIFACT_URL})" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ios-simulator-diagnostics
+          path: |
+            ${{ runner.temp }}/ios-platform-tests.xcresult
+            shared/build/test-results/iosSimulatorArm64Test/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Delete dedicated simulator
+        if: always() && env.E2E_IOS_DEVICE != ''
+        run: xcrun simctl delete "$E2E_IOS_DEVICE"
+
+  promote:
+    name: Promote validated main commit to release
+    if: github.ref == 'refs/heads/main'
+    needs: [android-release, ios-release, android-e2e, ios-e2e]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Fast-forward release
+        run: |
+          git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main refs/heads/release:refs/remotes/origin/release
+          if [[ "$(git rev-parse origin/main)" != "$GITHUB_SHA" ]]; then
+            echo 'A newer main commit has its own release validation run.'
+            exit 0
+          fi
+          if ! git merge-base --is-ancestor origin/release "$GITHUB_SHA"; then
+            echo '::error::release cannot be fast-forwarded to the validated main commit.'
+            exit 1
+          fi
+          git push origin "$GITHUB_SHA:refs/heads/release"

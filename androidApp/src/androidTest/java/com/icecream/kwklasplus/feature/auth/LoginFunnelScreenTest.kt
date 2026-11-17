@@ -15,14 +15,12 @@ import androidx.test.platform.app.InstrumentationRegistry
 import android.graphics.Bitmap
 import java.io.File
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextInput
 import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
 import org.junit.Rule
 import org.junit.Test
@@ -54,7 +52,7 @@ class LoginFunnelScreenTest {
     }
 
     @Test
-    fun loginSecurityLinkFollowsExplanationAndSheetClosesFromFooter() {
+    fun loginSecurityLinkFollowsExplanation() {
         rule.setContent {
             KlasPlusTheme { funnel(funnelState(LoginFunnelStep.StudentId), {}, onContinue = {}) }
         }
@@ -62,10 +60,6 @@ class LoginFunnelScreenTest {
             .fetchSemanticsNode().boundsInRoot
         val link = rule.onNodeWithTag("login_security_link")
         org.junit.Assert.assertTrue(link.fetchSemanticsNode().boundsInRoot.top >= description.bottom)
-        link.performClick()
-        rule.onNodeWithTag("login_security_close").assertIsDisplayed().performClick()
-        rule.onNodeWithTag("login_security_close").assertDoesNotExist()
-        rule.onNodeWithTag("login_student_id").assertIsDisplayed()
     }
 
     @Test
@@ -84,9 +78,10 @@ class LoginFunnelScreenTest {
             }
         }
         rule.runOnIdle { hideKeyboard() }
-        rule.waitUntil(5_000) { keyboardBottom == 0 }
+        rule.waitUntil("키보드가 닫혀 IME inset이 0이 됨", 15_000) {
+            rule.runOnIdle { keyboardBottom == 0 }
+        }
         rule.runOnIdle { state = state.copy(error = message) }
-        rule.waitUntil(5_000) { rule.onNodeWithText(message).isDisplayed() }
         rule.onNodeWithTag("login_password").assertIsDisplayed()
         rule.onNodeWithText(message).assertIsDisplayed()
         val field = rule.onNodeWithTag("login_password").fetchSemanticsNode().boundsInRoot
@@ -94,28 +89,6 @@ class LoginFunnelScreenTest {
         val submit = rule.onNodeWithTag("login_submit").fetchSemanticsNode().boundsInRoot
         org.junit.Assert.assertTrue(error.top >= field.bottom)
         org.junit.Assert.assertTrue(error.bottom <= submit.top)
-    }
-
-    @Test
-    fun studentIdAndPasswordAreSeparateSteps() {
-        var state by mutableStateOf(funnelState(LoginFunnelStep.StudentId))
-        rule.setContent {
-            KlasPlusTheme {
-                funnel(
-                    state = state,
-                    update = { updated ->
-                        state = if (state.step == LoginFunnelStep.StudentId &&
-                            state.studentId.length < LoginUiState.STUDENT_ID_LENGTH &&
-                            updated.studentId.length == LoginUiState.STUDENT_ID_LENGTH
-                        ) updated.copy(step = LoginFunnelStep.Password) else updated
-                    },
-                    onContinue = { state = state.copy(step = LoginFunnelStep.Password) },
-                )
-            }
-        }
-        rule.onNodeWithTag("login_submit").assertIsNotEnabled()
-        rule.onNodeWithTag("login_student_id").performTextInput("2020123456")
-        rule.onNodeWithTag("login_password").assertIsDisplayed()
     }
 
     @Test

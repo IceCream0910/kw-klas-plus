@@ -12,7 +12,9 @@ import com.icecream.kwklasplus.core.demo.DemoSession
 import com.icecream.kwklasplus.core.security.SecretValue
 import com.icecream.kwklasplus.feature.auth.LoginFunnelStatus
 import com.icecream.kwklasplus.widget.AcademicWidgetRuntime
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Test
@@ -68,18 +70,23 @@ class DemoPreferenceLifetimeTest {
         val store = AndroidAcademicWidgetSnapshotStore(context)
         assertEquals("2099,1", store.read()?.term)
         instrumentation.runOnMainSync { account.edit().putString(AppPrefs.YEAR_HAKGI, "2099,2").commit() }
-        awaitCondition { store.read()?.term == "2099,2" }
+        // 별도 AtomicFile 인스턴스는 저장 중 임시 파일을 지울 수 있어 런타임 갱신 뒤에만 읽는다.
+        awaitSnapshot("학기 변경") { runtime.snapshot()?.term == "2099,2" }
+        assertEquals("2099,2", store.read()?.term)
         val previousOwner = store.read()?.owner
         instrumentation.runOnMainSync { account.edit().putString(AppPrefs.KW_ID, "2099654321").commit() }
-        awaitCondition { store.read()?.let { it.owner != previousOwner && it.term == "2099,2" && it.timetable == null } == true }
+        awaitSnapshot("계정 변경") {
+            runtime.snapshot()?.let { it.owner != previousOwner && it.term == "2099,2" && it.timetable == null } == true
+        }
+        assertEquals(runtime.snapshot(), store.read())
     }
 
-    private fun awaitCondition(condition: () -> Boolean) {
-        repeat(100) {
-            if (condition()) return
-            Thread.sleep(50)
+    private suspend fun awaitSnapshot(change: String, condition: () -> Boolean) {
+        val observed = withTimeoutOrNull(15_000) {
+            while (!condition()) delay(50)
+            true
         }
-        fail("일반 계정 Preferences 변경이 위젯 캐시에 반영되지 않음")
+        assertTrue("$change 후 위젯 캐시에 반영되지 않음", observed == true)
     }
 }
 

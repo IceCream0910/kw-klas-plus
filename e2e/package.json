@@ -1,0 +1,12 @@
+{
+  "name": "klas-plus-mobile-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "e2e run --reporter list,junit"
+  },
+  "devDependencies": {
+    "@e2e-dev/mobile": "0.12.7",
+    "e2e": "0.23.1"
+  }
+}

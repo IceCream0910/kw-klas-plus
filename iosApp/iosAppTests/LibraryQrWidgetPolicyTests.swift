@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import Shared
 import XCTest
@@ -401,9 +402,12 @@ final class LibraryQrWidgetPolicyTests: XCTestCase {
         }
 
         // 1. fetch 실패
+        let fetchFailed = expectation(description: "출입증 요청 실패 표시")
+        let failure = controller.$qrState.first(where: \.isError).sink { _ in fetchFailed.fulfill() }
+        defer { failure.cancel() }
         controller.presentQrFromApp()
         XCTAssertEqual(controller.presentedSheet, .qr(isWidgetEntry: false))
-        await Task.yield()
+        await fulfillment(of: [fetchFailed], timeout: 5)
         XCTAssertTrue(controller.qrState.isError)
         XCTAssertNotNil(controller.originalBrightness)
 
@@ -418,12 +422,11 @@ final class LibraryQrWidgetPolicyTests: XCTestCase {
             phone: "01012345678"
         )
         shouldSucceed = true
+        let qrLoaded = expectation(description: "저장 후 출입증 표시")
+        let loaded = controller.$qrState.first { !$0.loading && $0.image != nil }.sink { _ in qrLoaded.fulfill() }
+        defer { loaded.cancel() }
         controller.saveSettings()
-
-        for _ in 0..<30 {
-            if controller.presentedSheet == .qr(isWidgetEntry: false) && !controller.qrState.isError { break }
-            try? await Task.sleep(nanoseconds: 10_000_000)
-        }
+        await fulfillment(of: [qrLoaded], timeout: 5)
 
         XCTAssertEqual(controller.presentedSheet, .qr(isWidgetEntry: false))
         XCTAssertFalse(controller.qrState.isError)
@@ -461,10 +464,7 @@ final class LibraryQrWidgetPolicyTests: XCTestCase {
             password: "test_password",
             phone: "01012345678"
         )
-        controller.saveSettings()
-
-        // 저장 후 QR 화면이 열리지 않고 sheet가 닫혀야 함
-        try? await Task.sleep(nanoseconds: 50_000_000)
+        await saveSettingsAndWaitForDismissal(controller)
         XCTAssertNil(controller.presentedSheet)
         XCTAssertNil(controller.originalBrightness)
     }
@@ -492,9 +492,7 @@ final class LibraryQrWidgetPolicyTests: XCTestCase {
             password: "test_password",
             phone: "01012345678"
         )
-        controller.saveSettings()
-
-        try? await Task.sleep(nanoseconds: 50_000_000)
+        await saveSettingsAndWaitForDismissal(controller)
         XCTAssertNil(controller.presentedSheet)
         XCTAssertNil(controller.originalBrightness)
         XCTAssertEqual(webIdCardRefreshCount, 0)
@@ -523,11 +521,18 @@ final class LibraryQrWidgetPolicyTests: XCTestCase {
             password: "test_password",
             phone: "01012345678"
         )
-        controller.saveSettings()
-
-        try? await Task.sleep(nanoseconds: 50_000_000)
+        await saveSettingsAndWaitForDismissal(controller)
         XCTAssertNil(controller.presentedSheet)
         XCTAssertNil(controller.originalBrightness)
         XCTAssertEqual(webIdCardRefreshCount, 1)
+    }
+
+    @MainActor
+    private func saveSettingsAndWaitForDismissal(_ controller: LibraryQrController) async {
+        let dismissed = expectation(description: "출입증 설정 시트가 닫힘")
+        let observation = controller.$presentedSheet.dropFirst().first { $0 == nil }.sink { _ in dismissed.fulfill() }
+        defer { observation.cancel() }
+        controller.saveSettings()
+        await fulfillment(of: [dismissed], timeout: 5)
     }
 }

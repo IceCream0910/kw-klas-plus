@@ -18,7 +18,6 @@ import com.icecream.kwklasplus.ui.theme.KlasPlusTheme
 import org.junit.Rule
 import org.junit.Test
 import org.junit.Assert.assertTrue
-import org.junit.Assert.assertEquals
 
 class LoginScreenTest {
     @get:Rule
@@ -57,11 +56,7 @@ class LoginScreenTest {
         assertTrue(loginTop - noteBottom <= 80.dp)
         assertTrue(titleTop - imageBottom <= 32.dp)
         composeRule.onNodeWithTag("onboarding_pager").performTouchInput { swipeLeft() }
-        composeRule.waitUntil(5_000) {
-            runCatching {
-                composeRule.onNodeWithText("남아있는 할 일을\n한 눈에.").assertIsDisplayed()
-            }.isSuccess
-        }
+        composeRule.onNodeWithText("남아있는 할 일을\n한 눈에.").assertIsDisplayed()
         composeRule.onNodeWithTag("login_start").performClick()
         composeRule.onNodeWithTag("login_form").assertIsDisplayed()
     }
@@ -95,9 +90,6 @@ class LoginScreenTest {
         composeRule.onNodeWithTag("login_password").assertIsDisplayed()
         composeRule.onNodeWithTag("login_submit").assertIsNotEnabled()
         composeRule.onNodeWithTag("login_agreement").performClick()
-        composeRule.waitUntil(5_000) {
-            runCatching { composeRule.onNodeWithTag("login_submit").assertIsEnabled() }.isSuccess
-        }
         composeRule.onNodeWithTag("login_submit").assertIsEnabled()
     }
 }

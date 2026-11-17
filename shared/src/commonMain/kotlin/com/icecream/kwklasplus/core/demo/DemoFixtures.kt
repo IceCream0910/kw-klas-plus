@@ -34,6 +34,9 @@ object DemoFixtures {
         val name = path.substringBefore('?').substringAfterLast('/')
         val now = clock.nowEpochMillis()
         val term = GMTDate(now).let { "${it.year},${if (it.month.ordinal < 7) 1 else 2}" }
+        val previousTerm = term.substringBefore(',').toInt().let { year ->
+            if (term.endsWith(",2")) "$year,1" else "${year - 1},2"
+        }
         val today = date(now)
         val start = date(now, -1)
         val lectureEnd = date(now, 1)
@@ -78,7 +81,7 @@ object DemoFixtures {
             }.toString()
             "info" -> """{"logoutCountDownSec":60,"sessionNotiSec":60,"remainingTime":7200}"""
             "UpdateSession.do" -> "{}"
-            "YearhakgiAtnlcSbjectList.do" -> """[{"value":"$term","name":"${term.replace(',', ' ')}학기","subjList":$subjects}]"""
+            "YearhakgiAtnlcSbjectList.do" -> """[{"value":"$term","name":"${term.replace(',', ' ')}학기","subjList":$subjects},{"value":"$previousTerm","name":"${previousTerm.replace(',', ' ')}학기","subjList":$subjects}]"""
             "TimetableStdList.do" -> """[{"wtHasSchedule":"Y","wtTime":1,"wtSubj_1":"DEMO001","wtSubjNm_1":"컴퓨터프로그래밍","wtLocHname_1":"새빛관101","wtProfNm_1":"김교수","wtSpan_1":1,"wtSubj_3":"DEMO002","wtSubjNm_3":"자료구조","wtLocHname_3":"비마관201","wtProfNm_3":"이교수","wtSpan_3":1},{"wtHasSchedule":"Y","wtTime":4,"wtSubj_2":"DEMO003","wtSubjNm_2":"대학영어","wtLocHname_2":"한울관301","wtProfNm_2":"박교수","wtSpan_2":1}]"""
             "SelectOnlineCntntsStdList.do" -> lectures
             "TaskStdList.do", "PrjctStdList.do" -> tasks

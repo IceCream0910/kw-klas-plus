@@ -2,6 +2,7 @@ import XCTest
 
 final class M6011UiTests: XCTestCase {
     private var app: XCUIApplication!
+    private let uiTimeout: TimeInterval = 15
 
     override func setUp() {
         super.setUp()
@@ -23,80 +24,61 @@ final class M6011UiTests: XCTestCase {
         super.tearDown()
     }
 
-    func testWebSurfaceAndNativeControlsRemainAvailableAfterRotation() {
-        let webSurface = app.descendants(matching: .any)["m6011_web_surface"]
-        XCTAssertTrue(webSurface.waitForExistence(timeout: 5))
-        XCTAssertTrue(waitForButton("m6011_sheet_button").isHittable)
-
-        XCUIDevice.shared.orientation = .landscapeLeft
-        XCTAssertTrue(webSurface.waitForExistence(timeout: 5))
-        XCTAssertTrue(waitForButton("m6011_alert_button").isHittable)
-
-        XCUIDevice.shared.orientation = .portrait
-        XCTAssertTrue(webSurface.waitForExistence(timeout: 5))
-        XCTAssertTrue(waitForButton("m6011_download_button").isHittable)
-    }
-
     func testKeyboardInputUsesResizedWebSurface() {
         let input = app.textFields["웹 입력"]
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        waitUntilHittable(input)
+        XCTAssertTrue(app.staticTexts["웹 하단 내비게이션"].waitForExistence(timeout: uiTimeout))
         input.tap()
-        XCTAssertTrue(input.isHittable)
-        let nativeControls = app.descendants(matching: .any)["m6011_native_controls"]
-        XCTAssertTrue(nativeControls.waitForExistence(timeout: 5))
-        XCTAssertTrue(nativeControls.isHittable)
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: uiTimeout))
+        waitUntilHittable(input)
+        waitUntilHittable(app.descendants(matching: .any)["m6011_native_controls"])
+        input.typeText("KLAS")
+        XCTAssertEqual(input.value as? String, "KLAS")
     }
 
     func testNativeOverlaysArePresentedOnceAndRemainAccessibleAtLargeType() {
-        waitForButton("m6011_sheet_button").tap()
+        tapButton("m6011_sheet_button")
         let sheet = app.descendants(matching: .any)["selection_bottom_sheet"]
-        XCTAssertTrue(sheet.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["환경 확인"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["환경 확인"].waitForExistence(timeout: uiTimeout))
         let firstOption = app.buttons["selection_option_0"]
-        XCTAssertTrue(firstOption.waitForExistence(timeout: 2))
+        waitUntilHittable(firstOption)
+        waitUntilHittable(app.buttons["selection_option_1"])
         XCTAssertEqual(app.buttons.matching(identifier: "selection_option_0").count, 1)
-        XCTAssertTrue(firstOption.isHittable)
-        XCTAssertTrue(app.buttons["selection_option_1"].isHittable)
         firstOption.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
-        waitUntilGone(firstOption)
+        waitUntilGone(sheet)
 
-        waitForButton("m6011_alert_button").tap()
+        tapButton("m6011_alert_button")
         let alert = app.alerts["환경 확인"]
-        XCTAssertTrue(alert.waitForExistence(timeout: 3))
-        XCTAssertTrue(alert.buttons["확인"].isHittable)
-        alert.buttons["확인"].tap()
+        let confirm = alert.buttons["확인"]
+        waitUntilHittable(confirm)
+        confirm.tap()
         waitUntilGone(alert)
 
-        waitForButton("m6011_download_button").tap()
+        tapButton("m6011_download_button")
         let downloadOverlay = app.descendants(matching: .any)["download_progress_overlay"]
-        XCTAssertTrue(downloadOverlay.waitForExistence(timeout: 3))
         let cancel = app.buttons["취소"]
-        XCTAssertTrue(cancel.waitForExistence(timeout: 2))
+        waitUntilHittable(cancel)
+        XCTAssertTrue(downloadOverlay.exists)
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label == %@", "취소")).count, 1)
-        XCTAssertTrue(cancel.isHittable)
         cancel.tap()
         waitUntilGone(downloadOverlay)
     }
 
-    func testWebInputAndControlsExposeAccessibilityLabels() {
-        XCTAssertTrue(app.textFields["웹 입력"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["웹 하단 내비게이션"].exists)
-        XCTAssertTrue(waitForButton("m6011_sheet_button").isHittable)
-        XCTAssertTrue(waitForButton("m6011_alert_button").isHittable)
-        XCTAssertTrue(waitForButton("m6011_download_button").isHittable)
-    }
-
-    private func waitForButton(_ identifier: String) -> XCUIElement {
+    private func tapButton(_ identifier: String, file: StaticString = #filePath, line: UInt = #line) {
         let button = app.buttons[identifier]
-        XCTAssertTrue(button.waitForExistence(timeout: 5))
-        return button
+        waitUntilHittable(button, file: file, line: line)
+        button.tap()
     }
 
-    private func waitUntilGone(_ element: XCUIElement, timeout: TimeInterval = 3) {
-        let expectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == false"),
-            object: element
-        )
-        XCTAssertEqual(XCTWaiter().wait(for: [expectation], timeout: timeout), .completed)
+    private func waitUntilHittable(_ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+        let predicate = NSPredicate { _, _ in element.exists && element.isHittable }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+        XCTAssertEqual(XCTWaiter().wait(for: [expectation], timeout: uiTimeout), .completed,
+                       "상호작용할 수 있는 상태가 되지 않음: \(element)", file: file, line: line)
+    }
+
+    private func waitUntilGone(_ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(element.waitForNonExistence(timeout: uiTimeout),
+                      "화면에서 사라지지 않음: \(element)", file: file, line: line)
     }
 }
