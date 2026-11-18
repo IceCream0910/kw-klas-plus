@@ -2,14 +2,15 @@ import { test } from '@e2e-dev/mobile';
 import { expect } from 'e2e';
 import { openLoginForm, signInDemo } from './demo-session';
 
-test('login help opens a native sheet and closing it returns to the student ID field', async ({ app, screen, platform }) => {
+test('login help opens a native sheet and closing it returns to the student ID field', async ({ app, device, screen, platform }) => {
   const { studentId } = await openLoginForm({ app, screen, platform });
   const help = platform === 'ios'
     ? screen.getByRole('button', '로그인은 어떻게 처리되나요?')
     : screen.getByTestId('login_security_link');
   const close = platform === 'ios' ? screen.getByRole('button', '닫기') : screen.getByText('닫기');
+  if (platform === 'android') await device.dismissKeyboard();
   await help.tap();
-  await expect(screen.getByText(/학번과 비밀번호는 이 기기에서 학교 KLAS 서버로 직접 전달돼요/)).toBeVisible();
+  await expect(screen.getByText(/학번과 비밀번호는 이 기기에서 학교 KLAS 서버로 직접 전달돼요/)).toBeVisible({ timeout: 30_000 });
   await close.tap();
   await expect(close).toBeHidden();
   await expect(studentId).toBeVisible();

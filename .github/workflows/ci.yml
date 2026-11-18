@@ -33,6 +33,10 @@ jobs:
       - name: Run Android JVM tests
         run: ./gradlew :androidApp:testDebugUnitTest --stacktrace
 
+      - name: Summarize test results
+        if: always()
+        run: python3 scripts/ci-test-summary.py junit 'androidApp/build/test-results/testDebugUnitTest/*.xml'
+
   shared:
     # 기존 main ruleset의 필수 검사 이름을 유지한다. 실제 iOS 테스트는 릴리스 검사에서 실행한다.
     name: iOS build and unit tests
@@ -49,3 +53,7 @@ jobs:
 
       - name: Run shared KMP and Android adapter JVM tests
         run: ./gradlew :shared:testAndroidHostTest --stacktrace
+
+      - name: Summarize test results
+        if: always()
+        run: python3 scripts/ci-test-summary.py junit 'shared/build/test-results/testAndroidHostTest/*.xml'

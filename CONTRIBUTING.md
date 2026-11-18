@@ -33,7 +33,7 @@ Android 빌드와 공통/Android JVM 테스트:
 ./gradlew :shared:testAndroidHostTest :androidApp:testDebugUnitTest
 ```
 
-main 대상 PR에서는 공통 KMP와 Android JVM 테스트를 실행합니다. main에 병합하면 Android·iOS 시뮬레이터 E2E와 플랫폼 테스트, 양 플랫폼 Release 빌드 검증이 실행되고 모두 통과한 최신 main 커밋을 release로 fast-forward합니다. 실패 시 Actions 실행 요약과 Artifacts에서 테스트 기록과 가능한 스크린샷을 확인할 수 있습니다. 데모 영상 재생은 수동 실행 시 live_media 옵션으로 검사합니다. 실행 방법과 검증 범위는 [테스트 가이드](docs/TESTING.md)를 참고하세요.
+main 대상 PR에서는 공통 KMP와 Android JVM 테스트를 실행합니다. main에 병합하면 Android Tester Army와 iOS XCTest 시뮬레이터 E2E 및 플랫폼 테스트, 양 플랫폼 Release 빌드 검증이 실행되고 모두 통과한 최신 main 커밋을 release로 fast-forward합니다. 실패 시 Actions 실행 요약에서 테스트별 결과·소요 시간을, Artifacts에서 실패 로그와 가능한 스크린샷을 확인할 수 있습니다. 데모 영상 재생은 수동 실행 시 live_media 옵션으로 검사합니다. 실행 방법과 검증 범위는 [테스트 가이드](docs/TESTING.md)를 참고하세요.
 
 Windows에서는 `.\gradlew.bat`를 쓰세요. iOS는 macOS에서 [`iosApp.xcodeproj`](iosApp/iosApp.xcodeproj)를 열고 `:shared:iosSimulatorArm64Test`와 Xcode `iosAppUnitTests` 스킴의 테스트를 실행합니다.
 
