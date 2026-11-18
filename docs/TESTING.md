@@ -5,7 +5,7 @@
 | 시점 | 검사 | 실패하면 |
 | --- | --- | --- |
 | main 대상 PR 생성·새 커밋 반영·다시 열기 | JDK 21/Ubuntu 24.04에서 `:androidApp:testDebugUnitTest`와 `:shared:testAndroidHostTest` | 기존 main 필수 검사에서 병합 차단 |
-| main push 또는 수동 실행 | Android 에뮬레이터와 iPhone 시뮬레이터에서 Tester Army, Android instrumentation, Kotlin iOS·Swift·XCTest UI | release 승격 차단 |
+| main push 또는 수동 실행 | Android Tester Army·instrumentation, iOS XCTest E2E·Kotlin·Swift 테스트 | release 승격 차단 |
 | 위 릴리스 검증과 병렬 | Android Release APK/AAB·R8/Sentry UUID, unsigned iOS archive·위젯·dSYM | release 승격 차단 |
 
 main ruleset **22331611**의 필수 검사 이름 `Android build and unit tests`, `iOS build and unit tests`를 유지한다. 두 번째 이름은 기존 규칙과의 호환용이며 실행 내용은 공통 KMP와 Android adapter JVM 테스트다. release ruleset **25774154**에서 요구하는 `Android release build`, `iOS release build`도 유지한다. 시뮬레이터 검사까지 통과한 해당 SHA만 승격 작업에서 다룬다. PR 이벤트로만 실행하므로 PR 브랜치에 새 커밋을 올려도 검사가 한 번만 실행된다. 나중에 merge queue를 활성화하면 `merge_group` 이벤트를 추가한다.
@@ -22,20 +22,22 @@ flowchart TD
     Merge --> Run["Release validation"]
     Manual["브랜치 선택 후 수동 실행<br/>live_media 옵션"] --> Run
     Run --> A["Android 기본 E2E·계측"]
-    Run --> I["iOS 기본 E2E·Kotlin·Swift·XCTest UI"]
+    Run --> I["iOS 기본 E2E·Kotlin·Swift"]
     Run --> AB["Android Release APK/AAB·R8 UUID"]
     Run --> IB["iOS 아카이브·위젯·dSYM"]
     A --> Gate{"네 검사 모두 통과?"}
     I --> Gate
     AB --> Gate
     IB --> Gate
-    A -. E2E 실패 .-> Evidence["스크린샷·화면 기록·Trace·JUnit<br/>Actions 실행 요약에 링크"]
+    A -. E2E 실패 .-> Evidence["실패 스크린샷·로그·테스트 결과<br/>Actions 실행 요약에 링크"]
     I -. E2E 실패 .-> Evidence
     Gate -->|아니요| Stop["승격 중지"]
     Gate -->|예| Ref{"검증 SHA가 최신 main이고<br/>release fast-forward 가능?"}
     Ref -->|예| Release["release 승격"]
     Ref -->|아니요| Stop
 ```
+
+iOS E2E는 XCTest UI 테스트와 단일 전용 iPhone 시뮬레이터로 실행한다. iOS 플랫폼 테스트는 별도 시뮬레이터 작업으로 실행하며 두 작업이 모두 성공해야 승격한다. 각 테스트의 결과와 소요 시간은 Actions 작업 요약에 표시한다. XCTest 실패 시 결과 묶음과 실행 로그를 7일간 보관하며, 결과 묶음에서 실패 스크린샷을 확인할 수 있다. 비밀번호 입력 화면은 별도 실패 캡처에서 제외한다.
 
 수동 실행에서 `live_media`를 켜면 양 플랫폼 E2E 작업에 배포 데모 강의 재생이 추가된다. 기본 자동 승격은 원격 MP4 응답에 의존하지 않는다. 수동 실행이 PR 브랜치를 대상으로 하면 검증만 수행한다.
 
@@ -57,7 +59,7 @@ flowchart TD
 | 피드·시간표 탭 전환과 실제 WebView 데이터 표시 | 양 플랫폼 E2E. iOS는 가로 화면 표시와 세로 복귀 후 조작도 확인한다. |
 | 학기 버튼 → 네이티브 시트 → 이전 학기 선택 → WebView 표시 변경 | 양 플랫폼 E2E. 데모의 현재·이전 학기는 가상 데이터를 사용한다. |
 | 실제 데모 영상 재생·일시정지·10초 이동·학습 종료·목록 확인 | 양 플랫폼 E2E의 `live-media` 선택 검사. |
-| 키보드 입력 및 큰 글자 크기의 시트·경고·다운로드 취소 | iOS XCTest UI. |
+| 키보드 입력 및 큰 글자 크기의 시트·경고·다운로드 취소 | iOS XCTest E2E. 테스트 전용 WebView fixture와 실제 Native overlay를 사용한다. |
 | 온보딩 배치와 스와이프, 짧은 로그인 화면, 위젯·Keystore·강의 교체·PiP | Android 계측. Compose 동기화와 상태·콜백을 사용한다. |
 
 ## 로컬에서 E2E 실행
@@ -67,13 +69,13 @@ Node 26과 테스트 전용 기기를 준비하고 Debug 앱을 설치한다. �
 ```sh
 npm ci --prefix e2e
 E2E_ANDROID_DEVICE=emulator-5554 npm test --prefix e2e -- --target android
-E2E_IOS_DEVICE='SIMULATOR_UDID' npm test --prefix e2e -- --target ios
+xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,id=SIMULATOR_UDID' -parallel-testing-enabled NO -only-testing:iosAppUITests -skip-testing:iosAppUITests/DemoJourneyTests/testLiveMediaPlaybackAndSeek test
 ```
 
-기본 CI 조합을 로컬에서 재현하려면 기기 변수를 지정하고 `bash e2e/run-ci.sh android` 또는 `bash e2e/run-ci.sh ios`를 실행한다. `npm test`는 기본 검사와 `live-media` 검사를 모두 실행한다. 영상만 다시 확인할 때는 `--tag live-media`를 붙인다.
+기본 CI 조합을 로컬에서 재현하려면 기기 변수를 지정하고 `bash e2e/run-ci.sh android`를 실행한다. `npm test`는 기본 검사와 `live-media` 검사를 모두 실행한다. Android 영상만 다시 확인할 때는 `--tag live-media`를 붙인다. iOS 영상 검사는 위 XCTest 명령에서 `-skip-testing` 인자를 생략한다.
 
-실패하면 로컬의 `e2e/.e2e`를 확인한다. GitHub에서는 실행 요약의 링크나 **Artifacts**의 `e2e-android-failure-<회차>` / `e2e-ios-failure-<회차>`를 열 수 있다. JUnit·JSON 보고서, 실패 단계 추적과 드라이버가 캡처할 수 있었던 스크린샷·화면 요소가 들어 있으며 7일간 보관한다. 부팅이나 드라이버 연결 전에 실패하면 스크린샷이 없을 수 있다. PR 코멘트 권한은 필요하지 않다. 시나리오는 심사용 가상 데이터만 사용하고 자동으로 재시도하지 않는다.
+실패하면 로컬의 `e2e/.e2e`를 확인한다. GitHub에서는 실행 요약의 링크나 **Artifacts**의 `e2e-android-failure-<회차>` 또는 `ios-xctest-failure-<회차>`를 열 수 있다. JUnit·JSON 보고서, 실패 단계 추적과 드라이버가 캡처할 수 있었던 스크린샷·화면 요소가 들어 있으며 7일간 보관한다. 부팅이나 드라이버 연결 전에 실패하면 스크린샷이 없을 수 있다. PR 코멘트 권한은 필요하지 않다. 시나리오는 심사용 가상 데이터만 사용하고 자동으로 재시도하지 않는다.
 
-로컬 검증(2026-11-18): Android 에뮬레이터에서 기본 E2E 4개 통과, iOS 시뮬레이터에서 기본 E2E 4개와 데모 영상 1개 통과. Android 데모 영상은 재생/일시정지까지 통과했으나 10초 뒤로 이동할 때 위치가 `00:00`으로 돌아가 탐색 검사에 실패했다. 배포 MP4는 byte range 요청에 `206 Partial Content` 대신 `200 OK`를 응답했다. 해당 응답이 Android 실패의 원인인지는 별도 확인이 필요하다. 공통·Android JVM 401개, Android 계측 44개, Kotlin iOS 384개와 Swift·XCTest UI 272개도 통과했다(Swift 원격 영상 1개는 opt-in으로 건너뜀). 이번 변경은 GitHub에서 실행하지 않았다.
+이전 구성의 로컬 검증(2026-11-18): Android 에뮬레이터에서 기본 E2E 4개 통과, iOS 시뮬레이터에서 기본 E2E 4개와 데모 영상 1개 통과. Android 데모 영상은 재생/일시정지까지 통과했으나 10초 뒤로 이동할 때 위치가 `00:00`으로 돌아가 탐색 검사에 실패했다. 배포 MP4는 byte range 요청에 `206 Partial Content` 대신 `200 OK`를 응답했다. 해당 응답이 Android 실패의 원인인지는 별도 확인이 필요하다. 공통·Android JVM 401개, Android 계측 44개, Kotlin iOS 384개와 Swift·XCTest UI 272개도 통과했다(Swift 원격 영상 1개는 opt-in으로 건너뜀). 이번 변경은 GitHub에서 실행하지 않았다.
 
 배포 WebView 자체가 응답하지 않으면 main 병합은 가능하지만 release 승격은 멈춘다. 실계정 로그인, 추가 인증, 권한·위젯·PiP 실기기 검증 및 스토어 배포는 별도다. 복구가 필요하면 먼저 release workflow의 승격 job을 비활성화하거나 관련 PR을 되돌린다. release를 이미 승격했다면 강제 push 대신 수정 커밋을 main에 반영하고 검증 후 다시 승격한다.

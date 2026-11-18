@@ -1,6 +1,6 @@
 import XCTest
 
-final class M6011UiTests: XCTestCase {
+final class WebSurfaceAccessibilityTests: XCTestCase {
     private var app: XCUIApplication!
     private let uiTimeout: TimeInterval = 15
 
@@ -19,6 +19,12 @@ final class M6011UiTests: XCTestCase {
     }
 
     override func tearDown() {
+        if (testRun?.failureCount ?? 0) > 0 {
+            let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            screenshot.name = "실패 화면"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+        }
         XCUIDevice.shared.orientation = .portrait
         app = nil
         super.tearDown()

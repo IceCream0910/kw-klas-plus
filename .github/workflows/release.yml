@@ -195,6 +195,10 @@ jobs:
             adb shell pm clear com.icecream.kwklasplus
             ./gradlew :androidApp:connectedDebugAndroidTest --stacktrace
 
+      - name: Summarize Android test results
+        if: always()
+        run: python3 scripts/ci-test-summary.py junit 'e2e/.e2e/junit.xml' 'androidApp/build/outputs/androidTest-results/connected/**/*.xml'
+
       - name: Upload android E2E traces and screenshots
         id: e2e-diagnostics
         if: failure()
@@ -213,6 +217,7 @@ jobs:
         run: echo "[Tester Army failure evidence](${ARTIFACT_URL})" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
+        id: android-platform-diagnostics
         if: failure()
         with:
           name: android-simulator-diagnostics
@@ -222,13 +227,17 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  ios-e2e:
-    name: iOS simulator E2E and platform tests
+      - name: Link Android instrumentation evidence
+        if: failure() && steps.android-platform-diagnostics.outputs.artifact-url != ''
+        env:
+          ARTIFACT_URL: ${{ steps.android-platform-diagnostics.outputs.artifact-url }}
+        run: echo "[Android 계측 테스트 결과](${ARTIFACT_URL})" >> "$GITHUB_STEP_SUMMARY"
+
+  ios-platform:
+    name: iOS simulator platform tests
     runs-on: macos-26
     timeout-minutes: 55
     env:
-      E2E_TELEMETRY_DISABLED: '1'
-      E2E_LIVE_MEDIA: ${{ inputs.live_media || false }}
       DEVELOPER_DIR: /Applications/Xcode_26.5.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
@@ -237,17 +246,10 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '26'
-          cache: npm
-          cache-dependency-path: e2e/package-lock.json
-
-      - run: npm ci --prefix e2e
 
       - name: Build iOS app and test bundles
         run: >-
-          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosAppUnitTests
           -destination 'generic/platform=iOS Simulator'
           -derivedDataPath "$RUNNER_TEMP/ios-simulator-build"
           -parallel-testing-enabled NO CODE_SIGN_IDENTITY=- SENTRY_AUTO_UPLOAD=false
@@ -260,18 +262,13 @@ jobs:
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b
 
-      - name: Run Tester Army E2E
-        run: |
-          xcrun simctl install "$E2E_IOS_DEVICE" "$RUNNER_TEMP/ios-simulator-build/Build/Products/Debug-iphonesimulator/KLAS+.app"
-          bash e2e/run-ci.sh ios
-
       - name: Run Kotlin iOS platform tests
         run: ./gradlew :shared:iosSimulatorArm64Test --device "$E2E_IOS_DEVICE" --stacktrace
 
-      - name: Run Swift tests and platform UI regressions
+      - name: Run Swift platform tests
         timeout-minutes: 20
         run: >-
-          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosAppUnitTests
           -destination "platform=iOS Simulator,id=$E2E_IOS_DEVICE"
           -derivedDataPath "$RUNNER_TEMP/ios-simulator-build"
           -parallel-testing-enabled NO
@@ -281,24 +278,14 @@ jobs:
           -resultBundlePath "$RUNNER_TEMP/ios-platform-tests.xcresult"
           test-without-building
 
-      - name: Upload ios E2E traces and screenshots
-        id: e2e-diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-ios-failure-${{ github.run_attempt }}
-          path: e2e/.e2e/
-          include-hidden-files: true
-          if-no-files-found: ignore
-          retention-days: 7
-
-      - name: Link failure evidence in the job summary
-        if: failure() && steps.e2e-diagnostics.outputs.artifact-url != ''
-        env:
-          ARTIFACT_URL: ${{ steps.e2e-diagnostics.outputs.artifact-url }}
-        run: echo "[Tester Army failure evidence](${ARTIFACT_URL})" >> "$GITHUB_STEP_SUMMARY"
+      - name: Summarize iOS platform tests
+        if: always()
+        run: |
+          python3 scripts/ci-test-summary.py junit 'shared/build/test-results/iosSimulatorArm64Test/*.xml'
+          python3 scripts/ci-test-summary.py xcresult "$RUNNER_TEMP/ios-platform-tests.xcresult"
 
       - uses: actions/upload-artifact@v4
+        id: ios-platform-diagnostics
         if: failure()
         with:
           name: ios-simulator-diagnostics
@@ -309,14 +296,87 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      - name: Link iOS platform failure evidence
+        if: failure() && steps.ios-platform-diagnostics.outputs.artifact-url != ''
+        env:
+          ARTIFACT_URL: ${{ steps.ios-platform-diagnostics.outputs.artifact-url }}
+        run: echo "[iOS 플랫폼 테스트 결과](${ARTIFACT_URL})" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Delete dedicated simulator
         if: always() && env.E2E_IOS_DEVICE != ''
         run: xcrun simctl delete "$E2E_IOS_DEVICE"
 
+  ios-e2e:
+    name: iOS simulator XCTest E2E
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.5.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build XCTest E2E
+        run: >-
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath "$RUNNER_TEMP/ios-xctest-comparison"
+          -parallel-testing-enabled NO CODE_SIGN_IDENTITY=- SENTRY_AUTO_UPLOAD=false
+          build-for-testing
+      - name: Boot dedicated iPhone
+        run: |
+          udid=$(xcrun simctl create "KLAS-XCTest-$GITHUB_RUN_ID" 'iPhone 17' com.apple.CoreSimulator.SimRuntime.iOS-26-5)
+          echo "XCTEST_DEVICE=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+      - name: Run XCTest E2E
+        env:
+          E2E_LIVE_MEDIA: ${{ inputs.live_media || false }}
+        run: |
+          extra_args=()
+          if [[ "$E2E_LIVE_MEDIA" != 'true' ]]; then
+            extra_args+=('-skip-testing:iosAppUITests/DemoJourneyTests/testLiveMediaPlaybackAndSeek')
+          fi
+          set -o pipefail
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp \
+            -destination "platform=iOS Simulator,id=$XCTEST_DEVICE" \
+            -derivedDataPath "$RUNNER_TEMP/ios-xctest-comparison" \
+            -parallel-testing-enabled NO \
+            -only-testing:iosAppUITests \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 300 \
+            -maximum-test-execution-time-allowance 600 \
+            -resultBundlePath "$RUNNER_TEMP/ios-xctest-comparison.xcresult" \
+            "${extra_args[@]}" test-without-building 2>&1 | tee "$RUNNER_TEMP/ios-xctest.log"
+      - name: Summarize XCTest results
+        if: always()
+        run: python3 scripts/ci-test-summary.py xcresult "$RUNNER_TEMP/ios-xctest-comparison.xcresult"
+      - uses: actions/upload-artifact@v4
+        id: xctest-diagnostics
+        if: failure()
+        with:
+          name: ios-xctest-failure-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/ios-xctest-comparison.xcresult
+            ${{ runner.temp }}/ios-xctest.log
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Link XCTest failure evidence
+        if: failure() && steps.xctest-diagnostics.outputs.artifact-url != ''
+        env:
+          ARTIFACT_URL: ${{ steps.xctest-diagnostics.outputs.artifact-url }}
+        run: echo "[XCTest 실패 로그와 결과](${ARTIFACT_URL})" >> "$GITHUB_STEP_SUMMARY"
+      - name: Delete dedicated simulator
+        if: always() && env.XCTEST_DEVICE != ''
+        run: xcrun simctl delete "$XCTEST_DEVICE"
+
   promote:
     name: Promote validated main commit to release
     if: github.ref == 'refs/heads/main'
-    needs: [android-release, ios-release, android-e2e, ios-e2e]
+    needs: [android-release, ios-release, android-e2e, ios-e2e, ios-platform]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

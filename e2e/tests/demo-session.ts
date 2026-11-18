@@ -23,8 +23,16 @@ export async function openLoginForm({ app, screen, platform }: AppFixtures) {
 
   await app.clearState();
   await waitForControl(onboarding);
-  await onboarding.tap();
-  await expect(studentId).toBeVisible({ timeout: 15_000 });
+  try {
+    await onboarding.tap();
+  } catch (error) {
+    if (platform !== 'ios' || !(error instanceof Error) ||
+        !error.message.includes('no established screen-coordinate origin')) throw error;
+    await screen.tree();
+    await expect(onboarding).toBeVisible({ timeout: 30_000 });
+    await onboarding.tap();
+  }
+  await expect(studentId).toBeVisible({ timeout: 30_000 });
   return { onboarding, studentId, password, submit, menu, waitForControl };
 }
 
@@ -49,6 +57,7 @@ export async function signInDemo(fixtures: AppFixtures, { checkInvalidPassword =
     await waitForControl(submit);
     await submit.tap();
     await expect(screen.getByText('학번 또는 비밀번호를 확인해 주세요.')).toBeVisible();
+    if (platform === 'ios') await password.clear();
   }
   await password.fill(demoPassword);
   await waitForControl(submit);

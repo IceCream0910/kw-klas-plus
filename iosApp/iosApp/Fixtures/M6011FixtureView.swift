@@ -10,6 +10,9 @@ enum M6011UITestConfiguration {
     }
 
     static var dynamicTypeSize: DynamicTypeSize {
+        if ProcessInfo.processInfo.arguments.contains("-m6011-accessibility3") {
+            return .accessibility3
+        }
         switch ProcessInfo.processInfo.environment["M6011_DYNAMIC_TYPE"] {
         case "accessibility5":
             return .accessibility5
